@@ -113,10 +113,12 @@ type UpdateFolderParams = {
   name?: string;
   parentId?: string | null;
   deletedAt?: Date | null;
+};
+
+type UpdateFolderAppearanceParams = {
+  id: string;
   color?: string | null;
   icon?: string | null;
-  /** Set to keep the folder's modified time, for changes that aren't edits. */
-  updatedAt?: Date;
 };
 
 type UpdateFileParams = {
@@ -173,6 +175,7 @@ type DeleteManyResult = {
 export type FilesTransactionClient = {
   folder: FolderDelegate;
   file: FileDelegate;
+  $executeRaw: Prisma.TransactionClient["$executeRaw"];
 };
 
 type FilesPrismaClient = FilesTransactionClient & {
@@ -360,6 +363,9 @@ export type FilesRepository = {
     transaction?: FilesTransactionClient,
   ): Promise<StoredFile>;
   updateFolder(params: UpdateFolderParams): Promise<FolderSummary>;
+  updateFolderAppearance(
+    params: UpdateFolderAppearanceParams,
+  ): Promise<FolderSummary>;
   updateFile(
     params: UpdateFileParams,
     transaction?: FilesTransactionClient,
@@ -718,10 +724,6 @@ export const createPrismaFilesRepository = (
         data.deletedAt = params.deletedAt;
       }
 
-      if ("color" in params) data.color = params.color;
-      if ("icon" in params) data.icon = params.icon;
-      if (params.updatedAt) data.updatedAt = params.updatedAt;
-
       const folder = await client.folder.update({
         where: {
           id: params.id,
@@ -731,6 +733,24 @@ export const createPrismaFilesRepository = (
       });
 
       return toFolderSummary(folder);
+    },
+
+    async updateFolderAppearance(params) {
+      return getClient().$transaction(async (tx) => {
+        await tx.$executeRaw`
+          UPDATE "Folder"
+          SET "color" = CASE WHEN ${params.color !== undefined} THEN ${params.color ?? null} ELSE "color" END,
+              "icon" = CASE WHEN ${params.icon !== undefined} THEN ${params.icon ?? null} ELSE "icon" END
+          WHERE id = ${params.id}
+        `;
+        const folder = await tx.folder.findUnique({
+          where: { id: params.id },
+          select: folderSelect,
+        });
+        if (!folder)
+          throw new Error("Folder disappeared while updating its appearance.");
+        return toFolderSummary(folder);
+      });
     },
 
     // One optional branch per editable field.

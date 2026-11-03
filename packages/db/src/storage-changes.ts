@@ -162,6 +162,58 @@ const kindOf = (
   return null;
 };
 
+const updateChangedFolderTimes = async (
+  tx: Prisma.TransactionClient,
+  ownerUserId: string,
+  changes: {
+    kind: StorageChangeKind;
+    previous: ItemState | undefined;
+    current: ItemState;
+  }[],
+) => {
+  const folderIds = new Set<string>();
+  for (const { kind, previous, current } of changes) {
+    // A descendant's path and captured checksum can change with its folder.
+    if (
+      kind === "updated" &&
+      previous &&
+      previous.parentId === current.parentId &&
+      previous.name === current.name &&
+      previous.path !== current.path
+    ) {
+      continue;
+    }
+    if (previous && !previous.deletedAt && previous.parentId) {
+      folderIds.add(previous.parentId);
+    }
+    if (kind !== "deleted" && !current.deletedAt && current.parentId) {
+      folderIds.add(current.parentId);
+    }
+    if (kind === "moved" && current.type === "folder") {
+      folderIds.add(current.id);
+    }
+  }
+  if (folderIds.size > 0) {
+    await tx.$executeRaw`
+      WITH RECURSIVE ancestors AS (
+        SELECT id, "parentId" FROM "Folder"
+        WHERE id = ANY(${[...folderIds]}::text[])
+          AND "ownerUserId" = ${ownerUserId} AND "deletedAt" IS NULL
+        UNION
+        SELECT parent.id, parent."parentId"
+        FROM "Folder" parent JOIN ancestors child ON parent.id = child."parentId"
+        WHERE parent."ownerUserId" = ${ownerUserId} AND parent."deletedAt" IS NULL
+      ), locked AS MATERIALIZED (
+        SELECT folder.id FROM "Folder" folder JOIN ancestors USING (id)
+        ORDER BY folder.id FOR NO KEY UPDATE OF folder
+      )
+      UPDATE "Folder" folder
+      SET "updatedAt" = GREATEST(folder."updatedAt", CURRENT_TIMESTAMP)
+      FROM locked WHERE folder.id = locked.id
+    `;
+  }
+};
+
 /** Appends one change per top-level item the mutation touched. */
 export const appendStorageChanges = async (
   tx: Prisma.TransactionClient,
@@ -196,6 +248,7 @@ export const appendStorageChanges = async (
       : [{ kind, previous, current }];
   });
   if (changes.length === 0) return;
+  await updateChangedFolderTimes(tx, ownerUserId, changes);
   // Parents come before their children, so a client can apply entries in order.
   changes.sort(
     (a, b) =>

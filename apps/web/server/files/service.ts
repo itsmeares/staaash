@@ -2528,12 +2528,10 @@ export const createFilesService = ({
       const folder = assertActiveFolder(
         await getOwnedFolder({ actorRole, actorUserId, folderId }),
       );
-      return (await resolveRepo()).updateFolder({
+      return (await resolveRepo()).updateFolderAppearance({
         id: folder.id,
         ...(color === undefined ? {} : { color }),
         ...(icon === undefined ? {} : { icon }),
-        // A new color isn't an edit; the folder keeps its modified time.
-        updatedAt: folder.updatedAt,
       });
     },
 

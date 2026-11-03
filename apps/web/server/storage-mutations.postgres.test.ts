@@ -134,6 +134,11 @@ const executorBoundaryCases: Array<{
     phase: "forward",
   },
   {
+    family: "ordinary upload create",
+    boundary: "metadata_committed",
+    phase: null,
+  },
+  {
     family: "resumable upload replace",
     boundary: "forward_steps_applied",
     phase: null,
@@ -191,7 +196,12 @@ const prepareOrdinaryUploadCreateFixture =
   async (): Promise<BoundaryFixture> => {
     const user = await createUser();
     const folder = await db.folder.create({
-      data: { ownerUserId: user.id, name: "Files", isFilesRoot: true },
+      data: {
+        ownerUserId: user.id,
+        name: "Files",
+        isFilesRoot: true,
+        updatedAt: new Date("2000-01-01T00:00:00Z"),
+      },
     });
     const fileId = randomUUID();
     const bytes = Buffer.from(`ordinary-upload-${fileId}`);
@@ -247,9 +257,27 @@ const prepareOrdinaryUploadCreateFixture =
         },
       ],
     });
+    let committedFolderTime: Date | undefined;
     return {
       mutation: prepared.mutation,
       assertInterrupted: async () => {
+        const current = await db.folder.findUniqueOrThrow({
+          where: { id: folder.id },
+        });
+        const state = await db.storageMutation.findUniqueOrThrow({
+          where: { id: prepared.mutation.id },
+        });
+        if (state.status === "metadata_committed") {
+          expect(current.updatedAt.getTime()).toBeGreaterThan(
+            folder.updatedAt.getTime(),
+          );
+          committedFolderTime = current.updatedAt;
+          await expect(
+            db.file.findUnique({ where: { id: fileId } }),
+          ).resolves.not.toBeNull();
+          return;
+        }
+        expect(current.updatedAt).toEqual(folder.updatedAt);
         await expect(
           db.file.findUnique({ where: { id: fileId } }),
         ).resolves.toBeNull();
@@ -263,6 +291,14 @@ const prepareOrdinaryUploadCreateFixture =
         ).resolves.toEqual({ status: "pending" });
       },
       assertRecovered: async () => {
+        const current = await db.folder.findUniqueOrThrow({
+          where: { id: folder.id },
+        });
+        expect(current.updatedAt.getTime()).toBeGreaterThan(
+          folder.updatedAt.getTime(),
+        );
+        if (committedFolderTime)
+          expect(current.updatedAt).toEqual(committedFolderTime);
         await expect(
           db.file.findUniqueOrThrow({ where: { id: fileId } }),
         ).resolves.toMatchObject({

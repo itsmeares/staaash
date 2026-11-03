@@ -388,10 +388,17 @@ const createMemoryRepository = () => {
         folder.deletedAt = params.deletedAt ?? null;
       }
 
-      if ("color" in params) folder.color = params.color ?? null;
-      if ("icon" in params) folder.icon = params.icon ?? null;
+      folder.updatedAt = nextDate();
+      return cloneFolder(folder);
+    },
 
-      folder.updatedAt = params.updatedAt ?? nextDate();
+    async updateFolderAppearance(params) {
+      const folder = state.folders.find(
+        (candidate) => candidate.id === params.id,
+      );
+      if (!folder) throw new FilesError("FOLDER_NOT_FOUND");
+      if (params.color !== undefined) folder.color = params.color;
+      if (params.icon !== undefined) folder.icon = params.icon;
       return cloneFolder(folder);
     },
 
