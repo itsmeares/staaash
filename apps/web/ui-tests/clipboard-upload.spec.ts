@@ -191,6 +191,10 @@ test.describe("clipboard uploads", { tag: "@smoke" }, () => {
     await page
       .getByRole("button", { name: "Actions for Coast.jpg", exact: true })
       .click();
+    // Paste only once the menu shows, as a person would.
+    await expect(
+      page.getByRole("menu", { name: "Actions for Coast.jpg" }),
+    ).toBeVisible();
     expect(await pasteFiles(page)).toBe(false);
     await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
     expect(
