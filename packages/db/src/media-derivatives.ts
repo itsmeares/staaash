@@ -36,6 +36,18 @@ export type DerivativeStatus =
   | typeof DERIVATIVE_STATUS_FAILED
   | typeof DERIVATIVE_STATUS_STALE;
 
+/**
+ * Thumbnails and posters are small stills on their own switch; only smaller
+ * video copies (`preview`) follow the heavier video switch.
+ */
+export const isDerivativeKindEnabled = (
+  settings: { mediaThumbnailsEnabled: boolean; mediaPreviewEnabled: boolean },
+  kind: DerivativeKind,
+) =>
+  kind === DERIVATIVE_KIND_PREVIEW
+    ? settings.mediaPreviewEnabled
+    : settings.mediaThumbnailsEnabled;
+
 export type DerivativeGenerateReason =
   | "share-created"
   | "upload"

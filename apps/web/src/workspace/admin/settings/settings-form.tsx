@@ -88,15 +88,15 @@ const SECTIONS: Record<string, SettingsField[]> = {
   ],
   previews: ["previewMaxSourceBytes", "previewTextMaxBytes"],
   media: [
+    "mediaThumbnailsEnabled",
     "mediaPreviewEnabled",
     "mediaPreviewGenerateOnUpload",
     "mediaPreviewGenerateOnFirstView",
     "mediaPreviewGenerateOnShare",
     "mediaPreviewThresholdBytes",
-    "mediaPreviewRetentionDays",
     "mediaPreviewMaxHeight",
     "mediaPreviewCrf",
-    "mediaPreviewMaxConcurrentJobs",
+    "mediaPreviewRetentionDays",
   ],
   sessions: ["sessionMaxAgeDays", "shareMaxAgeDays"],
   downloads: ["zipArchiveRetentionDays"],
@@ -290,26 +290,32 @@ export function SettingsForm({
       content: (
         <SettingsCard>
           {row(
+            "mediaThumbnailsEnabled",
+            "Thumbnails",
+            "Small pictures of photos and videos in lists. Missing ones are made when they first show up.",
+            toggle("mediaThumbnailsEnabled"),
+          )}
+          {row(
             "mediaPreviewEnabled",
-            "Media previews",
-            "Thumbnails and smaller video copies. They take a lot of processing power; how fast depends on your server.",
+            "Smaller video copies",
+            "Big videos are converted so they play smoothly in the browser. Uses a lot of processing power.",
             toggle("mediaPreviewEnabled"),
           )}
           {row(
             "mediaPreviewGenerateOnUpload",
-            "Make them on upload",
+            "Make copies on upload",
             "Uses the worker right away",
             toggle("mediaPreviewGenerateOnUpload"),
           )}
           {row(
             "mediaPreviewGenerateOnFirstView",
-            "Make them on first view",
-            "Waits until someone opens the file",
+            "Make copies on first play",
+            "Waits until someone plays the video",
             toggle("mediaPreviewGenerateOnFirstView"),
           )}
           {row(
             "mediaPreviewGenerateOnShare",
-            "Make them when shared",
+            "Make copies when shared",
             "Ready before the link is opened",
             toggle("mediaPreviewGenerateOnShare"),
           )}
@@ -318,12 +324,6 @@ export function SettingsForm({
             "Only for videos over",
             "Smaller videos play as they are",
             unit("mediaPreviewThresholdBytes", BYTES),
-          )}
-          {row(
-            "mediaPreviewRetentionDays",
-            "Keep previews for",
-            "0 keeps them forever",
-            unit("mediaPreviewRetentionDays", fixed("days")),
           )}
           {row(
             "mediaPreviewMaxHeight",
@@ -338,10 +338,10 @@ export function SettingsForm({
             unit("mediaPreviewCrf", fixed("CRF")),
           )}
           {row(
-            "mediaPreviewMaxConcurrentJobs",
-            "Previews at once",
-            "Worker tasks in parallel",
-            unit("mediaPreviewMaxConcurrentJobs", fixed("tasks")),
+            "mediaPreviewRetentionDays",
+            "Keep unused copies for",
+            "Thumbnails and video copies nobody opened. 0 keeps them forever",
+            unit("mediaPreviewRetentionDays", fixed("days")),
           )}
         </SettingsCard>
       ),

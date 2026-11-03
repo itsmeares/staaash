@@ -29,6 +29,7 @@ const defaultSystemSettings = {
   updateCheckRepository: "itsmeares/staaash",
   timeZone: "UTC",
   maintenanceRunTime: "02:00",
+  mediaThumbnailsEnabled: true,
   mediaPreviewEnabled: true,
   mediaPreviewGenerateOnUpload: false,
   mediaPreviewGenerateOnFirstView: true,
@@ -38,7 +39,6 @@ const defaultSystemSettings = {
   mediaPreviewMaxHeight: 1080,
   zipArchiveRetentionDays: 7,
   mediaPreviewCrf: 22,
-  mediaPreviewMaxConcurrentJobs: 1,
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
   updatedAt: new Date("2026-01-01T00:00:00.000Z"),
 };

@@ -16,6 +16,7 @@ import {
   DERIVATIVE_STATUS_STALE,
   buildDerivativeStorageKey,
   canHaveThumbnail,
+  isDerivativeKindEnabled,
   settleDerivativeIfOwned,
   upsertDerivativeQueued,
 } from "@staaash/db/media-derivatives";
@@ -54,6 +55,7 @@ type FileRecord = {
 };
 
 type SystemSettingsRecord = {
+  mediaThumbnailsEnabled: boolean;
   mediaPreviewEnabled: boolean;
   mediaPreviewThresholdBytes: bigint;
   mediaPreviewMaxHeight: number;
@@ -104,6 +106,7 @@ const parsePayload = (payloadJson: unknown): MediaDerivativeGeneratePayload => {
 };
 
 const DEFAULT_SETTINGS: SystemSettingsRecord = {
+  mediaThumbnailsEnabled: true,
   mediaPreviewEnabled: true,
   mediaPreviewThresholdBytes: 367001600n,
   mediaPreviewMaxHeight: 1080,
@@ -129,6 +132,7 @@ export const handleMediaDerivativeGenerate = async (
   const rawSettings = await prisma.systemSettings.findUnique({
     where: { id: "singleton" },
     select: {
+      mediaThumbnailsEnabled: true,
       mediaPreviewEnabled: true,
       mediaPreviewThresholdBytes: true,
       mediaPreviewMaxHeight: true,
@@ -137,7 +141,13 @@ export const handleMediaDerivativeGenerate = async (
   });
   const settings: SystemSettingsRecord = rawSettings ?? DEFAULT_SETTINGS;
 
-  if (!settings.mediaPreviewEnabled) {
+  const isThumbnail = payload.kind === DERIVATIVE_KIND_THUMBNAIL;
+  const kind = isThumbnail
+    ? DERIVATIVE_KIND_THUMBNAIL
+    : payload.kind === DERIVATIVE_KIND_POSTER
+      ? DERIVATIVE_KIND_POSTER
+      : DERIVATIVE_KIND_PREVIEW;
+  if (!isDerivativeKindEnabled(settings, kind)) {
     return;
   }
 
@@ -158,7 +168,6 @@ export const handleMediaDerivativeGenerate = async (
     throw new Error(`File ${payload.fileId} not found or deleted.`);
   }
 
-  const isThumbnail = payload.kind === DERIVATIVE_KIND_THUMBNAIL;
   const isVideo = file.mimeType.startsWith("video/");
   if (
     isThumbnail ? !canHaveThumbnail(file.mimeType, file.storageKey) : !isVideo
@@ -166,11 +175,6 @@ export const handleMediaDerivativeGenerate = async (
     return;
   }
 
-  const kind = isThumbnail
-    ? DERIVATIVE_KIND_THUMBNAIL
-    : payload.kind === DERIVATIVE_KIND_POSTER
-      ? DERIVATIVE_KIND_POSTER
-      : DERIVATIVE_KIND_PREVIEW;
   const profile = isThumbnail
     ? DERIVATIVE_PROFILE_THUMB
     : kind === DERIVATIVE_KIND_POSTER

@@ -46,6 +46,11 @@ vi.mock("@staaash/db/media-derivatives", async () => ({
   DERIVATIVE_STATUS_FAILED: "failed",
   DERIVATIVE_STATUS_PROCESSING: "processing",
   DERIVATIVE_STATUS_STALE: "stale",
+  isDerivativeKindEnabled: (
+    await vi.importActual<typeof import("@staaash/db/media-derivatives")>(
+      "@staaash/db/media-derivatives",
+    )
+  ).isDerivativeKindEnabled,
   buildDerivativeStorageKey: mocks.buildDerivativeStorageKey,
   settleDerivativeIfOwned: mocks.settleDerivativeIfOwned,
   markDerivativeReady: mocks.markDerivativeReady,
@@ -157,6 +162,7 @@ describe("media derivative handler", () => {
     const client = {
       systemSettings: {
         findUnique: vi.fn(async () => ({
+          mediaThumbnailsEnabled: true,
           mediaPreviewEnabled: true,
           mediaPreviewThresholdBytes: 1n,
           mediaPreviewMaxHeight: 720,
@@ -289,6 +295,7 @@ describe("media derivative handler", () => {
     const client = {
       systemSettings: {
         findUnique: vi.fn(async () => ({
+          mediaThumbnailsEnabled: true,
           mediaPreviewEnabled: true,
           mediaPreviewThresholdBytes: 367_001_600n,
           mediaPreviewMaxHeight: 720,
@@ -398,7 +405,14 @@ describe("media derivative handler", () => {
     );
   });
 
-  const thumbnailSetup = async (mimeType: string, name = "photo") => {
+  const thumbnailSetup = async (
+    mimeType: string,
+    name = "photo",
+    switches: Partial<{
+      mediaThumbnailsEnabled: boolean;
+      mediaPreviewEnabled: boolean;
+    }> = {},
+  ) => {
     tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-media-thumb-"));
     const filesRoot = path.join(tempRoot, "files");
     const tmpRoot = path.join(filesRoot, "tmp");
@@ -415,10 +429,12 @@ describe("media derivative handler", () => {
     mocks.getPrisma.mockReturnValue({
       systemSettings: {
         findUnique: vi.fn(async () => ({
+          mediaThumbnailsEnabled: true,
           mediaPreviewEnabled: true,
           mediaPreviewThresholdBytes: 367_001_600n,
           mediaPreviewMaxHeight: 720,
           mediaPreviewCrf: 22,
+          ...switches,
         })),
       },
       file: {
@@ -532,6 +548,58 @@ describe("media derivative handler", () => {
         ],
       }),
     );
+  });
+
+  it("makes thumbnails while smaller video copies are off", async () => {
+    const { job, storagePaths } = await thumbnailSetup("image/jpeg", "photo", {
+      mediaPreviewEnabled: false,
+    });
+
+    await handleMediaDerivativeGenerate(job, storagePaths);
+
+    expect(mocks.runFfmpegThumbnail).toHaveBeenCalled();
+  });
+
+  it("skips a queued thumbnail once thumbnails are turned off", async () => {
+    const { job, storagePaths } = await thumbnailSetup("image/jpeg", "photo", {
+      mediaThumbnailsEnabled: false,
+    });
+
+    await expect(
+      handleMediaDerivativeGenerate(job, storagePaths),
+    ).resolves.toBeUndefined();
+
+    expect(mocks.upsertDerivativeQueued).not.toHaveBeenCalled();
+    expect(mocks.runFfmpegThumbnail).not.toHaveBeenCalled();
+  });
+
+  it("skips a queued video copy once video copies are turned off", async () => {
+    const fileLookup = vi.fn();
+    mocks.getPrisma.mockReturnValue({
+      systemSettings: {
+        findUnique: vi.fn(async () => ({
+          mediaThumbnailsEnabled: true,
+          mediaPreviewEnabled: false,
+          mediaPreviewThresholdBytes: 0n,
+          mediaPreviewMaxHeight: 720,
+          mediaPreviewCrf: 22,
+        })),
+      },
+      file: { findUnique: fileLookup },
+    });
+
+    await expect(
+      handleMediaDerivativeGenerate(createJob(), {
+        filesRoot: "/unused",
+        tmpRoot: "/unused/tmp",
+        heartbeatPath: "/unused/tmp/worker-heartbeat.json",
+        pendingDeleteRoot: "/unused/tmp/pending-delete",
+        uploadStagingTtlMs: 1,
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(fileLookup).not.toHaveBeenCalled();
+    expect(mocks.upsertDerivativeQueued).not.toHaveBeenCalled();
   });
 
   it("makes a music file's thumbnail from its album art", async () => {

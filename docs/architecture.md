@@ -85,6 +85,9 @@ possible byte and fail closed until an operator investigates.
 - active originals use `files/<storageId>/<logical hierarchy>`
 - newly trashed roots use isolated readable paths below `.trash/<storageId>/`
 - generated derivatives and archives stay below `derivatives/` and `archives/`
+- thumbnails and share posters follow the Thumbnails setting and are queued
+  after upload or when a private list asks for a missing one; smaller video
+  copies follow their own setting and its upload, first-play and share triggers
 - resumable uploads reserve bounded database capacity before staging, then
   verify checksum and transfer the reservation to committed metadata atomically
 - share links bind to files or folders by stable IDs

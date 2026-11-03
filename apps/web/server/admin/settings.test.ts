@@ -42,6 +42,7 @@ const defaults = {
   updateCheckRepository: "owner/repo",
   timeZone: "Europe/London",
   maintenanceRunTime: "02:00",
+  mediaThumbnailsEnabled: true,
   mediaPreviewEnabled: true,
   mediaPreviewGenerateOnUpload: false,
   mediaPreviewGenerateOnFirstView: true,
@@ -51,7 +52,6 @@ const defaults = {
   mediaPreviewMaxHeight: 1080,
   zipArchiveRetentionDays: 7,
   mediaPreviewCrf: 22,
-  mediaPreviewMaxConcurrentJobs: 1,
 };
 const form = () => {
   const data = new FormData();
@@ -73,7 +73,6 @@ const integerFields = [
   "mediaPreviewRetentionDays",
   "mediaPreviewMaxHeight",
   "zipArchiveRetentionDays",
-  "mediaPreviewMaxConcurrentJobs",
 ] as const;
 const byteFields = [
   "maxUploadBytes",
@@ -190,6 +189,17 @@ describe("admin settings validation", () => {
         "Instance active sessions must be at least the per-user limit.",
       resumableMaxReservedBytesPerUser:
         "Per-user staged bytes must allow one maximum-size upload.",
+    });
+  });
+
+  it("saves thumbnails and smaller video copies as separate switches", async () => {
+    const data = form();
+    data.delete("mediaPreviewEnabled");
+    const result = await saveSystemSettings(Object.fromEntries(data));
+    expect(result.success).toBe(true);
+    expect(mocks.upsert.mock.calls[0][0].update).toMatchObject({
+      mediaThumbnailsEnabled: true,
+      mediaPreviewEnabled: false,
     });
   });
 

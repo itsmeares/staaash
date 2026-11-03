@@ -16,6 +16,7 @@ import {
   DERIVATIVE_KIND_THUMBNAIL,
   DERIVATIVE_PROFILE_THUMB,
   canHaveThumbnail,
+  isDerivativeKindEnabled,
   scheduleDerivativeGenerate,
 } from "@staaash/db/media-derivatives";
 import { getPrisma, Prisma } from "@staaash/db/client";
@@ -1798,6 +1799,45 @@ export const createFilesService = ({
       throw new FilesError("FILE_NAME_CONFLICT");
     }
   };
+
+  // Best-effort: a queue failure must not fail an upload that is already saved.
+  const scheduleUploadDerivatives = (files: FileSummary[]) =>
+    void (async () => {
+      const settings = await getSystemSettings();
+      const thumbnails = isDerivativeKindEnabled(
+        settings,
+        DERIVATIVE_KIND_THUMBNAIL,
+      );
+      const videoCopies = shouldGenerateMediaPreview(settings, "upload");
+      await Promise.all(
+        files.flatMap((file) => [
+          ...(thumbnails && canHaveThumbnail(file.mimeType, file.name)
+            ? [
+                scheduleDerivativeGenerate({
+                  fileId: file.id,
+                  kind: DERIVATIVE_KIND_THUMBNAIL,
+                  profile: DERIVATIVE_PROFILE_THUMB,
+                  reason: "upload",
+                  now: now(),
+                }),
+              ]
+            : []),
+          ...(videoCopies &&
+          file.viewerKind === "video" &&
+          BigInt(file.sizeBytes) >= settings.mediaPreviewThresholdBytes
+            ? [
+                scheduleDerivativeGenerate({
+                  fileId: file.id,
+                  reason: "upload",
+                  now: now(),
+                }),
+              ]
+            : []),
+        ]),
+      );
+    })().catch((error) => {
+      console.error("[files] Failed to schedule preview generation.", error);
+    });
 
   const scheduleStagingCleanup = async (runAt = now()) => {
     if (scheduleStagingCleanupJob) {
@@ -5600,46 +5640,7 @@ export const createFilesService = ({
         return uploaded ? [uploaded] : [];
       });
       if (uploadedFiles.length > 0) {
-        void (async () => {
-          try {
-            const settings = await getSystemSettings();
-            if (!shouldGenerateMediaPreview(settings, "upload")) {
-              return;
-            }
-            const threshold = settings.mediaPreviewThresholdBytes;
-            await Promise.all([
-              ...uploadedFiles
-                .filter(
-                  (f) =>
-                    f.viewerKind === "video" &&
-                    BigInt(f.sizeBytes) >= threshold,
-                )
-                .map((f) =>
-                  scheduleDerivativeGenerate({
-                    fileId: f.id,
-                    reason: "upload",
-                    now: now(),
-                  }),
-                ),
-              ...uploadedFiles
-                .filter((f) => canHaveThumbnail(f.mimeType, f.name))
-                .map((f) =>
-                  scheduleDerivativeGenerate({
-                    fileId: f.id,
-                    kind: DERIVATIVE_KIND_THUMBNAIL,
-                    profile: DERIVATIVE_PROFILE_THUMB,
-                    reason: "upload",
-                    now: now(),
-                  }),
-                ),
-            ]);
-          } catch (err) {
-            console.error(
-              "[files] Failed to schedule preview generation.",
-              err,
-            );
-          }
-        })();
+        scheduleUploadDerivatives(uploadedFiles);
       }
 
       return {
@@ -6119,35 +6120,7 @@ export const createFilesService = ({
           }
 
           const summary = toFileSummary(createdFile);
-
-          if (canHaveThumbnail(summary.mimeType, summary.name)) {
-            void (async () => {
-              try {
-                const settings = await getSystemSettings();
-                if (!shouldGenerateMediaPreview(settings, "upload")) return;
-                await scheduleDerivativeGenerate({
-                  fileId: createdFile.id,
-                  kind: DERIVATIVE_KIND_THUMBNAIL,
-                  profile: DERIVATIVE_PROFILE_THUMB,
-                  reason: "upload",
-                  now: now(),
-                });
-                if (
-                  summary.viewerKind === "video" &&
-                  BigInt(totalSizeBytes) >= settings.mediaPreviewThresholdBytes
-                ) {
-                  await scheduleDerivativeGenerate({
-                    fileId: createdFile.id,
-                    reason: "upload",
-                    now: now(),
-                  });
-                }
-              } catch {
-                // best-effort
-              }
-            })();
-          }
-
+          scheduleUploadDerivatives([summary]);
           return summary;
         },
       });

@@ -32,7 +32,7 @@ test("settings wait for Save, show errors where they happen and survive a reload
   const heartbeat = page.getByLabel("Worker counts as down after", {
     exact: true,
   });
-  const media = page.getByRole("switch", { name: "Media previews" });
+  const media = page.getByRole("switch", { name: "Smaller video copies" });
   const save = page.getByRole("button", { name: "Save", exact: true });
   const savedToast = page.getByText("Saved", { exact: true }).first();
 

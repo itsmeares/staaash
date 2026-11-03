@@ -3,6 +3,7 @@ import { ListLoadingRow, type ListLoading } from "./list-loading";
 import { ArrowDown, ArrowUp, Check, MoreHorizontal, Play } from "lucide-react";
 import {
   Fragment,
+  useEffect,
   useState,
   type CSSProperties,
   type HTMLAttributes,
@@ -154,10 +155,6 @@ export function ItemIcon({
   );
 }
 
-/**
- * The thumbnail, or the type icon while there is none: thumbnails are made
- * after upload, so the first view can miss.
- */
 /** Up to two photos tucked into a folder shape, for grid folder cards. */
 function FolderPeek({
   urls,
@@ -254,7 +251,21 @@ export function ItemPreview({
   );
 }
 
-/** The thumbnail when there is one, the icon when it's missing or broken. */
+const PRIVATE_THUMBNAIL_PREFIX = "/api/files/files/";
+const THUMBNAIL_RETRY_DELAYS_MS = [3_000, 10_000, 30_000];
+
+/**
+ * How long a tile waits before asking again for a thumbnail that was not
+ * ready, or null to keep the icon. A private miss queues the thumbnail, so
+ * asking back shows it without a reload; share pages never queue, so they
+ * never ask again.
+ */
+const thumbnailRetryDelay = (url: string, failures: number) =>
+  url.startsWith(PRIVATE_THUMBNAIL_PREFIX)
+    ? (THUMBNAIL_RETRY_DELAYS_MS[failures - 1] ?? null)
+    : null;
+
+/** The thumbnail when there is one, the icon while it's missing or broken. */
 function PreviewTile({
   item,
   tint,
@@ -268,11 +279,48 @@ function PreviewTile({
   iconClassName: string;
   fit: "cover" | "contain";
 }) {
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const [miss, setMiss] = useState<{
+    url: string;
+    failures: number;
+    waiting: boolean;
+  } | null>(null);
+  const current =
+    item.thumbnailUrl && miss?.url === item.thumbnailUrl ? miss : null;
   const url =
-    item.thumbnailUrl && item.thumbnailUrl !== failedUrl
-      ? item.thumbnailUrl
+    item.thumbnailUrl && !current?.waiting
+      ? current
+        ? `${item.thumbnailUrl}?try=${current.failures}`
+        : item.thumbnailUrl
       : null;
+  // A retry keeps the icon until its picture loads instead of blanking it.
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+  const shown = url !== null && (!current || loadedUrl === url);
+  const delay = current?.waiting
+    ? thumbnailRetryDelay(current.url, current.failures)
+    : null;
+  useEffect(() => {
+    if (!current || delay === null) return;
+    const timer = setTimeout(
+      () => setMiss({ ...current, waiting: false }),
+      delay,
+    );
+    return () => clearTimeout(timer);
+  }, [current, delay]);
+  // The ref and onError can both see one failure; count it once.
+  const fail = () => {
+    const thumbnailUrl = item.thumbnailUrl;
+    if (!thumbnailUrl) return;
+    setMiss((previous) =>
+      previous?.url === thumbnailUrl && previous.waiting
+        ? previous
+        : {
+            url: thumbnailUrl,
+            failures:
+              (previous?.url === thumbnailUrl ? previous.failures : 0) + 1,
+            waiting: true,
+          },
+    );
+  };
   return (
     <span
       className={cn(
@@ -289,23 +337,26 @@ function PreviewTile({
         <img
           alt=""
           className={cn(
-            "size-full",
+            "absolute inset-0 size-full",
             fit === "cover" ? "object-cover" : "object-contain",
+            !shown && "opacity-0",
           )}
           decoding="async"
           draggable={false}
           loading="lazy"
           ref={(img) => {
-            // A server-rendered image can fail before React listens for
-            // errors; catch that on mount.
-            if (img?.complete && img.naturalWidth === 0) setFailedUrl(url);
+            // A cached image can settle before React listens; catch that on
+            // mount.
+            if (!img?.complete) return;
+            if (img.naturalWidth === 0) fail();
+            else setLoadedUrl(url);
           }}
           src={url}
-          onError={() => setFailedUrl(url)}
+          onError={fail}
+          onLoad={() => setLoadedUrl(url)}
         />
-      ) : (
-        <ItemIcon className={iconClassName} item={item} />
-      )}
+      ) : null}
+      {shown ? null : <ItemIcon className={iconClassName} item={item} />}
     </span>
   );
 }
@@ -833,7 +884,7 @@ export const thumbnailUrlFor = (file: {
   mimeType?: string | null;
 }) =>
   file.kind === "file" && canHaveThumbnail(file.mimeType ?? "", file.name)
-    ? `/api/files/files/${file.id}/thumbnail`
+    ? `${PRIVATE_THUMBNAIL_PREFIX}${file.id}/thumbnail`
     : null;
 
 /** The name with the matched part marked. */

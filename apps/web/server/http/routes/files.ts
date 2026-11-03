@@ -1056,7 +1056,7 @@ export const filesRoutes = router()
       );
     }
     if (!(await getSystemSettings()).mediaPreviewEnabled) {
-      throw httpError(409, "PREVIEWS_DISABLED", "Media previews are disabled.");
+      throw httpError(409, "PREVIEWS_DISABLED", "Smaller video copies are off.");
     }
     const { job } = await queue(() =>
       scheduleDerivativeGenerate({ fileId, reason: "manual-regenerate" }),

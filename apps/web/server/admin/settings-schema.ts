@@ -80,6 +80,7 @@ export const settingsSchema = z
       .trim()
       .default(DEFAULT_MAINTENANCE_RUN_TIME)
       .refine(isValidMaintenanceRunTime, "Invalid maintenance run time."),
+    mediaThumbnailsEnabled: checkboxSetting,
     mediaPreviewEnabled: checkboxSetting,
     mediaPreviewGenerateOnUpload: checkboxSetting,
     mediaPreviewGenerateOnFirstView: checkboxSetting,
@@ -89,7 +90,6 @@ export const settingsSchema = z
     mediaPreviewMaxHeight: integerSetting(),
     zipArchiveRetentionDays: integerSetting(0),
     mediaPreviewCrf: integerSetting(0, 51),
-    mediaPreviewMaxConcurrentJobs: integerSetting(),
   })
   .superRefine((value, context) => {
     if (
@@ -169,6 +169,7 @@ export const SETTINGS_DEFAULTS: SettingsValues = {
   updateCheckRepository: "itsmeares/staaash",
   timeZone: DEFAULT_TIME_ZONE,
   maintenanceRunTime: DEFAULT_MAINTENANCE_RUN_TIME,
+  mediaThumbnailsEnabled: "on",
   mediaPreviewEnabled: "on",
   mediaPreviewGenerateOnUpload: "",
   mediaPreviewGenerateOnFirstView: "on",
@@ -178,5 +179,4 @@ export const SETTINGS_DEFAULTS: SettingsValues = {
   mediaPreviewMaxHeight: "1080",
   zipArchiveRetentionDays: "7",
   mediaPreviewCrf: "22",
-  mediaPreviewMaxConcurrentJobs: "1",
 };

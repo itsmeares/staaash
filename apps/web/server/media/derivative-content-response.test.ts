@@ -49,6 +49,11 @@ vi.mock("@staaash/db/media-derivatives", async () => ({
   DERIVATIVE_STATUS_QUEUED: "queued",
   DERIVATIVE_STATUS_READY: "ready",
   DERIVATIVE_STATUS_STALE: "stale",
+  isDerivativeKindEnabled: (
+    await vi.importActual<typeof import("@staaash/db/media-derivatives")>(
+      "@staaash/db/media-derivatives",
+    )
+  ).isDerivativeKindEnabled,
   scheduleDerivativeGenerate: mocks.scheduleDerivativeGenerate,
   touchDerivativeViewed: mocks.touchDerivativeViewed,
 }));
@@ -111,6 +116,7 @@ describe("public derivative content responses", () => {
     vi.clearAllMocks();
     mocks.touchDerivativeViewed.mockResolvedValue(undefined);
     mocks.getSystemSettings.mockResolvedValue({
+      mediaThumbnailsEnabled: true,
       mediaPreviewEnabled: true,
       mediaPreviewGenerateOnFirstView: true,
       mediaPreviewThresholdBytes: 1n,
@@ -386,6 +392,46 @@ describe("public derivative content responses", () => {
       );
     },
   );
+
+  it("queues a missing thumbnail while video copies and first view are off", async () => {
+    mocks.findFirst.mockResolvedValueOnce(null);
+    mocks.getSystemSettings.mockResolvedValueOnce({
+      mediaThumbnailsEnabled: true,
+      mediaPreviewEnabled: false,
+      mediaPreviewGenerateOnFirstView: false,
+    });
+    const { createThumbnailResponse } =
+      await import("./derivative-content-response");
+
+    await expect(
+      createThumbnailResponse({
+        request: new Request("http://localhost/thumbnail"),
+        file: makeVideoFile({ name: "photo.jpg", mimeType: "image/jpeg" }),
+      }),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(mocks.scheduleDerivativeGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "thumbnail" }),
+    );
+  });
+
+  it("does not queue a missing thumbnail while thumbnails are off", async () => {
+    mocks.findFirst.mockResolvedValueOnce(null);
+    mocks.getSystemSettings.mockResolvedValueOnce({
+      mediaThumbnailsEnabled: false,
+      mediaPreviewEnabled: true,
+      mediaPreviewGenerateOnFirstView: true,
+    });
+    const { createThumbnailResponse } =
+      await import("./derivative-content-response");
+
+    await expect(
+      createThumbnailResponse({
+        request: new Request("http://localhost/thumbnail"),
+        file: makeVideoFile({ name: "photo.jpg", mimeType: "image/jpeg" }),
+      }),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(mocks.scheduleDerivativeGenerate).not.toHaveBeenCalled();
+  });
 
   it("does not queue again after a failed thumbnail", async () => {
     mocks.findFirst.mockResolvedValueOnce({
