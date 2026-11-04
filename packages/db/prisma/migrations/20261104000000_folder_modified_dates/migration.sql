@@ -8,7 +8,7 @@ BEGIN;
 -- first, like size changes. Locking rows before it can deadlock two writers.
 DROP TRIGGER "File_lock_folder_sizes" ON "File";
 CREATE TRIGGER "File_lock_folder_sizes" BEFORE INSERT OR DELETE
-OR UPDATE OF "folderId", "sizeBytes", "deletedAt", "originalName", "contentChecksum", "clientModifiedAt" ON "File"
+OR UPDATE OF "folderId", "sizeBytes", "deletedAt", "originalName", "contentChecksum", "clientModifiedAt", "mimeType" ON "File"
 FOR EACH STATEMENT EXECUTE FUNCTION staaash_lock_folder_size_hierarchy();
 DROP TRIGGER "Folder_lock_tree_sizes" ON "Folder";
 CREATE TRIGGER "Folder_lock_tree_sizes" BEFORE INSERT OR DELETE
@@ -47,8 +47,8 @@ BEGIN
       SELECT before."folderId" AS old_id, before."deletedAt" AS old_deleted,
         after."folderId" AS new_id, after."deletedAt" AS new_deleted
       FROM old_files before JOIN new_files after USING (id)
-      WHERE (before."folderId", before."originalName", before."deletedAt", before."sizeBytes", before."contentChecksum", before."clientModifiedAt")
-        IS DISTINCT FROM (after."folderId", after."originalName", after."deletedAt", after."sizeBytes", after."contentChecksum", after."clientModifiedAt")
+      WHERE (before."folderId", before."originalName", before."deletedAt", before."sizeBytes", before."contentChecksum", before."clientModifiedAt", before."mimeType")
+        IS DISTINCT FROM (after."folderId", after."originalName", after."deletedAt", after."sizeBytes", after."contentChecksum", after."clientModifiedAt", after."mimeType")
     )
     SELECT array_agg(DISTINCT folder_id) INTO ids FROM (
       SELECT old_id FROM changed WHERE old_deleted IS NULL

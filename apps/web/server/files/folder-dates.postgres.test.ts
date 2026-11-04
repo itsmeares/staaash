@@ -97,6 +97,13 @@ it("moves every folder above an uploaded or replaced file, and only those", asyn
   await age();
   await db.file.update({ where: { id: file.id }, data: { sizeBytes: 99n } });
   expect(await fresh()).toEqual(["a", "b", "root"]);
+
+  await age();
+  await db.file.update({
+    where: { id: file.id },
+    data: { mimeType: "text/markdown" },
+  });
+  expect(await fresh()).toEqual(["a", "b", "root"]);
 });
 
 it("moves folder dates for a desktop resumable upload", async () => {
