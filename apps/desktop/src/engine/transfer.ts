@@ -354,6 +354,13 @@ const sendSmall = async (
   }
   input.signal.throwIfAborted();
   await input.throttle.take(body.length, input.signal);
+  const sent = progress(input, completed);
+  // The request also carries form framing, so file progress stops at its size.
+  let shown = 0;
+  const show = (upTo: number) => {
+    if (upTo > shown) input.onBytes(upTo - shown);
+    shown = Math.max(shown, upTo);
+  };
   const file = await api.uploadSmall(
     {
       folderId: input.folderId,
@@ -363,9 +370,12 @@ const sendSmall = async (
       replace: input.replace,
     },
     body,
-    progress(input, completed),
+    (bytes, offset) => {
+      sent(bytes, offset);
+      show(Math.min(offset, body.length));
+    },
   );
-  input.onBytes(body.length);
+  show(body.length);
   return file as unknown as UploadedFile;
 };
 

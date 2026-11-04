@@ -200,14 +200,18 @@ describe("uploadFile", () => {
           body: Buffer,
           onBytes: (bytes: number, offset: number) => void,
         ) => {
-          onBytes(body.length, body.length);
+          // Form framing makes the request longer than the file.
+          onBytes(3, 3);
+          onBytes(body.length + 200, body.length + 203);
           return { id: "remote" };
         },
       );
+      const shown = vi.fn<(bytes: number) => void>();
       const cancelUpload = vi.fn(async () => ({}));
       const deleteUpload = vi.fn();
       const result = await uploadFile({
         ...input,
+        onBytes: shown,
         api: { uploadSmall, cancelUpload } as never,
         store: {
           pendingUpload: () => ({ sessionId: "old" }),
@@ -227,6 +231,7 @@ describe("uploadFile", () => {
         Buffer.alloc(5, 7),
         expect.any(Function),
       );
+      expect(shown.mock.calls).toEqual([[3], [2]]);
       expect(cancelUpload).toHaveBeenCalledWith("old");
       expect(deleteUpload).toHaveBeenCalledWith("pair", "notes.txt");
     } finally {
