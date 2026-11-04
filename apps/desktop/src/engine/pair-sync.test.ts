@@ -17,7 +17,7 @@ import * as local from "./local";
 import { type PairContext, syncPair } from "./pair-sync";
 import { RemoteTree } from "./remote";
 import { Store } from "./store";
-import { Throttle, UploadMeter } from "./transfer";
+import { LANES, Throttle, UploadMeter } from "./transfer";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -44,35 +44,20 @@ const rig = async (names = ["a.txt", "b.txt"]) => {
   }
   const api = createApi("http://unused.invalid", "fake-token");
   const failures = new Map<string, ApiError[]>();
-  const sessions = new Map<string, Parameters<typeof api.startUpload>[0]>();
   const start = vi
-    .spyOn(api, "startUpload")
-    .mockImplementation(async (input) => {
+    .spyOn(api, "uploadSmall")
+    .mockImplementation(async (input, body) => {
       const error = failures.get(input.name)?.shift();
       if (error) throw error;
-      sessions.set(input.name, input);
       return {
-        id: input.name,
-        receivedBytes: 0,
-        protocolVersion: 1,
-        chunkSizeBytes: 1024,
-        completedChunks: [],
-        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        id: `remote-${input.name}`,
+        folderId: input.folderId,
+        name: input.name,
+        sizeBytes: body.length,
+        storageRevision: 1,
+        clientModifiedAt: new Date(input.modifiedAt).toISOString(),
       };
     });
-  vi.spyOn(api, "uploadChunk").mockResolvedValue();
-  vi.spyOn(api, "completeUpload").mockImplementation(async (id) => {
-    const input = sessions.get(id);
-    if (!input) throw new Error("Missing fake session");
-    return {
-      id: `remote-${id}`,
-      folderId: input.folderId,
-      name: input.name,
-      sizeBytes: input.size,
-      storageRevision: 1,
-      clientModifiedAt: new Date(input.modifiedAt).toISOString(),
-    };
-  });
   const activity: Activity[] = [];
   const tree = new RemoteTree(store, new Set(["root"]));
   const ctx = {
@@ -114,13 +99,13 @@ it.each([
   const r = await rig(names);
   const fake = r.start.getMockImplementation();
   let full = true;
-  r.start.mockImplementation(async (input) => {
+  r.start.mockImplementation(async (...args) => {
     if (full) throw error;
-    return fake!(input);
+    return fake!(...args);
   });
   const first = await syncPair(r.ctx);
   expect(r.start.mock.calls.length).toBeGreaterThan(0);
-  expect(r.start.mock.calls.length).toBeLessThanOrEqual(4);
+  expect(r.start.mock.calls.length).toBeLessThanOrEqual(LANES.smallUploads);
   expect(first.retrySoon).toBe(false);
   expect(first.issues).toEqual([
     expect.objectContaining({ rel: "", source: "scan", kind: "quota" }),
@@ -153,9 +138,9 @@ it("keeps uploading smaller files and downloading while the server is full", asy
   const old = new Date(Date.now() - 60_000);
   await utimes(big, old, old);
   const fake = r.start.getMockImplementation();
-  r.start.mockImplementation(async (input) => {
-    if (input.size > 100) throw quota();
-    return fake!(input);
+  r.start.mockImplementation(async (input, body, onBytes) => {
+    if (body.length > 100) throw quota();
+    return fake!(input, body, onBytes);
   });
   const bytes = Buffer.from("from the server");
   r.tree.set({
@@ -187,6 +172,18 @@ it("keeps uploading smaller files and downloading while the server is full", asy
   const synced = r.store.baseEntries(r.ctx.pair.id).map((entry) => entry.rel);
   expect(synced.sort()).toEqual(["down.txt", "small.txt"]);
   expect(await readFile(path.join(r.directory, "down.txt"))).toEqual(bytes);
+});
+
+it("waits without an issue while the server has too many uploads open", async () => {
+  const r = await rig(["a.txt"]);
+  r.failures.set("a.txt", [
+    new ApiError(429, "Too many", "RESUMABLE_USER_SESSION_LIMIT_EXCEEDED"),
+  ]);
+  const first = await syncPair(r.ctx);
+  expect(first).toMatchObject({ retrySoon: true, issues: [] });
+  expect(r.ctx.resolved).not.toHaveBeenCalled();
+  expect((await syncPair(r.ctx)).issues).toEqual([]);
+  expect(r.ctx.resolved).toHaveBeenCalledWith("a.txt");
 });
 
 it("stops an unchanged failed plan and retries it in the next pass", async () => {
@@ -287,9 +284,7 @@ it("clears a download error only after writing and saving the checked copy", asy
 
 it("does not resolve an aborted transfer", async () => {
   const r = await rig(["a.txt"]);
-  vi.spyOn(r.ctx.api, "uploadChunk").mockRejectedValue(
-    new DOMException("Stopped", "AbortError"),
-  );
+  r.start.mockRejectedValue(new DOMException("Stopped", "AbortError"));
   await expect(syncPair(r.ctx)).rejects.toMatchObject({ name: "AbortError" });
   expect(r.ctx.resolved).not.toHaveBeenCalled();
 });

@@ -9,7 +9,8 @@ import {
 
 import { getStorageRoot } from "@/server/storage";
 import {
-  getTerminalBacklogLimits,
+  OPEN_SESSION_LIMITS,
+  TERMINAL_BACKLOG_LIMITS,
   UPLOAD_TERMINAL_RETENTION_MS,
 } from "@/server/uploads/session-state";
 
@@ -98,8 +99,6 @@ type UploadTransactionClient = Prisma.TransactionClient;
 type LockedSettings = {
   id: string;
   maxUploadBytes: bigint;
-  resumableMaxActiveSessionsPerUser: number;
-  resumableMaxActiveSessionsInstance: number;
   resumableMaxReservedBytesPerUser: bigint;
   resumableMaxReservedBytesInstance: bigint;
 };
@@ -155,8 +154,6 @@ export const lockUploadCapacityRows = async (
     SELECT
       "id",
       "maxUploadBytes",
-      "resumableMaxActiveSessionsPerUser",
-      "resumableMaxActiveSessionsInstance",
       "resumableMaxReservedBytesPerUser",
       "resumableMaxReservedBytesInstance"
     FROM "SystemSettings"
@@ -286,46 +283,31 @@ const assertUploadSizeAllowed = (
   }
 };
 
-const assertActiveSessionCapacity = (
-  settings: LockedSettings,
-  stats: AdmissionStats,
-) => {
-  if (
-    stats.userActiveCount >= BigInt(settings.resumableMaxActiveSessionsPerUser)
-  ) {
+const assertActiveSessionCapacity = (stats: AdmissionStats) => {
+  if (stats.userActiveCount >= BigInt(OPEN_SESSION_LIMITS.perUser)) {
     throw new UploadAdmissionError("RESUMABLE_USER_SESSION_LIMIT_EXCEEDED");
   }
-  if (
-    stats.instanceActiveCount >=
-    BigInt(settings.resumableMaxActiveSessionsInstance)
-  ) {
+  if (stats.instanceActiveCount >= BigInt(OPEN_SESSION_LIMITS.instance)) {
     throw new UploadAdmissionError("RESUMABLE_INSTANCE_SESSION_LIMIT_EXCEEDED");
   }
 };
 
-const assertTerminalBacklogCapacity = (
-  settings: LockedSettings,
-  stats: AdmissionStats,
-) => {
-  const backlogLimits = getTerminalBacklogLimits({
-    perUserActiveLimit: settings.resumableMaxActiveSessionsPerUser,
-    instanceActiveLimit: settings.resumableMaxActiveSessionsInstance,
-  });
-  if (stats.userTerminalCount >= BigInt(backlogLimits.perUser)) {
+const assertTerminalBacklogCapacity = (stats: AdmissionStats) => {
+  if (stats.userTerminalCount >= BigInt(TERMINAL_BACKLOG_LIMITS.perUser)) {
     throw new UploadAdmissionError(
       "UPLOAD_USER_SESSION_BACKLOG_LIMIT_EXCEEDED",
       {
         current: Number(stats.userTerminalCount),
-        limit: backlogLimits.perUser,
+        limit: TERMINAL_BACKLOG_LIMITS.perUser,
       },
     );
   }
-  if (stats.instanceTerminalCount >= BigInt(backlogLimits.instance)) {
+  if (stats.instanceTerminalCount >= BigInt(TERMINAL_BACKLOG_LIMITS.instance)) {
     throw new UploadAdmissionError(
       "UPLOAD_INSTANCE_SESSION_BACKLOG_LIMIT_EXCEEDED",
       {
         current: Number(stats.instanceTerminalCount),
-        limit: backlogLimits.instance,
+        limit: TERMINAL_BACKLOG_LIMITS.instance,
       },
     );
   }
@@ -381,8 +363,8 @@ const assertAdmissionAllowed = async ({
   requestedBytes: bigint;
 }) => {
   assertUploadSizeAllowed(settings, requestedBytes);
-  assertActiveSessionCapacity(settings, stats);
-  assertTerminalBacklogCapacity(settings, stats);
+  assertActiveSessionCapacity(stats);
+  assertTerminalBacklogCapacity(stats);
   assertStagingCapacity(settings, stats, requestedBytes);
   assertUserQuotaCapacity(user, stats, requestedBytes);
   await assertPhysicalHeadroom(

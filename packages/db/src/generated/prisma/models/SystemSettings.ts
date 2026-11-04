@@ -32,8 +32,6 @@ export type SystemSettingsAvgAggregateOutputType = {
   maxUploadBytes: number | null
   uploadTimeoutMinutes: number | null
   uploadStagingRetentionHours: number | null
-  resumableMaxActiveSessionsPerUser: number | null
-  resumableMaxActiveSessionsInstance: number | null
   resumableMaxReservedBytesPerUser: number | null
   resumableMaxReservedBytesInstance: number | null
   previewMaxSourceBytes: number | null
@@ -52,8 +50,6 @@ export type SystemSettingsSumAggregateOutputType = {
   maxUploadBytes: bigint | null
   uploadTimeoutMinutes: number | null
   uploadStagingRetentionHours: number | null
-  resumableMaxActiveSessionsPerUser: number | null
-  resumableMaxActiveSessionsInstance: number | null
   resumableMaxReservedBytesPerUser: bigint | null
   resumableMaxReservedBytesInstance: bigint | null
   previewMaxSourceBytes: number | null
@@ -73,8 +69,6 @@ export type SystemSettingsMinAggregateOutputType = {
   maxUploadBytes: bigint | null
   uploadTimeoutMinutes: number | null
   uploadStagingRetentionHours: number | null
-  resumableMaxActiveSessionsPerUser: number | null
-  resumableMaxActiveSessionsInstance: number | null
   resumableMaxReservedBytesPerUser: bigint | null
   resumableMaxReservedBytesInstance: bigint | null
   previewMaxSourceBytes: number | null
@@ -106,8 +100,6 @@ export type SystemSettingsMaxAggregateOutputType = {
   maxUploadBytes: bigint | null
   uploadTimeoutMinutes: number | null
   uploadStagingRetentionHours: number | null
-  resumableMaxActiveSessionsPerUser: number | null
-  resumableMaxActiveSessionsInstance: number | null
   resumableMaxReservedBytesPerUser: bigint | null
   resumableMaxReservedBytesInstance: bigint | null
   previewMaxSourceBytes: number | null
@@ -139,8 +131,6 @@ export type SystemSettingsCountAggregateOutputType = {
   maxUploadBytes: number
   uploadTimeoutMinutes: number
   uploadStagingRetentionHours: number
-  resumableMaxActiveSessionsPerUser: number
-  resumableMaxActiveSessionsInstance: number
   resumableMaxReservedBytesPerUser: number
   resumableMaxReservedBytesInstance: number
   previewMaxSourceBytes: number
@@ -173,8 +163,6 @@ export type SystemSettingsAvgAggregateInputType = {
   maxUploadBytes?: true
   uploadTimeoutMinutes?: true
   uploadStagingRetentionHours?: true
-  resumableMaxActiveSessionsPerUser?: true
-  resumableMaxActiveSessionsInstance?: true
   resumableMaxReservedBytesPerUser?: true
   resumableMaxReservedBytesInstance?: true
   previewMaxSourceBytes?: true
@@ -193,8 +181,6 @@ export type SystemSettingsSumAggregateInputType = {
   maxUploadBytes?: true
   uploadTimeoutMinutes?: true
   uploadStagingRetentionHours?: true
-  resumableMaxActiveSessionsPerUser?: true
-  resumableMaxActiveSessionsInstance?: true
   resumableMaxReservedBytesPerUser?: true
   resumableMaxReservedBytesInstance?: true
   previewMaxSourceBytes?: true
@@ -214,8 +200,6 @@ export type SystemSettingsMinAggregateInputType = {
   maxUploadBytes?: true
   uploadTimeoutMinutes?: true
   uploadStagingRetentionHours?: true
-  resumableMaxActiveSessionsPerUser?: true
-  resumableMaxActiveSessionsInstance?: true
   resumableMaxReservedBytesPerUser?: true
   resumableMaxReservedBytesInstance?: true
   previewMaxSourceBytes?: true
@@ -247,8 +231,6 @@ export type SystemSettingsMaxAggregateInputType = {
   maxUploadBytes?: true
   uploadTimeoutMinutes?: true
   uploadStagingRetentionHours?: true
-  resumableMaxActiveSessionsPerUser?: true
-  resumableMaxActiveSessionsInstance?: true
   resumableMaxReservedBytesPerUser?: true
   resumableMaxReservedBytesInstance?: true
   previewMaxSourceBytes?: true
@@ -280,8 +262,6 @@ export type SystemSettingsCountAggregateInputType = {
   maxUploadBytes?: true
   uploadTimeoutMinutes?: true
   uploadStagingRetentionHours?: true
-  resumableMaxActiveSessionsPerUser?: true
-  resumableMaxActiveSessionsInstance?: true
   resumableMaxReservedBytesPerUser?: true
   resumableMaxReservedBytesInstance?: true
   previewMaxSourceBytes?: true
@@ -400,8 +380,6 @@ export type SystemSettingsGroupByOutputType = {
   maxUploadBytes: bigint
   uploadTimeoutMinutes: number
   uploadStagingRetentionHours: number
-  resumableMaxActiveSessionsPerUser: number
-  resumableMaxActiveSessionsInstance: number
   resumableMaxReservedBytesPerUser: bigint
   resumableMaxReservedBytesInstance: bigint
   previewMaxSourceBytes: number
@@ -456,8 +434,6 @@ export type SystemSettingsWhereInput = {
   maxUploadBytes?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
   uploadTimeoutMinutes?: Prisma.IntFilter<"SystemSettings"> | number
   uploadStagingRetentionHours?: Prisma.IntFilter<"SystemSettings"> | number
-  resumableMaxActiveSessionsPerUser?: Prisma.IntFilter<"SystemSettings"> | number
-  resumableMaxActiveSessionsInstance?: Prisma.IntFilter<"SystemSettings"> | number
   resumableMaxReservedBytesPerUser?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
   resumableMaxReservedBytesInstance?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
   previewMaxSourceBytes?: Prisma.IntFilter<"SystemSettings"> | number
@@ -489,8 +465,6 @@ export type SystemSettingsOrderByWithRelationInput = {
   maxUploadBytes?: Prisma.SortOrder
   uploadTimeoutMinutes?: Prisma.SortOrder
   uploadStagingRetentionHours?: Prisma.SortOrder
-  resumableMaxActiveSessionsPerUser?: Prisma.SortOrder
-  resumableMaxActiveSessionsInstance?: Prisma.SortOrder
   resumableMaxReservedBytesPerUser?: Prisma.SortOrder
   resumableMaxReservedBytesInstance?: Prisma.SortOrder
   previewMaxSourceBytes?: Prisma.SortOrder
@@ -525,8 +499,6 @@ export type SystemSettingsWhereUniqueInput = Prisma.AtLeast<{
   maxUploadBytes?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
   uploadTimeoutMinutes?: Prisma.IntFilter<"SystemSettings"> | number
   uploadStagingRetentionHours?: Prisma.IntFilter<"SystemSettings"> | number
-  resumableMaxActiveSessionsPerUser?: Prisma.IntFilter<"SystemSettings"> | number
-  resumableMaxActiveSessionsInstance?: Prisma.IntFilter<"SystemSettings"> | number
   resumableMaxReservedBytesPerUser?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
   resumableMaxReservedBytesInstance?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
   previewMaxSourceBytes?: Prisma.IntFilter<"SystemSettings"> | number
@@ -558,8 +530,6 @@ export type SystemSettingsOrderByWithAggregationInput = {
   maxUploadBytes?: Prisma.SortOrder
   uploadTimeoutMinutes?: Prisma.SortOrder
   uploadStagingRetentionHours?: Prisma.SortOrder
-  resumableMaxActiveSessionsPerUser?: Prisma.SortOrder
-  resumableMaxActiveSessionsInstance?: Prisma.SortOrder
   resumableMaxReservedBytesPerUser?: Prisma.SortOrder
   resumableMaxReservedBytesInstance?: Prisma.SortOrder
   previewMaxSourceBytes?: Prisma.SortOrder
@@ -599,8 +569,6 @@ export type SystemSettingsScalarWhereWithAggregatesInput = {
   maxUploadBytes?: Prisma.BigIntWithAggregatesFilter<"SystemSettings"> | bigint | number
   uploadTimeoutMinutes?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
   uploadStagingRetentionHours?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
-  resumableMaxActiveSessionsPerUser?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
-  resumableMaxActiveSessionsInstance?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
   resumableMaxReservedBytesPerUser?: Prisma.BigIntWithAggregatesFilter<"SystemSettings"> | bigint | number
   resumableMaxReservedBytesInstance?: Prisma.BigIntWithAggregatesFilter<"SystemSettings"> | bigint | number
   previewMaxSourceBytes?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
@@ -632,8 +600,6 @@ export type SystemSettingsCreateInput = {
   maxUploadBytes?: bigint | number
   uploadTimeoutMinutes?: number
   uploadStagingRetentionHours?: number
-  resumableMaxActiveSessionsPerUser?: number
-  resumableMaxActiveSessionsInstance?: number
   resumableMaxReservedBytesPerUser?: bigint | number
   resumableMaxReservedBytesInstance?: bigint | number
   previewMaxSourceBytes?: number
@@ -665,8 +631,6 @@ export type SystemSettingsUncheckedCreateInput = {
   maxUploadBytes?: bigint | number
   uploadTimeoutMinutes?: number
   uploadStagingRetentionHours?: number
-  resumableMaxActiveSessionsPerUser?: number
-  resumableMaxActiveSessionsInstance?: number
   resumableMaxReservedBytesPerUser?: bigint | number
   resumableMaxReservedBytesInstance?: bigint | number
   previewMaxSourceBytes?: number
@@ -698,8 +662,6 @@ export type SystemSettingsUpdateInput = {
   maxUploadBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   uploadTimeoutMinutes?: Prisma.IntFieldUpdateOperationsInput | number
   uploadStagingRetentionHours?: Prisma.IntFieldUpdateOperationsInput | number
-  resumableMaxActiveSessionsPerUser?: Prisma.IntFieldUpdateOperationsInput | number
-  resumableMaxActiveSessionsInstance?: Prisma.IntFieldUpdateOperationsInput | number
   resumableMaxReservedBytesPerUser?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   resumableMaxReservedBytesInstance?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   previewMaxSourceBytes?: Prisma.IntFieldUpdateOperationsInput | number
@@ -731,8 +693,6 @@ export type SystemSettingsUncheckedUpdateInput = {
   maxUploadBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   uploadTimeoutMinutes?: Prisma.IntFieldUpdateOperationsInput | number
   uploadStagingRetentionHours?: Prisma.IntFieldUpdateOperationsInput | number
-  resumableMaxActiveSessionsPerUser?: Prisma.IntFieldUpdateOperationsInput | number
-  resumableMaxActiveSessionsInstance?: Prisma.IntFieldUpdateOperationsInput | number
   resumableMaxReservedBytesPerUser?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   resumableMaxReservedBytesInstance?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   previewMaxSourceBytes?: Prisma.IntFieldUpdateOperationsInput | number
@@ -764,8 +724,6 @@ export type SystemSettingsCreateManyInput = {
   maxUploadBytes?: bigint | number
   uploadTimeoutMinutes?: number
   uploadStagingRetentionHours?: number
-  resumableMaxActiveSessionsPerUser?: number
-  resumableMaxActiveSessionsInstance?: number
   resumableMaxReservedBytesPerUser?: bigint | number
   resumableMaxReservedBytesInstance?: bigint | number
   previewMaxSourceBytes?: number
@@ -797,8 +755,6 @@ export type SystemSettingsUpdateManyMutationInput = {
   maxUploadBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   uploadTimeoutMinutes?: Prisma.IntFieldUpdateOperationsInput | number
   uploadStagingRetentionHours?: Prisma.IntFieldUpdateOperationsInput | number
-  resumableMaxActiveSessionsPerUser?: Prisma.IntFieldUpdateOperationsInput | number
-  resumableMaxActiveSessionsInstance?: Prisma.IntFieldUpdateOperationsInput | number
   resumableMaxReservedBytesPerUser?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   resumableMaxReservedBytesInstance?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   previewMaxSourceBytes?: Prisma.IntFieldUpdateOperationsInput | number
@@ -830,8 +786,6 @@ export type SystemSettingsUncheckedUpdateManyInput = {
   maxUploadBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   uploadTimeoutMinutes?: Prisma.IntFieldUpdateOperationsInput | number
   uploadStagingRetentionHours?: Prisma.IntFieldUpdateOperationsInput | number
-  resumableMaxActiveSessionsPerUser?: Prisma.IntFieldUpdateOperationsInput | number
-  resumableMaxActiveSessionsInstance?: Prisma.IntFieldUpdateOperationsInput | number
   resumableMaxReservedBytesPerUser?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   resumableMaxReservedBytesInstance?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   previewMaxSourceBytes?: Prisma.IntFieldUpdateOperationsInput | number
@@ -863,8 +817,6 @@ export type SystemSettingsCountOrderByAggregateInput = {
   maxUploadBytes?: Prisma.SortOrder
   uploadTimeoutMinutes?: Prisma.SortOrder
   uploadStagingRetentionHours?: Prisma.SortOrder
-  resumableMaxActiveSessionsPerUser?: Prisma.SortOrder
-  resumableMaxActiveSessionsInstance?: Prisma.SortOrder
   resumableMaxReservedBytesPerUser?: Prisma.SortOrder
   resumableMaxReservedBytesInstance?: Prisma.SortOrder
   previewMaxSourceBytes?: Prisma.SortOrder
@@ -895,8 +847,6 @@ export type SystemSettingsAvgOrderByAggregateInput = {
   maxUploadBytes?: Prisma.SortOrder
   uploadTimeoutMinutes?: Prisma.SortOrder
   uploadStagingRetentionHours?: Prisma.SortOrder
-  resumableMaxActiveSessionsPerUser?: Prisma.SortOrder
-  resumableMaxActiveSessionsInstance?: Prisma.SortOrder
   resumableMaxReservedBytesPerUser?: Prisma.SortOrder
   resumableMaxReservedBytesInstance?: Prisma.SortOrder
   previewMaxSourceBytes?: Prisma.SortOrder
@@ -916,8 +866,6 @@ export type SystemSettingsMaxOrderByAggregateInput = {
   maxUploadBytes?: Prisma.SortOrder
   uploadTimeoutMinutes?: Prisma.SortOrder
   uploadStagingRetentionHours?: Prisma.SortOrder
-  resumableMaxActiveSessionsPerUser?: Prisma.SortOrder
-  resumableMaxActiveSessionsInstance?: Prisma.SortOrder
   resumableMaxReservedBytesPerUser?: Prisma.SortOrder
   resumableMaxReservedBytesInstance?: Prisma.SortOrder
   previewMaxSourceBytes?: Prisma.SortOrder
@@ -949,8 +897,6 @@ export type SystemSettingsMinOrderByAggregateInput = {
   maxUploadBytes?: Prisma.SortOrder
   uploadTimeoutMinutes?: Prisma.SortOrder
   uploadStagingRetentionHours?: Prisma.SortOrder
-  resumableMaxActiveSessionsPerUser?: Prisma.SortOrder
-  resumableMaxActiveSessionsInstance?: Prisma.SortOrder
   resumableMaxReservedBytesPerUser?: Prisma.SortOrder
   resumableMaxReservedBytesInstance?: Prisma.SortOrder
   previewMaxSourceBytes?: Prisma.SortOrder
@@ -981,8 +927,6 @@ export type SystemSettingsSumOrderByAggregateInput = {
   maxUploadBytes?: Prisma.SortOrder
   uploadTimeoutMinutes?: Prisma.SortOrder
   uploadStagingRetentionHours?: Prisma.SortOrder
-  resumableMaxActiveSessionsPerUser?: Prisma.SortOrder
-  resumableMaxActiveSessionsInstance?: Prisma.SortOrder
   resumableMaxReservedBytesPerUser?: Prisma.SortOrder
   resumableMaxReservedBytesInstance?: Prisma.SortOrder
   previewMaxSourceBytes?: Prisma.SortOrder
@@ -1016,8 +960,6 @@ export type SystemSettingsSelect<ExtArgs extends runtime.Types.Extensions.Intern
   maxUploadBytes?: boolean
   uploadTimeoutMinutes?: boolean
   uploadStagingRetentionHours?: boolean
-  resumableMaxActiveSessionsPerUser?: boolean
-  resumableMaxActiveSessionsInstance?: boolean
   resumableMaxReservedBytesPerUser?: boolean
   resumableMaxReservedBytesInstance?: boolean
   previewMaxSourceBytes?: boolean
@@ -1049,8 +991,6 @@ export type SystemSettingsSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   maxUploadBytes?: boolean
   uploadTimeoutMinutes?: boolean
   uploadStagingRetentionHours?: boolean
-  resumableMaxActiveSessionsPerUser?: boolean
-  resumableMaxActiveSessionsInstance?: boolean
   resumableMaxReservedBytesPerUser?: boolean
   resumableMaxReservedBytesInstance?: boolean
   previewMaxSourceBytes?: boolean
@@ -1082,8 +1022,6 @@ export type SystemSettingsSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   maxUploadBytes?: boolean
   uploadTimeoutMinutes?: boolean
   uploadStagingRetentionHours?: boolean
-  resumableMaxActiveSessionsPerUser?: boolean
-  resumableMaxActiveSessionsInstance?: boolean
   resumableMaxReservedBytesPerUser?: boolean
   resumableMaxReservedBytesInstance?: boolean
   previewMaxSourceBytes?: boolean
@@ -1115,8 +1053,6 @@ export type SystemSettingsSelectScalar = {
   maxUploadBytes?: boolean
   uploadTimeoutMinutes?: boolean
   uploadStagingRetentionHours?: boolean
-  resumableMaxActiveSessionsPerUser?: boolean
-  resumableMaxActiveSessionsInstance?: boolean
   resumableMaxReservedBytesPerUser?: boolean
   resumableMaxReservedBytesInstance?: boolean
   previewMaxSourceBytes?: boolean
@@ -1141,7 +1077,7 @@ export type SystemSettingsSelectScalar = {
   updatedAt?: boolean
 }
 
-export type SystemSettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionMaxAgeDays" | "shareMaxAgeDays" | "maxUploadBytes" | "uploadTimeoutMinutes" | "uploadStagingRetentionHours" | "resumableMaxActiveSessionsPerUser" | "resumableMaxActiveSessionsInstance" | "resumableMaxReservedBytesPerUser" | "resumableMaxReservedBytesInstance" | "previewMaxSourceBytes" | "previewTextMaxBytes" | "workerHeartbeatMaxAgeSeconds" | "updateCheckEnabled" | "updateChannel" | "updateCheckRepository" | "timeZone" | "maintenanceRunTime" | "mediaThumbnailsEnabled" | "mediaPreviewEnabled" | "mediaPreviewGenerateOnUpload" | "mediaPreviewGenerateOnFirstView" | "mediaPreviewGenerateOnShare" | "mediaPreviewThresholdBytes" | "mediaPreviewRetentionDays" | "mediaPreviewMaxHeight" | "zipArchiveRetentionDays" | "mediaPreviewCrf" | "createdAt" | "updatedAt", ExtArgs["result"]["systemSettings"]>
+export type SystemSettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionMaxAgeDays" | "shareMaxAgeDays" | "maxUploadBytes" | "uploadTimeoutMinutes" | "uploadStagingRetentionHours" | "resumableMaxReservedBytesPerUser" | "resumableMaxReservedBytesInstance" | "previewMaxSourceBytes" | "previewTextMaxBytes" | "workerHeartbeatMaxAgeSeconds" | "updateCheckEnabled" | "updateChannel" | "updateCheckRepository" | "timeZone" | "maintenanceRunTime" | "mediaThumbnailsEnabled" | "mediaPreviewEnabled" | "mediaPreviewGenerateOnUpload" | "mediaPreviewGenerateOnFirstView" | "mediaPreviewGenerateOnShare" | "mediaPreviewThresholdBytes" | "mediaPreviewRetentionDays" | "mediaPreviewMaxHeight" | "zipArchiveRetentionDays" | "mediaPreviewCrf" | "createdAt" | "updatedAt", ExtArgs["result"]["systemSettings"]>
 
 export type $SystemSettingsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "SystemSettings"
@@ -1153,8 +1089,6 @@ export type $SystemSettingsPayload<ExtArgs extends runtime.Types.Extensions.Inte
     maxUploadBytes: bigint
     uploadTimeoutMinutes: number
     uploadStagingRetentionHours: number
-    resumableMaxActiveSessionsPerUser: number
-    resumableMaxActiveSessionsInstance: number
     resumableMaxReservedBytesPerUser: bigint
     resumableMaxReservedBytesInstance: bigint
     previewMaxSourceBytes: number
@@ -1612,8 +1546,6 @@ export interface SystemSettingsFieldRefs {
   readonly maxUploadBytes: Prisma.FieldRef<"SystemSettings", 'BigInt'>
   readonly uploadTimeoutMinutes: Prisma.FieldRef<"SystemSettings", 'Int'>
   readonly uploadStagingRetentionHours: Prisma.FieldRef<"SystemSettings", 'Int'>
-  readonly resumableMaxActiveSessionsPerUser: Prisma.FieldRef<"SystemSettings", 'Int'>
-  readonly resumableMaxActiveSessionsInstance: Prisma.FieldRef<"SystemSettings", 'Int'>
   readonly resumableMaxReservedBytesPerUser: Prisma.FieldRef<"SystemSettings", 'BigInt'>
   readonly resumableMaxReservedBytesInstance: Prisma.FieldRef<"SystemSettings", 'BigInt'>
   readonly previewMaxSourceBytes: Prisma.FieldRef<"SystemSettings", 'Int'>

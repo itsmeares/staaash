@@ -32,6 +32,10 @@ export type UploadManifestItem = {
   conflictStrategy: UploadConflictStrategy;
   /** The modified time on the uploader's computer. */
   clientModifiedAt?: Date | null;
+  /** With `replace`: apply only if the existing file is at this revision. */
+  ifRevision?: number;
+  /** With `replace`: apply only if the existing file has this id. */
+  ifFileId?: string;
 };
 
 export type UploadRequestItem = UploadManifestItem & {
@@ -113,6 +117,8 @@ const uploadManifestSchema = z
         .enum(["fail", "safeRename", "replace"])
         .default("fail"),
       clientModifiedAt: z.coerce.date().nullable().optional(),
+      ifRevision: z.number().int().min(0).optional(),
+      ifFileId: z.string().min(1).optional(),
     }),
   )
   .nonempty();

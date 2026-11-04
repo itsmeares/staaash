@@ -15,8 +15,10 @@ import type { Throttle, UploadMeter } from "./transfer";
 import {
   downloadToTemp,
   freeBytes,
+  LANES,
   moveIntoPlace,
   pool,
+  SMALL_UPLOAD_BYTES,
   uploadFile,
 } from "./transfer";
 
@@ -83,6 +85,19 @@ const uploadSize = (action: Action) =>
   action.kind === "upload" || action.kind === "keep-mine"
     ? action.local.size
     : null;
+
+/** Downloads, big uploads and small uploads each get their own lane. */
+const transferLanes = (actions: Action[]) => {
+  const lane = (action: Action) => {
+    const size = uploadSize(action);
+    if (size === null) return "downloads";
+    return size <= SMALL_UPLOAD_BYTES ? "smallUploads" : "bigUploads";
+  };
+  return (Object.keys(LANES) as (keyof typeof LANES)[]).map((name) => ({
+    items: actions.filter((action) => lane(action) === name),
+    size: LANES[name],
+  }));
+};
 
 const diskMessage = (error: NodeJS.ErrnoException) =>
   error.code === "ENOSPC"
@@ -271,6 +286,11 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         tree.set({ ...known, rev: details.storageRevision });
       }
       pullAgain = true;
+      return;
+    }
+    // Too many uploads in flight on the server: try again once some finish.
+    if (error.status === 429) {
+      retrySoon = true;
       return;
     }
     const full = serverFull.get(error.code ?? "");
@@ -494,7 +514,9 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         checksum,
         size: local.size,
         mtimeMs: local.mtimeMs,
-        replace: action.replace ? { rev: action.replace.rev } : null,
+        replace: action.replace
+          ? { id: action.replace.remoteId, rev: action.replace.rev }
+          : null,
         throttle: ctx.uploads,
         meter: ctx.uploadMeter,
         signal: transfers,
@@ -706,7 +728,8 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     // Folders first, top-down; transfers in parallel; deletions last.
     for (const stage of [0, 1, 2, 3, 4, 5]) {
       const batch = sorted.filter((action) => order[action.kind] === stage);
-      if (stage === 4) await pool(batch, run, () => fatal.abort());
+      if (stage === 4)
+        await pool(transferLanes(batch), run, () => fatal.abort());
       else for (const action of batch) await run(action);
     }
     if (pullAgain) break;

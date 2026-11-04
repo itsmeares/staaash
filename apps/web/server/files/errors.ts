@@ -178,12 +178,20 @@ export class RevisionConflictError extends Error {
   }
 }
 
-/** A sync client's edit applies only to the revision it last saw. */
+/**
+ * A sync client's edit applies only to the revision it last saw, and, when it
+ * names one, only to that item: another item can take the name at the same
+ * revision.
+ */
 export const assertRevision = (
   item: RevisionedItem,
   ifRevision: number | undefined,
+  ifId?: string,
 ) => {
-  if (ifRevision === undefined || (item.storageRevision ?? 0) === ifRevision) {
+  if (
+    (ifRevision === undefined || (item.storageRevision ?? 0) === ifRevision) &&
+    (ifId === undefined || item.id === ifId)
+  ) {
     return;
   }
   throw new RevisionConflictError(conflictDetails(item));

@@ -567,7 +567,7 @@ const directUpload = createRoute({
               manifest: {
                 type: "string",
                 description:
-                  "JSON array, one entry per file in the same order: `clientKey`, `originalName`, optional `expectedChecksum`, `conflictStrategy` (`fail`, `safeRename`, `replace`) and `clientModifiedAt`.",
+                  "JSON array, one entry per file in the same order: `clientKey`, `originalName`, optional `expectedChecksum`, `conflictStrategy` (`fail`, `safeRename`, `replace`), `clientModifiedAt`, and with `replace` an optional `ifRevision` and `ifFileId`: replace only if the existing file is still at that storageRevision and has that id, otherwise 409 REVISION_MISMATCH with the current file in `details`.",
               },
               files: {
                 type: "array",

@@ -17,8 +17,6 @@ const defaultSystemSettings = {
   maxUploadBytes: BigInt(10737418240),
   uploadTimeoutMinutes: 60,
   uploadStagingRetentionHours: 2,
-  resumableMaxActiveSessionsPerUser: 4,
-  resumableMaxActiveSessionsInstance: 32,
   resumableMaxReservedBytesPerUser: BigInt(21474836480),
   resumableMaxReservedBytesInstance: BigInt(107374182400),
   previewMaxSourceBytes: 26214400,

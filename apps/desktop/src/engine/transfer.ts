@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createWriteStream } from "node:fs";
-import { open, rename, rm, statfs, utimes } from "node:fs/promises";
+import { open, readFile, rename, rm, statfs, utimes } from "node:fs/promises";
 import path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -87,29 +87,37 @@ export class UploadMeter {
   }
 }
 
-const TRANSFERS = 4;
+/** Up to one session chunk: one request, no session, nothing to resume. */
+export const SMALL_UPLOAD_BYTES = 10 * 1024 * 1024;
+// A big file sends a few chunks at once, so a handful of them fill the line.
+// Small files hold no upload session, so many more can go at once.
+export const LANES = { downloads: 4, bigUploads: 4, smallUploads: 16 };
+const CHUNKS_AT_ONCE = 3;
 
 /**
- * Runs `work` over `items`, a few at a time. The first error stops queued
- * items and calls `onFatal`, which ends the running ones. The pool settles
- * only when no worker is still writing, then rethrows that first error.
+ * Runs `work` over the items of each lane, up to its size at a time, all
+ * lanes together. The first error stops queued items and calls `onFatal`,
+ * which ends the running ones. The pool settles only when no worker is still
+ * writing, then rethrows that first error.
  */
 export const pool = async <T>(
-  items: T[],
+  lanes: { items: T[]; size: number }[],
   work: (item: T) => Promise<void>,
   onFatal: () => void,
 ) => {
-  let next = 0;
   let failure: { error: unknown } | null = null;
   await Promise.all(
-    Array.from({ length: Math.min(TRANSFERS, items.length) }, async () => {
-      try {
-        while (!failure && next < items.length) await work(items[next++]);
-      } catch (error) {
-        if (failure) return;
-        failure = { error };
-        onFatal();
-      }
+    lanes.flatMap(({ items, size }) => {
+      let next = 0;
+      return Array.from({ length: Math.min(size, items.length) }, async () => {
+        try {
+          while (!failure && next < items.length) await work(items[next++]);
+        } catch (error) {
+          if (failure) return;
+          failure = { error };
+          onFatal();
+        }
+      });
     }),
   );
   if (failure) throw (failure as { error: unknown }).error;
@@ -210,7 +218,8 @@ const sendFile = async (
     checksum: string;
     size: number;
     mtimeMs: number;
-    replace: { rev: number } | null;
+    /** The server file this upload replaces, as the plan last saw it. */
+    replace: { id: string; rev: number } | null;
     throttle: Throttle;
     meter: UploadMeter;
     onBytes: (bytes: number) => void;
@@ -274,48 +283,111 @@ const sendFile = async (
   const done = new Set(session.completedChunks.map((chunk) => chunk.startByte));
   input.onBytes(session.receivedBytes);
   completed(session.receivedBytes);
+  const starts: number[] = [];
+  for (let start = 0; start < input.size; start += chunkSize) {
+    if (!done.has(start)) starts.push(start);
+  }
   const handle = await open(input.file, "r");
+  // A failed chunk stops the rest, even those waiting on the speed limit.
+  // Sent chunks stay, so a retry sends only what is missing.
+  const stop = new AbortController();
+  const signal = AbortSignal.any([input.signal, stop.signal]);
   try {
-    for (let start = 0; start < input.size; start += chunkSize) {
-      if (done.has(start)) continue;
-      input.signal.throwIfAborted();
-      const length = Math.min(chunkSize, input.size - start);
-      const buffer = Buffer.alloc(length);
-      const { bytesRead } = await handle.read(buffer, 0, length, start);
-      if (bytesRead !== length) {
-        throw new ApiError(0, "The file changed while it was uploading.");
-      }
-      await input.throttle.take(length, input.signal);
-      let furthest = 0;
-      await api.uploadChunk(
-        session.id,
-        start,
-        buffer,
-        input.size,
-        (bytes, offset) => {
-          input.meter.add(bytes);
-          completed(Math.max(0, offset - furthest));
-          furthest = Math.max(furthest, offset);
-        },
-      );
-      input.onBytes(length);
-    }
+    await pool(
+      [{ items: starts, size: CHUNKS_AT_ONCE }],
+      async (start) => {
+        signal.throwIfAborted();
+        const length = Math.min(chunkSize, input.size - start);
+        const buffer = Buffer.alloc(length);
+        const { bytesRead } = await handle.read(buffer, 0, length, start);
+        if (bytesRead !== length) {
+          throw new ApiError(0, "The file changed while it was uploading.");
+        }
+        await input.throttle.take(length, signal);
+        await api.uploadChunk(
+          session.id,
+          start,
+          buffer,
+          input.size,
+          progress(input, completed),
+        );
+        input.onBytes(length);
+      },
+      () => stop.abort(),
+    );
   } finally {
     await handle.close();
   }
   const file = (await api.completeUpload(
     session.id,
     input.checksum,
-    input.replace?.rev ?? null,
+    input.replace,
   )) as unknown as UploadedFile;
   store.deleteUpload(input.pairId, input.rel);
   return file;
 };
 
-export const uploadFile = async (input: Parameters<typeof sendFile>[0]) => {
+type UploadInput = Parameters<typeof sendFile>[0];
+
+/** Counts sent bytes once, even when a retry sends them again. */
+const progress = (input: UploadInput, completed: (bytes: number) => void) => {
+  let furthest = 0;
+  return (bytes: number, offset: number) => {
+    input.meter.add(bytes);
+    completed(Math.max(0, offset - furthest));
+    furthest = Math.max(furthest, offset);
+  };
+};
+
+/** Sends a small file in one request. A cut-off one starts over. */
+const sendSmall = async (
+  input: UploadInput,
+  completed: (bytes: number) => void,
+) => {
+  const { api, store } = input;
+  // Left by an older app, or from before the file shrank.
+  const pending = store.pendingUpload(input.pairId, input.rel);
+  if (pending) {
+    await api.cancelUpload(pending.sessionId).catch(() => {});
+    store.deleteUpload(input.pairId, input.rel);
+  }
+  const body = await readFile(input.file);
+  if (body.length !== input.size) {
+    throw new ApiError(0, "The file changed while it was uploading.");
+  }
+  input.signal.throwIfAborted();
+  await input.throttle.take(body.length, input.signal);
+  const sent = progress(input, completed);
+  // The request also carries form framing, so progress stops at the file size.
+  let shown = 0;
+  const show = (upTo: number) => {
+    if (upTo > shown) input.onBytes(upTo - shown);
+    shown = Math.max(shown, upTo);
+  };
+  const file = await api.uploadSmall(
+    {
+      folderId: input.folderId,
+      name: input.name,
+      checksum: input.checksum,
+      modifiedAt: input.mtimeMs,
+      replace: input.replace,
+    },
+    body,
+    (bytes, offset) => {
+      sent(bytes, Math.min(offset, body.length));
+      show(Math.min(offset, body.length));
+    },
+  );
+  show(body.length);
+  return file as unknown as UploadedFile;
+};
+
+export const uploadFile = async (input: UploadInput) => {
   const upload = input.meter.start(input.size);
   try {
-    return await sendFile(input, upload.completed);
+    return input.size <= SMALL_UPLOAD_BYTES
+      ? await sendSmall(input, upload.completed)
+      : await sendFile(input, upload.completed);
   } finally {
     upload.finish();
   }

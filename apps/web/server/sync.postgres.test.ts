@@ -225,6 +225,63 @@ it("refuses a stale revision with the current item and bumps by one", async () =
   ).rejects.toMatchObject({ code: "REVISION_MISMATCH" });
 });
 
+it("replaces a small upload only for the file and revision the client saw", async () => {
+  const { user, root, actor } = await createOwner();
+  const original = await placeFile(
+    user.id,
+    root.id,
+    `files/${user.id}/notes.txt`,
+    "v1",
+  );
+  const replace = (
+    contents: string,
+    ifFileId: string,
+    idempotencyKey = `upload-${randomUUID()}`,
+  ) =>
+    service.uploadFiles({
+      ...actor,
+      folderId: root.id,
+      idempotencyKey,
+      items: [
+        {
+          clientKey: "file",
+          originalName: "notes.txt",
+          conflictStrategy: "replace",
+          ifRevision: 0,
+          ifFileId,
+          file: new File([contents], "notes.txt"),
+        },
+      ],
+    });
+
+  // Same name and revision, but not the file the client planned to replace.
+  await expect(replace("stale", randomUUID())).rejects.toMatchObject({
+    code: "REVISION_MISMATCH",
+    details: { id: original.id, storageRevision: 0 },
+  });
+  expect(
+    await readFile(getStoragePath(`files/${user.id}/notes.txt`), "utf8"),
+  ).toBe("v1");
+
+  const key = `upload-${randomUUID()}`;
+  const result = await replace("v2", original.id, key);
+  expect(result.uploadedFiles[0]).toMatchObject({
+    id: original.id,
+    storageRevision: 1,
+  });
+  expect(
+    await readFile(getStoragePath(`files/${user.id}/notes.txt`), "utf8"),
+  ).toBe("v2");
+
+  // A retry replays; the same key with another target is refused.
+  await expect(replace("v2", original.id, key)).resolves.toMatchObject({
+    uploadedFiles: [{ id: original.id, storageRevision: 1 }],
+  });
+  await expect(replace("v2", randomUUID(), key)).rejects.toMatchObject({
+    code: "STORAGE_IDEMPOTENCY_KEY_REUSED",
+  });
+});
+
 it("keeps mine: the file keeps its id and the old bytes go to the trash", async () => {
   const { user, root, actor } = await createOwner();
   const original = await placeFile(

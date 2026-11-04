@@ -11,7 +11,11 @@ import {
 } from "node:fs/promises";
 
 import { getPostgresPool, getPrisma } from "@staaash/db/client";
-import { UPLOAD_TERMINAL_RETENTION_MS } from "@staaash/db/upload-sessions";
+import {
+  OPEN_SESSION_LIMITS,
+  TERMINAL_BACKLOG_LIMITS,
+  UPLOAD_TERMINAL_RETENTION_MS,
+} from "@staaash/db/upload-sessions";
 import {
   afterAll,
   beforeAll,
@@ -100,14 +104,10 @@ const createUser = async (storageLimitBytes: bigint | null = null) => {
 
 const setLimits = async ({
   maxUploadBytes = 1_000n,
-  perUserSessions = 10,
-  instanceSessions = 100,
   perUserBytes = 1_000n,
   instanceBytes = 10_000n,
 }: {
   maxUploadBytes?: bigint;
-  perUserSessions?: number;
-  instanceSessions?: number;
   perUserBytes?: bigint;
   instanceBytes?: bigint;
 } = {}) =>
@@ -115,8 +115,6 @@ const setLimits = async ({
     where: { id: "singleton" },
     data: {
       maxUploadBytes,
-      resumableMaxActiveSessionsPerUser: perUserSessions,
-      resumableMaxActiveSessionsInstance: instanceSessions,
       resumableMaxReservedBytesPerUser: perUserBytes,
       resumableMaxReservedBytesInstance: instanceBytes,
     },
@@ -219,6 +217,54 @@ const createTerminalSession = async ({
     },
   });
   return { id, tmpPath };
+};
+
+/** Many one-byte sessions at once, for tests that fill the fixed caps. */
+const seedSessions = async ({
+  ownerUserIds,
+  count,
+  status = "created",
+  terminalAt = null,
+  withChunk = false,
+}: {
+  ownerUserIds: string[];
+  count: number;
+  status?: "created" | "completed" | "failed";
+  terminalAt?: Date | null;
+  withChunk?: boolean;
+}) => {
+  const rows = Array.from({ length: count }, (_, index) => {
+    const id = randomUUID();
+    return {
+      id,
+      ownerUserId: ownerUserIds[index % ownerUserIds.length]!,
+      folderId: null,
+      originalName: `${id}.bin`,
+      mimeType: "application/octet-stream",
+      totalSizeBytes: 1n,
+      receivedBytes: withChunk ? 1n : 0n,
+      protocolVersion: 2,
+      chunkSizeBytes: 1n,
+      tmpPath: path.join(tmpRoot, `${id}.upload`),
+      conflictStrategy: "safeRename",
+      status,
+      expiresAt: terminalAt ?? futureExpiry,
+      terminalAt,
+      stagingReleasedAt: terminalAt,
+    };
+  });
+  await db.uploadSession.createMany({ data: rows });
+  if (withChunk) {
+    await db.uploadChunk.createMany({
+      data: rows.map((row) => ({
+        sessionId: row.id,
+        chunkIndex: 0,
+        startByte: 0n,
+        endByte: 0n,
+        sizeBytes: 1n,
+      })),
+    });
+  }
 };
 
 const filesRepo = createPrismaFilesRepository();
@@ -360,8 +406,6 @@ beforeEach(async () => {
     data: {
       id: "singleton",
       maxUploadBytes: 1_000n,
-      resumableMaxActiveSessionsPerUser: 10,
-      resumableMaxActiveSessionsInstance: 100,
       resumableMaxReservedBytesPerUser: 1_000n,
       resumableMaxReservedBytesInstance: 10_000n,
     },
@@ -394,22 +438,38 @@ describe("UPL-01 PostgreSQL admission control", () => {
     const firstUser = await createUser();
     const secondUser = await createUser();
 
-    await setLimits({ perUserSessions: 1, instanceSessions: 10 });
+    await seedSessions({
+      ownerUserIds: [firstUser.id],
+      count: OPEN_SESSION_LIMITS.perUser - 1,
+    });
     await expectOneAdmission([
       reserve({ ownerUserId: firstUser.id, sizeBytes: 10 }),
       reserve({ ownerUserId: firstUser.id, sizeBytes: 10 }),
     ]);
     expect(
       await db.uploadSession.count({ where: { ownerUserId: firstUser.id } }),
-    ).toBe(1);
+    ).toBe(OPEN_SESSION_LIMITS.perUser);
 
     await db.uploadSession.deleteMany();
-    await setLimits({ perUserSessions: 1, instanceSessions: 1 });
+    const others = await Promise.all(
+      Array.from(
+        {
+          length: Math.ceil(
+            OPEN_SESSION_LIMITS.instance / OPEN_SESSION_LIMITS.perUser,
+          ),
+        },
+        () => createUser(),
+      ),
+    );
+    await seedSessions({
+      ownerUserIds: others.map((user) => user.id),
+      count: OPEN_SESSION_LIMITS.instance - 1,
+    });
     await expectOneAdmission([
       reserve({ ownerUserId: firstUser.id, sizeBytes: 10 }),
       reserve({ ownerUserId: secondUser.id, sizeBytes: 10 }),
     ]);
-    expect(await db.uploadSession.count()).toBe(1);
+    expect(await db.uploadSession.count()).toBe(OPEN_SESSION_LIMITS.instance);
   });
 
   it("serializes the final per-user and instance staged-byte capacity", async () => {
@@ -448,12 +508,10 @@ describe("UPL-01 PostgreSQL admission control", () => {
     expect(total._sum.totalSizeBytes).toBe(60n);
   });
 
-  it("admits exact boundaries and rejects the next byte or slot", async () => {
+  it("admits exact boundaries and rejects the next byte", async () => {
     const user = await createUser();
     await setLimits({
       maxUploadBytes: 100n,
-      perUserSessions: 1,
-      instanceSessions: 1,
       perUserBytes: 100n,
       instanceBytes: 100n,
     });
@@ -463,7 +521,7 @@ describe("UPL-01 PostgreSQL admission control", () => {
     ).resolves.toMatchObject({ totalSizeBytes: 100n });
     await expectAdmissionCode(
       reserve({ ownerUserId: user.id, sizeBytes: 1 }),
-      "RESUMABLE_USER_SESSION_LIMIT_EXCEEDED",
+      "RESUMABLE_USER_RESERVED_BYTES_LIMIT_EXCEEDED",
     );
 
     await db.uploadSession.deleteMany();
@@ -1435,21 +1493,12 @@ describe("UPL-01 PostgreSQL lifecycle and cleanup", () => {
 
   it("does not count finished sessions still within their retention", async () => {
     const user = await createUser();
-    await setLimits({
-      perUserSessions: 1,
-      instanceSessions: 1,
-      perUserBytes: 10_000n,
-      instanceBytes: 10_000n,
+    await seedSessions({
+      ownerUserIds: [user.id],
+      count: TERMINAL_BACKLOG_LIMITS.perUser + 4,
+      status: "completed",
+      terminalAt: new Date(),
     });
-    // 96 is the backlog limit at one session each.
-    for (let index = 0; index < 100; index += 1) {
-      await createTerminalSession({
-        ownerUserId: user.id,
-        status: "completed",
-        terminalAt: new Date(),
-        stagingReleasedAt: new Date(),
-      });
-    }
     await expect(
       reserve({ ownerUserId: user.id, sizeBytes: 1 }),
     ).resolves.toBeDefined();
@@ -1491,40 +1540,43 @@ describe("UPL-01 PostgreSQL lifecycle and cleanup", () => {
   it("backpressures only at a systemic bounded backlog and resumes after recovery", async () => {
     const firstUser = await createUser();
     const secondUser = await createUser();
-    await setLimits({
-      maxUploadBytes: 100n,
-      perUserSessions: 1,
-      instanceSessions: 1,
-      perUserBytes: 10_000n,
-      instanceBytes: 10_000n,
-    });
     // Admission compares with the database clock, not the fixed test time.
     const oldTerminalAt = new Date(
       Date.now() - UPLOAD_TERMINAL_RETENTION_MS - 1000,
     );
-
-    for (let index = 0; index < 96; index += 1) {
-      await createTerminalSession({
-        ownerUserId: index % 2 === 0 ? firstUser.id : secondUser.id,
-        terminalAt: oldTerminalAt,
-        stagingReleasedAt: fixedNow,
-        withChunk: true,
-      });
-    }
+    // Spread over enough people that no one reaches their own backlog limit.
+    const others = await Promise.all(
+      Array.from(
+        {
+          length:
+            TERMINAL_BACKLOG_LIMITS.instance / TERMINAL_BACKLOG_LIMITS.perUser,
+        },
+        () => createUser(),
+      ),
+    );
+    await seedSessions({
+      ownerUserIds: [firstUser, secondUser, ...others].map((user) => user.id),
+      count: TERMINAL_BACKLOG_LIMITS.instance,
+      status: "failed",
+      terminalAt: oldTerminalAt,
+      withChunk: true,
+    });
 
     await expectAdmissionCode(
       reserve({ ownerUserId: firstUser.id, sizeBytes: 1 }),
       "UPLOAD_INSTANCE_SESSION_BACKLOG_LIMIT_EXCEEDED",
     );
-    expect(await db.uploadChunk.count()).toBe(96);
+    expect(await db.uploadChunk.count()).toBe(TERMINAL_BACKLOG_LIMITS.instance);
 
-    await runCleanup({ now: fixedNow });
-    expect(await db.uploadSession.count()).toBe(0);
+    // Each cleanup run takes one batch.
+    while ((await db.uploadSession.count()) > 0) {
+      await runCleanup({ now: fixedNow });
+    }
     expect(await db.uploadChunk.count()).toBe(0);
     await expect(
       reserve({ ownerUserId: firstUser.id, sizeBytes: 1 }),
     ).resolves.toBeDefined();
-  });
+  }, 120_000);
 
   it("grandfathers an admitted completion after limits and quota are reduced", async () => {
     const user = await createUser(100n);

@@ -30,8 +30,6 @@ const defaults = {
   maxUploadBytes: 10737418240n,
   uploadTimeoutMinutes: 60,
   uploadStagingRetentionHours: 2,
-  resumableMaxActiveSessionsPerUser: 4,
-  resumableMaxActiveSessionsInstance: 32,
   resumableMaxReservedBytesPerUser: 21474836480n,
   resumableMaxReservedBytesInstance: 107374182400n,
   previewMaxSourceBytes: 26214400,
@@ -65,8 +63,6 @@ const integerFields = [
   "shareMaxAgeDays",
   "uploadTimeoutMinutes",
   "uploadStagingRetentionHours",
-  "resumableMaxActiveSessionsPerUser",
-  "resumableMaxActiveSessionsInstance",
   "previewMaxSourceBytes",
   "previewTextMaxBytes",
   "workerHeartbeatMaxAgeSeconds",
@@ -170,7 +166,6 @@ describe("admin settings validation", () => {
     );
     data.set("mediaPreviewRetentionDays", "");
     data.set("mediaPreviewCrf", "52");
-    data.set("resumableMaxActiveSessionsInstance", "1");
     data.set("resumableMaxReservedBytesPerUser", "1");
     const result = await saveSystemSettings(Object.fromEntries(data));
     expect(result.fieldErrors).toMatchObject({
@@ -179,14 +174,11 @@ describe("admin settings validation", () => {
     });
     expect(mocks.upsert).toHaveBeenCalledTimes(1);
     const cross = form();
-    cross.set("resumableMaxActiveSessionsInstance", "1");
     cross.set("resumableMaxReservedBytesPerUser", "1");
     cross.set("resumableMaxReservedBytesInstance", "1");
     expect(
       (await saveSystemSettings(Object.fromEntries(cross))).fieldErrors,
     ).toMatchObject({
-      resumableMaxActiveSessionsInstance:
-        "Instance active sessions must be at least the per-user limit.",
       resumableMaxReservedBytesPerUser:
         "Per-user staged bytes must allow one maximum-size upload.",
     });

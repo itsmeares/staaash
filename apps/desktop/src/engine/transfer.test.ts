@@ -3,7 +3,13 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { pool, Throttle, UploadMeter, uploadFile } from "./transfer";
+import {
+  pool,
+  SMALL_UPLOAD_BYTES,
+  Throttle,
+  UploadMeter,
+  uploadFile,
+} from "./transfer";
 
 it("combines uploads, drops to zero when stalled, and clears after the last upload", () => {
   vi.useFakeTimers();
@@ -36,14 +42,15 @@ it("excludes resumed bytes and repeated retry bytes from remaining upload work",
   const dir = await mkdtemp(path.join(os.tmpdir(), "staaash-upload-meter-"));
   try {
     const file = path.join(dir, "demo");
-    await writeFile(file, "abcdefgh");
+    const size = SMALL_UPLOAD_BYTES + 4;
+    await writeFile(file, Buffer.alloc(size));
     const meter = new UploadMeter(() => {});
     const api = {
       uploadStatus: async () => ({
         id: "session",
-        chunkSizeBytes: 4,
+        chunkSizeBytes: SMALL_UPLOAD_BYTES,
         completedChunks: [{ startByte: 0 }],
-        receivedBytes: 4,
+        receivedBytes: SMALL_UPLOAD_BYTES,
       }),
       uploadChunk: async (
         _id: string,
@@ -66,7 +73,7 @@ it("excludes resumed bytes and repeated retry bytes from remaining upload work",
       pendingUpload: () => ({
         sessionId: "session",
         checksum: "hash",
-        size: 8,
+        size,
         mtimeMs: 1,
         target: JSON.stringify(["folder", "demo", false]),
       }),
@@ -81,7 +88,7 @@ it("excludes resumed bytes and repeated retry bytes from remaining upload work",
       folderId: "folder",
       name: "demo",
       checksum: "hash",
-      size: 8,
+      size,
       mtimeMs: 1,
       replace: null,
       throttle: new Throttle(null),
@@ -101,7 +108,7 @@ describe("pool", () => {
     const abort = new AbortController();
     let cleanedUp = false;
     const running = pool(
-      [1, 2, 3, 4, 5, 6],
+      [{ items: [1, 2, 3, 4, 5, 6], size: 4 }],
       async (item) => {
         started.push(item);
         if (item === 2) throw new Error("network down");
@@ -126,7 +133,7 @@ describe("pool", () => {
   it("runs everything when nothing fails", async () => {
     const seen: number[] = [];
     await pool(
-      [1, 2, 3, 4, 5, 6],
+      [{ items: [1, 2, 3, 4, 5, 6], size: 4 }],
       async (item) => {
         seen.push(item);
       },
@@ -135,6 +142,179 @@ describe("pool", () => {
       },
     );
     expect(seen).toHaveLength(6);
+  });
+
+  it("runs lanes side by side, each up to its own size", async () => {
+    const running = { a: 0, b: 0 };
+    const most = { a: 0, b: 0 };
+    const items = (lane: "a" | "b", count: number) =>
+      Array.from({ length: count }, () => lane);
+    await pool(
+      [
+        { items: items("a", 10), size: 2 },
+        { items: items("b", 10), size: 5 },
+      ],
+      async (lane) => {
+        running[lane] += 1;
+        most[lane] = Math.max(most[lane], running[lane]);
+        // Both lanes have work in flight at once.
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        running[lane] -= 1;
+      },
+      () => {},
+    );
+    expect(most).toEqual({ a: 2, b: 5 });
+  });
+});
+
+describe("uploadFile", () => {
+  const base = async (size: number) => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "staaash-upload-"));
+    const file = path.join(dir, "notes.txt");
+    await writeFile(file, Buffer.alloc(size, 7));
+    return {
+      dir,
+      input: {
+        pairId: "pair",
+        rel: "notes.txt",
+        file,
+        folderId: "folder",
+        name: "notes.txt",
+        checksum: "hash",
+        size,
+        mtimeMs: 1,
+        throttle: new Throttle(null),
+        meter: new UploadMeter(() => {}),
+        onBytes: () => {},
+        signal: new AbortController().signal,
+      },
+    };
+  };
+
+  it("sends a small file in one request and drops an old session", async () => {
+    const { dir, input } = await base(5);
+    try {
+      const uploadSmall = vi.fn(
+        async (
+          _input: unknown,
+          body: Buffer,
+          onBytes: (bytes: number, offset: number) => void,
+        ) => {
+          // Form framing makes the request longer than the file.
+          onBytes(3, 3);
+          onBytes(body.length + 200, body.length + 203);
+          return { id: "remote" };
+        },
+      );
+      const shown = vi.fn<(bytes: number) => void>();
+      const cancelUpload = vi.fn(async () => ({}));
+      const deleteUpload = vi.fn();
+      const result = await uploadFile({
+        ...input,
+        onBytes: shown,
+        api: { uploadSmall, cancelUpload } as never,
+        store: {
+          pendingUpload: () => ({ sessionId: "old" }),
+          deleteUpload,
+        } as never,
+        replace: { id: "file-1", rev: 3 },
+      });
+      expect(result).toEqual({ id: "remote" });
+      expect(uploadSmall).toHaveBeenCalledWith(
+        {
+          folderId: "folder",
+          name: "notes.txt",
+          checksum: "hash",
+          modifiedAt: 1,
+          replace: { id: "file-1", rev: 3 },
+        },
+        Buffer.alloc(5, 7),
+        expect.any(Function),
+      );
+      expect(shown.mock.calls).toEqual([[3], [2]]);
+      expect(cancelUpload).toHaveBeenCalledWith("old");
+      expect(deleteUpload).toHaveBeenCalledWith("pair", "notes.txt");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("stops waiting chunks as soon as one chunk fails", async () => {
+    const chunk = 1024 * 1024;
+    const { dir, input } = await base(SMALL_UPLOAD_BYTES + 8 * chunk);
+    try {
+      const sent: number[] = [];
+      const api = {
+        startUpload: async () => ({
+          id: "session",
+          chunkSizeBytes: chunk,
+          completedChunks: [],
+          receivedBytes: 0,
+        }),
+        uploadChunk: async (_id: string, start: number) => {
+          sent.push(start);
+          throw new Error("network down");
+        },
+      };
+      const started = Date.now();
+      await expect(
+        uploadFile({
+          ...input,
+          // Slow enough that the other chunks would wait for minutes.
+          throttle: new Throttle(1),
+          api: api as never,
+          store: {
+            pendingUpload: () => null,
+            putUpload: () => {},
+          } as never,
+          replace: null,
+        }),
+      ).rejects.toThrow("network down");
+      expect(Date.now() - started).toBeLessThan(5000);
+      expect(sent).toHaveLength(1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("sends a big file's chunks a few at a time", async () => {
+    const chunk = 1024 * 1024;
+    const { dir, input } = await base(SMALL_UPLOAD_BYTES + 8 * chunk);
+    try {
+      let running = 0;
+      let most = 0;
+      const sent: number[] = [];
+      const api = {
+        startUpload: async () => ({
+          id: "session",
+          chunkSizeBytes: chunk,
+          completedChunks: [],
+          receivedBytes: 0,
+        }),
+        uploadChunk: async (_id: string, start: number) => {
+          running += 1;
+          most = Math.max(most, running);
+          await new Promise((resolve) => setTimeout(resolve, 2));
+          sent.push(start);
+          running -= 1;
+        },
+        completeUpload: async () => ({ id: "remote" }),
+      };
+      await uploadFile({
+        ...input,
+        api: api as never,
+        store: {
+          pendingUpload: () => null,
+          putUpload: () => {},
+          deleteUpload: () => {},
+        } as never,
+        replace: null,
+      });
+      expect(most).toBe(3);
+      expect(sent).toHaveLength(input.size / chunk);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });
 

@@ -53,6 +53,30 @@ const retryingFetch = async (
   }
 };
 
+/** Sends `parts` in slices and reports each one as it goes out. */
+const streamOf = (
+  parts: Buffer[],
+  onBytes: (bytes: number, offset: number) => void,
+) => {
+  let part = 0;
+  let inPart = 0;
+  let offset = 0;
+  return new ReadableStream<Uint8Array>({
+    pull(controller) {
+      while (part < parts.length && inPart === parts[part].length) {
+        part += 1;
+        inPart = 0;
+      }
+      if (part === parts.length) return controller.close();
+      const end = Math.min(inPart + 64 * 1024, parts[part].length);
+      controller.enqueue(parts[part].subarray(inPart, end));
+      offset += end - inPart;
+      onBytes(end - inPart, offset);
+      inPart = end;
+    },
+  });
+};
+
 export type Api = ReturnType<typeof createApi>;
 
 /** A file as rename, move and trash answer with it. */
@@ -238,35 +262,87 @@ export const createApi = (
             "content-range": `bytes ${start}-${start + body.length - 1}/${total}`,
           },
         },
-        () => {
-          let offset = 0;
-          return new ReadableStream<Uint8Array>({
-            pull(controller) {
-              if (offset === body.length) return controller.close();
-              const end = Math.min(offset + 64 * 1024, body.length);
-              controller.enqueue(body.subarray(offset, end));
-              onBytes(end - offset, end);
-              offset = end;
-            },
-          });
-        },
+        () => streamOf([body], onBytes),
       );
       if (!response.ok) await read(Promise.resolve(response as never));
     },
-    completeUpload: (id: string, checksum: string, ifRevision: number | null) =>
+    /** A file up to one chunk in one multipart request, with no session. */
+    uploadSmall: async (
+      input: {
+        folderId: string;
+        name: string;
+        checksum: string;
+        modifiedAt: number;
+        replace: { id: string; rev: number } | null;
+      },
+      body: Buffer,
+      onBytes: (bytes: number, offset: number) => void,
+    ) => {
+      const manifest = JSON.stringify([
+        {
+          clientKey: "file",
+          originalName: input.name,
+          expectedChecksum: input.checksum,
+          conflictStrategy: input.replace ? "replace" : "fail",
+          clientModifiedAt: new Date(input.modifiedAt).toISOString(),
+          ...(input.replace && {
+            ifRevision: input.replace.rev,
+            ifFileId: input.replace.id,
+          }),
+        },
+      ]);
+      // Framed by hand around the file's own buffer, so a 10 MiB file is not
+      // copied again; 16 of these may run at once.
+      const boundary = `staaash-${randomUUID()}`;
+      const field = (name: string, value: string) =>
+        `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`;
+      // Escaped as browsers do; the parser turns it back into the name.
+      const filename = input.name.replace(/["\r\n]/g, encodeURIComponent);
+      const parts = [
+        Buffer.from(
+          field("folderId", input.folderId) +
+            field("manifest", manifest) +
+            `--${boundary}\r\nContent-Disposition: form-data; name="files"; filename="${filename}"\r\nContent-Type: application/octet-stream\r\n\r\n`,
+        ),
+        body,
+        Buffer.from(`\r\n--${boundary}--\r\n`),
+      ];
+      const response = await raw(
+        "/api/files/files",
+        {
+          method: "POST",
+          headers: {
+            "content-type": `multipart/form-data; boundary=${boundary}`,
+            "content-length": String(
+              parts.reduce((total, part) => total + part.length, 0),
+            ),
+            "idempotency-key": randomUUID(),
+          },
+        },
+        () => streamOf(parts, onBytes),
+      );
+      const result = (await read(Promise.resolve(response as never))) as {
+        uploadedFiles: FileMutation["file"][];
+      };
+      return result.uploadedFiles[0];
+    },
+    completeUpload: (
+      id: string,
+      checksum: string,
+      replace: { id: string; rev: number } | null,
+    ) =>
       read(
         client.api.uploads.sessions[":id"].complete.$post(
           {
             param: { id },
             json: {
               expectedChecksum: checksum,
-              ...(ifRevision === null ? {} : { ifRevision }),
+              ...(replace && { ifRevision: replace.rev, ifFileId: replace.id }),
             },
           },
           write(),
         ),
       ),
-    /** Zero-byte files; upload sessions need at least one byte. */
     download: async (fileId: string, signal?: AbortSignal) => {
       const response = await raw(`/api/files/files/${fileId}/download`, {
         signal,
