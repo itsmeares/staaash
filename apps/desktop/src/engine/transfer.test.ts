@@ -239,6 +239,44 @@ describe("uploadFile", () => {
     }
   });
 
+  it("stops waiting chunks as soon as one chunk fails", async () => {
+    const chunk = 1024 * 1024;
+    const { dir, input } = await base(SMALL_UPLOAD_BYTES + 8 * chunk);
+    try {
+      const sent: number[] = [];
+      const api = {
+        startUpload: async () => ({
+          id: "session",
+          chunkSizeBytes: chunk,
+          completedChunks: [],
+          receivedBytes: 0,
+        }),
+        uploadChunk: async (_id: string, start: number) => {
+          sent.push(start);
+          throw new Error("network down");
+        },
+      };
+      const started = Date.now();
+      await expect(
+        uploadFile({
+          ...input,
+          // Slow enough that the other chunks would wait for minutes.
+          throttle: new Throttle(1),
+          api: api as never,
+          store: {
+            pendingUpload: () => null,
+            putUpload: () => {},
+          } as never,
+          replace: null,
+        }),
+      ).rejects.toThrow("network down");
+      expect(Date.now() - started).toBeLessThan(5000);
+      expect(sent).toHaveLength(1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("sends a big file's chunks a few at a time", async () => {
     const chunk = 1024 * 1024;
     const { dir, input } = await base(SMALL_UPLOAD_BYTES + 8 * chunk);

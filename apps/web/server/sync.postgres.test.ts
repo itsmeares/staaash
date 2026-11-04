@@ -233,11 +233,15 @@ it("replaces a small upload only for the file and revision the client saw", asyn
     `files/${user.id}/notes.txt`,
     "v1",
   );
-  const replace = (contents: string, ifFileId: string) =>
+  const replace = (
+    contents: string,
+    ifFileId: string,
+    idempotencyKey = `upload-${randomUUID()}`,
+  ) =>
     service.uploadFiles({
       ...actor,
       folderId: root.id,
-      idempotencyKey: `upload-${randomUUID()}`,
+      idempotencyKey,
       items: [
         {
           clientKey: "file",
@@ -259,7 +263,8 @@ it("replaces a small upload only for the file and revision the client saw", asyn
     await readFile(getStoragePath(`files/${user.id}/notes.txt`), "utf8"),
   ).toBe("v1");
 
-  const result = await replace("v2", original.id);
+  const key = `upload-${randomUUID()}`;
+  const result = await replace("v2", original.id, key);
   expect(result.uploadedFiles[0]).toMatchObject({
     id: original.id,
     storageRevision: 1,
@@ -267,6 +272,14 @@ it("replaces a small upload only for the file and revision the client saw", asyn
   expect(
     await readFile(getStoragePath(`files/${user.id}/notes.txt`), "utf8"),
   ).toBe("v2");
+
+  // A retry replays; the same key with another target is refused.
+  await expect(replace("v2", original.id, key)).resolves.toMatchObject({
+    uploadedFiles: [{ id: original.id, storageRevision: 1 }],
+  });
+  await expect(replace("v2", randomUUID(), key)).rejects.toMatchObject({
+    code: "STORAGE_IDEMPOTENCY_KEY_REUSED",
+  });
 });
 
 it("keeps mine: the file keeps its id and the old bytes go to the trash", async () => {

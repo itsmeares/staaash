@@ -459,6 +459,26 @@ type CommitResumableUploadInput = FilesActor & {
   ifFileId?: string;
 };
 
+/**
+ * What a direct upload's idempotency key commits to, so a reused key with
+ * another request is refused instead of replayed.
+ */
+const uploadRequestHash = (
+  folderId: string | null | undefined,
+  name: string,
+  stagedFile: { sizeBytes: number; actualChecksum: string },
+  item: UploadRequestItem,
+) => ({
+  folderId: folderId ?? null,
+  name,
+  sizeBytes: stagedFile.sizeBytes,
+  checksum: stagedFile.actualChecksum,
+  conflictStrategy: item.conflictStrategy,
+  // Only when set, so requests without them hash as before.
+  ...(item.ifRevision !== undefined && { ifRevision: item.ifRevision }),
+  ...(item.ifFileId !== undefined && { ifFileId: item.ifFileId }),
+});
+
 const getFolderHref = (folder: Pick<FolderSummary, "id" | "isFilesRoot">) =>
   folder.isFilesRoot ? "/files" : `/files/f/${folder.id}`;
 
@@ -5026,13 +5046,12 @@ export const createFilesService = ({
               uploadDeadline,
             );
             preStagedUploads.set(itemOrdinal, stagedFile);
-            const requestHashPayload = {
-              folderId: folderId ?? null,
-              name: normalizedName,
-              sizeBytes: stagedFile.sizeBytes,
-              checksum: stagedFile.actualChecksum,
-              conflictStrategy: item.conflictStrategy,
-            };
+            const requestHashPayload = uploadRequestHash(
+              folderId,
+              normalizedName,
+              stagedFile,
+              item,
+            );
             const prior = await getPrisma().storageMutation.findUnique({
               where: { idempotencyKey: `${idempotencyKey}:${itemOrdinal}` },
             });
@@ -5191,13 +5210,12 @@ export const createFilesService = ({
                         : "STORAGE_MUTATION_RECOVERING",
                     );
                   }
-                  const replayPayload = {
-                    folderId: folderId ?? null,
-                    name: normalizedName,
-                    sizeBytes: stagedFile.sizeBytes,
-                    checksum: stagedFile.actualChecksum,
-                    conflictStrategy: item.conflictStrategy,
-                  };
+                  const replayPayload = uploadRequestHash(
+                    folderId,
+                    normalizedName,
+                    stagedFile,
+                    item,
+                  );
                   if (
                     prior.requestHash !==
                     hashDurableStorageRequest(replayPayload)
@@ -5272,13 +5290,12 @@ export const createFilesService = ({
                       reservedBytes: BigInt(
                         Math.max(0, stagedFile.sizeBytes - existing.sizeBytes),
                       ),
-                      requestHashPayload: {
-                        folderId: folderId ?? null,
-                        name: normalizedName,
-                        sizeBytes: stagedFile.sizeBytes,
-                        checksum: stagedFile.actualChecksum,
-                        conflictStrategy: item.conflictStrategy,
-                      },
+                      requestHashPayload: uploadRequestHash(
+                        folderId,
+                        normalizedName,
+                        stagedFile,
+                        item,
+                      ),
                       metadataOperations: [
                         {
                           action: "assert_owner_quota",
@@ -5482,13 +5499,12 @@ export const createFilesService = ({
                   ownerUserId: targetFolder.ownerUserId,
                   idempotencyKey: itemIdempotencyKey,
                   reservedBytes: BigInt(stagedFile.sizeBytes),
-                  requestHashPayload: {
-                    folderId: folderId ?? null,
-                    name: normalizedName,
-                    sizeBytes: stagedFile.sizeBytes,
-                    checksum: stagedFile.actualChecksum,
-                    conflictStrategy: item.conflictStrategy,
-                  },
+                  requestHashPayload: uploadRequestHash(
+                    folderId,
+                    normalizedName,
+                    stagedFile,
+                    item,
+                  ),
                   metadataOperations: [
                     {
                       action: "assert_owner_quota",

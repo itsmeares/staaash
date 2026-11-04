@@ -288,20 +288,22 @@ const sendFile = async (
     if (!done.has(start)) starts.push(start);
   }
   const handle = await open(input.file, "r");
+  // A failed chunk stops the rest, even those waiting on the speed limit.
+  // Sent chunks stay, so a retry sends only what is missing.
+  const stop = new AbortController();
+  const signal = AbortSignal.any([input.signal, stop.signal]);
   try {
-    // A failed chunk stops the rest. Sent chunks stay, so a retry sends only
-    // what is missing.
     await pool(
       [{ items: starts, size: CHUNKS_AT_ONCE }],
       async (start) => {
-        input.signal.throwIfAborted();
+        signal.throwIfAborted();
         const length = Math.min(chunkSize, input.size - start);
         const buffer = Buffer.alloc(length);
         const { bytesRead } = await handle.read(buffer, 0, length, start);
         if (bytesRead !== length) {
           throw new ApiError(0, "The file changed while it was uploading.");
         }
-        await input.throttle.take(length, input.signal);
+        await input.throttle.take(length, signal);
         await api.uploadChunk(
           session.id,
           start,
@@ -311,7 +313,7 @@ const sendFile = async (
         );
         input.onBytes(length);
       },
-      () => {},
+      () => stop.abort(),
     );
   } finally {
     await handle.close();
