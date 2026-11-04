@@ -6,6 +6,14 @@ const mocks = vi.hoisted(() => ({
   archive: vi.fn(),
   schedule: vi.fn(),
   readable: vi.fn(),
+  states: vi.fn(),
+}));
+vi.mock("@staaash/db/archive-selection", () => ({
+  readArchiveSelection: async () => ({
+    contentKey: "v2:contents",
+    filesToZip: [],
+    allFolders: [],
+  }),
 }));
 vi.mock("@/server/auth/guards", () => ({ getRequestSession: mocks.session }));
 vi.mock("@/server/files/repository", () => ({
@@ -26,6 +34,7 @@ vi.mock("@staaash/db/zip-archives", async (importOriginal) => ({
 vi.mock("@/server/storage-read-guard", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/storage-read-guard")>()),
   assertStorageEntityReadable: mocks.readable,
+  getStorageMutationStateMap: mocks.states,
 }));
 
 const { StorageEntityUnavailableError } =
@@ -52,6 +61,7 @@ const request = (ids: string[]) =>
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.readable.mockReset();
+  mocks.states.mockReset().mockResolvedValue(new Map());
   mocks.session.mockResolvedValue({ user: { id: "alice", role: "member" } });
   mocks.selection.mockResolvedValue({ files: [], folders: [] });
   mocks.archive.mockResolvedValue({
@@ -78,12 +88,9 @@ describe("archive selection", () => {
         idsJson: { fileIds: ["a", "b", "a"], folderIds: ["folder"] },
       }),
     );
-    expect(mocks.schedule).toHaveBeenCalledWith({
-      archiveId: "zip",
-      sourceSizeBytes: 30n,
-      fileCount: 3,
-      folderCount: 1,
-    });
+    expect(mocks.archive).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceSizeBytes: 30n }),
+    );
   });
 
   it("accepts a select-all of a large folder and rejects an oversized body", async () => {
@@ -94,8 +101,8 @@ describe("archive selection", () => {
     });
     const accepted = await request(ids);
     expect(accepted.status).toBe(200);
-    expect(mocks.schedule).toHaveBeenCalledWith(
-      expect.objectContaining({ fileCount: 100_000 }),
+    expect(mocks.archive).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceSizeBytes: 1_000_000n }),
     );
 
     const rejected = await request(["x".repeat(17 * 1024 * 1024)]);
@@ -125,18 +132,30 @@ describe("archive selection", () => {
     expect(mocks.schedule).not.toHaveBeenCalled();
   });
 
+  it("does not reuse a ZIP while a source needs recovery", async () => {
+    mocks.selection.mockResolvedValue({ files: [item("a")], folders: [] });
+    mocks.states.mockResolvedValueOnce(
+      new Map([
+        ["a", { id: "mutation", kind: "rename", status: "recovery_required" }],
+      ]),
+    );
+    const response = await request(["a"]);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      code: "STORAGE_RECOVERY_REQUIRED",
+    });
+    expect(mocks.archive).not.toHaveBeenCalled();
+  });
+
   it("uses only selected file sizes when scheduling a direct-file archive", async () => {
     mocks.selection.mockResolvedValue({
       files: [{ ...item("a"), sizeBytes: 5_000_000n }, item("b")],
       folders: [],
     });
     expect((await request(["a", "b"])).status).toBe(200);
-    expect(mocks.schedule).toHaveBeenCalledWith({
-      archiveId: "zip",
-      sourceSizeBytes: 5_000_010n,
-      fileCount: 2,
-      folderCount: 0,
-    });
+    expect(mocks.archive).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceSizeBytes: 5_000_010n }),
+    );
   });
 
   it.each(["owner", "admin", "member"])(

@@ -29,6 +29,35 @@ vi.mock("@staaash/db/client", () => ({
   getPrisma: mocks.getPrisma,
 }));
 
+vi.mock("@staaash/db/archive-selection", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@staaash/db/archive-selection")>();
+  return {
+    ...original,
+    readArchiveSelection: async (
+      userId: string,
+      fileIds: string[],
+      folderIds: string[],
+    ) => {
+      const db = mocks.getPrisma();
+      return original.describeArchiveSelection(
+        userId,
+        fileIds,
+        folderIds,
+        folderIds.length ? await db.folder.findMany() : [],
+        (await db.file.findMany()).map((file: object) => ({
+          ownerUserId: userId,
+          originalName: "source.txt",
+          sizeBytes: 12n,
+          contentChecksum: "checksum",
+          storageStatus: "available",
+          ...file,
+        })),
+      );
+    },
+  };
+});
+
 vi.mock("@staaash/db/zip-archives", () => ({
   ZIP_ARCHIVE_STATUS_READY: "ready",
   findZipArchiveById: mocks.findZipArchiveById,
@@ -150,9 +179,10 @@ describe("zip archive handler", () => {
       uploadStagingTtlMs: 1,
     });
 
-    expect(mocks.listBlockingStorageMutationsForEntities).toHaveBeenCalledTimes(
-      2,
-    );
+    expect(mocks.listBlockingStorageMutationsForEntities).toHaveBeenCalledWith({
+      entityType: "file",
+      entityIds: ["file-1"],
+    });
     expect(mocks.runWorkerStorageMutation).toHaveBeenCalledTimes(1);
     expect(mocks.runWorkerStorageMutation).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -312,6 +342,7 @@ describe("zip archive handler", () => {
         id: "archive-1",
         userId: "owner-1",
         status: "queued",
+        contentKey: "legacy-key",
         storageRevision: 0,
         idsJson: { fileIds: ["direct"], folderIds },
       });
@@ -374,10 +405,9 @@ describe("zip archive handler", () => {
       expect(names.sort()).toEqual(
         [
           "Alpha/",
-          "Alpha/Empty-A/",
+          folderIds[0] === "a-child" ? "Empty-A/" : "Alpha/Empty-A/",
           "Beta/",
           "Beta/Empty-B/",
-          ...(folderIds.includes("a-child") ? ["Empty-A/"] : []),
           nestedPath,
           "direct.txt",
         ].sort(),
@@ -467,4 +497,121 @@ describe("zip archive handler", () => {
       expect(mocks.runWorkerStorageMutation).not.toHaveBeenCalled();
     },
   );
+  it.each(["before", "during"])(
+    "refuses changed contents %s compression",
+    async (timing) => {
+      tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-zip-changed-"));
+      const source = {
+        id: "file-1",
+        ownerUserId: "owner-1",
+        folderId: null,
+        originalName: "source.txt",
+        storageKey: "source.txt",
+        deletedAt: null,
+        storageRevision: 1,
+        sizeBytes: 12n,
+        contentChecksum: "checksum",
+        storageStatus: "available",
+      };
+      await writeFile(path.join(tempRoot, "source.txt"), "source bytes");
+      const { describeArchiveSelection } =
+        await import("@staaash/db/archive-selection");
+      const expected = describeArchiveSelection(
+        "owner-1",
+        ["file-1"],
+        [],
+        [],
+        [source],
+      );
+      const archive = await mocks.findZipArchiveById();
+      mocks.findZipArchiveById.mockResolvedValue({
+        ...archive,
+        contentKey: expected.contentKey,
+      });
+      let reads = 0;
+      mocks.getPrisma.mockReturnValue({
+        file: {
+          findMany: async () => {
+            reads++;
+            return [
+              {
+                ...source,
+                contentChecksum:
+                  timing === "before" || reads > 1 ? "changed" : "checksum",
+              },
+            ];
+          },
+        },
+      });
+      await expect(
+        handleZipArchiveGenerate(createJob(), {
+          filesRoot: tempRoot,
+          tmpRoot: path.join(tempRoot, "tmp"),
+          heartbeatPath: path.join(tempRoot, "heartbeat"),
+          pendingDeleteRoot: path.join(tempRoot, "pending"),
+          uploadStagingTtlMs: 1,
+        }),
+      ).rejects.toThrow("The selected files changed");
+      expect(mocks.runWorkerStorageMutation).not.toHaveBeenCalled();
+      expect(mocks.updateZipArchiveFailed).toHaveBeenCalledWith(
+        "archive-1",
+        "The selected files changed. Download them again.",
+      );
+    },
+  );
+  it("rejects a new child added while an empty folder is compressed", async () => {
+    tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-zip-added-"));
+    const folder = {
+      id: "folder",
+      ownerUserId: "owner-1",
+      parentId: null,
+      name: "Folder",
+      deletedAt: null,
+      isFilesRoot: false,
+      storageRevision: 0,
+    };
+    const { describeArchiveSelection } =
+      await import("@staaash/db/archive-selection");
+    const empty = describeArchiveSelection(
+      "owner-1",
+      [],
+      ["folder"],
+      [folder],
+      [],
+    );
+    const archive = await mocks.findZipArchiveById();
+    mocks.findZipArchiveById.mockResolvedValue({
+      ...archive,
+      contentKey: empty.contentKey,
+      idsJson: { fileIds: [], folderIds: ["folder"] },
+    });
+    let reads = 0;
+    mocks.getPrisma.mockReturnValue({
+      folder: { findMany: async () => [folder] },
+      file: {
+        findMany: async () =>
+          ++reads === 1
+            ? []
+            : [
+                {
+                  id: "new",
+                  folderId: "folder",
+                  originalName: "new.txt",
+                  storageKey: "new.txt",
+                  storageRevision: 0,
+                },
+              ],
+      },
+    });
+    await expect(
+      handleZipArchiveGenerate(createJob(), {
+        filesRoot: tempRoot,
+        tmpRoot: path.join(tempRoot, "tmp"),
+        heartbeatPath: path.join(tempRoot, "heartbeat"),
+        pendingDeleteRoot: path.join(tempRoot, "pending"),
+        uploadStagingTtlMs: 1,
+      }),
+    ).rejects.toThrow("The selected files changed");
+    expect(mocks.runWorkerStorageMutation).not.toHaveBeenCalled();
+  });
 });

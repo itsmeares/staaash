@@ -22,6 +22,7 @@ export default defineConfig({
       reconciliation: "src/reconciliation.ts",
       "folder-tree": "src/folder-tree.ts",
       "media-derivatives": "src/media-derivatives.ts",
+      "archive-selection": "src/archive-selection.ts",
       "zip-archives": "src/zip-archives.ts",
       "upload-sessions": "src/upload-sessions.ts",
       "storage-transactions": "src/storage-transactions.ts",

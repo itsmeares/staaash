@@ -1,9 +1,9 @@
-import { scheduleZipArchiveGenerate } from "@staaash/db/jobs";
 import {
-  buildZipContentKey,
-  findOrCreateZipArchive,
-  ZIP_ARCHIVE_STATUS_FAILED,
-} from "@staaash/db/zip-archives";
+  getStorageMutationStateMap,
+  StorageEntityUnavailableError,
+} from "@/server/storage-read-guard";
+import { readArchiveSelection } from "@staaash/db/archive-selection";
+import { findOrCreateZipArchive } from "@staaash/db/zip-archives";
 
 import { canAccessPrivateNamespace } from "@/server/access";
 import { FilesError } from "@/server/files/errors";
@@ -14,8 +14,6 @@ import { getSystemSettings } from "@/server/settings";
 
 const ZIP_ARCHIVE_RETENTION_DEFAULT_DAYS = 7;
 
-/** Finds or queues the zip for a selection; the same selection reuses one archive. */
-// Validates the selection, reuses a ready zip, or queues one; each branch is one outcome.
 // fallow-ignore-next-line complexity
 export const requestArchive = async (actor: FilesActor, ids: string[]) => {
   const fileIds: string[] = [];
@@ -63,28 +61,34 @@ export const requestArchive = async (actor: FilesActor, ids: string[]) => {
     settings.zipArchiveRetentionDays ?? ZIP_ARCHIVE_RETENTION_DEFAULT_DAYS;
   const expiresAt = new Date(Date.now() + retentionDays * 24 * 60 * 60 * 1000);
 
-  const contentKey = buildZipContentKey(fileIds, folderIds);
-  const { archive, created } = await findOrCreateZipArchive({
+  const { contentKey, filesToZip, allFolders } = await readArchiveSelection(
+    actor.actorUserId,
+    fileIds,
+    folderIds,
+  );
+  const [fileStates, folderStates] = await Promise.all([
+    getStorageMutationStateMap(
+      "file",
+      filesToZip.map((file) => file.id),
+    ),
+    getStorageMutationStateMap(
+      "folder",
+      allFolders.map((folder) => folder.id),
+    ),
+  ]);
+  const blocked =
+    fileStates.values().next().value ?? folderStates.values().next().value;
+  if (blocked) throw new StorageEntityUnavailableError(blocked);
+  const { archive } = await findOrCreateZipArchive({
     userId: actor.actorUserId,
     contentKey,
     idsJson: { fileIds, folderIds },
     expiresAt,
+    sourceSizeBytes,
   });
-
-  if (created || archive.status === ZIP_ARCHIVE_STATUS_FAILED) {
-    await scheduleZipArchiveGenerate({
-      archiveId: archive.id,
-      sourceSizeBytes,
-      fileCount: fileIds.length,
-      folderCount: folderIds.length,
-    });
-  }
 
   return {
     archiveId: archive.id,
-    status:
-      archive.status === ZIP_ARCHIVE_STATUS_FAILED
-        ? ("queued" as const)
-        : await getReadableArchiveStatus(archive),
+    status: await getReadableArchiveStatus(archive),
   };
 };
