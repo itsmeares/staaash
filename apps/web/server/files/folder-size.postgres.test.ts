@@ -115,11 +115,16 @@ it("keeps parallel file changes exact and ignores name-only and missing-status c
     ),
   );
   expect(await getFolderSizeBytes(root.id)).toBe(56);
+  await db.file.update({
+    where: { id: file.id },
+    data: { originalName: "renamed.txt" },
+  });
+  expect(await getFolderSizeBytes(root.id)).toBe(56);
   const before =
     await db.$queryRaw`SELECT xmin::text FROM "Folder" WHERE id=${root.id}`;
   await db.file.update({
     where: { id: file.id },
-    data: { originalName: "renamed.txt", storageStatus: "missing" },
+    data: { storageStatus: "missing" },
   });
   expect(
     await db.$queryRaw`SELECT xmin::text FROM "Folder" WHERE id=${root.id}`,

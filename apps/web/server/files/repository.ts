@@ -115,8 +115,6 @@ type UpdateFolderParams = {
   deletedAt?: Date | null;
   color?: string | null;
   icon?: string | null;
-  /** Set to keep the folder's modified time, for changes that aren't edits. */
-  updatedAt?: Date;
 };
 
 type UpdateFileParams = {
@@ -720,7 +718,6 @@ export const createPrismaFilesRepository = (
 
       if ("color" in params) data.color = params.color;
       if ("icon" in params) data.icon = params.icon;
-      if (params.updatedAt) data.updatedAt = params.updatedAt;
 
       const folder = await client.folder.update({
         where: {
