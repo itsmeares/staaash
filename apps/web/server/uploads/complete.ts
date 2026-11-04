@@ -42,9 +42,12 @@ const completeSchema = z.object({
     .regex(/^[a-f0-9]{64}$/i),
 });
 
-const ifRevisionSchema = z.object({
+const expectSchema = z.object({
   ifRevision: z.number().int().min(0).optional(),
+  ifFileId: z.string().min(1).optional(),
 });
+
+type ReplaceExpectation = z.infer<typeof expectSchema>;
 
 const uploadIsComplete = (uploadSession: ResumableSession) => {
   if (uploadSession.receivedBytes !== uploadSession.totalSizeBytes) {
@@ -201,7 +204,7 @@ const commitResumableUpload = (
   uploadSession: ResumableSession,
   session: Session,
   expectedChecksum: string | null,
-  ifRevision: number | undefined,
+  expected: ReplaceExpectation,
 ) =>
   filesService.commitResumableUpload({
     actorUserId: session.user.id,
@@ -218,21 +221,21 @@ const commitResumableUpload = (
       | "safeRename"
       | "replace",
     clientModifiedAt: uploadSession.clientModifiedAt,
-    ifRevision,
+    ...expected,
   });
 
 const commitUploadedFile = async (
   uploadSession: ResumableSession,
   session: Session,
   expectedChecksum: string | null,
-  ifRevision: number | undefined,
+  expected: ReplaceExpectation,
 ): Promise<Response> => {
   try {
     const file = await commitResumableUpload(
       uploadSession,
       session,
       expectedChecksum,
-      ifRevision,
+      expected,
     );
     return Response.json(file, { status: 201 });
   } catch (error) {
@@ -321,7 +324,7 @@ const replayCompletedUpload = async ({
     completed,
     session,
     checksum.expectedChecksum,
-    undefined,
+    {},
   );
   return attachResumableMutationHeader(
     Response.json(file, { status: 201 }),
@@ -408,7 +411,7 @@ export const completeResumableUpload = async ({
       uploadSession,
       session,
       checksumResult.expectedChecksum,
-      ifRevisionSchema.safeParse(body).data?.ifRevision,
+      expectSchema.safeParse(body).data ?? {},
     ),
     uploadSession.id,
     session.user.id,

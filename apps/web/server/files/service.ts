@@ -455,6 +455,8 @@ type CommitResumableUploadInput = FilesActor & {
   clientModifiedAt?: Date | null;
   /** With replace: the revision of the existing file the client changed. */
   ifRevision?: number;
+  /** With replace: the id of that file, so a newer file of the same name is kept. */
+  ifFileId?: string;
 };
 
 const getFolderHref = (folder: Pick<FolderSummary, "id" | "isFilesRoot">) =>
@@ -5228,7 +5230,11 @@ export const createFilesService = ({
                   item.conflictStrategy === "replace" &&
                   activeConflict.kind === "file"
                 ) {
-                  assertRevision(activeConflict.item, item.ifRevision);
+                  assertRevision(
+                    activeConflict.item,
+                    item.ifRevision,
+                    item.ifFileId,
+                  );
                   if (!repo) {
                     const existing = activeConflict.item;
                     const stagedStorageKey = storageKeyForAbsolutePath(
@@ -5665,6 +5671,7 @@ export const createFilesService = ({
       conflictStrategy,
       clientModifiedAt = null,
       ifRevision,
+      ifFileId,
     }: CommitResumableUploadInput): Promise<FileSummary> {
       if (!repo) await assertStorageProtocolReady();
       const normalizedName = normalizeFileName(originalName);
@@ -5776,7 +5783,7 @@ export const createFilesService = ({
               conflictStrategy === "replace" &&
               activeConflict.kind === "file"
             ) {
-              assertRevision(activeConflict.item, ifRevision);
+              assertRevision(activeConflict.item, ifRevision, ifFileId);
               if (!repo) {
                 const existing = activeConflict.item;
                 const stagedStorageKey = durableStagedStorageKey!;

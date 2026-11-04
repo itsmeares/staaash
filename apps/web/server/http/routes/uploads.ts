@@ -141,6 +141,10 @@ const completeSession = createRoute({
               description:
                 "With `replace`: apply only if the existing file is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current file in `details`.",
             }),
+            ifFileId: z.string().min(1).optional().openapi({
+              description:
+                "With `replace`: apply only if the existing file still has this id, not a newer file of the same name. Otherwise 409 REVISION_MISMATCH with the current file in `details`.",
+            }),
           }),
         },
       },

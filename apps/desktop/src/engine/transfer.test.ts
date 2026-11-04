@@ -217,7 +217,7 @@ describe("uploadFile", () => {
           pendingUpload: () => ({ sessionId: "old" }),
           deleteUpload,
         } as never,
-        replace: { rev: 3 },
+        replace: { id: "file-1", rev: 3 },
       });
       expect(result).toEqual({ id: "remote" });
       expect(uploadSmall).toHaveBeenCalledWith(
@@ -226,7 +226,7 @@ describe("uploadFile", () => {
           name: "notes.txt",
           checksum: "hash",
           modifiedAt: 1,
-          replace: { rev: 3 },
+          replace: { id: "file-1", rev: 3 },
         },
         Buffer.alloc(5, 7),
         expect.any(Function),

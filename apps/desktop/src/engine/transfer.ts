@@ -218,7 +218,8 @@ const sendFile = async (
     checksum: string;
     size: number;
     mtimeMs: number;
-    replace: { rev: number } | null;
+    /** The server file this upload replaces, as the plan last saw it. */
+    replace: { id: string; rev: number } | null;
     throttle: Throttle;
     meter: UploadMeter;
     onBytes: (bytes: number) => void;
@@ -318,7 +319,7 @@ const sendFile = async (
   const file = (await api.completeUpload(
     session.id,
     input.checksum,
-    input.replace?.rev ?? null,
+    input.replace,
   )) as unknown as UploadedFile;
   store.deleteUpload(input.pairId, input.rel);
   return file;

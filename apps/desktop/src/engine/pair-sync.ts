@@ -514,7 +514,9 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         checksum,
         size: local.size,
         mtimeMs: local.mtimeMs,
-        replace: action.replace ? { rev: action.replace.rev } : null,
+        replace: action.replace
+          ? { id: action.replace.remoteId, rev: action.replace.rev }
+          : null,
         throttle: ctx.uploads,
         meter: ctx.uploadMeter,
         signal: transfers,

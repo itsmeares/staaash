@@ -5359,7 +5359,7 @@
                   },
                   "manifest": {
                     "type": "string",
-                    "description": "JSON array, one entry per file in the same order: `clientKey`, `originalName`, optional `expectedChecksum`, `conflictStrategy` (`fail`, `safeRename`, `replace`), `clientModifiedAt`, and with `replace` an optional `ifRevision`: replace only if the existing file is still at that storageRevision, otherwise 409 REVISION_MISMATCH with the current file in `details`."
+                    "description": "JSON array, one entry per file in the same order: `clientKey`, `originalName`, optional `expectedChecksum`, `conflictStrategy` (`fail`, `safeRename`, `replace`), `clientModifiedAt`, and with `replace` an optional `ifRevision` and `ifFileId`: replace only if the existing file is still at that storageRevision and has that id, otherwise 409 REVISION_MISMATCH with the current file in `details`."
                   },
                   "files": {
                     "type": "array",
@@ -5915,6 +5915,11 @@
                     "type": "integer",
                     "minimum": 0,
                     "description": "With `replace`: apply only if the existing file is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current file in `details`."
+                  },
+                  "ifFileId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "With `replace`: apply only if the existing file still has this id, not a newer file of the same name. Otherwise 409 REVISION_MISMATCH with the current file in `details`."
                   }
                 }
               }

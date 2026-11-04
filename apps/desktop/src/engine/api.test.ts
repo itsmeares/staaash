@@ -64,7 +64,7 @@ it("sends a small file as a multipart body the server can parse", async () => {
         name,
         checksum: "hash",
         modifiedAt: 0,
-        replace: { rev: 4 },
+        replace: { id: "file-1", rev: 4 },
       },
       body,
       () => {},
@@ -80,6 +80,7 @@ it("sends a small file as a multipart body the server can parse", async () => {
         conflictStrategy: "replace",
         clientModifiedAt: new Date(0).toISOString(),
         ifRevision: 4,
+        ifFileId: "file-1",
       },
     ]);
     const sent = parsed.get("files") as File;

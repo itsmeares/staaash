@@ -1721,7 +1721,7 @@ describe("files service", { concurrent: false }, () => {
     const { repo } = createMemoryRepository();
     const service = createService(repo);
     const root = await service.ensureFilesRoot("member-1");
-    const upload = (contents: string, ifRevision?: number) =>
+    const upload = (contents: string, ifRevision?: number, ifFileId?: string) =>
       service.uploadFiles({
         actorUserId: "member-1",
         actorRole: "member",
@@ -1732,6 +1732,7 @@ describe("files service", { concurrent: false }, () => {
             originalName: "notes.txt",
             conflictStrategy: ifRevision === undefined ? "fail" : "replace",
             ifRevision,
+            ifFileId,
             file: new File([contents], "notes.txt", { type: "text/plain" }),
           },
         ],
@@ -1748,7 +1749,15 @@ describe("files service", { concurrent: false }, () => {
       readFile(getStoragePath("files/member-1/notes.txt"), "utf8"),
     ).resolves.toBe("before");
 
-    await upload("after", revision);
+    // Another file that took the name at the same revision is kept.
+    await expect(
+      upload("other", revision, "some-older-file"),
+    ).rejects.toMatchObject({
+      code: "REVISION_MISMATCH",
+      details: { id: original?.id },
+    });
+
+    await upload("after", revision, original?.id);
     await expect(
       readFile(getStoragePath("files/member-1/notes.txt"), "utf8"),
     ).resolves.toBe("after");

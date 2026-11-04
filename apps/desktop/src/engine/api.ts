@@ -273,7 +273,7 @@ export const createApi = (
         name: string;
         checksum: string;
         modifiedAt: number;
-        replace: { rev: number } | null;
+        replace: { id: string; rev: number } | null;
       },
       body: Buffer,
       onBytes: (bytes: number, offset: number) => void,
@@ -285,7 +285,10 @@ export const createApi = (
           expectedChecksum: input.checksum,
           conflictStrategy: input.replace ? "replace" : "fail",
           clientModifiedAt: new Date(input.modifiedAt).toISOString(),
-          ...(input.replace ? { ifRevision: input.replace.rev } : {}),
+          ...(input.replace && {
+            ifRevision: input.replace.rev,
+            ifFileId: input.replace.id,
+          }),
         },
       ]);
       // Framed by hand around the file's own buffer, so a 10 MiB file is not
@@ -323,14 +326,18 @@ export const createApi = (
       };
       return result.uploadedFiles[0];
     },
-    completeUpload: (id: string, checksum: string, ifRevision: number | null) =>
+    completeUpload: (
+      id: string,
+      checksum: string,
+      replace: { id: string; rev: number } | null,
+    ) =>
       read(
         client.api.uploads.sessions[":id"].complete.$post(
           {
             param: { id },
             json: {
               expectedChecksum: checksum,
-              ...(ifRevision === null ? {} : { ifRevision }),
+              ...(replace && { ifRevision: replace.rev, ifFileId: replace.id }),
             },
           },
           write(),

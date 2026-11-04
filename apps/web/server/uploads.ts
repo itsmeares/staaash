@@ -34,6 +34,8 @@ export type UploadManifestItem = {
   clientModifiedAt?: Date | null;
   /** With `replace`: apply only if the existing file is at this revision. */
   ifRevision?: number;
+  /** With `replace`: apply only if the existing file has this id. */
+  ifFileId?: string;
 };
 
 export type UploadRequestItem = UploadManifestItem & {
@@ -116,6 +118,7 @@ const uploadManifestSchema = z
         .default("fail"),
       clientModifiedAt: z.coerce.date().nullable().optional(),
       ifRevision: z.number().int().min(0).optional(),
+      ifFileId: z.string().min(1).optional(),
     }),
   )
   .nonempty();
