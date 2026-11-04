@@ -726,7 +726,8 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     // Folders first, top-down; transfers in parallel; deletions last.
     for (const stage of [0, 1, 2, 3, 4, 5]) {
       const batch = sorted.filter((action) => order[action.kind] === stage);
-      if (stage === 4) await pool(transferLanes(batch), run, () => fatal.abort());
+      if (stage === 4)
+        await pool(transferLanes(batch), run, () => fatal.abort());
       else for (const action of batch) await run(action);
     }
     if (pullAgain) break;
