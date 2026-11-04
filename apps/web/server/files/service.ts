@@ -34,6 +34,7 @@ import {
   conflictDetails,
   FilesError,
   ResumableCompletionError,
+  RevisionConflictError,
 } from "@/server/files/errors";
 import {
   assertStorageKeysFit,
@@ -5227,6 +5228,7 @@ export const createFilesService = ({
                   item.conflictStrategy === "replace" &&
                   activeConflict.kind === "file"
                 ) {
+                  assertRevision(activeConflict.item, item.ifRevision);
                   if (!repo) {
                     const existing = activeConflict.item;
                     const stagedStorageKey = storageKeyForAbsolutePath(
@@ -5608,6 +5610,7 @@ export const createFilesService = ({
           if (
             repo ||
             error instanceof FilesError ||
+            error instanceof RevisionConflictError ||
             error instanceof StorageMutationRejectedError ||
             error instanceof StorageAdmissionBusyError ||
             error instanceof StorageAdmissionCancelledError

@@ -81,8 +81,6 @@ const SECTIONS: Record<string, SettingsField[]> = {
     "maxUploadBytes",
     "uploadTimeoutMinutes",
     "uploadStagingRetentionHours",
-    "resumableMaxActiveSessionsPerUser",
-    "resumableMaxActiveSessionsInstance",
     "resumableMaxReservedBytesPerUser",
     "resumableMaxReservedBytesInstance",
   ],
@@ -234,18 +232,6 @@ export function SettingsForm({
             "Keep unfinished uploads",
             "Then they're cleaned up",
             unit("uploadStagingRetentionHours", HOURS),
-          )}
-          {row(
-            "resumableMaxActiveSessionsPerUser",
-            "Resumable uploads per person",
-            "Open at the same time",
-            unit("resumableMaxActiveSessionsPerUser", fixed("uploads")),
-          )}
-          {row(
-            "resumableMaxActiveSessionsInstance",
-            "Resumable uploads in total",
-            "Across everyone",
-            unit("resumableMaxActiveSessionsInstance", fixed("uploads")),
           )}
           {row(
             "resumableMaxReservedBytesPerUser",

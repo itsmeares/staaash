@@ -5359,7 +5359,7 @@
                   },
                   "manifest": {
                     "type": "string",
-                    "description": "JSON array, one entry per file in the same order: `clientKey`, `originalName`, optional `expectedChecksum`, `conflictStrategy` (`fail`, `safeRename`, `replace`) and `clientModifiedAt`."
+                    "description": "JSON array, one entry per file in the same order: `clientKey`, `originalName`, optional `expectedChecksum`, `conflictStrategy` (`fail`, `safeRename`, `replace`), `clientModifiedAt`, and with `replace` an optional `ifRevision`: replace only if the existing file is still at that storageRevision, otherwise 409 REVISION_MISMATCH with the current file in `details`."
                   },
                   "files": {
                     "type": "array",

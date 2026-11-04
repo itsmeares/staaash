@@ -1716,6 +1716,44 @@ describe("files service", { concurrent: false }, () => {
     ).resolves.toBe("after");
   });
 
+  it("replaces only when the file is still at the expected revision", async () => {
+    await cleanDataRoot();
+    const { repo } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+    const upload = (contents: string, ifRevision?: number) =>
+      service.uploadFiles({
+        actorUserId: "member-1",
+        actorRole: "member",
+        folderId: root.id,
+        items: [
+          {
+            clientKey: contents,
+            originalName: "notes.txt",
+            conflictStrategy: ifRevision === undefined ? "fail" : "replace",
+            ifRevision,
+            file: new File([contents], "notes.txt", { type: "text/plain" }),
+          },
+        ],
+      });
+
+    const original = (await upload("before")).uploadedFiles[0];
+    const revision = original?.storageRevision ?? 0;
+
+    await expect(upload("stale", revision + 1)).rejects.toMatchObject({
+      code: "REVISION_MISMATCH",
+      details: { id: original?.id },
+    });
+    await expect(
+      readFile(getStoragePath("files/member-1/notes.txt"), "utf8"),
+    ).resolves.toBe("before");
+
+    await upload("after", revision);
+    await expect(
+      readFile(getStoragePath("files/member-1/notes.txt"), "utf8"),
+    ).resolves.toBe("after");
+  });
+
   it("restores the original file when replace metadata update fails", async () => {
     await cleanDataRoot();
     const { repo, failNextUpdateFile } = createMemoryRepository();

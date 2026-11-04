@@ -56,8 +56,6 @@ export const settingsSchema = z
     maxUploadBytes: byteSetting,
     uploadTimeoutMinutes: integerSetting(),
     uploadStagingRetentionHours: integerSetting(),
-    resumableMaxActiveSessionsPerUser: integerSetting(),
-    resumableMaxActiveSessionsInstance: integerSetting(),
     resumableMaxReservedBytesPerUser: byteSetting,
     resumableMaxReservedBytesInstance: byteSetting,
     previewMaxSourceBytes: integerSetting(),
@@ -92,17 +90,6 @@ export const settingsSchema = z
     mediaPreviewCrf: integerSetting(0, 51),
   })
   .superRefine((value, context) => {
-    if (
-      value.resumableMaxActiveSessionsInstance <
-      value.resumableMaxActiveSessionsPerUser
-    ) {
-      context.addIssue({
-        code: "custom",
-        message:
-          "Instance active sessions must be at least the per-user limit.",
-        path: ["resumableMaxActiveSessionsInstance"],
-      });
-    }
     if (value.resumableMaxReservedBytesPerUser < value.maxUploadBytes) {
       context.addIssue({
         code: "custom",
@@ -157,8 +144,6 @@ export const SETTINGS_DEFAULTS: SettingsValues = {
   maxUploadBytes: "10737418240",
   uploadTimeoutMinutes: "60",
   uploadStagingRetentionHours: "2",
-  resumableMaxActiveSessionsPerUser: "4",
-  resumableMaxActiveSessionsInstance: "32",
   resumableMaxReservedBytesPerUser: "21474836480",
   resumableMaxReservedBytesInstance: "107374182400",
   previewMaxSourceBytes: "26214400",

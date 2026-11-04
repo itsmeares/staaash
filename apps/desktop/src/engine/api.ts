@@ -53,6 +53,23 @@ const retryingFetch = async (
   }
 };
 
+/** Sends `body` in slices and reports each one as it goes out. */
+const streamOf = (
+  body: Buffer,
+  onBytes: (bytes: number, offset: number) => void,
+) => {
+  let offset = 0;
+  return new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (offset === body.length) return controller.close();
+      const end = Math.min(offset + 64 * 1024, body.length);
+      controller.enqueue(body.subarray(offset, end));
+      onBytes(end - offset, end);
+      offset = end;
+    },
+  });
+};
+
 export type Api = ReturnType<typeof createApi>;
 
 /** A file as rename, move and trash answer with it. */
@@ -238,20 +255,57 @@ export const createApi = (
             "content-range": `bytes ${start}-${start + body.length - 1}/${total}`,
           },
         },
-        () => {
-          let offset = 0;
-          return new ReadableStream<Uint8Array>({
-            pull(controller) {
-              if (offset === body.length) return controller.close();
-              const end = Math.min(offset + 64 * 1024, body.length);
-              controller.enqueue(body.subarray(offset, end));
-              onBytes(end - offset, end);
-              offset = end;
-            },
-          });
-        },
+        () => streamOf(body, onBytes),
       );
       if (!response.ok) await read(Promise.resolve(response as never));
+    },
+    /** A file up to one chunk in one multipart request, with no session. */
+    uploadSmall: async (
+      input: {
+        folderId: string;
+        name: string;
+        checksum: string;
+        modifiedAt: number;
+        replace: { rev: number } | null;
+      },
+      body: Buffer,
+      onBytes: (bytes: number, offset: number) => void,
+    ) => {
+      const form = new FormData();
+      form.set("folderId", input.folderId);
+      form.set(
+        "manifest",
+        JSON.stringify([
+          {
+            clientKey: "file",
+            originalName: input.name,
+            expectedChecksum: input.checksum,
+            conflictStrategy: input.replace ? "replace" : "fail",
+            clientModifiedAt: new Date(input.modifiedAt).toISOString(),
+            ...(input.replace ? { ifRevision: input.replace.rev } : {}),
+          },
+        ]),
+      );
+      form.append("files", new Blob([new Uint8Array(body)]), input.name);
+      // Encoded once, so a retry sends the same bytes and boundary.
+      const encoded = new Response(form);
+      const multipart = Buffer.from(await encoded.arrayBuffer());
+      const response = await raw(
+        "/api/files/files",
+        {
+          method: "POST",
+          headers: {
+            "content-type": encoded.headers.get("content-type") as string,
+            "content-length": String(multipart.length),
+            "idempotency-key": randomUUID(),
+          },
+        },
+        () => streamOf(multipart, onBytes),
+      );
+      const result = (await read(Promise.resolve(response as never))) as {
+        uploadedFiles: FileMutation["file"][];
+      };
+      return result.uploadedFiles[0];
     },
     completeUpload: (id: string, checksum: string, ifRevision: number | null) =>
       read(
@@ -266,7 +320,6 @@ export const createApi = (
           write(),
         ),
       ),
-    /** Zero-byte files; upload sessions need at least one byte. */
     download: async (fileId: string, signal?: AbortSignal) => {
       const response = await raw(`/api/files/files/${fileId}/download`, {
         signal,

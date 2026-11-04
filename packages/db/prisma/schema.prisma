@@ -56,8 +56,6 @@ model SystemSettings {
   maxUploadBytes                     BigInt   @default(10737418240)
   uploadTimeoutMinutes               Int      @default(60)
   uploadStagingRetentionHours        Int      @default(2)
-  resumableMaxActiveSessionsPerUser  Int      @default(4)
-  resumableMaxActiveSessionsInstance Int      @default(32)
   resumableMaxReservedBytesPerUser   BigInt   @default(21474836480)
   resumableMaxReservedBytesInstance  BigInt   @default(107374182400)
   previewMaxSourceBytes              Int      @default(26214400)

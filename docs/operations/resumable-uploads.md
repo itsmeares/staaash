@@ -8,12 +8,14 @@ staged-byte, and physical disk-headroom limits.
 
 The owner can change these values under **Admin > Settings > Uploads**:
 
-| Setting                       | Default | Meaning                                                                   |
-| ----------------------------- | ------: | ------------------------------------------------------------------------- |
-| Active sessions per user      |       4 | Concurrent active resumable sessions owned by one user                    |
-| Active sessions instance-wide |      32 | Concurrent active resumable sessions across the instance                  |
-| Staged bytes per user         |  20 GiB | Active reservations plus unreleased staging liability for one user        |
-| Staged bytes instance-wide    | 100 GiB | Active reservations plus unreleased staging liability across the instance |
+| Setting                    | Default | Meaning                                                                   |
+| -------------------------- | ------: | ------------------------------------------------------------------------- |
+| Staged bytes per user      |  20 GiB | Active reservations plus unreleased staging liability for one user        |
+| Staged bytes instance-wide | 100 GiB | Active reservations plus unreleased staging liability across the instance |
+
+The number of open sessions has fixed caps that are not settings: 32 per user
+and 128 across the instance. They only stop a broken or abusive client. The
+staged-byte limits are what protect the disk.
 
 Staging-file retention is also editable under **Admin > Settings > Uploads**.
 The database setting is used by both web and worker when no
@@ -23,7 +25,7 @@ database setting, and requires a process restart when changed. Without an
 override, a database change is used by the next staging-cleanup run.
 
 The per-user staged-byte limit must allow one maximum-size upload. The instance
-session and staged-byte limits must be at least their per-user equivalents.
+staged-byte limit must be at least the per-user limit.
 Staaash also requires projected free disk space to remain at least 10% of the
 storage filesystem after admitted resumable uploads reach their requested size.
 
@@ -62,8 +64,8 @@ Released parent rows consume no staging capacity. A finished session within its
 unbounded database growth during systemic database-cleanup failure, admissions
 stop only when the rows past their retention reach:
 
-- per user: `active sessions per user × 96`
-- instance-wide: `active sessions instance-wide × 96`
+- per user: `32 × 96`
+- instance-wide: `128 × 96`
 
 The factor 96 is one full 24-hour retention period at the 15-minute cleanup
 cadence. Admissions resume automatically after cleanup lowers the backlog.
