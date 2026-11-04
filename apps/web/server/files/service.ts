@@ -2572,8 +2572,6 @@ export const createFilesService = ({
         id: folder.id,
         ...(color === undefined ? {} : { color }),
         ...(icon === undefined ? {} : { icon }),
-        // A new color isn't an edit; the folder keeps its modified time.
-        updatedAt: folder.updatedAt,
       });
     },
 

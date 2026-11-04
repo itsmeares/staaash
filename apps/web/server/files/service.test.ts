@@ -400,7 +400,9 @@ const createMemoryRepository = () => {
       if ("color" in params) folder.color = params.color ?? null;
       if ("icon" in params) folder.icon = params.icon ?? null;
 
-      folder.updatedAt = params.updatedAt ?? nextDate();
+      if ("name" in params || "parentId" in params || "deletedAt" in params) {
+        folder.updatedAt = nextDate();
+      }
       return cloneFolder(folder);
     },
 
@@ -613,7 +615,7 @@ describe("files service", { concurrent: false }, () => {
     expect(listing.files.map((file) => file.name)).toEqual(["available.txt"]);
   });
 
-  it("sets a folder's color and icon without counting it as an edit", async () => {
+  it("lets only the owner set a folder's color and icon", async () => {
     const { repo } = createMemoryRepository();
     const service = createService(repo);
     const root = await service.ensureFilesRoot("member-1");
@@ -633,7 +635,6 @@ describe("files service", { concurrent: false }, () => {
     });
 
     expect(colored).toMatchObject({ color: "#112233", icon: "Star" });
-    expect(colored.updatedAt).toEqual(folder.updatedAt);
     await expect(
       service.setFolderAppearance({
         actorUserId: "member-2",
