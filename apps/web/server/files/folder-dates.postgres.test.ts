@@ -91,7 +91,11 @@ it("moves every folder above an uploaded or replaced file, and only those", asyn
   expect(await fresh()).toEqual(["a", "b", "root"]);
 
   await age();
-  await upload(ids.b, "notes.txt", "second");
+  const file = await upload(ids.b, "notes.txt", "second");
+  expect(await fresh()).toEqual(["a", "b", "root"]);
+
+  await age();
+  await db.file.update({ where: { id: file.id }, data: { sizeBytes: 99n } });
   expect(await fresh()).toEqual(["a", "b", "root"]);
 });
 

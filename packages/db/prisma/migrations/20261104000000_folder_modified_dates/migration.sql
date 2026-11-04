@@ -47,8 +47,8 @@ BEGIN
       SELECT before."folderId" AS old_id, before."deletedAt" AS old_deleted,
         after."folderId" AS new_id, after."deletedAt" AS new_deleted
       FROM old_files before JOIN new_files after USING (id)
-      WHERE (before."folderId", before."originalName", before."deletedAt", before."contentChecksum", before."clientModifiedAt")
-        IS DISTINCT FROM (after."folderId", after."originalName", after."deletedAt", after."contentChecksum", after."clientModifiedAt")
+      WHERE (before."folderId", before."originalName", before."deletedAt", before."sizeBytes", before."contentChecksum", before."clientModifiedAt")
+        IS DISTINCT FROM (after."folderId", after."originalName", after."deletedAt", after."sizeBytes", after."contentChecksum", after."clientModifiedAt")
     )
     SELECT array_agg(DISTINCT folder_id) INTO ids FROM (
       SELECT old_id FROM changed WHERE old_deleted IS NULL
