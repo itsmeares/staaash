@@ -191,6 +191,13 @@ it("moves a renamed or moved folder's own date, but not for a new color", async 
     icon: "Star",
   });
   expect(await fresh()).toEqual([]);
+
+  await service.setFolderAppearance({
+    ...actor,
+    folderId: ids.b,
+    color: "#112233",
+  });
+  expect(await fresh()).toEqual([]);
 });
 
 it("does not move dates on trashed folders", async () => {

@@ -96,13 +96,15 @@ REFERENCING OLD TABLE AS old_folders FOR EACH STATEMENT EXECUTE FUNCTION staaash
 CREATE TRIGGER "Folder_update_folder_dates" AFTER UPDATE ON "Folder"
 REFERENCING OLD TABLE AS old_folders NEW TABLE AS new_folders FOR EACH STATEMENT EXECUTE FUNCTION staaash_touch_parent_folders();
 
--- A renamed or moved folder is edited itself. A new color or icon is not, and
--- keeping OLD here also stops it from writing back a date read earlier.
+-- Only a rename or move edits the folder itself. Prisma sends updatedAt = now()
+-- on every update, so anything else, such as a color or icon or a same-value
+-- write, keeps the stored date. That also stops a date read earlier from
+-- being written back.
 CREATE FUNCTION staaash_folder_own_date() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
   IF (NEW."parentId", NEW.name) IS DISTINCT FROM (OLD."parentId", OLD.name) THEN
     NEW."updatedAt" := GREATEST(OLD."updatedAt", timezone('UTC', now()));
-  ELSIF (NEW.color, NEW.icon) IS DISTINCT FROM (OLD.color, OLD.icon) THEN
+  ELSE
     NEW."updatedAt" := OLD."updatedAt";
   END IF;
   RETURN NEW;
