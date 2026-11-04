@@ -355,7 +355,7 @@ const sendSmall = async (
   input.signal.throwIfAborted();
   await input.throttle.take(body.length, input.signal);
   const sent = progress(input, completed);
-  // The request also carries form framing, so file progress stops at its size.
+  // The request also carries form framing, so progress stops at the file size.
   let shown = 0;
   const show = (upTo: number) => {
     if (upTo > shown) input.onBytes(upTo - shown);
@@ -371,7 +371,7 @@ const sendSmall = async (
     },
     body,
     (bytes, offset) => {
-      sent(bytes, offset);
+      sent(bytes, Math.min(offset, body.length));
       show(Math.min(offset, body.length));
     },
   );

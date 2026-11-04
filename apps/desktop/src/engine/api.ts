@@ -53,19 +53,26 @@ const retryingFetch = async (
   }
 };
 
-/** Sends `body` in slices and reports each one as it goes out. */
+/** Sends `parts` in slices and reports each one as it goes out. */
 const streamOf = (
-  body: Buffer,
+  parts: Buffer[],
   onBytes: (bytes: number, offset: number) => void,
 ) => {
+  let part = 0;
+  let inPart = 0;
   let offset = 0;
   return new ReadableStream<Uint8Array>({
     pull(controller) {
-      if (offset === body.length) return controller.close();
-      const end = Math.min(offset + 64 * 1024, body.length);
-      controller.enqueue(body.subarray(offset, end));
-      onBytes(end - offset, end);
-      offset = end;
+      while (part < parts.length && inPart === parts[part].length) {
+        part += 1;
+        inPart = 0;
+      }
+      if (part === parts.length) return controller.close();
+      const end = Math.min(inPart + 64 * 1024, parts[part].length);
+      controller.enqueue(parts[part].subarray(inPart, end));
+      offset += end - inPart;
+      onBytes(end - inPart, offset);
+      inPart = end;
     },
   });
 };
@@ -255,7 +262,7 @@ export const createApi = (
             "content-range": `bytes ${start}-${start + body.length - 1}/${total}`,
           },
         },
-        () => streamOf(body, onBytes),
+        () => streamOf([body], onBytes),
       );
       if (!response.ok) await read(Promise.resolve(response as never));
     },
@@ -271,36 +278,45 @@ export const createApi = (
       body: Buffer,
       onBytes: (bytes: number, offset: number) => void,
     ) => {
-      const form = new FormData();
-      form.set("folderId", input.folderId);
-      form.set(
-        "manifest",
-        JSON.stringify([
-          {
-            clientKey: "file",
-            originalName: input.name,
-            expectedChecksum: input.checksum,
-            conflictStrategy: input.replace ? "replace" : "fail",
-            clientModifiedAt: new Date(input.modifiedAt).toISOString(),
-            ...(input.replace ? { ifRevision: input.replace.rev } : {}),
-          },
-        ]),
-      );
-      form.append("files", new Blob([new Uint8Array(body)]), input.name);
-      // Encoded once, so a retry sends the same bytes and boundary.
-      const encoded = new Response(form);
-      const multipart = Buffer.from(await encoded.arrayBuffer());
+      const manifest = JSON.stringify([
+        {
+          clientKey: "file",
+          originalName: input.name,
+          expectedChecksum: input.checksum,
+          conflictStrategy: input.replace ? "replace" : "fail",
+          clientModifiedAt: new Date(input.modifiedAt).toISOString(),
+          ...(input.replace ? { ifRevision: input.replace.rev } : {}),
+        },
+      ]);
+      // Framed by hand around the file's own buffer, so a 10 MiB file is not
+      // copied again; 16 of these may run at once.
+      const boundary = `staaash-${randomUUID()}`;
+      const field = (name: string, value: string) =>
+        `--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`;
+      // Escaped as browsers do; the parser turns it back into the name.
+      const filename = input.name.replace(/["\r\n]/g, encodeURIComponent);
+      const parts = [
+        Buffer.from(
+          field("folderId", input.folderId) +
+            field("manifest", manifest) +
+            `--${boundary}\r\nContent-Disposition: form-data; name="files"; filename="${filename}"\r\nContent-Type: application/octet-stream\r\n\r\n`,
+        ),
+        body,
+        Buffer.from(`\r\n--${boundary}--\r\n`),
+      ];
       const response = await raw(
         "/api/files/files",
         {
           method: "POST",
           headers: {
-            "content-type": encoded.headers.get("content-type") as string,
-            "content-length": String(multipart.length),
+            "content-type": `multipart/form-data; boundary=${boundary}`,
+            "content-length": String(
+              parts.reduce((total, part) => total + part.length, 0),
+            ),
             "idempotency-key": randomUUID(),
           },
         },
-        () => streamOf(multipart, onBytes),
+        () => streamOf(parts, onBytes),
       );
       const result = (await read(Promise.resolve(response as never))) as {
         uploadedFiles: FileMutation["file"][];
