@@ -34,8 +34,6 @@ export type SystemSettingsAvgAggregateOutputType = {
   uploadStagingRetentionHours: number | null
   resumableMaxReservedBytesPerUser: number | null
   resumableMaxReservedBytesInstance: number | null
-  previewMaxSourceBytes: number | null
-  previewTextMaxBytes: number | null
   workerHeartbeatMaxAgeSeconds: number | null
   mediaPreviewThresholdBytes: number | null
   mediaPreviewRetentionDays: number | null
@@ -52,8 +50,6 @@ export type SystemSettingsSumAggregateOutputType = {
   uploadStagingRetentionHours: number | null
   resumableMaxReservedBytesPerUser: bigint | null
   resumableMaxReservedBytesInstance: bigint | null
-  previewMaxSourceBytes: number | null
-  previewTextMaxBytes: number | null
   workerHeartbeatMaxAgeSeconds: number | null
   mediaPreviewThresholdBytes: bigint | null
   mediaPreviewRetentionDays: number | null
@@ -71,8 +67,6 @@ export type SystemSettingsMinAggregateOutputType = {
   uploadStagingRetentionHours: number | null
   resumableMaxReservedBytesPerUser: bigint | null
   resumableMaxReservedBytesInstance: bigint | null
-  previewMaxSourceBytes: number | null
-  previewTextMaxBytes: number | null
   workerHeartbeatMaxAgeSeconds: number | null
   updateCheckEnabled: boolean | null
   updateChannel: string | null
@@ -102,8 +96,6 @@ export type SystemSettingsMaxAggregateOutputType = {
   uploadStagingRetentionHours: number | null
   resumableMaxReservedBytesPerUser: bigint | null
   resumableMaxReservedBytesInstance: bigint | null
-  previewMaxSourceBytes: number | null
-  previewTextMaxBytes: number | null
   workerHeartbeatMaxAgeSeconds: number | null
   updateCheckEnabled: boolean | null
   updateChannel: string | null
@@ -133,8 +125,6 @@ export type SystemSettingsCountAggregateOutputType = {
   uploadStagingRetentionHours: number
   resumableMaxReservedBytesPerUser: number
   resumableMaxReservedBytesInstance: number
-  previewMaxSourceBytes: number
-  previewTextMaxBytes: number
   workerHeartbeatMaxAgeSeconds: number
   updateCheckEnabled: number
   updateChannel: number
@@ -165,8 +155,6 @@ export type SystemSettingsAvgAggregateInputType = {
   uploadStagingRetentionHours?: true
   resumableMaxReservedBytesPerUser?: true
   resumableMaxReservedBytesInstance?: true
-  previewMaxSourceBytes?: true
-  previewTextMaxBytes?: true
   workerHeartbeatMaxAgeSeconds?: true
   mediaPreviewThresholdBytes?: true
   mediaPreviewRetentionDays?: true
@@ -183,8 +171,6 @@ export type SystemSettingsSumAggregateInputType = {
   uploadStagingRetentionHours?: true
   resumableMaxReservedBytesPerUser?: true
   resumableMaxReservedBytesInstance?: true
-  previewMaxSourceBytes?: true
-  previewTextMaxBytes?: true
   workerHeartbeatMaxAgeSeconds?: true
   mediaPreviewThresholdBytes?: true
   mediaPreviewRetentionDays?: true
@@ -202,8 +188,6 @@ export type SystemSettingsMinAggregateInputType = {
   uploadStagingRetentionHours?: true
   resumableMaxReservedBytesPerUser?: true
   resumableMaxReservedBytesInstance?: true
-  previewMaxSourceBytes?: true
-  previewTextMaxBytes?: true
   workerHeartbeatMaxAgeSeconds?: true
   updateCheckEnabled?: true
   updateChannel?: true
@@ -233,8 +217,6 @@ export type SystemSettingsMaxAggregateInputType = {
   uploadStagingRetentionHours?: true
   resumableMaxReservedBytesPerUser?: true
   resumableMaxReservedBytesInstance?: true
-  previewMaxSourceBytes?: true
-  previewTextMaxBytes?: true
   workerHeartbeatMaxAgeSeconds?: true
   updateCheckEnabled?: true
   updateChannel?: true
@@ -264,8 +246,6 @@ export type SystemSettingsCountAggregateInputType = {
   uploadStagingRetentionHours?: true
   resumableMaxReservedBytesPerUser?: true
   resumableMaxReservedBytesInstance?: true
-  previewMaxSourceBytes?: true
-  previewTextMaxBytes?: true
   workerHeartbeatMaxAgeSeconds?: true
   updateCheckEnabled?: true
   updateChannel?: true
@@ -382,8 +362,6 @@ export type SystemSettingsGroupByOutputType = {
   uploadStagingRetentionHours: number
   resumableMaxReservedBytesPerUser: bigint
   resumableMaxReservedBytesInstance: bigint
-  previewMaxSourceBytes: number
-  previewTextMaxBytes: number
   workerHeartbeatMaxAgeSeconds: number
   updateCheckEnabled: boolean
   updateChannel: string | null
@@ -436,8 +414,6 @@ export type SystemSettingsWhereInput = {
   uploadStagingRetentionHours?: Prisma.IntFilter<"SystemSettings"> | number
   resumableMaxReservedBytesPerUser?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
   resumableMaxReservedBytesInstance?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
-  previewMaxSourceBytes?: Prisma.IntFilter<"SystemSettings"> | number
-  previewTextMaxBytes?: Prisma.IntFilter<"SystemSettings"> | number
   workerHeartbeatMaxAgeSeconds?: Prisma.IntFilter<"SystemSettings"> | number
   updateCheckEnabled?: Prisma.BoolFilter<"SystemSettings"> | boolean
   updateChannel?: Prisma.StringNullableFilter<"SystemSettings"> | string | null
@@ -467,8 +443,6 @@ export type SystemSettingsOrderByWithRelationInput = {
   uploadStagingRetentionHours?: Prisma.SortOrder
   resumableMaxReservedBytesPerUser?: Prisma.SortOrder
   resumableMaxReservedBytesInstance?: Prisma.SortOrder
-  previewMaxSourceBytes?: Prisma.SortOrder
-  previewTextMaxBytes?: Prisma.SortOrder
   workerHeartbeatMaxAgeSeconds?: Prisma.SortOrder
   updateCheckEnabled?: Prisma.SortOrder
   updateChannel?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -501,8 +475,6 @@ export type SystemSettingsWhereUniqueInput = Prisma.AtLeast<{
   uploadStagingRetentionHours?: Prisma.IntFilter<"SystemSettings"> | number
   resumableMaxReservedBytesPerUser?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
   resumableMaxReservedBytesInstance?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
-  previewMaxSourceBytes?: Prisma.IntFilter<"SystemSettings"> | number
-  previewTextMaxBytes?: Prisma.IntFilter<"SystemSettings"> | number
   workerHeartbeatMaxAgeSeconds?: Prisma.IntFilter<"SystemSettings"> | number
   updateCheckEnabled?: Prisma.BoolFilter<"SystemSettings"> | boolean
   updateChannel?: Prisma.StringNullableFilter<"SystemSettings"> | string | null
@@ -532,8 +504,6 @@ export type SystemSettingsOrderByWithAggregationInput = {
   uploadStagingRetentionHours?: Prisma.SortOrder
   resumableMaxReservedBytesPerUser?: Prisma.SortOrder
   resumableMaxReservedBytesInstance?: Prisma.SortOrder
-  previewMaxSourceBytes?: Prisma.SortOrder
-  previewTextMaxBytes?: Prisma.SortOrder
   workerHeartbeatMaxAgeSeconds?: Prisma.SortOrder
   updateCheckEnabled?: Prisma.SortOrder
   updateChannel?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -571,8 +541,6 @@ export type SystemSettingsScalarWhereWithAggregatesInput = {
   uploadStagingRetentionHours?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
   resumableMaxReservedBytesPerUser?: Prisma.BigIntWithAggregatesFilter<"SystemSettings"> | bigint | number
   resumableMaxReservedBytesInstance?: Prisma.BigIntWithAggregatesFilter<"SystemSettings"> | bigint | number
-  previewMaxSourceBytes?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
-  previewTextMaxBytes?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
   workerHeartbeatMaxAgeSeconds?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
   updateCheckEnabled?: Prisma.BoolWithAggregatesFilter<"SystemSettings"> | boolean
   updateChannel?: Prisma.StringNullableWithAggregatesFilter<"SystemSettings"> | string | null
@@ -602,8 +570,6 @@ export type SystemSettingsCreateInput = {
   uploadStagingRetentionHours?: number
   resumableMaxReservedBytesPerUser?: bigint | number
   resumableMaxReservedBytesInstance?: bigint | number
-  previewMaxSourceBytes?: number
-  previewTextMaxBytes?: number
   workerHeartbeatMaxAgeSeconds?: number
   updateCheckEnabled?: boolean
   updateChannel?: string | null
@@ -633,8 +599,6 @@ export type SystemSettingsUncheckedCreateInput = {
   uploadStagingRetentionHours?: number
   resumableMaxReservedBytesPerUser?: bigint | number
   resumableMaxReservedBytesInstance?: bigint | number
-  previewMaxSourceBytes?: number
-  previewTextMaxBytes?: number
   workerHeartbeatMaxAgeSeconds?: number
   updateCheckEnabled?: boolean
   updateChannel?: string | null
@@ -664,8 +628,6 @@ export type SystemSettingsUpdateInput = {
   uploadStagingRetentionHours?: Prisma.IntFieldUpdateOperationsInput | number
   resumableMaxReservedBytesPerUser?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   resumableMaxReservedBytesInstance?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  previewMaxSourceBytes?: Prisma.IntFieldUpdateOperationsInput | number
-  previewTextMaxBytes?: Prisma.IntFieldUpdateOperationsInput | number
   workerHeartbeatMaxAgeSeconds?: Prisma.IntFieldUpdateOperationsInput | number
   updateCheckEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   updateChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -695,8 +657,6 @@ export type SystemSettingsUncheckedUpdateInput = {
   uploadStagingRetentionHours?: Prisma.IntFieldUpdateOperationsInput | number
   resumableMaxReservedBytesPerUser?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   resumableMaxReservedBytesInstance?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  previewMaxSourceBytes?: Prisma.IntFieldUpdateOperationsInput | number
-  previewTextMaxBytes?: Prisma.IntFieldUpdateOperationsInput | number
   workerHeartbeatMaxAgeSeconds?: Prisma.IntFieldUpdateOperationsInput | number
   updateCheckEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   updateChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -726,8 +686,6 @@ export type SystemSettingsCreateManyInput = {
   uploadStagingRetentionHours?: number
   resumableMaxReservedBytesPerUser?: bigint | number
   resumableMaxReservedBytesInstance?: bigint | number
-  previewMaxSourceBytes?: number
-  previewTextMaxBytes?: number
   workerHeartbeatMaxAgeSeconds?: number
   updateCheckEnabled?: boolean
   updateChannel?: string | null
@@ -757,8 +715,6 @@ export type SystemSettingsUpdateManyMutationInput = {
   uploadStagingRetentionHours?: Prisma.IntFieldUpdateOperationsInput | number
   resumableMaxReservedBytesPerUser?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   resumableMaxReservedBytesInstance?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  previewMaxSourceBytes?: Prisma.IntFieldUpdateOperationsInput | number
-  previewTextMaxBytes?: Prisma.IntFieldUpdateOperationsInput | number
   workerHeartbeatMaxAgeSeconds?: Prisma.IntFieldUpdateOperationsInput | number
   updateCheckEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   updateChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -788,8 +744,6 @@ export type SystemSettingsUncheckedUpdateManyInput = {
   uploadStagingRetentionHours?: Prisma.IntFieldUpdateOperationsInput | number
   resumableMaxReservedBytesPerUser?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   resumableMaxReservedBytesInstance?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  previewMaxSourceBytes?: Prisma.IntFieldUpdateOperationsInput | number
-  previewTextMaxBytes?: Prisma.IntFieldUpdateOperationsInput | number
   workerHeartbeatMaxAgeSeconds?: Prisma.IntFieldUpdateOperationsInput | number
   updateCheckEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   updateChannel?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -819,8 +773,6 @@ export type SystemSettingsCountOrderByAggregateInput = {
   uploadStagingRetentionHours?: Prisma.SortOrder
   resumableMaxReservedBytesPerUser?: Prisma.SortOrder
   resumableMaxReservedBytesInstance?: Prisma.SortOrder
-  previewMaxSourceBytes?: Prisma.SortOrder
-  previewTextMaxBytes?: Prisma.SortOrder
   workerHeartbeatMaxAgeSeconds?: Prisma.SortOrder
   updateCheckEnabled?: Prisma.SortOrder
   updateChannel?: Prisma.SortOrder
@@ -849,8 +801,6 @@ export type SystemSettingsAvgOrderByAggregateInput = {
   uploadStagingRetentionHours?: Prisma.SortOrder
   resumableMaxReservedBytesPerUser?: Prisma.SortOrder
   resumableMaxReservedBytesInstance?: Prisma.SortOrder
-  previewMaxSourceBytes?: Prisma.SortOrder
-  previewTextMaxBytes?: Prisma.SortOrder
   workerHeartbeatMaxAgeSeconds?: Prisma.SortOrder
   mediaPreviewThresholdBytes?: Prisma.SortOrder
   mediaPreviewRetentionDays?: Prisma.SortOrder
@@ -868,8 +818,6 @@ export type SystemSettingsMaxOrderByAggregateInput = {
   uploadStagingRetentionHours?: Prisma.SortOrder
   resumableMaxReservedBytesPerUser?: Prisma.SortOrder
   resumableMaxReservedBytesInstance?: Prisma.SortOrder
-  previewMaxSourceBytes?: Prisma.SortOrder
-  previewTextMaxBytes?: Prisma.SortOrder
   workerHeartbeatMaxAgeSeconds?: Prisma.SortOrder
   updateCheckEnabled?: Prisma.SortOrder
   updateChannel?: Prisma.SortOrder
@@ -899,8 +847,6 @@ export type SystemSettingsMinOrderByAggregateInput = {
   uploadStagingRetentionHours?: Prisma.SortOrder
   resumableMaxReservedBytesPerUser?: Prisma.SortOrder
   resumableMaxReservedBytesInstance?: Prisma.SortOrder
-  previewMaxSourceBytes?: Prisma.SortOrder
-  previewTextMaxBytes?: Prisma.SortOrder
   workerHeartbeatMaxAgeSeconds?: Prisma.SortOrder
   updateCheckEnabled?: Prisma.SortOrder
   updateChannel?: Prisma.SortOrder
@@ -929,8 +875,6 @@ export type SystemSettingsSumOrderByAggregateInput = {
   uploadStagingRetentionHours?: Prisma.SortOrder
   resumableMaxReservedBytesPerUser?: Prisma.SortOrder
   resumableMaxReservedBytesInstance?: Prisma.SortOrder
-  previewMaxSourceBytes?: Prisma.SortOrder
-  previewTextMaxBytes?: Prisma.SortOrder
   workerHeartbeatMaxAgeSeconds?: Prisma.SortOrder
   mediaPreviewThresholdBytes?: Prisma.SortOrder
   mediaPreviewRetentionDays?: Prisma.SortOrder
@@ -962,8 +906,6 @@ export type SystemSettingsSelect<ExtArgs extends runtime.Types.Extensions.Intern
   uploadStagingRetentionHours?: boolean
   resumableMaxReservedBytesPerUser?: boolean
   resumableMaxReservedBytesInstance?: boolean
-  previewMaxSourceBytes?: boolean
-  previewTextMaxBytes?: boolean
   workerHeartbeatMaxAgeSeconds?: boolean
   updateCheckEnabled?: boolean
   updateChannel?: boolean
@@ -993,8 +935,6 @@ export type SystemSettingsSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   uploadStagingRetentionHours?: boolean
   resumableMaxReservedBytesPerUser?: boolean
   resumableMaxReservedBytesInstance?: boolean
-  previewMaxSourceBytes?: boolean
-  previewTextMaxBytes?: boolean
   workerHeartbeatMaxAgeSeconds?: boolean
   updateCheckEnabled?: boolean
   updateChannel?: boolean
@@ -1024,8 +964,6 @@ export type SystemSettingsSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   uploadStagingRetentionHours?: boolean
   resumableMaxReservedBytesPerUser?: boolean
   resumableMaxReservedBytesInstance?: boolean
-  previewMaxSourceBytes?: boolean
-  previewTextMaxBytes?: boolean
   workerHeartbeatMaxAgeSeconds?: boolean
   updateCheckEnabled?: boolean
   updateChannel?: boolean
@@ -1055,8 +993,6 @@ export type SystemSettingsSelectScalar = {
   uploadStagingRetentionHours?: boolean
   resumableMaxReservedBytesPerUser?: boolean
   resumableMaxReservedBytesInstance?: boolean
-  previewMaxSourceBytes?: boolean
-  previewTextMaxBytes?: boolean
   workerHeartbeatMaxAgeSeconds?: boolean
   updateCheckEnabled?: boolean
   updateChannel?: boolean
@@ -1077,7 +1013,7 @@ export type SystemSettingsSelectScalar = {
   updatedAt?: boolean
 }
 
-export type SystemSettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionMaxAgeDays" | "shareMaxAgeDays" | "maxUploadBytes" | "uploadTimeoutMinutes" | "uploadStagingRetentionHours" | "resumableMaxReservedBytesPerUser" | "resumableMaxReservedBytesInstance" | "previewMaxSourceBytes" | "previewTextMaxBytes" | "workerHeartbeatMaxAgeSeconds" | "updateCheckEnabled" | "updateChannel" | "updateCheckRepository" | "timeZone" | "maintenanceRunTime" | "mediaThumbnailsEnabled" | "mediaPreviewEnabled" | "mediaPreviewGenerateOnUpload" | "mediaPreviewGenerateOnFirstView" | "mediaPreviewGenerateOnShare" | "mediaPreviewThresholdBytes" | "mediaPreviewRetentionDays" | "mediaPreviewMaxHeight" | "zipArchiveRetentionDays" | "mediaPreviewCrf" | "createdAt" | "updatedAt", ExtArgs["result"]["systemSettings"]>
+export type SystemSettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionMaxAgeDays" | "shareMaxAgeDays" | "maxUploadBytes" | "uploadTimeoutMinutes" | "uploadStagingRetentionHours" | "resumableMaxReservedBytesPerUser" | "resumableMaxReservedBytesInstance" | "workerHeartbeatMaxAgeSeconds" | "updateCheckEnabled" | "updateChannel" | "updateCheckRepository" | "timeZone" | "maintenanceRunTime" | "mediaThumbnailsEnabled" | "mediaPreviewEnabled" | "mediaPreviewGenerateOnUpload" | "mediaPreviewGenerateOnFirstView" | "mediaPreviewGenerateOnShare" | "mediaPreviewThresholdBytes" | "mediaPreviewRetentionDays" | "mediaPreviewMaxHeight" | "zipArchiveRetentionDays" | "mediaPreviewCrf" | "createdAt" | "updatedAt", ExtArgs["result"]["systemSettings"]>
 
 export type $SystemSettingsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "SystemSettings"
@@ -1091,8 +1027,6 @@ export type $SystemSettingsPayload<ExtArgs extends runtime.Types.Extensions.Inte
     uploadStagingRetentionHours: number
     resumableMaxReservedBytesPerUser: bigint
     resumableMaxReservedBytesInstance: bigint
-    previewMaxSourceBytes: number
-    previewTextMaxBytes: number
     workerHeartbeatMaxAgeSeconds: number
     updateCheckEnabled: boolean
     /**
@@ -1548,8 +1482,6 @@ export interface SystemSettingsFieldRefs {
   readonly uploadStagingRetentionHours: Prisma.FieldRef<"SystemSettings", 'Int'>
   readonly resumableMaxReservedBytesPerUser: Prisma.FieldRef<"SystemSettings", 'BigInt'>
   readonly resumableMaxReservedBytesInstance: Prisma.FieldRef<"SystemSettings", 'BigInt'>
-  readonly previewMaxSourceBytes: Prisma.FieldRef<"SystemSettings", 'Int'>
-  readonly previewTextMaxBytes: Prisma.FieldRef<"SystemSettings", 'Int'>
   readonly workerHeartbeatMaxAgeSeconds: Prisma.FieldRef<"SystemSettings", 'Int'>
   readonly updateCheckEnabled: Prisma.FieldRef<"SystemSettings", 'Boolean'>
   readonly updateChannel: Prisma.FieldRef<"SystemSettings", 'String'>

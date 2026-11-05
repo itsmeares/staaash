@@ -58,8 +58,6 @@ model SystemSettings {
   uploadStagingRetentionHours        Int      @default(2)
   resumableMaxReservedBytesPerUser   BigInt   @default(21474836480)
   resumableMaxReservedBytesInstance  BigInt   @default(107374182400)
-  previewMaxSourceBytes              Int      @default(26214400)
-  previewTextMaxBytes                Int      @default(65536)
   workerHeartbeatMaxAgeSeconds       Int      @default(120)
   updateCheckEnabled                 Boolean  @default(true)
   /// "stable" or "rc"; null follows the running version (rc for pre-releases).

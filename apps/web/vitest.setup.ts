@@ -19,8 +19,6 @@ const defaultSystemSettings = {
   uploadStagingRetentionHours: 2,
   resumableMaxReservedBytesPerUser: BigInt(21474836480),
   resumableMaxReservedBytesInstance: BigInt(107374182400),
-  previewMaxSourceBytes: 26214400,
-  previewTextMaxBytes: 65536,
   workerHeartbeatMaxAgeSeconds: 120,
   updateCheckEnabled: true,
   updateChannel: null,

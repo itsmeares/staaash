@@ -393,3 +393,35 @@ test("selects a sample file without selecting the photo archive folder", async (
     }),
   ).toHaveAttribute("aria-selected", "false");
 });
+
+for (const [name, lines, truncated] of [
+  ["Huge log.txt", 50_000, true],
+  ["Short log.txt", 3, false],
+  ["Empty log.txt", 0, false],
+] as const)
+  test(`opens ${name} ${truncated ? "cut to its first 256 KB" : "in full"}`, async ({
+    page,
+  }) => {
+    const text = Array.from({ length: lines }, (_, i) => `line ${i + 1}\n`);
+    await page.goto("/files");
+    await page
+      .locator('input[type="file"]')
+      .first()
+      .setInputFiles({
+        name,
+        mimeType: "text/plain",
+        buffer: Buffer.from(text.join("")),
+      });
+    await page.getByRole("row").filter({ hasText: name }).dblclick();
+    const viewer = page.getByRole("dialog", { name });
+    await expect(
+      viewer.getByRole("button", { name: "Copy", exact: true }),
+    ).toBeVisible();
+    await expect(
+      viewer.locator("p", { hasText: "Only the first 256 KB is shown." }),
+    ).toHaveCount(truncated ? 1 : 0);
+    if (!truncated && lines)
+      await expect(
+        viewer.getByText(`line ${lines}`, { exact: true }),
+      ).toBeVisible();
+  });

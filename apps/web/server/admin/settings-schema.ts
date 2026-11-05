@@ -58,8 +58,6 @@ export const settingsSchema = z
     uploadStagingRetentionHours: integerSetting(),
     resumableMaxReservedBytesPerUser: byteSetting,
     resumableMaxReservedBytesInstance: byteSetting,
-    previewMaxSourceBytes: integerSetting(),
-    previewTextMaxBytes: integerSetting(),
     workerHeartbeatMaxAgeSeconds: integerSetting(),
     updateCheckEnabled: checkboxSetting,
     // "auto" follows the running version: release candidates on a pre-release.
@@ -146,8 +144,6 @@ export const SETTINGS_DEFAULTS: SettingsValues = {
   uploadStagingRetentionHours: "2",
   resumableMaxReservedBytesPerUser: "21474836480",
   resumableMaxReservedBytesInstance: "107374182400",
-  previewMaxSourceBytes: "26214400",
-  previewTextMaxBytes: "65536",
   workerHeartbeatMaxAgeSeconds: "120",
   updateCheckEnabled: "on",
   updateChannel: "auto",
