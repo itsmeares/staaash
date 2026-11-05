@@ -253,8 +253,10 @@ export function FolderChooser({
     const localPath = await desktop.chooseFolder(data.homeDir);
     if (!localPath) return;
     foldLocal(localPath, "", true);
+    // Picked again: keep its place, direction and left-out subfolders.
+    if (computer.some((each) => each.localPath === localPath)) return;
     setComputer((current) => [
-      ...current.filter((each) => each.localPath !== localPath),
+      ...current,
       {
         id: crypto.randomUUID(),
         name: lastName(localPath),
