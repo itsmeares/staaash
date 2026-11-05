@@ -157,7 +157,7 @@ export function FolderChooser({
   const [placements, setPlacements] = useState<Record<string, Placement>>({});
   const [computer, setComputer] = useState<ComputerFolder[]>([]);
   const [choosingFor, setChoosingFor] = useState<ComputerFolder | null>(null);
-  // Computer subfolders by full path, read when their folder first opens.
+  // Computer subfolders by folder and path inside it, read when their folder opens.
   const [localChildren, setLocalChildren] = useState<Record<string, string[]>>(
     {},
   );
@@ -222,22 +222,29 @@ export function FolderChooser({
       current.map((each) => (each.id === id ? { ...each, ...patch } : each)),
     );
 
-  const readLocal = async (full: string) => {
-    const names = localChildren[full] ?? (await desktop.localFolders(full));
-    setLocalChildren((current) => ({ ...current, [full]: names }));
+  const localKey = (localPath: string, rel: string) =>
+    JSON.stringify([localPath, rel]);
+  const readLocal = async (localPath: string, rel: string) => {
+    const key = localKey(localPath, rel);
+    const names =
+      localChildren[key] ?? (await desktop.localFolders(localPath, rel));
+    setLocalChildren((current) => ({ ...current, [key]: names }));
     return names;
   };
   // One level ahead, so only folders with subfolders show an arrow.
-  const openLocal = async (full: string) => {
-    const names = await readLocal(full);
-    await Promise.all(names.map((name) => readLocal(join(full, name))));
+  const openLocal = async (localPath: string, rel: string) => {
+    const names = await readLocal(localPath, rel);
+    await Promise.all(
+      names.map((name) => readLocal(localPath, rel ? `${rel}/${name}` : name)),
+    );
   };
-  const foldLocal = (full: string, isOpen: boolean) => {
-    if (isOpen) void openLocal(full);
+  const foldLocal = (localPath: string, rel: string, isOpen: boolean) => {
+    const key = localKey(localPath, rel);
+    if (isOpen) void openLocal(localPath, rel);
     setLocalOpen((current) => {
       const next = new Set(current);
-      if (isOpen) next.add(full);
-      else next.delete(full);
+      if (isOpen) next.add(key);
+      else next.delete(key);
       return next;
     });
   };
@@ -245,7 +252,7 @@ export function FolderChooser({
   const addFromComputer = async () => {
     const localPath = await desktop.chooseFolder(data.homeDir);
     if (!localPath) return;
-    foldLocal(localPath, true);
+    foldLocal(localPath, "", true);
     setComputer((current) => [
       ...current.filter((each) => each.localPath !== localPath),
       {
@@ -466,13 +473,13 @@ export function FolderChooser({
     rel: string,
     depth: number,
   ): ReactNode => {
-    const full = rel ? join(each.localPath, ...rel.split("/")) : each.localPath;
-    const children = localChildren[full];
-    const isOpen = localOpen.has(full);
+    const key = localKey(each.localPath, rel);
+    const children = localChildren[key];
+    const isOpen = localOpen.has(key);
     const tick = localTick(each.skips, rel);
-    const fold = () => foldLocal(full, !isOpen);
+    const fold = () => foldLocal(each.localPath, rel, !isOpen);
     return (
-      <div key={full} role="group">
+      <div key={key} role="group">
         <FolderTreeRow
           depth={depth}
           disabled={tick === "blocked"}

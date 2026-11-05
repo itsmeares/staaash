@@ -183,8 +183,8 @@ export type DesktopApi = {
   >;
   chooseFolder: (defaultPath: string) => Promise<string | null>;
   folderWarning: (localPath: string) => Promise<string | null>;
-  /** The names of the folders directly inside, that sync would see. */
-  localFolders: (localPath: string) => Promise<string[]>;
+  /** The folders directly inside `rel`, a `/` path within `localPath`, that sync would see. */
+  localFolders: (localPath: string, rel: string) => Promise<string[]>;
   createServerFolder: (
     parentId: string,
     name: string,

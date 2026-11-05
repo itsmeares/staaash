@@ -14,6 +14,7 @@ import {
 } from "electron";
 
 import { createApi, fetchVersion } from "../engine/api";
+import { localPath } from "../engine/local";
 import { SYNC_LOG_NAME } from "../engine/log";
 import { createIgnore } from "../engine/names";
 import { freeBytes } from "../engine/transfer";
@@ -515,12 +516,12 @@ const registerIpc = () => {
   handle("folder-warning", (localPath: string) =>
     otherSyncAppWarning(localPath),
   );
-  handle("local-folders", async (localPath: string) => {
+  handle("local-folders", async (root: string, rel: string) => {
     const ignore = createIgnore(settings.ignore);
     // A folder that can't be read shows nothing to leave out; sync reports it.
-    const dirents = await readdir(localPath, { withFileTypes: true }).catch(
-      () => [],
-    );
+    const dirents = await readdir(localPath(root, rel), {
+      withFileTypes: true,
+    }).catch(() => []);
     return dirents
       .filter((dirent) => dirent.isDirectory() && !ignore(dirent.name))
       .map((dirent) => dirent.name)
