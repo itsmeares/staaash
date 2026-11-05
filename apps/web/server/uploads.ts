@@ -264,7 +264,7 @@ export const stageUpload = async (
     conflictStrategy,
     clientModifiedAt,
     tmpPath,
-    mimeType: resolveUploadMimeType(file.type, file.name),
+    mimeType: resolveUploadMimeType(file.type, originalName),
     sizeBytes,
     actualChecksum,
   };
