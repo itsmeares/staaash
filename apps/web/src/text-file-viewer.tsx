@@ -11,12 +11,32 @@ const MarkdownView = lazy(() => import("./markdown-view"));
 
 const isMarkdown = (name: string) => /\.(md|markdown|mdown)$/i.test(name);
 
+// Every line becomes DOM nodes, so a huge log would freeze the tab.
+const TEXT_PREVIEW_MAX_BYTES = 256 * 1024;
+
+type FileText = { text: string; truncated: boolean };
+
+async function fetchFileText(href: string): Promise<FileText> {
+  const response = await fetch(href, {
+    headers: { range: `bytes=0-${TEXT_PREVIEW_MAX_BYTES - 1}` },
+  });
+  // An empty file has no byte 0 to start a range at.
+  if (response.status === 416) return { text: "", truncated: false };
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const total = Number(
+    response.headers.get("content-range")?.split("/")[1] ?? 0,
+  );
+  return {
+    text: await response.text(),
+    truncated: response.status === 206 && total > TEXT_PREVIEW_MAX_BYTES,
+  };
+}
+
 /** The file's text, or null while it loads; "failed" if it couldn't. */
 function useFileText(href: string) {
-  const [text, setText] = useState<string | null | "failed">(null);
+  const [text, setText] = useState<FileText | null | "failed">(null);
   useEffect(() => {
-    fetch(href)
-      .then((response) => response.text())
+    fetchFileText(href)
       .then(setText)
       .catch(() => setText("failed"));
   }, [href]);
@@ -78,14 +98,15 @@ export function TextFileViewer({
   name: string;
 }) {
   const markdown = isMarkdown(name);
-  const text = useFileText(contentHref);
+  const file = useFileText(contentHref);
   const [mode, setMode] = useState<"formatted" | "source">(
     markdown ? "formatted" : "source",
   );
   const [wrap, setWrap] = useState(true);
 
-  if (text === "failed") return <Note>This file could not be loaded.</Note>;
-  if (text === null) return <Note>Loading…</Note>;
+  if (file === "failed") return <Note>This file could not be loaded.</Note>;
+  if (file === null) return <Note>Loading…</Note>;
+  const { text } = file;
 
   return (
     <div className="flex min-h-0 w-full flex-col">
@@ -125,6 +146,7 @@ export function TextFileViewer({
         ) : (
           <CodeView text={text} wrap={wrap} />
         )}
+        {file.truncated ? <Note>Only the first 256 KB is shown.</Note> : null}
       </div>
     </div>
   );

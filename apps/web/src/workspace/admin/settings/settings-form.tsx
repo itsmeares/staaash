@@ -3,7 +3,6 @@ import {
   Cpu,
   Download,
   Film,
-  Image as ImageIcon,
   KeyRound,
   RefreshCw,
   Upload,
@@ -63,10 +62,6 @@ const DAYS_OR_YEARS: Unit[] = [
   { label: "days", factor: 1 },
   { label: "years", factor: 365 },
 ];
-const SMALL_BYTES: Unit[] = [
-  { label: "KB", factor: 1024 },
-  { label: "MB", factor: 1024 ** 2 },
-];
 const fixed = (label: string): Unit[] => [{ label, factor: 1 }];
 
 const CHANNELS = [
@@ -84,7 +79,6 @@ const SECTIONS: Record<string, SettingsField[]> = {
     "resumableMaxReservedBytesPerUser",
     "resumableMaxReservedBytesInstance",
   ],
-  previews: ["previewMaxSourceBytes", "previewTextMaxBytes"],
   media: [
     "mediaThumbnailsEnabled",
     "mediaPreviewEnabled",
@@ -244,27 +238,6 @@ export function SettingsForm({
             "Staged space in total",
             "Across everyone",
             unit("resumableMaxReservedBytesInstance", BYTES),
-          )}
-        </SettingsCard>
-      ),
-    },
-    {
-      id: "previews",
-      label: "Previews",
-      icon: ImageIcon,
-      content: (
-        <SettingsCard>
-          {row(
-            "previewMaxSourceBytes",
-            "Largest file to preview",
-            "Bigger files show an icon",
-            unit("previewMaxSourceBytes", BYTES),
-          )}
-          {row(
-            "previewTextMaxBytes",
-            "Largest text to preview",
-            "Longer text shows the first part",
-            unit("previewTextMaxBytes", SMALL_BYTES),
           )}
         </SettingsCard>
       ),

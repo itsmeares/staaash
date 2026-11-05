@@ -2505,8 +2505,6 @@ export const SystemSettingsScalarFieldEnum = {
   uploadStagingRetentionHours: 'uploadStagingRetentionHours',
   resumableMaxReservedBytesPerUser: 'resumableMaxReservedBytesPerUser',
   resumableMaxReservedBytesInstance: 'resumableMaxReservedBytesInstance',
-  previewMaxSourceBytes: 'previewMaxSourceBytes',
-  previewTextMaxBytes: 'previewTextMaxBytes',
   workerHeartbeatMaxAgeSeconds: 'workerHeartbeatMaxAgeSeconds',
   updateCheckEnabled: 'updateCheckEnabled',
   updateChannel: 'updateChannel',
