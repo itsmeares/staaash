@@ -602,6 +602,29 @@ describe("restore reconciliation worker handler", () => {
       await rm(filesRoot, { recursive: true, force: true });
     });
 
+    it("keeps a file that was moved to trash after its row was read", async () => {
+      const filesRoot = createTempFilesRoot();
+      const trashedKey = ".trash/member/Original.txt";
+      await mkdir(path.join(filesRoot, ".trash", "member"), {
+        recursive: true,
+      });
+      await writeFile(path.join(filesRoot, trashedKey), "ok", "utf8");
+      const updateMany = vi.fn(async () => ({ count: 1 }));
+      const findMany = vi
+        .fn()
+        .mockResolvedValueOnce([before])
+        .mockResolvedValue([
+          { ...before, storageKey: trashedKey, storageRevision: 1 },
+        ]);
+
+      await handleRestoreReconciliation(job("job-trashed"), paths(filesRoot), {
+        file: { findMany, updateMany },
+      });
+
+      expectNothingReported("job-trashed", updateMany);
+      await rm(filesRoot, { recursive: true, force: true });
+    });
+
     it("keeps a file whose rename ends between the journal and file reads", async () => {
       const filesRoot = await renamedOnDisk();
       const updateMany = vi.fn(async () => ({ count: 1 }));

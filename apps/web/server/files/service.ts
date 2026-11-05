@@ -1505,13 +1505,14 @@ export const createFilesService = ({
     actorRole,
     actorUserId,
     fileId,
-  }: FileLookupInput) => {
+    includeMissing,
+  }: FileLookupInput & { includeMissing?: boolean }) => {
     const file = assertFileAccess(
       {
         actorRole,
         actorUserId,
       },
-      await (await resolveRepo()).findFileById(fileId),
+      await (await resolveRepo()).findFileById(fileId, { includeMissing }),
     );
     if (!repo) await assertStorageEntityReadable("file", file.id);
     return file;
@@ -4728,14 +4729,19 @@ export const createFilesService = ({
         requestHashPayload,
       });
       if (replay) return replayFileMutation(replay, fileId);
+      // Trash lists files whose data is missing, so say why restore refuses.
       const file = await getOwnedFile({
         actorRole,
         actorUserId,
         fileId,
+        includeMissing: true,
       });
 
       if (!file.deletedAt) {
         throw new FilesError("FILE_ALREADY_ACTIVE");
+      }
+      if (file.storageStatus === "missing") {
+        throw new FilesError("FILE_CONTENT_MISSING");
       }
 
       const filesRoot = await ensureFilesRoot(file.ownerUserId);
