@@ -1,4 +1,4 @@
-import { readdir, writeFile } from "node:fs/promises";
+import { readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -28,6 +28,17 @@ describe("upload guardrails", () => {
       code: "FILE_NAME_INVALID_CHARACTER",
     });
     expect(stream).not.toHaveBeenCalled();
+  });
+
+  it("guesses a generic upload's type from its stored name, not the part name", async () => {
+    const staged = await stageUpload({
+      clientKey: "blob-part",
+      originalName: "photo.png",
+      conflictStrategy: "fail",
+      file: new File(["fake"], "blob", { type: "application/octet-stream" }),
+    });
+    expect(staged.mimeType).toBe("image/png");
+    await rm(staged.tmpPath, { force: true });
   });
 
   it("reads a null client time as no time, not 1970", () => {

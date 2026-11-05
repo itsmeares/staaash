@@ -6,6 +6,24 @@ import {
   resolveViewerKind,
 } from "./media-types.js";
 
+describe("upload type from the file name", () => {
+  it.each([
+    ["Photo.PNG", "application/octet-stream", "image/png"],
+    ["clip.mp4", "application/octet-stream", "video/mp4"],
+    ["clip.mov", "", "video/quicktime"],
+    ["song.mp3", "application/octet-stream", "audio/mpeg"],
+    ["scan.pdf", "application/octet-stream", "application/pdf"],
+    ["notes.txt", "application/octet-stream", "text/plain"],
+    ["clip.mp4", "video/webm", "video/webm"],
+    ["page.html", "application/octet-stream", "application/octet-stream"],
+    ["logo.svg", "application/octet-stream", "application/octet-stream"],
+    ["archive.png.zip", "", "application/octet-stream"],
+    ["png", "", "application/octet-stream"],
+  ])("stores %s sent as %j as %s", (name, mime, expected) => {
+    expect(resolveUploadMimeType(mime, name)).toBe(expected);
+  });
+});
+
 describe("HEIC recognition", () => {
   it.each([
     ["photo.HEIC", "", "image/heic"],
@@ -13,7 +31,7 @@ describe("HEIC recognition", () => {
     ["photo.HeIc", " APPLICATION/OCTET-STREAM; charset=binary", "image/heic"],
     ["photo.heic", "image/jpeg", "image/jpeg"],
     ["photo.heic", "application/pdf", "application/pdf"],
-    ["photo.jpg", "", "application/octet-stream"],
+    ["photo.jpg", "", "image/jpeg"],
     ["file.constructor", "", "application/octet-stream"],
     ["heic", "", "application/octet-stream"],
     ["heif", "application/octet-stream", "application/octet-stream"],

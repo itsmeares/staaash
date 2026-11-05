@@ -32,13 +32,49 @@ export const isHeicFile = (file: { mimeType: string; name: string }) => {
   );
 };
 
+/**
+ * Types the viewer can show, for uploads that name none, like the desktop app.
+ * Active content (HTML, SVG, scripts) stays out, so a guess never makes a file
+ * render differently than its uploader asked.
+ */
+const EXTENSION_MIME_TYPES = new Map([
+  ...HEIC_EXTENSION_MIME_TYPES,
+  ["avif", "image/avif"],
+  ["bmp", "image/bmp"],
+  ["gif", "image/gif"],
+  ["jpeg", "image/jpeg"],
+  ["jpg", "image/jpeg"],
+  ["png", "image/png"],
+  ["webp", "image/webp"],
+  ["avi", "video/x-msvideo"],
+  ["m4v", "video/mp4"],
+  ["mkv", "video/x-matroska"],
+  ["mov", "video/quicktime"],
+  ["mp4", "video/mp4"],
+  ["ogv", "video/ogg"],
+  ["webm", "video/webm"],
+  ["aac", "audio/aac"],
+  ["flac", "audio/flac"],
+  ["m4a", "audio/mp4"],
+  ["mp3", "audio/mpeg"],
+  ["oga", "audio/ogg"],
+  ["ogg", "audio/ogg"],
+  ["opus", "audio/ogg"],
+  ["wav", "audio/wav"],
+  ["pdf", "application/pdf"],
+  ["csv", "text/csv"],
+  ["log", "text/plain"],
+  ["md", "text/markdown"],
+  ["txt", "text/plain"],
+]);
+
 export const resolveUploadMimeType = (mimeType: string, fileName: string) => {
   const normalized = normalizeMimeType(mimeType);
   if (normalized && normalized !== "application/octet-stream") return mimeType;
   const dot = fileName.lastIndexOf(".");
   const extension = dot < 0 ? "" : fileName.slice(dot + 1).toLowerCase();
   return (
-    HEIC_EXTENSION_MIME_TYPES.get(extension) ??
+    EXTENSION_MIME_TYPES.get(extension) ??
     (normalized ? mimeType : "application/octet-stream")
   );
 };
