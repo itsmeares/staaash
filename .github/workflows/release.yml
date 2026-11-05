@@ -52,21 +52,6 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.sha }}
-          token: ${{ steps.app-token.outputs.token }}
-
-      - name: Resolve App bot identity
-        id: app-bot
-        env:
-          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
-        run: |
-          set -euo pipefail
-          APP_BOT_ID="$(
-            curl --fail --silent --show-error --location \
-              --header "Accept: application/vnd.github+json" \
-              "https://api.github.com/users/${APP_SLUG}%5Bbot%5D" |
-              jq --exit-status --raw-output '.id'
-          )"
-          echo "user-id=$APP_BOT_ID" >> "$GITHUB_OUTPUT"
 
       - name: Verify dispatch base
         env:
@@ -112,11 +97,13 @@ jobs:
       - name: Commit package versions
         id: commit
         env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_BRANCH: ${{ steps.version.outputs.release_branch }}
           VERSION_CHANGED: ${{ steps.version.outputs.changed }}
-          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
-          APP_BOT_ID: ${{ steps.app-bot.outputs.user-id }}
         run: |
+          set -euo pipefail
+          RELEASE_SHA="$(git rev-parse HEAD)"
           if [[ "$VERSION_CHANGED" == "true" ]]; then
             git diff --check
             FILES=(package.json apps/web/package.json apps/worker/package.json packages/config/package.json packages/db/package.json)
@@ -130,21 +117,48 @@ jobs:
               printf '%s\n' "$ACTUAL_FILES" >&2
               exit 1
             fi
-            git config user.name "${APP_SLUG}[bot]"
-            git config user.email "${APP_BOT_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
-            git commit -m "chore(release): prepare $RELEASE_TAG"
+            # GitHub signs commits an App makes through the API, so the release
+            # commit shows as Verified. A local commit pushed with git would not.
+            ADDITIONS="$(
+              for FILE in "${FILES[@]}"; do
+                jq -n --arg path "$FILE" --arg contents "$(base64 -w0 "$FILE")" '{$path, $contents}'
+              done | jq -s .
+            )"
+            RELEASE_SHA="$(
+              jq -n \
+                --arg repo "$GITHUB_REPOSITORY" \
+                --arg branch "$RELEASE_BRANCH" \
+                --arg head "$RELEASE_SHA" \
+                --arg headline "chore(release): prepare $RELEASE_TAG" \
+                --argjson additions "$ADDITIONS" \
+                '{
+                  query: "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid } } }",
+                  variables: { input: {
+                    branch: { repositoryNameWithOwner: $repo, branchName: $branch },
+                    expectedHeadOid: $head,
+                    message: { headline: $headline },
+                    fileChanges: { additions: $additions }
+                  } }
+                }' |
+                gh api graphql --input - --jq '.data.createCommitOnBranch.commit.oid'
+            )"
+            if [[ ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "GitHub returned no release commit: $RELEASE_SHA" >&2
+              exit 1
+            fi
+            git fetch --quiet origin "$RELEASE_SHA"
+            if [[ "$(git rev-parse "$RELEASE_SHA^{tree}")" != "$(git write-tree)" ]]; then
+              echo "Release commit $RELEASE_SHA does not match the prepared versions." >&2
+              exit 1
+            fi
           fi
-          echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
 
-      - name: Push release commit
+      - name: Confirm release branch head
         env:
           RELEASE_SHA: ${{ steps.commit.outputs.release_sha }}
           RELEASE_BRANCH: ${{ steps.version.outputs.release_branch }}
-          VERSION_CHANGED: ${{ steps.version.outputs.changed }}
         run: |
-          if [[ "$VERSION_CHANGED" == "true" ]]; then
-            git push origin "HEAD:refs/heads/$RELEASE_BRANCH"
-          fi
           REMOTE_SHA="$(git ls-remote origin "refs/heads/$RELEASE_BRANCH" | cut -f1)"
           if [[ "$REMOTE_SHA" != "$RELEASE_SHA" ]]; then
             echo "origin/$RELEASE_BRANCH is $REMOTE_SHA; expected $RELEASE_SHA." >&2
@@ -345,8 +359,21 @@ jobs:
       - name: Recheck immutable tooling and tag identity
         run: node tooling/scripts/release/index.mjs verify-tag
 
+      # The release author is whoever creates it, so the release App creates it.
+      - name: Create repository token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
       - name: Create or resolve release
         id: release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: node tooling/scripts/release/index.mjs ensure-release
 
       - name: Capture exact release ID

@@ -27,22 +27,14 @@ describe("release workflow topology", () => {
       "private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}",
     );
     expect(workflow).toContain("ref: ${{ github.sha }}");
-    expect(workflow).toContain("token: ${{ steps.app-token.outputs.token }}");
-    expect(workflow).toContain("- name: Resolve App bot identity");
-    expect(workflow).toContain("curl --fail --silent --show-error --location");
-    expect(workflow).toContain(
-      "https://api.github.com/users/${APP_SLUG}%5Bbot%5D",
-    );
-    expect(workflow).toContain('git config user.name "${APP_SLUG}[bot]"');
-    expect(workflow).toContain(
-      'git config user.email "${APP_BOT_ID}+${APP_SLUG}[bot]@users.noreply.github.com"',
-    );
     expect(workflow).toContain(
       "run: node scripts/release/index.mjs prepare-version",
     );
-    expect(workflow).toContain(
-      'git push origin "HEAD:refs/heads/$RELEASE_BRANCH"',
-    );
+    // Only commits GitHub creates through the API are signed and Verified.
+    expect(workflow).toContain("createCommitOnBranch(input: $input)");
+    expect(workflow).toContain("expectedHeadOid: $head");
+    expect(workflow).not.toContain("git push");
+    expect(workflow).not.toContain("git commit");
     expect(workflow).toContain(
       "RELEASE_BRANCH: ${{ steps.version.outputs.release_branch }}",
     );
@@ -113,6 +105,15 @@ describe("release workflow topology", () => {
     expect(workflow).not.toContain("release_ci_run_id:");
   });
 
+  it("creates the release as the release App", async () => {
+    const workflow = await readWorkflow();
+    const publishJob = workflow.slice(workflow.indexOf("\n  publish:"));
+
+    expect(publishJob).toContain(
+      "- name: Create or resolve release\n        id: release\n        env:\n          GH_TOKEN: ${{ steps.app-token.outputs.token }}",
+    );
+  });
+
   it("propagates the resolved release ID to every later step", async () => {
     const workflow = await readWorkflow();
     const ensureRelease = workflow.indexOf("- name: Create or resolve release");
@@ -174,7 +175,7 @@ describe("release workflow topology", () => {
       "version:\n        description: New release version to prepare and publish",
     );
     expect(workflow).toContain(
-      'git commit -m "chore(release): prepare $RELEASE_TAG"',
+      '--arg headline "chore(release): prepare $RELEASE_TAG"',
     );
     expect(workflow).not.toContain("prepare-release.yml");
     expect(workflow).not.toContain("pull_request");
