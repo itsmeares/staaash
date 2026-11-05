@@ -6,7 +6,7 @@ import type { Api } from "./api";
 import { ApiError } from "./api";
 import type { LocalEntry, LocalScan } from "./local";
 import { hashFile, localPath, sameStat, scanLocal, statLocal } from "./local";
-import { baseName, parentRel, pathKey } from "./names";
+import { baseName, leftOutOf, parentRel, pathKey } from "./names";
 import type { Action, Excluded, Hold, LocalFile } from "./plan";
 import { conflictCopyName, plan } from "./plan";
 import type { RemoteTree } from "./remote";
@@ -650,11 +650,11 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
   let retrySoon = false;
   // Files that could not be read for hashing sit out the rest of the pass.
   const unhashable: Excluded[] = [];
-  const leftOut = new Set(pair.skipFolders?.map((folder) => folder.id));
+  const leftOut = leftOutOf(pair);
   for (let round = 0; round < MAX_ROUNDS && ctx.current(); round += 1) {
     let scan;
     try {
-      scan = await scanLocal(pair.localPath, ctx.ignore);
+      scan = await scanLocal(pair.localPath, ctx.ignore, leftOut.local);
     } catch (error) {
       ctx.scanned(null);
       if (typeof (error as NodeJS.ErrnoException).syscall !== "string") {
@@ -672,7 +672,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     const { items, skipped, ignored } = tree.scope(
       pair.remoteFolderId,
       ctx.ignore,
-      leftOut,
+      leftOut.remote,
     );
     ctx.scanned(scan);
     folderIds = new Map(

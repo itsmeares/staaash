@@ -5,9 +5,11 @@ import { buildMoveTree } from "@/src/workspace/move-tree";
 import {
   type Picks,
   findFolders,
+  localTick,
   namesTo,
   pickedFolders,
   tickOf,
+  toggleLocalTick,
   toggleTick,
 } from "./folder-picks";
 
@@ -79,4 +81,21 @@ it("finds folders by name or path, with either slash", () => {
   expect(found("photos\\2024/")).toEqual(["2024"]);
   expect(found("  ")).toEqual([]);
   expect(namesTo(tree, "2024")).toEqual(["Photos", "2024"]);
+});
+
+it("leaves out computer subfolders, and shows what is inside them as off", () => {
+  let skips = toggleLocalTick([], "Raw/Originals");
+  expect(localTick(skips, "")).toBe("part");
+  expect(localTick(skips, "Raw")).toBe("part");
+  expect(localTick(skips, "Raw/Originals")).toBe("off");
+  expect(localTick(skips, "Raw2")).toBe("on");
+
+  skips = toggleLocalTick(skips, "Raw");
+  expect(skips).toEqual([]);
+  skips = toggleLocalTick(skips, "Raw");
+  expect(skips).toEqual(["Raw"]);
+  expect(localTick(skips, "Raw/Originals")).toBe("blocked");
+
+  expect(toggleLocalTick(skips, "Raw")).toEqual([]);
+  expect(toggleLocalTick(["Raw", "Videos"], "")).toEqual([]);
 });

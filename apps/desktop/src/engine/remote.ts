@@ -190,7 +190,7 @@ export class RemoteTree {
   scope(
     rootId: string,
     ignore: (name: string) => boolean = () => false,
-    leftOut: ReadonlySet<string> = new Set(),
+    leftOut: (id: string, rel: string) => boolean = () => false,
   ) {
     const items: ScopedItem[] = [];
     const skipped: SkippedItem[] = [];
@@ -208,7 +208,7 @@ export class RemoteTree {
       for (const group of byKey.values()) {
         for (const item of group) {
           const rel = joinRel(parentRel, item.name);
-          if (ignore(item.name) || leftOut.has(item.id)) {
+          if (ignore(item.name) || leftOut(item.id, rel)) {
             ignored.push({ rel, item });
             continue;
           }

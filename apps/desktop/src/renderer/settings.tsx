@@ -20,12 +20,22 @@ import {
 import { Switch } from "@staaash/ui/components/switch";
 import { Textarea } from "@staaash/ui/components/textarea";
 
-import type { AppState, Settings, SizeReading } from "../shared/types";
+import type {
+  AppState,
+  Settings,
+  SizeReading,
+  SyncPair,
+} from "../shared/types";
 import { AppGlyph } from "./app-glyph";
 import { FolderChooser, ModeSelect } from "./folder-chooser";
 import { desktop } from "./state";
 
 const GB = 1024 ** 3;
+
+const skipsOf = (pair: SyncPair) => [
+  ...(pair.skipFolders ?? []).map(({ label }) => label),
+  ...(pair.skipPaths ?? []),
+];
 
 function Screen({
   title,
@@ -273,8 +283,8 @@ export function FoldersPage({ state }: { state: AppState }) {
                     title={pair.localPath}
                   >
                     {pair.localPath}
-                    {pair.skipFolders?.length
-                      ? `. Skips ${pair.skipFolders.map(({ label }) => label).join(", ")}`
+                    {skipsOf(pair).length
+                      ? `. Skips ${skipsOf(pair).join(", ")}`
                       : ""}
                   </span>
                   <FolderState pairId={pair.id} state={state} />

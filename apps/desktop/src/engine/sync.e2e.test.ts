@@ -744,6 +744,67 @@ describe.skipIf(!origin)("sync against a real server", () => {
     });
   });
 
+  describe("skipped computer folders", () => {
+    const skipping = (
+      r: Awaited<ReturnType<typeof rig>>,
+      skipPaths: string[],
+    ) => ({
+      id: "pair",
+      localPath: r.local,
+      remoteFolderId: r.folderId,
+      remoteLabel: "test",
+      mode: "two-way" as const,
+      skipPaths,
+    });
+
+    it("leaves a skipped path alone on both sides and syncs the rest", async () => {
+      const r = await rig("two-way", undefined, { paused: true });
+      const raw = await server.createFolder("raw", r.folderId);
+      await server.upload(raw, "server.txt", "server");
+      await server.upload(r.folderId, "top.txt", "top");
+      await writeOld(r.at("mine.txt"), "mine");
+      await writeOld(r.at("raw/local.txt"), "local");
+      await writeOld(r.at("raw/deep/more.txt"), "more");
+      await r.configure({ pairs: [skipping(r, ["raw"])], paused: false });
+      await r.sync();
+      expect(await tree(r.local)).toEqual({
+        "mine.txt": "mine",
+        "raw/": "",
+        "raw/deep/": "",
+        "raw/deep/more.txt": "more",
+        "raw/local.txt": "local",
+        "top.txt": "top",
+      });
+      const remote = await r.remote();
+      expect(remote.get("mine.txt")?.contentChecksum).toBe(sha("mine"));
+      expect(remote.get("raw/server.txt")?.contentChecksum).toBe(sha("server"));
+      expect(remote.has("raw/local.txt")).toBe(false);
+      expect(r.engine.status().folderSizes.pair).toMatchObject({
+        server: { bytes: 7 },
+        computer: { bytes: 7 },
+      });
+    });
+
+    it("trashes nothing when a synced path becomes skipped, and combines when it comes back", async () => {
+      const r = await rig();
+      await writeOld(r.at("docs/a.txt"), "a");
+      await r.sync();
+      await r.configure({ pairs: [skipping(r, ["docs"])] });
+      await writeOld(r.at("docs/b.txt"), "b");
+      await r.sync();
+      expect(await readdir(r.trash)).toEqual([]);
+      const skipped = await r.remote();
+      expect(skipped.get("docs/a.txt")?.contentChecksum).toBe(sha("a"));
+      expect(skipped.has("docs/b.txt")).toBe(false);
+      await r.configure({ pairs: [skipping(r, [])] });
+      await r.sync();
+      expect((await r.remote()).get("docs/b.txt")?.contentChecksum).toBe(
+        sha("b"),
+      );
+      expect(await readdir(r.trash)).toEqual([]);
+    });
+  });
+
   describe("ignored names", () => {
     it("keeps the server copy of a synced file once its name is ignored", async () => {
       const r = await rig();

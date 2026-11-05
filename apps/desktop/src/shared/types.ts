@@ -11,8 +11,13 @@ export type SyncPair = {
   /** The server path, for display only. */
   remoteLabel: string;
   mode: SyncMode;
-  /** Folders left out of this pair, with all they hold. */
+  /** Server folders left out of this pair, with all they hold. */
   skipFolders?: { id: string; label: string }[];
+  /**
+   * Computer folders left out, by their path inside `localPath`. A server
+   * folder at the same path is left out too.
+   */
+  skipPaths?: string[];
 };
 
 export type Settings = {
@@ -178,6 +183,8 @@ export type DesktopApi = {
   >;
   chooseFolder: (defaultPath: string) => Promise<string | null>;
   folderWarning: (localPath: string) => Promise<string | null>;
+  /** The folders directly inside `rel`, a `/` path within `localPath`, that sync would see. */
+  localFolders: (localPath: string, rel: string) => Promise<string[]>;
   createServerFolder: (
     parentId: string,
     name: string,

@@ -44,6 +44,7 @@ const sizeKey = (config: EngineConfig, pair: SyncPair) =>
     pair.localPath,
     pair.remoteFolderId,
     pair.skipFolders?.map(({ id }) => id) ?? [],
+    pair.skipPaths ?? [],
     config.ignore,
   ]);
 

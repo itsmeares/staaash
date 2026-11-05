@@ -1,5 +1,7 @@
 /** Names that this computer cannot hold, and names sync never touches. */
 
+import type { SyncPair } from "../shared/types";
+
 /** Windows and macOS file systems ignore case by default. */
 const caseInsensitive =
   process.platform === "win32" || process.platform === "darwin";
@@ -82,4 +84,18 @@ export const createIgnore = (patterns: string[]) => {
     .filter(Boolean)
     .map(globToRegExp);
   return (name: string) => rules.some((rule) => rule.test(name));
+};
+
+/** What a pair leaves out: server folders by id, and folders by path on both sides. */
+export const leftOutOf = (
+  pair: Pick<SyncPair, "skipFolders" | "skipPaths">,
+) => {
+  const ids = new Set(pair.skipFolders?.map(({ id }) => id));
+  const paths = new Set(pair.skipPaths?.map(pathKey));
+  const local = (rel: string) => paths.has(pathKey(rel));
+  return {
+    ids,
+    local,
+    remote: (id: string, rel: string) => ids.has(id) || local(rel),
+  };
 };

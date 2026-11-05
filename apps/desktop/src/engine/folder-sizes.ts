@@ -1,6 +1,6 @@
 import type { SyncPair } from "../shared/types";
 import type { LocalScan } from "./local";
-import { baseName, pathKey } from "./names";
+import { baseName, leftOutOf, pathKey } from "./names";
 import type { RemoteTree } from "./remote";
 
 export const folderSizes = (
@@ -9,11 +9,11 @@ export const folderSizes = (
   ignore: (name: string) => boolean,
   scan: LocalScan | null,
 ) => {
-  const skippedIds = new Set(pair.skipFolders?.map((folder) => folder.id));
+  const leftOut = leftOutOf(pair);
   const { items, ignored, skipped } = tree.scope(
     pair.remoteFolderId,
     ignore,
-    skippedIds,
+    leftOut.remote,
   );
   const excluded = new Set(
     [...ignored, ...skipped].map(({ rel }) => pathKey(rel)),
@@ -31,7 +31,7 @@ export const folderSizes = (
   const server = remoteFiles.some(({ item }) => item.size === null)
     ? null
     : remoteFiles.reduce((sum, { item }) => sum + (item.size ?? 0), 0);
-  const missingSkip = [...skippedIds].some(
+  const missingSkip = [...leftOut.ids].some(
     (id) => !ignored.some(({ item }) => item.id === id),
   );
   const incomplete = scan?.excluded.some(
