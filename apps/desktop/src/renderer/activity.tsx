@@ -4,6 +4,7 @@ import {
   ArrowUp,
   Check,
   CircleAlert,
+  Clock,
   Pause,
   TriangleAlert,
   WifiOff,
@@ -14,7 +15,7 @@ import { Button } from "@staaash/ui/components/button";
 import { ItemTypeIcon } from "@staaash/ui/item-type-icon";
 import { getItemVisual } from "@staaash/ui/item-visuals";
 
-import { statusLine, uploadTimeLeft } from "../shared/status";
+import { statusLine, syncDetail, uploadTimeLeft } from "../shared/status";
 import type { Activity, AppState, Conflict, Issue } from "../shared/types";
 import { PauseButton } from "./pause";
 import type { Page } from "./shell";
@@ -297,9 +298,7 @@ const headline = (state: AppState) => {
       Icon: ActivityIcon,
       color: "var(--primary)",
       title: statusLine(state),
-      detail: status.pendingBytes
-        ? `${formatBytes(status.pendingBytes)} left`
-        : "",
+      detail: syncDetail(status),
     };
   }
   if (attention) {
@@ -335,8 +334,12 @@ export function ActivityPage({
   const activity = state.status?.activity ?? [];
   const running = activity.filter((each) => each.state === "active");
   const recent = activity.filter((each) => each.state !== "active");
-  const total = running.reduce((sum, each) => sum + each.bytes, 0);
-  const done = running.reduce((sum, each) => sum + each.doneBytes, 0);
+  const waiting = Math.max(
+    0,
+    (state.status?.pendingFiles ?? 0) - running.length,
+  );
+  const moved = state.status?.movedBytes ?? 0;
+  const total = moved + (state.status?.pendingBytes ?? 0);
   const { Icon, color, title, detail } = headline(state);
   const uploadSpeed = state.status?.uploadSpeed;
   const uploadEta =
@@ -402,7 +405,7 @@ export function ActivityPage({
         {total > 0 ? (
           <div
             className="h-full bg-primary"
-            style={{ width: `${(done / total) * 100}%` }}
+            style={{ width: `${(moved / total) * 100}%` }}
           />
         ) : null}
       </div>
@@ -422,7 +425,7 @@ export function ActivityPage({
             ))}
           </ul>
         ) : null}
-        {running.length > 0 ? (
+        {running.length + waiting > 0 ? (
           <section>
             <h2 className={group}>Now</h2>
             <ul className="m-0 list-none p-0">
@@ -433,6 +436,15 @@ export function ActivityPage({
                   key={`${each.pairId}:${each.rel}`}
                 />
               ))}
+              {waiting > 0 ? (
+                <li className="flex items-center gap-3 px-5 py-2 text-meta text-muted-foreground">
+                  <span className="grid size-8.5 shrink-0 place-items-center rounded-[0.625rem] bg-hover">
+                    <Clock aria-hidden className="size-4.25" />
+                  </span>
+                  {waiting.toLocaleString()} more file
+                  {waiting === 1 ? "" : "s"} waiting
+                </li>
+              ) : null}
             </ul>
           </section>
         ) : null}
@@ -449,7 +461,7 @@ export function ActivityPage({
               ))}
             </ul>
           </section>
-        ) : running.length === 0 ? (
+        ) : running.length + waiting === 0 ? (
           <p className="m-0 px-5 py-8 text-center text-body text-muted-foreground">
             Files you change show up here while they sync.
           </p>

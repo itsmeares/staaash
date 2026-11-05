@@ -14,7 +14,7 @@ import { afterEach, expect, it, vi } from "vite-plus/test";
 import type { Activity } from "../shared/types";
 import { ApiError, createApi } from "./api";
 import * as local from "./local";
-import { type PairContext, syncPair } from "./pair-sync";
+import { type PairContext, syncPair, type Waiting } from "./pair-sync";
 import { RemoteTree } from "./remote";
 import { Store } from "./store";
 import { LANES, Throttle, UploadMeter } from "./transfer";
@@ -59,6 +59,7 @@ const rig = async (names = ["a.txt", "b.txt"]) => {
       };
     });
   const activity: Activity[] = [];
+  const waiting: Waiting[] = [];
   const tree = new RemoteTree(store, new Set(["root"]));
   const ctx = {
     api,
@@ -81,6 +82,7 @@ const rig = async (names = ["a.txt", "b.txt"]) => {
       throw new Error("Unexpected trash");
     },
     activity: (update) => activity.push({ ...update }),
+    waiting: (each) => waiting.push(each),
     scanned: () => {},
     resolved: vi.fn<(rel: string) => void>(),
     notify: () => {},
@@ -88,7 +90,7 @@ const rig = async (names = ["a.txt", "b.txt"]) => {
     signal: new AbortController().signal,
     full: { size: Infinity, message: null as string | null },
   } satisfies PairContext;
-  return { ctx, start, failures, store, tree, directory, activity };
+  return { ctx, start, failures, store, tree, directory, activity, waiting };
 };
 
 it.each([
@@ -117,6 +119,36 @@ it.each([
   const second = await syncPair(r.ctx);
   expect(second.issues).toEqual([]);
   expect(r.store.baseEntries(r.ctx.pair.id)).toHaveLength(names.length);
+});
+
+it("reports every planned transfer until it starts, not just the running ones", async () => {
+  const names = Array.from({ length: 20 }, (_, i) => `f${i + 10}.txt`);
+  const r = await rig(names);
+  const bytes = Buffer.from("from the server");
+  r.tree.set({
+    id: "down",
+    type: "file",
+    parentId: "root",
+    name: "down.txt",
+    size: bytes.length,
+    checksum: createHash("sha256").update(bytes).digest("hex"),
+    rev: 1,
+    modifiedAt: null,
+  });
+  vi.spyOn(r.ctx.api, "download").mockImplementation(async () =>
+    new Blob([bytes]).stream(),
+  );
+  await syncPair(r.ctx);
+  const uploadBytes = names.join("").length;
+  expect(r.waiting[0]).toEqual({
+    files: 21,
+    bytes: uploadBytes + bytes.length,
+    uploadBytes,
+  });
+  expect(r.waiting.at(-1)).toEqual({ files: 0, bytes: 0, uploadBytes: 0 });
+  const files = r.waiting.map((each) => each.files);
+  // Only goes down as transfers start.
+  expect(files.slice(1).every((count, i) => count <= files[i]!)).toBe(true);
 });
 
 it("shows one server-full issue per folder when both limits refuse", async () => {

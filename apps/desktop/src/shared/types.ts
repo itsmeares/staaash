@@ -95,8 +95,13 @@ export type EngineStatus = {
   state: EngineState;
   uploadSpeed: number | null;
   uploadRemainingBytes: number;
+  /** Files moving now plus the ones planned after them. */
   pendingFiles: number;
   pendingBytes: number;
+  /** Bytes moved this pass, so progress fills once across the whole sync. */
+  movedBytes: number;
+  /** Folders this pass has not reached; their work is not counted yet. */
+  uncheckedFolders: number;
   fileCount: number;
   activity: Activity[];
   conflicts: Conflict[];

@@ -36,6 +36,8 @@ export type PairContext = {
   /** Moves a path to the OS trash; the main process owns that API. */
   trash: (file: string) => Promise<void>;
   activity: (update: Activity) => void;
+  /** Transfers this round planned and has not started yet. */
+  waiting: (waiting: Waiting) => void;
   scanned: (scan: LocalScan | null) => void;
   resolved: (rel: string) => void;
   notify: (title: string, body: string) => void;
@@ -54,6 +56,8 @@ export type PairContext = {
    */
   full: { size: number; message: string | null };
 };
+
+export type Waiting = { files: number; bytes: number; uploadBytes: number };
 
 export type PairResult = {
   issues: Issue[];
@@ -85,6 +89,9 @@ const uploadSize = (action: Action) =>
   action.kind === "upload" || action.kind === "keep-mine"
     ? action.local.size
     : null;
+
+const transferSize = (action: Action) =>
+  action.kind === "download" ? (action.remote.size ?? 0) : uploadSize(action);
 
 /** Downloads, big uploads and small uploads each get their own lane. */
 const transferLanes = (actions: Action[]) => {
@@ -601,7 +608,18 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     };
   };
 
+  let queued = new Set<Action>();
+  const reportWaiting = () => {
+    const waiting = { files: queued.size, bytes: 0, uploadBytes: 0 };
+    for (const action of queued) {
+      waiting.bytes += transferSize(action) ?? 0;
+      waiting.uploadBytes += uploadSize(action) ?? 0;
+    }
+    ctx.waiting(waiting);
+  };
+
   const run = async (action: Action) => {
+    if (queued.delete(action)) reportWaiting();
     const rel = "rel" in action ? action.rel : action.from;
     if (!ctx.current() || waits(action)) return;
     try {
@@ -725,6 +743,8 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         order[a.kind] - order[b.kind] ||
         (uploadSize(a) ?? 0) - (uploadSize(b) ?? 0),
     );
+    queued = new Set(sorted.filter((action) => transferSize(action) !== null));
+    reportWaiting();
     // Folders first, top-down; transfers in parallel; deletions last.
     for (const stage of [0, 1, 2, 3, 4, 5]) {
       const batch = sorted.filter((action) => order[action.kind] === stage);
