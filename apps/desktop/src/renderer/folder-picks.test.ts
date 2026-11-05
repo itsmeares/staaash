@@ -97,4 +97,5 @@ it("leaves out computer subfolders, and shows what is inside them as off", () =>
   expect(localTick(skips, "Raw/Originals")).toBe("blocked");
 
   expect(toggleLocalTick(skips, "Raw")).toEqual([]);
+  expect(toggleLocalTick(["Raw", "Videos"], "")).toEqual([]);
 });

@@ -437,7 +437,7 @@ export function FolderChooser({
     );
   };
 
-  // The folder itself unticks to drop it; its subfolders untick to leave them out.
+  // A full tick on the folder itself drops it; any other click ticks all inside.
   const localTickBox = (each: ComputerFolder, rel: string) => {
     const tick = localTick(each.skips, rel);
     return (
@@ -447,7 +447,7 @@ export function FolderChooser({
           label={`Sync ${rel ? lastName(rel) : each.name}`}
           state={tick === "blocked" ? "off" : tick}
           onToggle={() =>
-            rel
+            rel || tick === "part"
               ? updateComputer(each.id, {
                   skips: toggleLocalTick(each.skips, rel),
                 })
