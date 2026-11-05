@@ -1547,6 +1547,29 @@ describe("files service", { concurrent: false }, () => {
     ).rejects.toBeDefined();
   });
 
+  it("refuses to restore a trashed file whose data is missing", async () => {
+    await cleanDataRoot();
+    const { repo, addFile } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+    const file = addFile({
+      ownerUserId: "member-1",
+      folderId: root.id,
+      name: "lost.txt",
+      storageKey: ".trash/member-1/lost.txt",
+      deletedAt: new Date(),
+      storageStatus: "missing",
+    });
+
+    await expect(
+      service.restoreFile({
+        actorUserId: "member-1",
+        actorRole: "member",
+        fileId: file.id,
+      }),
+    ).rejects.toMatchObject({ code: "FILE_CONTENT_MISSING", status: 409 });
+  });
+
   it("safe-renames uploads when interactive keep-both is selected", async () => {
     await cleanDataRoot();
     const { repo } = createMemoryRepository();

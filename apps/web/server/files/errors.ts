@@ -1,6 +1,7 @@
 export type FilesErrorCode =
   | "ACCESS_DENIED"
   | "FILE_ALREADY_ACTIVE"
+  | "FILE_CONTENT_MISSING"
   | "FILE_DELETE_REQUIRES_TRASH"
   | "FILE_MOVE_NOOP"
   | "FILE_NAME_CONFLICT"
@@ -29,6 +30,8 @@ export type FilesErrorCode =
 const filesErrorMessages: Record<FilesErrorCode, string> = {
   ACCESS_DENIED: "You do not have access to that folder.",
   FILE_ALREADY_ACTIVE: "That file is already active.",
+  FILE_CONTENT_MISSING:
+    "This file's data is missing from storage, so it cannot be restored.",
   FILE_DELETE_REQUIRES_TRASH:
     "Files must be moved to trash before they can be permanently deleted.",
   FILE_MOVE_NOOP: "That file is already in that location.",
@@ -71,6 +74,7 @@ const filesErrorMessages: Record<FilesErrorCode, string> = {
 const filesErrorStatuses: Record<FilesErrorCode, number> = {
   ACCESS_DENIED: 403,
   FILE_ALREADY_ACTIVE: 409,
+  FILE_CONTENT_MISSING: 409,
   FILE_DELETE_REQUIRES_TRASH: 409,
   FILE_MOVE_NOOP: 409,
   FILE_NAME_CONFLICT: 409,

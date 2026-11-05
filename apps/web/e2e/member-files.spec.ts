@@ -6,7 +6,10 @@ test("member can upload, rename, cut, paste, trash, restore and download unchang
   page,
 }) => {
   const credentials = getMemberCredentials();
-  const folderName = `Smoke Folder ${Date.now()}`;
+  const stamp = Date.now();
+  const folderName = `Smoke Folder ${stamp}`;
+  // Retries share the account, so each attempt needs its own file name.
+  const fileName = `Renamed ${stamp}.txt`;
 
   await signIn(page, credentials);
 
@@ -36,9 +39,9 @@ test("member can upload, rename, cut, paste, trash, restore and download unchang
   await original.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
   const rename = page.getByLabel("Rename Original.txt", { exact: true });
-  await rename.fill("Renamed.txt");
+  await rename.fill(fileName);
   await rename.press("Enter");
-  const renamed = page.getByRole("row").filter({ hasText: "Renamed.txt" });
+  const renamed = page.getByRole("row").filter({ hasText: fileName });
   await expect(renamed).toBeVisible();
   await renamed.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Cut", exact: true }).click();
@@ -72,7 +75,7 @@ test("member can upload, rename, cut, paste, trash, restore and download unchang
   await renamed.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Download", exact: true }).click();
   const download = await pendingDownload;
-  expect(download.suggestedFilename()).toBe("Renamed.txt");
+  expect(download.suggestedFilename()).toBe(fileName);
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];
   for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
