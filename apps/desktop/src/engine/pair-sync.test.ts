@@ -151,6 +151,44 @@ it("reports every planned transfer until it starts, not just the running ones", 
   expect(files.slice(1).every((count, i) => count <= files[i]!)).toBe(true);
 });
 
+it("leaves a skipped path alone on both sides and syncs the rest", async () => {
+  const r = await rig(["a.txt"]);
+  await mkdir(path.join(r.directory, "Raw"));
+  await writeFile(path.join(r.directory, "Raw", "mine.txt"), "mine");
+  r.tree.set({
+    id: "raw",
+    type: "folder",
+    parentId: "root",
+    name: "Raw",
+    size: null,
+    checksum: null,
+    rev: 1,
+    modifiedAt: null,
+  });
+  r.tree.set({
+    id: "theirs",
+    type: "file",
+    parentId: "raw",
+    name: "theirs.txt",
+    size: 6,
+    checksum: createHash("sha256").update("theirs").digest("hex"),
+    rev: 1,
+    modifiedAt: null,
+  });
+  const download = vi.spyOn(r.ctx.api, "download");
+  const ctx = { ...r.ctx, pair: { ...r.ctx.pair, skipPaths: ["Raw"] } };
+  const result = await syncPair(ctx);
+  expect(result.issues).toEqual([]);
+  expect(r.start.mock.calls.map(([input]) => input.name)).toEqual(["a.txt"]);
+  expect(download).not.toHaveBeenCalled();
+  expect(r.store.baseEntries(ctx.pair.id).map((entry) => entry.rel)).toEqual([
+    "a.txt",
+  ]);
+  expect(
+    await readFile(path.join(r.directory, "Raw", "mine.txt"), "utf8"),
+  ).toBe("mine");
+});
+
 it("shows one server-full issue per folder when both limits refuse", async () => {
   const r = await rig(["a.txt", "b.txt"]);
   r.failures.set("a.txt", [quota()]);

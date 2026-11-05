@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { appendFile, mkdir, rm } from "node:fs/promises";
+import { appendFile, mkdir, readdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -15,6 +15,7 @@ import {
 
 import { createApi, fetchVersion } from "../engine/api";
 import { SYNC_LOG_NAME } from "../engine/log";
+import { createIgnore } from "../engine/names";
 import { freeBytes } from "../engine/transfer";
 import type {
   AppState,
@@ -514,6 +515,17 @@ const registerIpc = () => {
   handle("folder-warning", (localPath: string) =>
     otherSyncAppWarning(localPath),
   );
+  handle("local-folders", async (localPath: string) => {
+    const ignore = createIgnore(settings.ignore);
+    // A folder that can't be read shows nothing to leave out; sync reports it.
+    const dirents = await readdir(localPath, { withFileTypes: true }).catch(
+      () => [],
+    );
+    return dirents
+      .filter((dirent) => dirent.isDirectory() && !ignore(dirent.name))
+      .map((dirent) => dirent.name)
+      .sort((a, b) => a.localeCompare(b));
+  });
   handle("create-server-folder", async (parentId: string, name: string) => {
     if (!token || !settings.serverUrl) return { error: "Not signed in." };
     try {

@@ -34,6 +34,22 @@ describe("reading files from disk", () => {
     }
   });
 
+  it("does not read inside a folder left out, and keeps its id", async () => {
+    const scan = await scanLocal(
+      root,
+      () => false,
+      (rel) => rel === "docs",
+    );
+    expect(scan.entries).toEqual([]);
+    expect(scan.excluded).toEqual([
+      {
+        rel: "docs",
+        ino: String(lstatSync(path.join(root, "docs"), { bigint: true }).ino),
+        reason: null,
+      },
+    ]);
+  });
+
   it("follows a file through a rename by its id", async () => {
     const before = await statLocal(root, "docs/a.txt");
     await rename(path.join(root, "docs/a.txt"), path.join(root, "docs/b.txt"));

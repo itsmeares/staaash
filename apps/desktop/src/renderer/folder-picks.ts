@@ -95,3 +95,21 @@ export const findFolders = (tree: FolderTree, typed: string) => {
     .filter(({ path }) => path.toLowerCase().includes(term))
     .sort((a, b) => a.path.length - b.path.length);
 };
+
+const inside = (rel: string, folder: string) =>
+  folder === "" || rel.startsWith(`${folder}/`);
+
+/**
+ * A computer subfolder's tick, from the paths its folder leaves out. Inside
+ * a folder that is left out, nothing can be ticked: one pair can't take it.
+ */
+export const localTick = (skips: readonly string[], rel: string) => {
+  if (skips.includes(rel)) return "off";
+  if (skips.some((skip) => inside(rel, skip))) return "blocked";
+  return skips.some((skip) => inside(skip, rel)) ? "part" : "on";
+};
+
+export const toggleLocalTick = (skips: readonly string[], rel: string) => {
+  const kept = skips.filter((skip) => skip !== rel && !inside(skip, rel));
+  return localTick(skips, rel) === "on" ? [...kept, rel] : kept;
+};

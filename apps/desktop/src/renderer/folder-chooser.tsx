@@ -1,5 +1,5 @@
 import { Folder, Monitor } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { formatBytes } from "@/lib/format-bytes";
 import { buildMoveTree, lineage } from "@/src/workspace/move-tree";
@@ -21,10 +21,12 @@ import { DriveFolderDialog } from "./drive-folder-dialog";
 import {
   type Picks,
   findFolders,
+  localTick,
   namesTo,
   pickHolding,
   pickedFolders,
   tickOf,
+  toggleLocalTick,
   toggleTick,
 } from "./folder-picks";
 import { AppGlyph } from "./app-glyph";
@@ -70,6 +72,8 @@ type ComputerFolder = Placement & {
   id: string;
   name: string;
   parentId: string;
+  /** Subfolders left out, by path inside `localPath`. */
+  skips: string[];
 };
 
 const join = (base: string, ...names: string[]) => {
@@ -83,10 +87,12 @@ const lastName = (localPath: string) =>
 function Tick({
   state,
   label,
+  disabled,
   onToggle,
 }: {
   state: "on" | "part" | "off";
   label: string;
+  disabled?: boolean;
   onToggle: () => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
@@ -98,6 +104,7 @@ function Tick({
       aria-label={label}
       checked={state === "on"}
       className="size-4 shrink-0 accent-primary"
+      disabled={disabled}
       ref={ref}
       type="checkbox"
       onChange={onToggle}
@@ -150,6 +157,11 @@ export function FolderChooser({
   const [placements, setPlacements] = useState<Record<string, Placement>>({});
   const [computer, setComputer] = useState<ComputerFolder[]>([]);
   const [choosingFor, setChoosingFor] = useState<ComputerFolder | null>(null);
+  // Computer subfolders by full path, read when their folder first opens.
+  const [localChildren, setLocalChildren] = useState<Record<string, string[]>>(
+    {},
+  );
+  const [localOpen, setLocalOpen] = useState<ReadonlySet<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const list = useRef<HTMLDivElement>(null);
 
@@ -210,9 +222,30 @@ export function FolderChooser({
       current.map((each) => (each.id === id ? { ...each, ...patch } : each)),
     );
 
+  const readLocal = async (full: string) => {
+    const names = localChildren[full] ?? (await desktop.localFolders(full));
+    setLocalChildren((current) => ({ ...current, [full]: names }));
+    return names;
+  };
+  // One level ahead, so only folders with subfolders show an arrow.
+  const openLocal = async (full: string) => {
+    const names = await readLocal(full);
+    await Promise.all(names.map((name) => readLocal(join(full, name))));
+  };
+  const foldLocal = (full: string, isOpen: boolean) => {
+    if (isOpen) void openLocal(full);
+    setLocalOpen((current) => {
+      const next = new Set(current);
+      if (isOpen) next.add(full);
+      else next.delete(full);
+      return next;
+    });
+  };
+
   const addFromComputer = async () => {
     const localPath = await desktop.chooseFolder(data.homeDir);
     if (!localPath) return;
+    foldLocal(localPath, true);
     setComputer((current) => [
       ...current.filter((each) => each.localPath !== localPath),
       {
@@ -222,6 +255,7 @@ export function FolderChooser({
         localPath,
         mode: "two-way",
         warning: null,
+        skips: [],
       },
     ]);
     const warning = await desktop.folderWarning(localPath);
@@ -321,6 +355,7 @@ export function FolderChooser({
         remoteFolderId: target.id,
         remoteLabel: label,
         mode: each.mode,
+        skipPaths: [...each.skips].sort(),
       });
     }
     const result = await desktop.savePairs([...existing, ...pairs]);
@@ -402,6 +437,73 @@ export function FolderChooser({
     );
   };
 
+  // The folder itself unticks to drop it; its subfolders untick to leave them out.
+  const localTickBox = (each: ComputerFolder, rel: string) => {
+    const tick = localTick(each.skips, rel);
+    return (
+      <>
+        <Tick
+          disabled={tick === "blocked"}
+          label={`Sync ${rel ? lastName(rel) : each.name}`}
+          state={tick === "blocked" ? "off" : tick}
+          onToggle={() =>
+            rel
+              ? updateComputer(each.id, {
+                  skips: toggleLocalTick(each.skips, rel),
+                })
+              : setComputer((current) =>
+                  current.filter((other) => other.id !== each.id),
+                )
+          }
+        />
+        {rel ? FOLDER_ICON : COMPUTER_ICON}
+      </>
+    );
+  };
+
+  const localRow = (
+    each: ComputerFolder,
+    rel: string,
+    depth: number,
+  ): ReactNode => {
+    const full = rel ? join(each.localPath, ...rel.split("/")) : each.localPath;
+    const children = localChildren[full];
+    const isOpen = localOpen.has(full);
+    const tick = localTick(each.skips, rel);
+    const fold = () => foldLocal(full, !isOpen);
+    return (
+      <div key={full} role="group">
+        <FolderTreeRow
+          depth={depth}
+          disabled={tick === "blocked"}
+          icon={localTickBox(each, rel)}
+          label={
+            rel ? (
+              lastName(rel)
+            ) : (
+              <>
+                {each.name}
+                <span className="ps-1.5 text-meta text-muted-foreground">
+                  {each.localPath}
+                </span>
+              </>
+            )
+          }
+          note={tick === "off" ? "Left out" : undefined}
+          open={isOpen}
+          picked={false}
+          onPick={fold}
+          onToggle={children?.length === 0 ? undefined : fold}
+        />
+        {isOpen
+          ? children?.map((child) =>
+              localRow(each, rel ? `${rel}/${child}` : child, depth + 1),
+            )
+          : null}
+      </div>
+    );
+  };
+
   if (step === "pick") {
     const matches = findFolders(tree, query).slice(0, 6);
     return (
@@ -460,28 +562,7 @@ export function FolderChooser({
               <p className="m-0 mt-2 border-t border-border px-2 pt-2 pb-1 text-meta text-muted-foreground">
                 On this computer
               </p>
-              {computer.map((each) => (
-                <div
-                  className="flex h-9 items-center gap-1.5 rounded-lg px-2 text-body hover:bg-hover"
-                  key={each.id}
-                >
-                  <span className="size-5 shrink-0" />
-                  <Tick
-                    label={`Sync ${each.name}`}
-                    state="on"
-                    onToggle={() =>
-                      setComputer((current) =>
-                        current.filter((other) => other.id !== each.id),
-                      )
-                    }
-                  />
-                  {COMPUTER_ICON}
-                  <span className="shrink-0">{each.name}</span>
-                  <span className="min-w-0 truncate ps-1 text-meta text-muted-foreground">
-                    {each.localPath}
-                  </span>
-                </div>
-              ))}
+              {computer.map((each) => localRow(each, "", 0))}
             </>
           ) : null}
         </div>
@@ -610,6 +691,12 @@ export function FolderChooser({
                 </Button>
               </div>
               {problem ? note(problem, "text-destructive-foreground") : null}
+              {each.skips.length > 0
+                ? note(
+                    `Skips ${[...each.skips].sort().join(", ")}. They stay where they are and do not sync.`,
+                    "text-muted-foreground",
+                  )
+                : null}
               {!problem && merges
                 ? note(
                     "This folder is already on your drive. Their files will be combined.",

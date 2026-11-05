@@ -55,11 +55,12 @@ const code = (error: unknown) => (error as NodeJS.ErrnoException).code;
  * Every file and folder under `root`. A path is only missing from `entries`
  * when the disk said it is gone; everything the scan could not see clearly
  * goes to `excluded`, so it never reads as a deletion. An unreadable root
- * throws.
+ * throws. Ignored names and `leftOut` paths are not read inside.
  */
 export const scanLocal = async (
   root: string,
   ignore: (name: string) => boolean,
+  leftOut: (rel: string) => boolean = () => false,
 ): Promise<LocalScan> => {
   const entries: LocalEntry[] = [];
   const excluded: LocalScan["excluded"] = [];
@@ -104,7 +105,7 @@ export const scanLocal = async (
         continue;
       }
       // Checked on the lstat result: the entry may have changed since readdir.
-      if (ignore(dirent.name) || stats.isSymbolicLink()) {
+      if (ignore(dirent.name) || leftOut(childRel) || stats.isSymbolicLink()) {
         excluded.push({
           rel: childRel,
           ino: String(stats.ino),
