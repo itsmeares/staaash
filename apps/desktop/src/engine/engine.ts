@@ -17,6 +17,7 @@ import { localPath } from "./local";
 import { folderSizes } from "./folder-sizes";
 import type { SyncLog } from "./log";
 import { createIgnore, pathKey } from "./names";
+import type { Waiting } from "./pair-sync";
 import { syncPair } from "./pair-sync";
 import type { StorageChange } from "./remote";
 import { RemoteTree, fromSnapshot } from "./remote";
@@ -61,6 +62,12 @@ export class SyncEngine {
   private readonly tree: RemoteTree;
   private api: Api | null = null;
   private running = false;
+  /** Planned transfers of the folder syncing now that have not started. */
+  private waiting: Waiting = { files: 0, bytes: 0, uploadBytes: 0 };
+  /** Folders later in this pass, whose work is not known yet. */
+  private unchecked = 0;
+  /** Bytes of transfers that finished this pass. */
+  private movedBytes = 0;
   private stopped = false;
   private queue: Promise<unknown> = Promise.resolve();
   private readonly halt = new AbortController();
@@ -477,8 +484,9 @@ export class SyncEngine {
       }
       const issues: Issue[] = [];
       const full = { size: Infinity, message: null as string | null };
-      for (const pair of config.pairs) {
+      for (const [index, pair] of config.pairs.entries()) {
         if (this.config !== config) break;
+        this.unchecked = config.pairs.length - index - 1;
         let result;
         try {
           result = await syncPair({
@@ -494,6 +502,11 @@ export class SyncEngine {
             downloads: this.downloads,
             trash: this.deps.trash,
             activity: (update) => this.track(update),
+            waiting: (waiting) => {
+              if (this.config !== config) return;
+              this.waiting = waiting;
+              this.emitStatus();
+            },
             scanned: (scan) => {
               if (this.config !== config || !this.current(pair, config.ignore))
                 return;
@@ -546,6 +559,8 @@ export class SyncEngine {
             message: "This folder couldn't sync.",
           });
           continue;
+        } finally {
+          this.waiting = { files: 0, bytes: 0, uploadBytes: 0 };
         }
         issues.push(...result.issues);
         if (result.hold) {
@@ -581,6 +596,8 @@ export class SyncEngine {
       }
     } finally {
       this.running = false;
+      this.unchecked = 0;
+      this.movedBytes = 0;
       if (this.config === config) {
         try {
           for (const pair of config.pairs) {
@@ -633,6 +650,10 @@ export class SyncEngine {
       this.activity[index] = { ...update };
       this.emitStatus();
       return;
+    }
+    if (update.state !== "active" && this.activity[index]?.state === "active") {
+      this.movedBytes +=
+        update.state === "done" ? update.bytes : update.doneBytes;
     }
     if (index !== -1) this.activity.splice(index, 1);
     this.activity.unshift({ ...update });
@@ -703,13 +724,19 @@ export class SyncEngine {
               : this.lastSyncAt === null
                 ? "starting"
                 : "idle")),
-      pendingFiles: active.length,
+      pendingFiles: active.length + this.waiting.files,
       uploadSpeed: this.uploadMeter.speed,
-      uploadRemainingBytes: this.uploadMeter.remaining,
-      pendingBytes: active.reduce(
-        (sum, each) => sum + Math.max(0, each.bytes - each.doneBytes),
-        0,
-      ),
+      uploadRemainingBytes:
+        this.uploadMeter.remaining + this.waiting.uploadBytes,
+      pendingBytes:
+        this.waiting.bytes +
+        active.reduce(
+          (sum, each) => sum + Math.max(0, each.bytes - each.doneBytes),
+          0,
+        ),
+      movedBytes:
+        this.movedBytes + active.reduce((sum, each) => sum + each.doneBytes, 0),
+      uncheckedFolders: this.unchecked,
       fileCount: pairs.reduce(
         (sum, pair) => sum + this.store.fileCount(pair.id),
         0,

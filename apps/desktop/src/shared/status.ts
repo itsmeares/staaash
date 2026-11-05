@@ -1,4 +1,6 @@
-import type { AppState } from "./types";
+import { formatBytes } from "@/lib/format-bytes";
+
+import type { AppState, EngineStatus } from "./types";
 
 const longerUploadTime = (minutes: number) => {
   const hours = Math.floor(minutes / 60);
@@ -20,10 +22,21 @@ export const uploadTimeLeft = (bytes: number, speed: number) => {
   return `~${longerUploadTime(minutes)} left`;
 };
 
-/** One line for the tray menu, and its tooltip. */
+/** "4.1 GB left · checking 2 more folders", under the syncing line. */
+export const syncDetail = (status: EngineStatus) => {
+  const folders = status.uncheckedFolders;
+  return [
+    status.pendingBytes ? `${formatBytes(status.pendingBytes)} left` : "",
+    folders ? `checking ${folders} more folder${folders === 1 ? "" : "s"}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+};
+
+/** One line for the tray menu and its tooltip, which add the bytes left. */
 // One line per engine state.
 // fallow-ignore-next-line complexity
-export const statusLine = (state: AppState) => {
+export const statusLine = (state: AppState, withBytes = false) => {
   if (state.versionProblem) {
     return state.versionProblem.side === "server"
       ? "Server needs an update"
@@ -44,9 +57,12 @@ export const statusLine = (state: AppState) => {
       return "Signed out";
     case "syncing":
     case "starting":
-      return status.pendingFiles
-        ? `Syncing ${status.pendingFiles} file${status.pendingFiles === 1 ? "" : "s"}`
-        : "Checking for changes…";
+      if (!status.pendingFiles) return "Checking for changes…";
+      return `Syncing ${status.pendingFiles.toLocaleString()} file${status.pendingFiles === 1 ? "" : "s"}${
+        withBytes && status.pendingBytes
+          ? ` · ${formatBytes(status.pendingBytes)} left`
+          : ""
+      }`;
     default:
       return attention
         ? `${attention} item${attention === 1 ? "" : "s"} need${attention === 1 ? "s" : ""} you`

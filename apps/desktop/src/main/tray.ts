@@ -89,7 +89,10 @@ export const createTray = (actions: TrayActions) => {
     const paused = current?.status?.state === "paused";
     const pairs = current?.settings.pairs ?? [];
     return Menu.buildFromTemplate([
-      { label: current ? statusLine(current) : "Starting…", enabled: false },
+      {
+        label: current ? statusLine(current, true) : "Starting…",
+        enabled: false,
+      },
       { type: "separator" },
       { label: "Open Staaash", click: actions.openWindow },
       {
@@ -158,7 +161,7 @@ export const createTray = (actions: TrayActions) => {
       tray.setImage(image(icon));
       shownIcon = icon;
     }
-    const line = statusLine(state);
+    const line = statusLine(state, true);
     if (line !== shownLine) {
       shownLine = line;
       tray.setToolTip(`Staaash · ${line}`);

@@ -306,6 +306,55 @@ it("keeps active transfers in place and retains them while recent transfers fill
   await syncOnce([pairOf("a")]);
 });
 
+it("counts waiting work, bytes moved and folders not checked yet across a pass", async () => {
+  const seen: { pair: string; status: ReturnType<typeof engine.status> }[] = [];
+  vi.spyOn(pairSync, "syncPair").mockImplementation(
+    async ({ pair, activity, waiting }) => {
+      if (pair.id === "a") {
+        const file = {
+          pairId: "a",
+          rel: "big.bin",
+          direction: "up" as const,
+          state: "active" as const,
+          bytes: 100,
+          doneBytes: 40,
+          at: 1,
+        };
+        waiting({ files: 3, bytes: 300, uploadBytes: 200 });
+        activity(file);
+        seen.push({ pair: "a", status: engine.status() });
+        activity({ ...file, state: "done", doneBytes: 100, at: 2 });
+      }
+      seen.push({ pair: pair.id, status: engine.status() });
+      return { issues: [], hold: null, pullAgain: false, retrySoon: false };
+    },
+  );
+  await syncOnce([pairOf("a"), pairOf("b")]);
+  expect(seen.map(({ pair, status }) => [pair, status])).toEqual([
+    [
+      "a",
+      expect.objectContaining({
+        pendingFiles: 4,
+        pendingBytes: 360,
+        uploadRemainingBytes: 200,
+        movedBytes: 40,
+        uncheckedFolders: 1,
+      }),
+    ],
+    ["a", expect.objectContaining({ pendingFiles: 3, movedBytes: 100 })],
+    [
+      "b",
+      expect.objectContaining({
+        pendingFiles: 0,
+        pendingBytes: 0,
+        movedBytes: 100,
+        uncheckedFolders: 0,
+      }),
+    ],
+  ]);
+  expect(engine.status()).toMatchObject({ uncheckedFolders: 0, movedBytes: 0 });
+});
+
 const cases: [string, Partial<typeof replies>, EngineState][] = [
   ["the server errors but answers", { changes: json(500, {}) }, "problem"],
   [
