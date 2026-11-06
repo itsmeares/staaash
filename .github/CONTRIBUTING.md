@@ -77,6 +77,12 @@ Run `pnpm --filter web test:ui` for its request checks and
 `pnpm --filter web e2e:ui` for its browser checks. Use the real demo below for
 storage, authentication, database, and worker verification.
 
+The public demo is the same preview built to run entirely in the browser: a
+service worker answers the API and saves each visitor's drive in browser
+storage. `pnpm --filter web demo:build` writes it to `apps/web/dist/demo`.
+`STAAASH_DEMO_URL` sets its address and base path. Each release publishes it to
+GitHub Pages.
+
 The desktop app lives in `apps/desktop`. Run it with
 `pnpm desktop:dev`, then sign in to
 your development server at `http://localhost:3000`.

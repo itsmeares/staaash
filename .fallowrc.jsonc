@@ -9,6 +9,8 @@
     "apps/web/playwright.ui.config.ts",
     // The preview HTML loads this separate browser entry.
     "apps/web/dev/ui/controls.tsx",
+    // The demo build bundles the service worker from its path.
+    "apps/web/dev/ui/service-worker.ts",
     "apps/web/playwright.system.config.ts",
     "packages/config/src/release.ts",
     "scripts/release/index.mjs",

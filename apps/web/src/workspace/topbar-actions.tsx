@@ -1,3 +1,4 @@
+import { appPath } from "@/lib/app-path";
 import { useLocation } from "@tanstack/react-router";
 import {
   Check,
@@ -111,7 +112,7 @@ export function TopbarActions({
           <MenuItem
             render={
               <a
-                href="/api/desktop-app"
+                href={appPath("/api/desktop-app")}
                 rel="noopener noreferrer"
                 target="_blank"
               />
@@ -121,7 +122,11 @@ export function TopbarActions({
             Get the desktop app
           </MenuItem>
           <MenuSeparator />
-          <form action="/api/auth/sign-out" className="contents" method="post">
+          <form
+            action={appPath("/api/auth/sign-out")}
+            className="contents"
+            method="post"
+          >
             <MenuItem
               className="w-full"
               nativeButton

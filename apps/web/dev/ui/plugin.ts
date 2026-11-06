@@ -1,24 +1,17 @@
 import type { Plugin } from "vite-plus";
 import { getRequestListener } from "@hono/node-server";
+import { handlesRequest } from "./requests";
 
-const sharePage = /^\/s\/[^/]+(?:\/(?:f|files)\/[^/]+)?\/?$/;
-
-function handlesRequest(path: string, method: string) {
-  if (["/__ui/", "/api/"].some((prefix) => path.startsWith(prefix)))
-    return true;
-  if (path === "/auth/device-callback") return true;
-  return path.startsWith("/s/") && !(method === "GET" && sharePage.test(path));
-}
 export function uiPreview(): Plugin {
   let close = () => {};
   return {
     name: "staaash-ui-preview",
     apply: "serve",
     async configureServer(server) {
-      const { createPreviewApp } = (await server.ssrLoadModule(
-        "/dev/ui/app.ts",
-      )) as typeof import("./app");
-      const preview = createPreviewApp();
+      const { createNodePreviewApp } = (await server.ssrLoadModule(
+        "/dev/ui/node.ts",
+      )) as typeof import("./node");
+      const preview = createNodePreviewApp();
       close = preview.close;
       const app = preview.app;
       const listener = getRequestListener(app.fetch);

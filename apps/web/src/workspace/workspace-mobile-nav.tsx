@@ -1,3 +1,4 @@
+import { appPath } from "@/lib/app-path";
 import { useLocation } from "@tanstack/react-router";
 import { AppLink } from "@/components/app-link";
 import {
@@ -187,7 +188,7 @@ export function WorkspaceMobileNav({
               <UpdateNote />
               <div className="flex items-center justify-between">
                 <VersionButton />
-                <form action="/api/auth/sign-out" method="post">
+                <form action={appPath("/api/auth/sign-out")} method="post">
                   <Button type="submit" variant="ghost-muted">
                     <LogOut aria-hidden />
                     Sign out

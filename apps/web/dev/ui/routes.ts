@@ -31,24 +31,20 @@ export function mountViews(app: Hono<PreviewEnv>) {
   app.get("/api/views/shell", (c) =>
     c.json(shellView(c.var.state, updateView(c.var.state))),
   );
-  app.get("/api/views/home", (c) =>
-    c.json(homeView(c.var.state, new URL(c.req.url).origin)),
-  );
+  app.get("/api/views/home", (c) => c.json(homeView(c.var.state, c.var.site)));
   app.get("/api/views/settings", (c) => c.json(settingsView(c.var.state)));
   app.get("/api/views/files", (c) =>
-    c.json(filesView(c.var.state, new URL(c.req.url).origin)),
+    c.json(filesView(c.var.state, c.var.site)),
   );
   app.get("/api/views/files/:id", (c) =>
-    c.json(
-      filesView(c.var.state, new URL(c.req.url).origin, c.req.param("id")),
-    ),
+    c.json(filesView(c.var.state, c.var.site, c.req.param("id"))),
   );
   app.post("/api/views/files/:id/:action", async (c) => {
     const body = await jsonBody(c.req.raw);
     return c.json(
       folderBatch(
         c.var.state,
-        new URL(c.req.url).origin,
+        c.var.site,
         c.req.param("id"),
         body.query,
         c.req.param("action") === "selection",
@@ -109,7 +105,7 @@ export function mountViews(app: Hono<PreviewEnv>) {
               (shareStatus(state, s) === "active") ===
                 (c.req.param("mode") === "live"),
           )
-          .map((s) => shareView(state, s, new URL(c.req.url).origin));
+          .map((s) => shareView(state, s, c.var.site));
         const page = windowItems(
           shares.map((s) => ({
             ...s,

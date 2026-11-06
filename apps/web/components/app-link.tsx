@@ -1,3 +1,4 @@
+import { appPath } from "@/lib/app-path";
 import { useRouter } from "@tanstack/react-router";
 import type { ComponentProps, MouseEvent } from "react";
 
@@ -22,7 +23,7 @@ export function AppLink({
   return (
     <a
       {...props}
-      href={href}
+      href={appPath(href)}
       onClick={(event) => {
         onClick?.(event);
         // An /api/ address is a download the browser handles, not a page.

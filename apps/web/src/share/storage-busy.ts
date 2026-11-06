@@ -1,3 +1,4 @@
+import { appPath } from "@/lib/app-path";
 import { redirect } from "@tanstack/react-router";
 
 import { ApiError } from "@/lib/api";
@@ -23,7 +24,9 @@ export const throwIfStorageBusy = (
   }
   const query = new URLSearchParams({ ...target, returnTo });
   throw redirect({
-    href: `/s/${encodeURIComponent(token)}/storage-unavailable?${query}`,
+    href: appPath(
+      `/s/${encodeURIComponent(token)}/storage-unavailable?${query}`,
+    ),
     reloadDocument: true,
   });
 };

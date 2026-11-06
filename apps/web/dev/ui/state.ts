@@ -1,9 +1,12 @@
 import type { FirstRunKind } from "../../components/public/first-run";
 import { photoSamples, sampleFiles } from "./fixtures";
+import { demoFiles, demoFolders, type DemoFolderKey } from "./demo";
+import { demoAccount, demoShareToken } from "../../lib/demo";
 import type { InferResponseType } from "hono/client";
 import type { api } from "../../lib/api";
 import type { Plain } from "../../lib/plain";
 import { plain } from "../../lib/plain";
+import { formatBytes } from "../../lib/format-bytes";
 import type { FileSummary, FolderSummary } from "../../server/files/types";
 import type { RecentClientItem } from "../../src/workspace/recent/recent-helpers";
 import {
@@ -25,11 +28,14 @@ export const scenarios = {
   error: "Failed jobs and unavailable admin health",
   busy: "Storage recovery and generating previews",
   update: "An update is available",
+  demo: "The public demo drive",
 } as const;
 export type Scenario = keyof typeof scenarios;
 export const timestamp = "2026-10-29T12:00:00.000Z";
+/** When a change happens: the real time in the demo, a fixed one in dev so samples repeat. */
+export const changedAt = (state: { scenario: Scenario }) =>
+  state.scenario === "demo" ? new Date().toISOString() : timestamp;
 export const password = "preview-password";
-export const memoryLimit = 16 * 1024 * 1024;
 export const jobKinds = [
   "staging.cleanup",
   "trash.retention",
@@ -98,9 +104,12 @@ const firstRunByScenario: Partial<
   Record<Scenario, Exclude<FirstRunKind, "owner-setup">>
 > = { invited: "member-password", onboarding: "member", password: "password" };
 export function createState(scenario: Scenario = "owner") {
+  const demo = scenario === "demo";
   const users: User[] = ["owner", "admin", "member"].map((role, index) => ({
     id: role,
-    email: `${role}@staaash.test`,
+    email: demo
+      ? [demoAccount.email, "sam@example.com", "mia@example.com"][index]!
+      : `${role}@staaash.test`,
     displayName: ["Alex Morgan", "Sam Rivera", "Mia Chen"][index]!,
     avatarUrl: null,
     role: role as User["role"],
@@ -123,7 +132,7 @@ export function createState(scenario: Scenario = "owner") {
   const firstRun = firstRunByScenario[scenario] ?? null;
   const state = {
     scenario,
-    userId: ["signed-out", "setup"].includes(scenario)
+    userId: ["signed-out", "setup", "demo"].includes(scenario)
       ? (null as string | null)
       : ["member", "onboarding", "password", "invited"].includes(scenario)
         ? "member"
@@ -133,9 +142,11 @@ export function createState(scenario: Scenario = "owner") {
     firstRuns: new Map<string, Exclude<FirstRunKind, "owner-setup">>(
       firstRun ? [["member", firstRun]] : [],
     ),
-    instanceName: "Sample Drive",
+    instanceName: demo ? "Staaash" : "Sample Drive",
     users,
-    passwords: new Map(users.map((user) => [user.id, password])),
+    passwords: new Map(
+      users.map((user) => [user.id, demo ? demoAccount.password : password]),
+    ),
     files: [] as File[],
     folders: [] as Folder[],
     shares: [] as Share[],
@@ -171,8 +182,108 @@ export function createState(scenario: Scenario = "owner") {
       ),
     ),
   };
-  for (const user of users) seedDrive(state, user);
+  for (const user of users)
+    if (demo) seedDemoDrive(state, user);
+    else seedDrive(state, user);
   return state;
+}
+const daysAgo = (days: number) =>
+  new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+/** The owner gets the whole demo drive; the others a slice for the admin pages. */
+const demoSlices: Record<string, DemoFolderKey[] | null> = {
+  owner: null,
+  admin: ["photos", "alps"],
+  member: ["documents"],
+};
+function seedDemoDrive(state: State, user: User) {
+  const slice = demoSlices[user.id] ?? null;
+  const id = (key: string) => `${user.id}-${key}`;
+  const base = {
+    ownerUserId: user.id,
+    ownerStorageId: user.storageId,
+    deletedAt: null as string | null,
+    storageRevision: 1,
+    favorite: false,
+    pinned: false,
+  };
+  const root: Folder = {
+    ...base,
+    id: id("root"),
+    name: "Files",
+    parentId: null,
+    isFilesRoot: true,
+    color: null,
+    createdAt: daysAgo(180),
+    updatedAt: daysAgo(180),
+  };
+  const inSlice = (folder: DemoFolderKey | null) =>
+    !slice || (folder !== null && slice.includes(folder));
+  state.folders.push(
+    root,
+    ...demoFolders
+      .filter((folder) => inSlice(folder.key))
+      .map((folder) => ({
+        ...base,
+        id: id(folder.key),
+        name: folder.name,
+        parentId: folder.parent ? id(folder.parent) : root.id,
+        isFilesRoot: false,
+        color: folder.color,
+        favorite: folder.key === "alps",
+        pinned: "pinned" in folder,
+        createdAt: daysAgo(170),
+        updatedAt: daysAgo(1),
+      })),
+  );
+  state.files.push(
+    ...demoFiles
+      .filter((file) => inSlice(file.folder))
+      .map((file) => ({
+        ...base,
+        id: id(file.key),
+        name: file.name,
+        mimeType: file.mimeType,
+        viewerKind: file.viewerKind,
+        asset: file.asset,
+        thumbnailAsset: file.thumbnailAsset,
+        folderId: file.folder ? id(file.folder) : root.id,
+        sizeBytes: 0,
+        favorite: ["red-kayaks", "miso"].includes(file.key),
+        createdAt: daysAgo(file.daysAgo),
+        updatedAt: daysAgo(file.daysAgo),
+      })),
+  );
+  if (!slice) seedDemoExtras(state, user.id, id);
+}
+/** The owner's trash and share links. */
+function seedDemoExtras(
+  state: State,
+  ownerId: string,
+  id: (key: string) => string,
+) {
+  state.files.push({
+    ...state.files.find((file) => file.id === id("lease"))!,
+    id: id("old-lease"),
+    name: "Old lease agreement.pdf",
+    deletedAt: daysAgo(3),
+  });
+  for (const [key, token, targetType, downloadDisabled] of [
+    ["beach", demoShareToken, "folder", false],
+    ["lease", "lease-agreement", "file", true],
+  ] as const)
+    state.shares.push({
+      id: id(`share-${key}`),
+      token,
+      ownerId,
+      targetId: id(key),
+      targetType,
+      password: null,
+      downloadDisabled,
+      expiresAt: daysAgo(-30),
+      revokedAt: null,
+      createdAt: daysAgo(10),
+      updatedAt: daysAgo(10),
+    });
 }
 function seedDrive(state: State, user: User) {
   const folder = (
@@ -305,7 +416,14 @@ function seedShares(state: State, user: User) {
     });
 }
 export type State = ReturnType<typeof createState>;
-export type PreviewEnv = { Variables: { state: State } };
+export type PreviewEnv = {
+  Variables: {
+    state: State;
+    assets: import("./media").Assets;
+    /** The drive's public address: the origin, plus the demo's base path. */
+    site: string;
+  };
+};
 export type Share = {
   id: string;
   token: string;
@@ -337,6 +455,31 @@ export class PreviewError extends Error {
   ) {
     super(message);
   }
+}
+const MiB = 1024 * 1024;
+/** The demo keeps uploads in the visitor's browser, so it allows real files. */
+export const uploadLimits = (state: State) =>
+  state.scenario === "demo"
+    ? { file: 100 * MiB, total: 500 * MiB }
+    : { file: 16 * MiB, total: 16 * MiB };
+const usedBytes = (state: State) =>
+  [...state.blobs.values()].reduce((sum, b) => sum + b.byteLength, 0) +
+  [...state.uploads.values()].reduce((sum, u) => sum + u.total, 0);
+export function assertRoom(state: State, sizes: number[]) {
+  const limits = uploadLimits(state);
+  if (sizes.some((size) => size > limits.file))
+    throw new PreviewError(
+      413,
+      `Files here can be up to ${formatBytes(limits.file)}.`,
+    );
+  if (
+    usedBytes(state) + sizes.reduce((sum, size) => sum + size, 0) >
+    limits.total
+  )
+    throw new PreviewError(
+      413,
+      `Uploads here are limited to ${formatBytes(limits.total)} in total. Reset to clear them.`,
+    );
 }
 export const signedInUser = (state: State) => {
   const user = state.users.find((u) => u.id === state.userId);

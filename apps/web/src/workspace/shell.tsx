@@ -3,6 +3,8 @@ import { Link } from "@tanstack/react-router";
 import { Suspense, type ReactNode } from "react";
 
 import { ConfirmHost } from "@/components/confirm-dialog";
+import { isDemo } from "@/lib/demo";
+import { DemoBar } from "@/src/workspace/demo-bar";
 import { DriveGlyph } from "@/components/drive-glyph";
 import { DefaultViewProvider } from "@/components/file-list/use-view-mode";
 import { FlashToasts } from "@/components/flash-toasts";
@@ -62,6 +64,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
                   />
                 </div>
               </header>
+              {isDemo ? <DemoBar /> : null}
 
               <main
                 className="min-h-0 w-full min-w-0 flex-1 scrollbar-thin overflow-x-hidden overflow-y-auto bg-card px-4 pt-4 pb-[calc(96px+env(safe-area-inset-bottom))] max-sm:border-t max-sm:border-border sm:me-3 sm:mb-3 sm:w-auto sm:rounded-xl sm:border sm:border-border sm:pb-12 desk:px-6 desk:pt-5"

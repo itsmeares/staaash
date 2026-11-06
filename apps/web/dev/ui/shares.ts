@@ -4,7 +4,6 @@ import {
   applyPublicShareContentPolicy,
 } from "../../server/media/public-share-content-policy";
 import { unavailableHtml } from "../../server/sharing/unavailable-page";
-import { randomUUID } from "node:crypto";
 import type { Hono } from "hono";
 import { z } from "zod";
 import type { PreviewEnv } from "./state";
@@ -19,11 +18,11 @@ import {
   publicFolder,
   requireUser,
   sizeOf,
-  timestamp,
+  changedAt,
   assertFolderReadable,
   within,
 } from "./state";
-import { assets, byteResponse, sampleBytes } from "./media";
+import { byteResponse, sampleBytes } from "./media";
 import { owned } from "./mutations";
 import { shareStatus, shareView } from "./views";
 
@@ -54,6 +53,11 @@ function shared(state: State, token: string, unlock = true) {
       "SHARE_PASSWORD_REQUIRED",
     );
   return share;
+}
+/** A share as its page sees it: still locked until its password is entered. */
+function viewedShare(state: State, token: string) {
+  const share = shared(state, token, false);
+  return { share, locked: !!share.password && !state.unlocked.has(token) };
 }
 function nestedFile(state: State, share: Share, id: string) {
   const file = fileOf(state, id);
@@ -137,10 +141,10 @@ export function mountShares(app: Hono<PreviewEnv>) {
           issuedAt + state.settings.shareMaxAgeDays * 24 * 60 * 60 * 1000,
         ).toISOString();
       }
-      share.token = randomUUID();
+      share.token = crypto.randomUUID();
       share.revokedAt = null;
       return c.json({
-        share: shareView(state, share, new URL(c.req.url).origin),
+        share: shareView(state, share, c.var.site),
       });
     }
     const targetId = body.fileId ?? body.folderId;
@@ -152,8 +156,8 @@ export function mountShares(app: Hono<PreviewEnv>) {
         : fileOf(state, targetId);
     owned(state, item);
     const share: Share = {
-      id: randomUUID(),
-      token: randomUUID(),
+      id: crypto.randomUUID(),
+      token: crypto.randomUUID(),
       ownerId: requireUser(state).id,
       targetType: body.targetType,
       targetId,
@@ -161,14 +165,11 @@ export function mountShares(app: Hono<PreviewEnv>) {
       downloadDisabled: body.downloadDisabled,
       expiresAt: body.expiresAt,
       revokedAt: null,
-      createdAt: timestamp,
-      updatedAt: timestamp,
+      createdAt: changedAt(state),
+      updatedAt: changedAt(state),
     };
     state.shares.push(share);
-    return c.json(
-      { share: shareView(state, share, new URL(c.req.url).origin) },
-      201,
-    );
+    return c.json({ share: shareView(state, share, c.var.site) }, 201);
   });
   app.post("/api/shares/:id/:action", async (c) => {
     const state = c.var.state;
@@ -177,7 +178,7 @@ export function mountShares(app: Hono<PreviewEnv>) {
     );
     if (!share) throw new PreviewError(404, "Share not found.");
     const action = c.req.param("action");
-    if (action === "revoke") share.revokedAt = timestamp;
+    if (action === "revoke") share.revokedAt = changedAt(state);
     else if (action === "delete") {
       state.shares = state.shares.filter((s) => s !== share);
       return c.json({ ok: true });
@@ -203,14 +204,14 @@ export function mountShares(app: Hono<PreviewEnv>) {
       } else throw new PreviewError(404, "Unknown share action.");
     }
     return c.json({
-      share: shareView(state, share, new URL(c.req.url).origin),
+      share: shareView(state, share, c.var.site),
     });
   });
   app.get("/s/:token/view", (c) => {
     const state = c.var.state;
     try {
-      const share = shared(state, c.req.param("token"), false);
-      if (share.password && !state.unlocked.has(share.token))
+      const { share, locked } = viewedShare(state, c.req.param("token"));
+      if (locked)
         return c.json({
           kind: "share",
           resolution: { kind: "locked" },
@@ -255,9 +256,8 @@ export function mountShares(app: Hono<PreviewEnv>) {
   app.get("/s/:token/view/files/:id", (c) => {
     const state = c.var.state;
     try {
-      const share = shared(state, c.req.param("token"), false);
-      if (share.password && !state.unlocked.has(share.token))
-        return c.json({ kind: "locked" });
+      const { share, locked } = viewedShare(state, c.req.param("token"));
+      if (locked) return c.json({ kind: "locked" });
       const file = nestedFile(state, share, c.req.param("id"));
       if (!file.viewerKind) return c.json({ kind: "not-found" });
       return c.json({
@@ -285,7 +285,7 @@ export function mountShares(app: Hono<PreviewEnv>) {
     }
     return c.redirect(`/s/${c.req.param("token")}`, 307);
   });
-  app.get("/s/:token/archive", (c) => {
+  app.get("/s/:token/archive", async (c) => {
     const share = shared(c.var.state, c.req.param("token"));
     if (share.targetType !== "folder")
       throw new PreviewError(404, "This sample share is not a folder.");
@@ -295,17 +295,17 @@ export function mountShares(app: Hono<PreviewEnv>) {
         "Downloads are disabled for this sample link.",
       );
     return byteResponse(
-      assets.get("sample.zip")!,
+      await c.var.assets.bytes("sample.zip"),
       "application/zip",
       c.req.raw,
       "Sample files.zip",
     );
   });
   for (const path of [
-    "/s/:token/:action{content|download|preview|thumbnail|poster}",
-    "/s/:token/files/:id/:action{content|download|preview|thumbnail|poster}",
+    "/s/:token/:action{(?:content|download|preview|thumbnail|poster)}",
+    "/s/:token/files/:id/:action{(?:content|download|preview|thumbnail|poster)}",
   ])
-    app.get(path, (c) => {
+    app.get(path, async (c) => {
       const state = c.var.state;
       const share = shared(state, c.req.param("token")!);
       const action = c.req.param("action");
@@ -320,7 +320,12 @@ export function mountShares(app: Hono<PreviewEnv>) {
         c.req.param("id") ?? share.targetId,
       );
       const response = byteResponse(
-        sampleBytes(state, file.id, ["thumbnail", "poster"].includes(action!)),
+        await sampleBytes(
+          state,
+          c.var.assets,
+          file.id,
+          ["thumbnail", "poster"].includes(action!),
+        ),
         ["thumbnail", "poster"].includes(action!)
           ? "image/jpeg"
           : file.mimeType,

@@ -19,12 +19,14 @@ import {
 import { DriveGlyph } from "../../components/drive-glyph";
 import { ThemeWatcher } from "../../components/theme-watcher";
 import { applyTheme } from "../../lib/theme";
+import { formatBytes } from "../../lib/format-bytes";
 import type { Scenario } from "./state";
 
 type Controls = {
   scenario: Scenario;
   scenarios: Record<Scenario, string>;
   password: string;
+  uploadLimit: number;
   users: Array<{ email: string; role: string }>;
   userId: string | null;
   archiveFolderId: string | null;
@@ -138,7 +140,7 @@ function ControlsPage() {
                 </form>
                 <p className="mt-4 text-label text-muted-foreground">
                   Current state: {data.scenarios[data.scenario]}. Uploaded
-                  samples share a 16 MiB limit.
+                  samples share a {formatBytes(data.uploadLimit)} limit.
                 </p>
               </CardContent>
             </Card>

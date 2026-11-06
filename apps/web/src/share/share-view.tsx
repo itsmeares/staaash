@@ -1,3 +1,4 @@
+import { appPath } from "@/lib/app-path";
 import React from "react";
 import { formatBytes } from "@/lib/format-bytes";
 import { AppLink } from "@/components/app-link";
@@ -57,7 +58,7 @@ function ShareActions({
           Downloads are off
         </span>
       ) : downloadHref ? (
-        <Button render={<a href={downloadHref} />}>
+        <Button render={<a href={appPath(downloadHref)} />}>
           <Download aria-hidden />
           {label}
         </Button>
@@ -102,7 +103,7 @@ function ShareShell({
       </main>
       <footer className="pb-6 text-center text-label text-muted-foreground">
         Shared with{" "}
-        <a className="text-foreground hover:underline" href="/">
+        <a className="text-foreground hover:underline" href={appPath("/")}>
           Staaash
         </a>
       </footer>

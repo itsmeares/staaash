@@ -1,3 +1,4 @@
+import { appPath } from "@/lib/app-path";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { z } from "zod";
@@ -42,10 +43,10 @@ export const Route = createFileRoute("/")({
     });
     if (entry.state === "signed-in" && !entry.firstRun) {
       const href = deps.next ?? startPath(entry.startPage);
-      throw redirect({
-        href,
-        reloadDocument: href.startsWith("/api/"),
-      });
+      // A document load skips the router, so it needs the base path itself.
+      throw href.startsWith("/api/")
+        ? redirect({ href: appPath(href), reloadDocument: true })
+        : redirect({ href });
     }
   },
   component: EntryPage,

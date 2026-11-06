@@ -1,21 +1,18 @@
-import { randomUUID } from "node:crypto";
-import { Hono } from "hono";
-import { getCookie, setCookie } from "hono/cookie";
+import { Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import {
   createState,
   type PreviewEnv,
-  type State,
   type Scenario,
   scenarios,
   PreviewError,
   requireUser,
   password,
-  memoryLimit,
+  uploadLimits,
   isDeleted,
 } from "./state";
-import { assets } from "./media";
+import type { Assets } from "./media";
 import { mountAuth } from "./auth";
 import { mountViews } from "./routes";
 import { mountFiles } from "./files";
@@ -32,14 +29,18 @@ function checkOrigin(request: Request) {
       "Open preview controls on this preview's address.",
     );
 }
-function expireSessions(
-  sessions: Map<string, { state: State; lastSeen: number }>,
-) {
-  for (const [id, session] of sessions)
-    if (Date.now() - session.lastSeen > 2 * 60 * 60 * 1000) sessions.delete(id);
+/** A fresh sample drive whose file sizes match the sample bytes. */
+export function seedState(assets: Assets, scenario?: Scenario) {
+  const state = createState(scenario);
+  for (const file of state.files) file.sizeBytes = assets.size(file.asset);
+  return state;
 }
-export function createPreviewApp() {
-  const sessions = new Map<string, { state: State; lastSeen: number }>();
+/**
+ * The sample API. `session` finds the visitor's drive and sets `state`,
+ * `assets` and `site`: cookie sessions in dev, the browser's saved drive in
+ * the demo.
+ */
+export function createPreviewApp(session: MiddlewareHandler<PreviewEnv>) {
   const streams = new Set<() => void>();
   const app = new Hono<PreviewEnv>();
   app.onError((error, c) => {
@@ -65,40 +66,25 @@ export function createPreviewApp() {
   });
   app.use("*", async (c, next) => {
     checkOrigin(c.req.raw);
-    expireSessions(sessions);
-    let id = getCookie(c, "staaash_ui_session");
-    if (!id || !sessions.has(id)) {
-      if (sessions.size >= 16) sessions.delete(sessions.keys().next().value!);
-      id = randomUUID();
-      const state = createState();
-      for (const file of state.files)
-        file.sizeBytes = assets.get(file.asset)?.byteLength ?? 0;
-      sessions.set(id, { state, lastSeen: Date.now() });
-      setCookie(c, "staaash_ui_session", id, {
-        httpOnly: true,
-        sameSite: "Lax",
-        path: "/",
-      });
-    }
-    const session = sessions.get(id)!;
-    session.lastSeen = Date.now();
-    c.set("state", session.state);
+    await next();
+  });
+  app.use("*", session);
+  app.use("*", async (c, next) => {
     c.header("Cache-Control", "no-store");
     await next();
   });
-  app.use(
-    "*",
+  app.use("*", (c, next) =>
     bodyLimit({
-      maxSize: memoryLimit + 1024 * 1024,
+      maxSize: uploadLimits(c.var.state).total + 1024 * 1024,
       onError: (c) =>
         c.json(
           {
-            error: "Sample uploads are limited to 16 MiB.",
+            error: "This upload is larger than the sample drive allows.",
             code: "UI_PREVIEW_LIMIT",
           },
           413,
         ),
-    }),
+    })(c, next),
   );
   app.get("/__ui/state", (c) => {
     const state = c.var.state;
@@ -106,6 +92,7 @@ export function createPreviewApp() {
       scenario: state.scenario,
       scenarios,
       password,
+      uploadLimit: uploadLimits(state).total,
       users: state.users.map((u) => ({ email: u.email, role: u.role })),
       userId: state.userId,
       archiveFolderId:
@@ -121,10 +108,7 @@ export function createPreviewApp() {
     const scenario = z
       .enum(Object.keys(scenarios) as [Scenario, ...Scenario[]])
       .parse(form.scenario);
-    const state = createState(scenario);
-    for (const file of state.files)
-      file.sizeBytes = assets.get(file.asset)?.byteLength ?? 0;
-    Object.assign(c.var.state, state);
+    Object.assign(c.var.state, seedState(c.var.assets, scenario));
     const path =
       typeof form.path === "string" && /^\/(?![/\\])/.test(form.path)
         ? form.path
@@ -151,11 +135,5 @@ export function createPreviewApp() {
       404,
     );
   });
-  return {
-    app,
-    close: () => {
-      for (const stop of streams) stop();
-      sessions.clear();
-    },
-  };
+  return { app, close: () => streams.forEach((stop) => stop()) };
 }

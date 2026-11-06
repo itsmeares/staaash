@@ -24,6 +24,8 @@ Staaash is a self-hosted file drive for people who want the convenience of a clo
 
 It supports resumable uploads, public links, media previews, multiple users, storage quotas, and trash and restore.
 
+**[Try the demo](https://itsmeares.github.io/staaash/)**. It runs in your browser, so nothing you upload leaves your computer.
+
 <table>
   <tr>
     <td colspan="2">

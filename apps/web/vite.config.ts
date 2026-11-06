@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite-plus";
+import { demoBuild } from "./dev/ui/demo-build";
 
 const API_PORT = Number(process.env.STAAASH_API_PORT ?? 3001);
 const UI_CACHE_DIR = path.resolve(
@@ -33,6 +34,7 @@ export default defineConfig(async ({ command, mode }) => {
     cacheDir: ui ? UI_CACHE_DIR : undefined,
     plugins: [
       ...(ui ? [(await import("./dev/ui/plugin")).uiPreview()] : []),
+      demoBuild(),
       tanstackRouter({
         target: "react",
         autoCodeSplitting: true,

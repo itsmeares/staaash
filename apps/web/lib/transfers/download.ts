@@ -1,3 +1,5 @@
+import { appPath } from "@/lib/app-path";
+
 const DOWNLOAD_FRAME_ID = "staaash-download-frame";
 
 type ErrorPayload = {
@@ -40,7 +42,7 @@ async function downloadErrorMessage(
 function startBrowserDownload(url: string) {
   const frame = ensureDownloadFrame();
   const a = document.createElement("a");
-  a.href = url;
+  a.href = appPath(url);
   a.target = frame.name;
   a.rel = "noopener noreferrer";
   document.body.appendChild(a);

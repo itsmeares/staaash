@@ -1,3 +1,4 @@
+import { appPath } from "@/lib/app-path";
 import React, { useEffect, useRef, useState } from "react";
 import { AUTO_TIME_ZONE, getBrowserTimeZone } from "@staaash/config/time-zone";
 
@@ -584,7 +585,7 @@ export function FirstRun({
   const complete = () =>
     kind === "password"
       ? // Only the password changed; everything else is already set.
-        window.location.assign(next ?? "/")
+        window.location.assign(appPath(next ?? "/"))
       : saveFirstRun(
           kind,
           { ...choice, theme, zone, name },

@@ -2,7 +2,6 @@ import {
   requiredPasswordChangeInputSchema,
   type temporaryPasswordInputSchema,
 } from "../../server/auth/schema";
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { resolveViewerKind } from "@staaash/config/media-types";
 import {
@@ -13,11 +12,12 @@ import {
   fileOf,
   folderOf,
   isDeleted,
-  memoryLimit,
+  assertRoom,
   password,
   requireUser,
   rootOf,
   timestamp,
+  changedAt,
   within,
   publicFile,
   publicFolder,
@@ -72,15 +72,15 @@ export function createFolder(state: State, parentId: string, name: string) {
   name = nameSchema.parse(name);
   availableName(state, parent.id, name);
   const folder: Folder = {
-    id: randomUUID(),
+    id: crypto.randomUUID(),
     ownerUserId: parent.ownerUserId,
     ownerStorageId: parent.ownerStorageId,
     parentId: parent.id,
     name,
     isFilesRoot: false,
     deletedAt: null,
-    createdAt: timestamp,
-    updatedAt: timestamp,
+    createdAt: changedAt(state),
+    updatedAt: changedAt(state),
     storageRevision: 1,
     favorite: false,
     pinned: false,
@@ -184,8 +184,8 @@ const actions: Record<
   restore: restoreItem,
   favorite: favoriteItem,
   delete: deleteItem,
-  trash: (_state, item) => {
-    item.deletedAt = timestamp;
+  trash: (state, item) => {
+    item.deletedAt = changedAt(state);
   },
 };
 function mutableItem(state: State, kind: string, id: string) {
@@ -209,7 +209,7 @@ export function changeItem(
   const apply = Object.hasOwn(actions, action) ? actions[action] : undefined;
   if (!apply) throw new PreviewError(404, "Unknown sample action.");
   const result = apply(state, item, body);
-  item.updatedAt = timestamp;
+  item.updatedAt = changedAt(state);
   item.storageRevision = (item.storageRevision ?? 1) + 1;
   if (result) return result;
   return "mimeType" in item
@@ -224,14 +224,7 @@ export function addFile(
   bytes: Uint8Array<ArrayBuffer>,
 ) {
   const folder = destination(state, folderId);
-  const used =
-    [...state.blobs.values()].reduce((sum, b) => sum + b.byteLength, 0) +
-    [...state.uploads.values()].reduce((sum, u) => sum + u.total, 0);
-  if (used + bytes.byteLength > memoryLimit)
-    throw new PreviewError(
-      413,
-      "The sample drive accepts up to 16 MiB of uploaded data. Reset it to clear uploads.",
-    );
+  assertRoom(state, [bytes.byteLength]);
   name = nameSchema.parse(name);
   availableName(state, folder.id, name);
   if (state.scenario === "error")
@@ -240,7 +233,7 @@ export function addFile(
       "Sample upload failed. Choose another preview scenario.",
     );
   const file: File = {
-    id: randomUUID(),
+    id: crypto.randomUUID(),
     name,
     mimeType,
     viewerKind: resolveViewerKind(mimeType, name),
@@ -252,8 +245,8 @@ export function addFile(
     favorite: false,
     pinned: false,
     deletedAt: null,
-    createdAt: timestamp,
-    updatedAt: timestamp,
+    createdAt: changedAt(state),
+    updatedAt: changedAt(state),
     storageRevision: 1,
   };
   state.files.push(file);
