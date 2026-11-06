@@ -16,7 +16,8 @@ will approve each release signing request.
 The desktop app connects to the Staaash server you choose to sign in and sync
 your files. The operator of that server controls its data and privacy policy.
 
-The app also checks GitHub for updates. Windows and Linux download updates from
-GitHub; macOS opens the GitHub release page when you choose to download an
-update. GitHub receives network requests from your device, including its IP
-address. See the [GitHub Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
+The app automatically checks GitHub for updates at startup and every six hours
+while it runs. There is no setting to turn these checks off. Windows and Linux
+download updates from GitHub; macOS opens the GitHub release page when you choose
+to download an update. GitHub receives network requests from your device,
+including its IP address. See the [GitHub Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).

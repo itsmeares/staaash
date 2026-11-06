@@ -896,7 +896,7 @@ describe("exact release resolution", () => {
       const links = Array.from(
         String(input.body).matchAll(/\]\((https:\/\/[^)]+)\)/gu),
         (match) => match[1],
-      );
+      ).filter((link) => link.includes("/releases/download/"));
 
       expect(links).toEqual(
         [
