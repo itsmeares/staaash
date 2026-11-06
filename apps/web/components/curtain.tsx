@@ -1,3 +1,4 @@
+import { appPath } from "@/lib/app-path";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
@@ -13,7 +14,7 @@ let raise: ((next: Raise) => void) | null = null;
  */
 export function raiseCurtain(text: string, dest: string, holdMs = 1600) {
   if (dest.startsWith("/api/") || !raise) {
-    window.location.assign(dest);
+    window.location.assign(appPath(dest));
     return;
   }
   raise({ text, dest, holdMs });

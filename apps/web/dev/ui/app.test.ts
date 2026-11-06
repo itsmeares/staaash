@@ -2,8 +2,9 @@ import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { InferResponseType } from "hono/client";
 import type { api } from "../../lib/api";
-import { createPreviewApp } from "./app";
+import { createNodePreviewApp } from "./node";
 import { SETTINGS_DEFAULTS } from "../../server/admin/settings-schema";
+import { demoAccount, demoShareToken } from "../../lib/demo";
 
 vi.mock("pg", () => {
   throw new Error("The UI preview must not import a database driver.");
@@ -13,13 +14,13 @@ vi.mock("@staaash/db/client", () => {
 });
 
 type Files = InferResponseType<typeof api.api.views.files.$get, 200>;
-const previews: ReturnType<typeof createPreviewApp>[] = [];
+const previews: ReturnType<typeof createNodePreviewApp>[] = [];
 afterEach(() => {
   vi.restoreAllMocks();
   for (const preview of previews) preview.close();
   previews.length = 0;
 });
-function browser(preview = createPreviewApp()) {
+function browser(preview = createNodePreviewApp()) {
   previews.push(preview);
   let cookie = "";
   const request = async (path: string, options: RequestInit = {}) => {
@@ -152,7 +153,7 @@ describe("preview follow-up regressions", () => {
   });
 
   it("opens newly created shares as a visitor in the creating session only", async () => {
-    const preview = createPreviewApp();
+    const preview = createNodePreviewApp();
     const creator = browser(preview);
     const visitor = browser(preview);
     const response = await creator.post("/api/shares", {
@@ -849,7 +850,7 @@ describe("database-free sample drive", () => {
     ).toBe("New coast.jpg");
   });
   it("isolates browser sessions and restores the seed on reset", async () => {
-    const preview = createPreviewApp();
+    const preview = createNodePreviewApp();
     const a = browser(preview),
       b = browser(preview);
     await a.post("/api/files/files/owner-coast/rename", {
@@ -1248,7 +1249,7 @@ describe("database-free sample drive", () => {
     ).toBe(200);
   });
   it("streams fake job state and closes the stream when the preview stops", async () => {
-    const preview = createPreviewApp();
+    const preview = createNodePreviewApp();
     const client = browser(preview);
     const response = await client.request("/api/admin/live?jobs=1");
     expect(response.headers.get("content-type")).toContain("text/event-stream");
@@ -1460,5 +1461,44 @@ describe("database-free sample drive", () => {
         })
       ).status,
     ).toBe(403);
+  });
+});
+
+describe("public demo drive", () => {
+  it("signs in with the demo account and opens the shared folder's photos as a visitor", async () => {
+    const client = browser();
+    await client.scenario("demo");
+    expect((await client.post("/api/auth/sign-in", demoAccount)).status).toBe(
+      200,
+    );
+    const share = await client.read<{
+      resolution: { listing: { files: Array<{ id: string; name: string }> } };
+    }>(`/s/${demoShareToken}/view`);
+    const photo = share.resolution.listing.files.find(
+      (entry) => entry.name === "Hidden cove.jpg",
+    )!;
+    for (const action of ["thumbnail", "content"]) {
+      const response = await client.request(
+        `/s/${demoShareToken}/files/${photo.id}/${action}`,
+      );
+      expect(response.status, action).toBe(200);
+    }
+  });
+
+  it("accepts files up to 100 MiB and up to 500 MiB in total", async () => {
+    const client = browser();
+    await client.scenario("demo");
+    await client.post("/api/auth/sign-in", demoAccount);
+    const start = (size: number) =>
+      client.post("/api/uploads/sessions", {
+        originalName: "big.bin",
+        mimeType: "application/octet-stream",
+        totalSizeBytes: size,
+      });
+    const MiB = 1024 * 1024;
+    expect((await start(100 * MiB + 1)).status).toBe(413);
+    for (let i = 0; i < 5; i++)
+      expect((await start(100 * MiB)).status).toBe(201);
+    expect((await start(1)).status).toBe(413);
   });
 });

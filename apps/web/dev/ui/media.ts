@@ -1,40 +1,30 @@
-import { readFileSync } from "node:fs";
 import {
   getPublicShareSafeInlineMimeType,
   PUBLIC_SHARE_CONTENT_SECURITY_POLICY,
 } from "../../server/media/public-share-content-policy";
-import { photoSamples } from "./fixtures";
 import { type State, type File, PreviewError, fileOf } from "./state";
 
-export const assets = new Map(
-  [
-    ...photoSamples.map((photo) => photo.asset),
-    "film-poster.jpg",
-    "expenses.csv",
-    "backup.bin",
-    "film.mp4",
-    "audio.wav",
-    "guide.pdf",
-    "notes.md",
-    "sample.zip",
-  ].map((name) => [
-    name,
-    Uint8Array.from(readFileSync(new URL(`./assets/${name}`, import.meta.url))),
-  ]),
-);
-export function sampleBytes(state: State, id: string, thumbnail = false) {
+/** Sample file bytes: read from disk in dev, fetched on first use in the demo. */
+export type Assets = {
+  size(name: string): number;
+  bytes(name: string): Promise<Uint8Array<ArrayBuffer>>;
+};
+export async function sampleBytes(
+  state: State,
+  assets: Assets,
+  id: string,
+  thumbnail = false,
+) {
   const file = fileOf(state, id);
-  return thumbnail
-    ? thumbnailBytes(state, file)
-    : (state.blobs.get(id) ?? assets.get(file.asset)!);
+  const uploaded = state.blobs.get(id);
+  if (uploaded && (!thumbnail || file.viewerKind === "image")) return uploaded;
+  return assets.bytes(thumbnail ? thumbnailAsset(file) : file.asset);
 }
-function thumbnailBytes(state: State, file: File) {
-  if (file.viewerKind === "image")
-    return state.blobs.get(file.id) ?? assets.get(file.asset)!;
-  const thumbnail = assets.get(file.thumbnailAsset ?? "");
-  if (!thumbnail)
-    throw new PreviewError(404, "This sample file has no thumbnail.");
-  return thumbnail;
+function thumbnailAsset(file: File) {
+  const name =
+    file.thumbnailAsset ?? (file.viewerKind === "image" ? file.asset : null);
+  if (!name) throw new PreviewError(404, "This sample file has no thumbnail.");
+  return name;
 }
 export function byteResponse(
   bytes: Uint8Array<ArrayBuffer>,

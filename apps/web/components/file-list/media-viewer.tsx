@@ -1,3 +1,4 @@
+import { appPath } from "@/lib/app-path";
 import {
   ChevronLeft,
   ChevronRight,
@@ -113,7 +114,7 @@ export function MediaViewer({
   onClose,
   origin,
   contentHref = (id) => `/api/files/files/${id}/content`,
-  downloadHref = (id) => `/api/files/files/${id}/download`,
+  downloadHref = (id) => appPath(`/api/files/files/${id}/download`),
   actions,
   navigation,
   hasMore = false,

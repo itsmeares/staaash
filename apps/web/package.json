@@ -16,6 +16,8 @@
     "openapi": "UPDATE_OPENAPI=1 vp test run server/http/openapi.test.ts",
     "preui": "vp run -w build:deps",
     "ui": "vp dev --mode ui",
+    "predemo:build": "vp run -w build:deps",
+    "demo:build": "vp build --mode demo",
     "pretest:ui": "vp run -w build:deps",
     "test:ui": "vp test run --config vitest.ui.config.ts",
     "e2e:ui": "playwright test --config playwright.ui.config.ts"

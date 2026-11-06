@@ -1,3 +1,4 @@
+import { appPath } from "@/lib/app-path";
 import React from "react";
 import { formatBytes } from "@/lib/format-bytes";
 import { AppLink } from "@/components/app-link";
@@ -102,7 +103,7 @@ function ShareShell({
       </main>
       <footer className="pb-6 text-center text-label text-muted-foreground">
         Shared with{" "}
-        <a className="text-foreground hover:underline" href="/">
+        <a className="text-foreground hover:underline" href={appPath("/")}>
           Staaash
         </a>
       </footer>
@@ -326,8 +327,8 @@ export function ShareView({
   if (resolution.kind === "file") {
     return (
       <ShareFilePage
-        contentHref={`/s/${encodeURIComponent(token)}/content`}
-        downloadHref={`/s/${encodeURIComponent(token)}/download`}
+        contentHref={appPath(`/s/${encodeURIComponent(token)}/content`)}
+        downloadHref={appPath(`/s/${encodeURIComponent(token)}/download`)}
         file={resolution.file}
         nativeInline={nativeInline}
         share={resolution.share}
@@ -364,7 +365,7 @@ export function ShareView({
         </div>
         <ShareActions
           downloadDisabled={share.downloadDisabled}
-          downloadHref={`/s/${encodeURIComponent(token)}/archive`}
+          downloadHref={appPath(`/s/${encodeURIComponent(token)}/archive`)}
           expiresAt={share.expiresAt}
           label="Download all"
         />

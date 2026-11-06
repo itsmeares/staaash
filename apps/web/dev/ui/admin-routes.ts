@@ -3,7 +3,6 @@ import type { Hono } from "hono";
 import type { PreviewEnv } from "./state";
 import { z } from "zod";
 import { jsonBody } from "./request";
-import { randomUUID } from "node:crypto";
 import { streamSSE } from "hono/streaming";
 import {
   type State,
@@ -61,7 +60,7 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
   );
   app.get("/api/views/admin/storage", (c) => c.json(adminStorage(c.var.state)));
   app.get("/api/views/admin/users", (c) =>
-    c.json(adminUsers(c.var.state, new URL(c.req.url).origin)),
+    c.json(adminUsers(c.var.state, c.var.site)),
   );
   app.get("/api/views/admin/users/:id", (c) => {
     const state = c.var.state;
@@ -82,7 +81,7 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
         lastChange: row.lastContentActivityAt,
       },
       devices: devices(state),
-      signInUrl: `${new URL(c.req.url).origin}/`,
+      signInUrl: `${c.var.site}/`,
     });
   });
   app.get("/api/views/admin/jobs", (c) => c.json(jobsView(c.var.state)));
@@ -148,7 +147,7 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
     const kind = z.enum(jobKinds).parse(body.kind);
     let job = c.var.state.jobs.find((j) => j.kind === kind);
     if (!job) {
-      job = sampleJob(kind, randomUUID());
+      job = sampleJob(kind, crypto.randomUUID());
       c.var.state.jobs.push(job);
     }
     job.status = "succeeded";
@@ -243,11 +242,11 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
       throw new PreviewError(409, "That sample account already exists.");
     const user = {
       ...c.var.state.users[2]!,
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       email,
       displayName: null,
       role: body.isAdmin ? ("admin" as const) : ("member" as const),
-      storageId: randomUUID(),
+      storageId: crypto.randomUUID(),
       storageLimitBytes: body.storageLimitBytes?.toString() ?? null,
       note: "Not signed in yet",
     };
@@ -307,7 +306,7 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
     return c.json({
       user,
       temporaryPassword,
-      signInUrl: `${new URL(c.req.url).origin}/`,
+      signInUrl: `${c.var.site}/`,
     });
   });
   app.delete("/api/admin/users/:id/sessions/:sessionId", (c) => {

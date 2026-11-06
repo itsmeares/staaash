@@ -487,3 +487,15 @@ jobs:
     with:
       ref: ${{ needs.preflight.outputs.tag }}
       release_tag: ${{ needs.preflight.outputs.tag }}
+
+  # The browser demo follows the published release, like the installers.
+  demo:
+    if: ${{ !cancelled() && needs.publish.result == 'success' }}
+    needs: [preflight, publish]
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/demo.yml
+    with:
+      ref: ${{ needs.preflight.outputs.tag }}

@@ -324,7 +324,7 @@ export function shellView(
       diskCapacityBytes: "536870912000",
     },
     updateState: user.role === "owner" ? updates : null,
-    nodeVersion: process.version,
+    nodeVersion: globalThis.process?.version ?? "In your browser",
     person: {
       label: user.displayName ?? user.email,
       email: user.email,

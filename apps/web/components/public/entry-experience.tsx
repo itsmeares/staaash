@@ -1,8 +1,10 @@
+import { appPath } from "@/lib/app-path";
 import React, { useEffect, useRef, useState } from "react";
 
 import { raiseCurtain } from "@/components/curtain";
 import { Button } from "@staaash/ui/components/button";
 import { Input } from "@staaash/ui/components/input";
+import { demoAccount, isDemo } from "@/lib/demo";
 import { startPath } from "@/lib/start-page";
 import { applyTheme, type Theme } from "@/lib/theme";
 import { cn } from "@staaash/ui/utils";
@@ -11,6 +13,10 @@ import { EntryShell } from "./entry-shell";
 import styles from "./entry-experience.module.css";
 import { useAdvanceOnInput } from "./use-advance-on-input";
 import { useShake } from "./use-shake";
+
+// The demo's fields come filled in, so a visitor enters with one click.
+const fill = isDemo ? demoAccount : { email: "", password: "" };
+const submitLabel = isDemo ? "Enter demo" : "Sign in";
 
 type SignInResponse = {
   error?: string;
@@ -29,7 +35,7 @@ function enterDrive(json: SignInResponse, next: string | undefined) {
   if (!prefs?.onboardingCompletedAt) {
     // A page behind sign-in sends an unfinished account back to "/" with
     // its address kept, so setup can return there.
-    window.location.assign(next ?? "/");
+    window.location.assign(appPath(next ?? "/"));
     return;
   }
   applyTheme(prefs.theme ?? "system");
@@ -47,7 +53,9 @@ export function SignIn({
   instanceName?: string;
   next?: string;
 }) {
-  const [phase, setPhase] = useState<"intro" | "leaving" | "form">("intro");
+  const [phase, setPhase] = useState<"intro" | "leaving" | "form">(
+    isDemo ? "form" : "intro",
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
@@ -133,6 +141,12 @@ export function SignIn({
   );
 }
 
+const demoNote = isDemo ? (
+  <p className="m-0 text-center text-label text-foreground/80">
+    Everything you do here stays in your browser.
+  </p>
+) : null;
+
 const field =
   "border-white/18 bg-black/30 backdrop-blur-sm placeholder:text-white/40";
 
@@ -174,6 +188,7 @@ function SignInForm({
           size="lg"
           autoComplete="email"
           className={field}
+          defaultValue={fill.email}
           id="email"
           name="email"
           placeholder="you@example.com"
@@ -193,6 +208,7 @@ function SignInForm({
           aria-invalid={error ? true : undefined}
           autoComplete="current-password"
           className={cn(field, error && "border-destructive/70")}
+          defaultValue={fill.password}
           id="password"
           name="password"
           required
@@ -214,8 +230,9 @@ function SignInForm({
         size="lg"
         type="submit"
       >
-        {pending ? "Signing in…" : "Sign in"}
+        {pending ? "Signing in…" : submitLabel}
       </Button>
+      {demoNote}
     </form>
   );
 }

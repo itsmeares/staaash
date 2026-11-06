@@ -1,20 +1,16 @@
 import { jsonBody } from "./request";
-import { randomUUID } from "node:crypto";
 import type { Hono } from "hono";
 import { z } from "zod";
 import type { PreviewEnv } from "./state";
 import {
   type State,
-  memoryLimit,
+  assertRoom,
   PreviewError,
   publicFile,
   rootOf,
 } from "./state";
 import { addFile, createFolder, destination, nameSchema } from "./mutations";
 
-const usedMemory = (state: State) =>
-  [...state.blobs.values()].reduce((sum, b) => sum + b.byteLength, 0) +
-  [...state.uploads.values()].reduce((sum, u) => sum + u.total, 0);
 const sessionView = (
   upload: State["uploads"] extends Map<string, infer U> ? U : never,
 ) => ({
@@ -79,12 +75,10 @@ export function mountUploads(app: Hono<PreviewEnv>) {
       .getAll("files")
       .filter((file): file is File => typeof file !== "string");
     if (!files.length) throw new PreviewError(400, "Choose a file to upload.");
-    const total = files.reduce((sum, f) => sum + f.size, 0);
-    if (usedMemory(c.var.state) + total > memoryLimit)
-      throw new PreviewError(
-        413,
-        "Sample uploads are limited to 16 MiB. Reset the sample drive to clear them.",
-      );
+    assertRoom(
+      c.var.state,
+      files.map((file) => file.size),
+    );
     const uploadedFiles = [];
     for (const file of files)
       uploadedFiles.push(
@@ -105,7 +99,7 @@ export function mountUploads(app: Hono<PreviewEnv>) {
       .object({
         originalName: nameSchema,
         mimeType: z.string(),
-        totalSizeBytes: z.number().int().min(0).max(memoryLimit),
+        totalSizeBytes: z.number().int().min(0),
         folderId: z.string().nullable().optional(),
       })
       .parse(await jsonBody(c.req.raw));
@@ -113,10 +107,9 @@ export function mountUploads(app: Hono<PreviewEnv>) {
       c.var.state,
       body.folderId ?? rootOf(c.var.state).id,
     );
-    if (usedMemory(c.var.state) + body.totalSizeBytes > memoryLimit)
-      throw new PreviewError(413, "Sample uploads are limited to 16 MiB.");
+    assertRoom(c.var.state, [body.totalSizeBytes]);
     const upload = {
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       name: body.originalName,
       mimeType: body.mimeType,
       folderId: folder.id,

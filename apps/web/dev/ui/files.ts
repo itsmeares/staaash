@@ -2,7 +2,6 @@ import type { Hono } from "hono";
 import type { PreviewEnv } from "./state";
 import { z } from "zod";
 import { jsonBody } from "./request";
-import { randomUUID } from "node:crypto";
 import {
   PreviewError,
   rootOf,
@@ -20,7 +19,7 @@ import {
   changeItem,
   createFolder,
 } from "./mutations";
-import { assets, byteResponse, sampleBytes } from "./media";
+import { byteResponse, sampleBytes } from "./media";
 
 export function mountFiles(app: Hono<PreviewEnv>) {
   app.post("/api/files/folders", async (c) => {
@@ -120,7 +119,7 @@ export function mountFiles(app: Hono<PreviewEnv>) {
       results,
     };
     const operation = {
-      operationId: randomUUID(),
+      operationId: crypto.randomUUID(),
       status: "succeeded" as const,
       response,
     };
@@ -150,7 +149,7 @@ export function mountFiles(app: Hono<PreviewEnv>) {
       deletedFolderCount: folders.length,
     });
   });
-  app.get("/api/files/files/:id/:action", (c) => {
+  app.get("/api/files/files/:id/:action", async (c) => {
     const state = c.var.state;
     const file = owned(state, fileOf(state, c.req.param("id")));
     if (isDeleted(state, file))
@@ -161,7 +160,7 @@ export function mountFiles(app: Hono<PreviewEnv>) {
     if (!["content", "download", "thumbnail", "preview"].includes(action))
       throw new PreviewError(404, "Unknown sample file request.");
     return byteResponse(
-      sampleBytes(state, file.id, action === "thumbnail"),
+      await sampleBytes(state, c.var.assets, file.id, action === "thumbnail"),
       action === "thumbnail" ? "image/jpeg" : file.mimeType,
       c.req.raw,
       action === "download" ? file.name : undefined,
@@ -177,13 +176,13 @@ export function mountFiles(app: Hono<PreviewEnv>) {
     c.json({
       status: c.var.state.scenario === "error" ? "failed" : "ready",
       fileCount: 1,
-      sizeBytes: String(assets.get("sample.zip")!.byteLength),
+      sizeBytes: String(c.var.assets.size("sample.zip")),
       error: c.var.state.scenario === "error" ? "Sample archive failed." : null,
     }),
   );
-  app.get("/api/files/archives/:id/download", (c) =>
+  app.get("/api/files/archives/:id/download", async (c) =>
     byteResponse(
-      assets.get("sample.zip")!,
+      await c.var.assets.bytes("sample.zip"),
       "application/zip",
       c.req.raw,
       "Sample files.zip",

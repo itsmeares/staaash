@@ -1,3 +1,4 @@
+import { appPath } from "@/lib/app-path";
 import { useNavigate } from "@tanstack/react-router";
 import { Play } from "lucide-react";
 import {
@@ -63,7 +64,7 @@ export function ShareFolderList({
 
   const download = (entry: ShareListEntry) => {
     if (!downloadDisabled && entry.kind === "file") {
-      window.location.href = `${base}/files/${entry.id}/download`;
+      window.location.href = appPath(`${base}/files/${entry.id}/download`);
     }
   };
   const open = (entry: ShareListEntry) => {
