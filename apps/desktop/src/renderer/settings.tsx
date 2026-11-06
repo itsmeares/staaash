@@ -26,7 +26,7 @@ import type {
   SizeReading,
   SyncPair,
 } from "../shared/types";
-import { AppGlyph } from "./app-glyph";
+import { DriveGlyph } from "@staaash/ui/drive-glyph";
 import { FolderChooser, ModeSelect } from "./folder-chooser";
 import { desktop } from "./state";
 
@@ -49,7 +49,7 @@ function Screen({
   return (
     <main className="mx-auto grid w-full max-w-160 gap-6 px-8 py-10">
       <header className="grid gap-2">
-        <AppGlyph className="mb-2 w-10" />
+        <DriveGlyph className="mb-2 w-10" />
         <h1 className="m-0 font-heading text-headline font-medium">{title}</h1>
         <p className="m-0 text-body text-muted-foreground">{lead}</p>
       </header>

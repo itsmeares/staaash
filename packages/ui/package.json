@@ -6,6 +6,7 @@
   "exports": {
     "./styles.css": "./styles.css",
     "./components/*": "./src/components/*.tsx",
+    "./drive-glyph": "./src/drive-glyph.tsx",
     "./item-type-icon": "./src/item-type-icon.tsx",
     "./item-visuals": "./src/item-visuals.ts",
     "./segmented-control": "./src/segmented-control.ts",

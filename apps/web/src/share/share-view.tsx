@@ -4,7 +4,7 @@ import { formatBytes } from "@/lib/format-bytes";
 import { AppLink } from "@/components/app-link";
 import { Download } from "lucide-react";
 
-import { DriveGlyph } from "@/components/drive-glyph";
+import { DriveGlyph } from "@staaash/ui/drive-glyph";
 import { EntryShell } from "@/components/public/entry-shell";
 import { cn } from "@staaash/ui/utils";
 

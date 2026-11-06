@@ -29,7 +29,7 @@ import {
   toggleLocalTick,
   toggleTick,
 } from "./folder-picks";
-import { AppGlyph } from "./app-glyph";
+import { DriveGlyph } from "@staaash/ui/drive-glyph";
 import { desktop } from "./state";
 
 const MODE_LABELS: Record<SyncMode, string> = {
@@ -417,7 +417,7 @@ export function FolderChooser({
                   !taken && setPicks(toggleTick(tree, picks, folder.id))
                 }
               />
-              {isRoot ? <AppGlyph className="w-4.5" /> : FOLDER_ICON}
+              {isRoot ? <DriveGlyph className="w-4.5" /> : FOLDER_ICON}
             </>
           }
           label={label}

@@ -19,7 +19,7 @@ import {
 
 import type { ServerFolder } from "../shared/types";
 import { findFolders } from "./folder-picks";
-import { AppGlyph } from "./app-glyph";
+import { DriveGlyph } from "@staaash/ui/drive-glyph";
 import { desktop } from "./state";
 
 const FOLDER_ICON = (
@@ -150,7 +150,7 @@ export function DriveFolderDialog({
         <FolderTreeRow
           depth={0}
           disabled={false}
-          icon={<AppGlyph className="w-4.5" />}
+          icon={<DriveGlyph className="w-4.5" />}
           label={<span className="font-medium">Your drive</span>}
           picked={picked === tree.root.id}
           onPick={() => tree.root && setPicked(tree.root.id)}

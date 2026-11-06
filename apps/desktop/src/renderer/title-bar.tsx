@@ -1,6 +1,6 @@
 import { cn } from "@staaash/ui/utils";
 
-import { AppGlyph } from "./app-glyph";
+import { DriveGlyph } from "@staaash/ui/drive-glyph";
 
 // Not in TypeScript's own browser types yet.
 const { windowControlsOverlay: overlay } = navigator as Navigator & {
@@ -25,7 +25,7 @@ export function TopRow() {
         hasTopRow ? "end-0 [-webkit-app-region:drag]" : "w-14",
       )}
     >
-      {logoInRail ? null : <AppGlyph className="w-7.5" />}
+      {logoInRail ? null : <DriveGlyph className="w-7.5" />}
     </div>
   );
 }
