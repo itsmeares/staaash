@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@staaash/ui/components/select";
-import { DriveGlyph } from "../../components/drive-glyph";
+import { DriveGlyph } from "@staaash/ui/drive-glyph";
 import { ThemeWatcher } from "../../components/theme-watcher";
 import { applyTheme } from "../../lib/theme";
 import { formatBytes } from "../../lib/format-bytes";

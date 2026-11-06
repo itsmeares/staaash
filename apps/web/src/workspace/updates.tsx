@@ -10,7 +10,7 @@ import {
 } from "react";
 import { formatVersionLabel } from "@staaash/config/version";
 
-import { DriveGlyph } from "@/components/drive-glyph";
+import { DriveGlyph } from "@staaash/ui/drive-glyph";
 import { Halftone } from "@/components/halftone";
 import { useTime } from "@/components/time-provider";
 import { Badge } from "@staaash/ui/components/badge";

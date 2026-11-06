@@ -3,7 +3,7 @@ import { Zap } from "lucide-react";
 import { AppLink } from "@/components/app-link";
 import { formatVersionLabel } from "@staaash/config/version";
 
-import { DriveGlyph } from "@/components/drive-glyph";
+import { DriveGlyph } from "@staaash/ui/drive-glyph";
 
 import { useUpdates } from "./updates";
 import { NewMenu } from "./new-menu";

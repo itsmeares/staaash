@@ -2,7 +2,7 @@ import { FolderPlus } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { submitStorageMutationPost } from "@/src/storage-mutation-submit";
-import { DriveGlyph } from "@/components/drive-glyph";
+import { DriveGlyph } from "@staaash/ui/drive-glyph";
 import { ItemIcon } from "@/components/file-list/file-list";
 import { Button } from "@staaash/ui/components/button";
 import {

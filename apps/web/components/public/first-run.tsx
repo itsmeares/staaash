@@ -4,7 +4,7 @@ import { AUTO_TIME_ZONE, getBrowserTimeZone } from "@staaash/config/time-zone";
 
 import { api, read } from "@/lib/api";
 import { raiseCurtain } from "@/components/curtain";
-import { DriveGlyph } from "@/components/drive-glyph";
+import { DriveGlyph } from "@staaash/ui/drive-glyph";
 import { MiniDrive } from "@/components/mini-drive";
 import { TimeZonePicker } from "@/components/time-zone-picker";
 import { startPath } from "@/lib/start-page";

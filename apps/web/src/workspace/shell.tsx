@@ -5,7 +5,7 @@ import { Suspense, type ReactNode } from "react";
 import { ConfirmHost } from "@/components/confirm-dialog";
 import { isDemo } from "@/lib/demo";
 import { DemoBar } from "@/src/workspace/demo-bar";
-import { DriveGlyph } from "@/components/drive-glyph";
+import { DriveGlyph } from "@staaash/ui/drive-glyph";
 import { DefaultViewProvider } from "@/components/file-list/use-view-mode";
 import { FlashToasts } from "@/components/flash-toasts";
 import { SkipLink } from "@/components/skip-link";

@@ -1,7 +1,12 @@
-/** The desktop app's drive mark. The tray and app icons use the same shape. */
-export function AppGlyph({ className }: { className?: string }) {
+import { cn } from "@staaash/ui/utils";
+
+export function DriveGlyph({ className }: { className?: string }) {
   return (
-    <svg aria-hidden className={className} viewBox="0 0 36 28">
+    <svg
+      aria-hidden
+      className={cn("h-auto w-6 shrink-0", className)}
+      viewBox="0 0 36 28"
+    >
       <path d="M7 2h22l6 14H1z" fill="#3e424a" />
       <rect
         fill="#12161e"

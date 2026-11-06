@@ -2,7 +2,7 @@ import React from "react";
 import { AppLink } from "@/components/app-link";
 import type { ReactNode } from "react";
 
-import { DriveGlyph } from "@/components/drive-glyph";
+import { DriveGlyph } from "@staaash/ui/drive-glyph";
 import { SkipLink } from "@/components/skip-link";
 import { cn } from "@staaash/ui/utils";
 

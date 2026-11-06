@@ -21,6 +21,7 @@ publish:
   owner: itsmeares
   repo: staaash
 mac:
+  icon: resources/mac-icon.png
   target:
     - target: dmg
       arch: universal

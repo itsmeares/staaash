@@ -5,7 +5,7 @@ const { app, BrowserWindow } = require("electron");
 const { writeFileSync } = require("node:fs");
 const path = require("node:path");
 
-// The same drive as the app's AppGlyph, on the 32-unit grid. The thicker edge
+// The same drive as the app's DriveGlyph, on the 32-unit grid. The thicker edge
 // keeps its outline visible at tray size, where 1 unit is under half a pixel.
 const DRIVE = `<g transform="translate(0 3.5) scale(.889)"><path d="M7 2h22l6 14H1z" fill="#3e424a"/><rect x="1" y="13" width="34" height="14" rx="3.5" fill="#12161e" stroke="#2c3039" stroke-width="1.6"/><rect x="23" y="19" width="7" height="1.8" rx=".9" fill="#4a90ff"/></g>`;
 // macOS tints template images, so those stay one colour.

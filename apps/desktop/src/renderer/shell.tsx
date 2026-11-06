@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@staaash/ui/utils";
 
 import { ActivityPage } from "./activity";
-import { AppGlyph } from "./app-glyph";
+import { DriveGlyph } from "@staaash/ui/drive-glyph";
 import { FolderChooser } from "./folder-chooser";
 import { CustomPauseDialog } from "./pause";
 import { Connect, FoldersPage, SettingsPage, VersionProblem } from "./settings";
@@ -134,7 +134,7 @@ export function App() {
           !hasTopRow && "pt-9",
         )}
       >
-        {logoInRail ? <AppGlyph className="mb-2.5 w-7.5" /> : null}
+        {logoInRail ? <DriveGlyph className="mb-2.5 w-7.5" /> : null}
         <RailButton
           badge={attention}
           current={page === "activity"}
