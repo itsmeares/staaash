@@ -6,7 +6,12 @@ export async function startDemo() {
   const workers = navigator.serviceWorker;
   if (!workers) return false;
   const base = import.meta.env.BASE_URL;
-  await workers.register(`${base}sw.js`, { scope: base });
+  // Some private windows have the API but refuse to register a worker.
+  const registered = await workers
+    .register(`${base}sw.js`, { scope: base })
+    .then(() => true)
+    .catch(() => false);
+  if (!registered) return false;
   const registration = await workers.ready;
   if (!workers.controller) {
     const claimed = new Promise((resolve) =>
