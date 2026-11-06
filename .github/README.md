@@ -95,6 +95,8 @@ On macOS, the app is not signed by Apple. If the first launch is blocked, open S
 
 Windows and Linux update themselves. On macOS the app tells you when a new version is ready to download.
 
+See the [code signing policy](../docs/code-signing.md) for the Windows signing application and desktop app privacy information.
+
 ## Learn more
 
 - [Backup and restore](../docs/operations/backup-restore.md) — protect your files and practice recovery.
