@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { summarize } from "@/src/workspace/transfers";
+import { settleUploads } from "@/lib/transfers/upload-progress";
 import type { UploadingFile } from "@/src/workspace/transfer-context";
 import { summarizeDownloads } from "@/src/workspace/desktop-downloads";
 import type { BrowserDownload } from "@staaash/config/desktop-downloads";
@@ -69,5 +70,27 @@ describe("summarize", () => {
 
   it("is empty without uploads", () => {
     expect(summarize([])).toMatchObject({ total: 0, percent: 0, eta: "" });
+  });
+});
+
+describe("a batch of uploads", () => {
+  it("counts every file in it while some are still uploading", () => {
+    const rows = settleUploads([
+      upload("done", 100, 100),
+      upload("done", 100, 100),
+      upload("uploading", 100, 50),
+    ]);
+    const summary = summarize(rows);
+    expect(summary.total).toBe(3);
+    expect(summary.done).toHaveLength(2);
+    expect(summary.percent).toBe(83);
+  });
+
+  it("clears finished files once it settles and keeps the ones that need you", () => {
+    const rows = settleUploads([
+      upload("done", 100, 100),
+      upload("error", 100, 0),
+    ]);
+    expect(rows.map((row) => row.status)).toEqual(["error"]);
   });
 });

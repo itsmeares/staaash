@@ -57,3 +57,12 @@ export const calculateLiveUploadedBytes = (
         0,
       ),
   );
+
+/**
+ * Drops finished uploads once nothing is uploading. While a batch runs they stay, so its
+ * count, progress and "uploaded" toast cover every file in it.
+ */
+export const settleUploads = <T extends { status: string }>(uploads: T[]) =>
+  uploads.some((upload) => upload.status === "uploading")
+    ? uploads
+    : uploads.filter((upload) => upload.status !== "done");
