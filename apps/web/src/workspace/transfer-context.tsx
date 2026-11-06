@@ -26,6 +26,7 @@ import {
 import {
   calculateLiveUploadedBytes,
   calculateUploadProgress,
+  settleUploads,
   UploadRateTracker,
 } from "@/lib/transfers/upload-progress";
 import { UploadTaskPool } from "@/lib/transfers/upload-task-pool";
@@ -393,13 +394,19 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
       fileId,
       statusLabel: undefined,
     });
-    setTimeout(() => {
-      setUploadingFiles((current) =>
-        current.filter((upload) => upload.clientKey !== clientKey),
-      );
-    }, 1800);
     startTransition(() => void refresh());
   };
+
+  // Finished rows stay until their batch settles, then leave together.
+  const batchRunning = uploadingFiles.some(
+    (upload) => upload.status === "uploading",
+  );
+  const hasFinished = uploadingFiles.some((upload) => upload.status === "done");
+  useEffect(() => {
+    if (batchRunning || !hasFinished) return;
+    const timer = setTimeout(() => setUploadingFiles(settleUploads), 1800);
+    return () => clearTimeout(timer);
+  }, [batchRunning, hasFinished]);
 
   const registerFileInput = useCallback(
     (el: HTMLInputElement | null, folderId?: string) => {
@@ -974,6 +981,8 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // A batch that just finished does not count toward this one.
+    setUploadingFiles(settleUploads);
     const uploadKeys = selection.files.map(({ file, relativePath }) => {
       const clientKey = randomClientId();
       const storageMutationKey = randomClientId();
