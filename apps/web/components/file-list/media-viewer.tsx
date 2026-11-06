@@ -114,7 +114,7 @@ export function MediaViewer({
   onClose,
   origin,
   contentHref = (id) => `/api/files/files/${id}/content`,
-  downloadHref = (id) => appPath(`/api/files/files/${id}/download`),
+  downloadHref = (id) => `/api/files/files/${id}/download`,
   actions,
   navigation,
   hasMore = false,
@@ -292,7 +292,7 @@ export function MediaViewer({
         </div>
         {file.viewerKind === "pdf" ? (
           <Button
-            render={<a href={href} rel="noreferrer" target="_blank" />}
+            render={<a href={appPath(href)} rel="noreferrer" target="_blank" />}
             size="sm"
             variant="media"
           >
@@ -304,7 +304,7 @@ export function MediaViewer({
           <Button
             // Phones with actions already have Download in the bottom bar.
             className={actions ? "max-sm:hidden" : undefined}
-            render={<a href={downloadHref(file.id)} />}
+            render={<a href={appPath(downloadHref(file.id))} />}
             size="sm"
             variant="media"
           >

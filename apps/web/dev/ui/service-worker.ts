@@ -3,6 +3,7 @@ import { version } from "../../../../package.json";
 import { createPreviewApp, seedState } from "./app";
 import type { Assets } from "./media";
 import { handlesRequest } from "./requests";
+import { PreviewError } from "./state";
 import { openSavedDrive } from "./saved-drive";
 
 declare const self: ServiceWorkerGlobalScope;
@@ -25,14 +26,25 @@ const assets: Assets = {
 // read back from browser storage whenever the worker starts again.
 let drive: ReturnType<typeof openSavedDrive> | undefined;
 const { app } = createPreviewApp(async (c, next) => {
-  const { state, save } = await (drive ??= openSavedDrive(version, () =>
-    seedState(assets, "demo"),
-  ));
+  // A failed start is retried on the next request instead of kept.
+  drive ??= openSavedDrive(version, () => seedState(assets, "demo")).catch(
+    (error: unknown) => {
+      drive = undefined;
+      throw error;
+    },
+  );
+  const { state, save } = await drive;
   c.set("state", state);
   c.set("assets", assets);
   c.set("site", site);
   await next();
-  if (!["GET", "HEAD"].includes(c.req.method)) await save();
+  if (["GET", "HEAD"].includes(c.req.method)) return;
+  await save().catch(() => {
+    throw new PreviewError(
+      503,
+      "This change could not be saved in your browser, so it is gone after a reload. Free some browser storage or reset the demo.",
+    );
+  });
 });
 
 self.addEventListener("install", () => void self.skipWaiting());

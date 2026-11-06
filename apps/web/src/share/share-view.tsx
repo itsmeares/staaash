@@ -58,7 +58,7 @@ function ShareActions({
           Downloads are off
         </span>
       ) : downloadHref ? (
-        <Button render={<a href={downloadHref} />}>
+        <Button render={<a href={appPath(downloadHref)} />}>
           <Download aria-hidden />
           {label}
         </Button>
@@ -327,8 +327,8 @@ export function ShareView({
   if (resolution.kind === "file") {
     return (
       <ShareFilePage
-        contentHref={appPath(`/s/${encodeURIComponent(token)}/content`)}
-        downloadHref={appPath(`/s/${encodeURIComponent(token)}/download`)}
+        contentHref={`/s/${encodeURIComponent(token)}/content`}
+        downloadHref={`/s/${encodeURIComponent(token)}/download`}
         file={resolution.file}
         nativeInline={nativeInline}
         share={resolution.share}
@@ -365,7 +365,7 @@ export function ShareView({
         </div>
         <ShareActions
           downloadDisabled={share.downloadDisabled}
-          downloadHref={appPath(`/s/${encodeURIComponent(token)}/archive`)}
+          downloadHref={`/s/${encodeURIComponent(token)}/archive`}
           expiresAt={share.expiresAt}
           label="Download all"
         />
