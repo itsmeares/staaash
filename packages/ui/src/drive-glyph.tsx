@@ -1,4 +1,4 @@
-import { cn } from "@staaash/ui/utils";
+import { cn } from "./utils";
 
 export function DriveGlyph({ className }: { className?: string }) {
   return (
