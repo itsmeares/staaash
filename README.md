@@ -1,14 +1,14 @@
 <div align="center">
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: light)" srcset="../design/App/Staaash%20App%20Icon-White%400.25.png">
-    <source media="(prefers-color-scheme: dark)" srcset="../design/App/Staaash%20App%20Icon%400.25.png">
-    <img src="../design/App/Staaash%20App%20Icon%400.25.png" alt="Staaash" width="192" height="192">
+    <source media="(prefers-color-scheme: light)" srcset="design/App/Staaash%20App%20Icon-White%400.25.png">
+    <source media="(prefers-color-scheme: dark)" srcset="design/App/Staaash%20App%20Icon%400.25.png">
+    <img src="design/App/Staaash%20App%20Icon%400.25.png" alt="Staaash" width="192" height="192">
   </picture>
 </p>
 <h1>Staaash</h1>
 
-[![License: AGPL-3.0](https://img.shields.io/github/license/itsmeares/staaash?style=for-the-badge&label=license)](../LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/github/license/itsmeares/staaash?style=for-the-badge&label=license)](LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/itsmeares/staaash?style=for-the-badge&label=latest%20release&logo=github&logoColor=white)](https://github.com/itsmeares/staaash/releases)
 [![Docker pulls](https://ghcr-badge.elias.eu.org/shield/itsmeares/staaash/staaash)](https://github.com/itsmeares/staaash/pkgs/container/staaash)
 [![CI](https://img.shields.io/github/actions/workflow/status/itsmeares/staaash/ci.yml?branch=main&style=for-the-badge&label=ci&logo=githubactions&logoColor=white)](https://github.com/itsmeares/staaash/actions/workflows/ci.yml)
@@ -30,22 +30,22 @@ It supports resumable uploads, public links, media previews, multiple users, sto
   <tr>
     <td colspan="2">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="../docs/assets/readme/home-dashboard-dark.png">
-        <img src="../docs/assets/readme/home-dashboard-light.png" alt="Staaash home with recent files as thumbnails, pinned items, recent activity, and shared links">
+        <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/home-dashboard-dark.png">
+        <img src="docs/assets/readme/home-dashboard-light.png" alt="Staaash home with recent files as thumbnails, pinned items, recent activity, and shared links">
       </picture>
     </td>
   </tr>
   <tr>
     <td width="50%">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="../docs/assets/readme/files-dark.png">
-        <img src="../docs/assets/readme/files-light.png" alt="Staaash folder in grid view with photo and video thumbnails">
+        <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/files-dark.png">
+        <img src="docs/assets/readme/files-light.png" alt="Staaash folder in grid view with photo and video thumbnails">
       </picture>
     </td>
     <td width="50%">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="../docs/assets/readme/share-page-dark.png">
-        <img src="../docs/assets/readme/share-page-light.png" alt="Staaash public link to a video, playing inline">
+        <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/share-page-dark.png">
+        <img src="docs/assets/readme/share-page-light.png" alt="Staaash public link to a video, playing inline">
       </picture>
     </td>
   </tr>
@@ -95,22 +95,22 @@ On macOS, the app is not signed by Apple. If the first launch is blocked, open S
 
 Windows and Linux update themselves. On macOS the app tells you when a new version is ready to download.
 
-See the [code signing policy](../docs/code-signing.md) for the Windows signing application and desktop app privacy information.
+See the [code signing policy](docs/code-signing.md) for the Windows signing application and desktop app privacy information.
 
 ## Learn more
 
-- [Backup and restore](../docs/operations/backup-restore.md) — protect your files and practice recovery.
-- [Reverse proxy](../docs/operations/reverse-proxy.md) — put Staaash behind a domain.
+- [Backup and restore](docs/operations/backup-restore.md) — protect your files and practice recovery.
+- [Reverse proxy](docs/operations/reverse-proxy.md) — put Staaash behind a domain.
 - [Release notes](https://github.com/itsmeares/staaash/releases) — check changes before upgrading.
-- [Storage mutation recovery](../docs/operations/storage-mutation-recovery.md) — recover interrupted storage operations.
-- [Architecture](../docs/architecture.md) and [resumable uploads](../docs/operations/resumable-uploads.md) — understand how Staaash works.
+- [Storage mutation recovery](docs/operations/storage-mutation-recovery.md) — recover interrupted storage operations.
+- [Architecture](docs/architecture.md) and [resumable uploads](docs/operations/resumable-uploads.md) — understand how Staaash works.
 
 ## Community
 
 - Ask questions, suggest ideas, and share feedback in [GitHub Discussions](https://github.com/itsmeares/staaash/discussions).
 - Report bugs and request features through the issue tracker.
-- Read [CONTRIBUTING.md](./CONTRIBUTING.md) before changing the code.
-- Report security problems privately through the [security policy](./SECURITY.md).
+- Read [CONTRIBUTING.md](.github/CONTRIBUTING.md) before changing the code.
+- Report security problems privately through the [security policy](.github/SECURITY.md).
 
 ## AI-assisted development
 
@@ -118,4 +118,4 @@ Most of Staaash's application code and tests were written with AI coding tools. 
 
 ## License
 
-AGPL-3.0. See [LICENSE](../LICENSE).
+AGPL-3.0. See [LICENSE](LICENSE).
