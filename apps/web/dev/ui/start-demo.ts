@@ -13,7 +13,8 @@ export async function startDemo() {
     .catch(() => false);
   if (!registered) return false;
   const registration = await workers.ready;
-  if (!workers.controller) {
+  // Another site on the same origin can control the page with its own worker.
+  if (workers.controller?.scriptURL !== registration.active?.scriptURL) {
     const claimed = new Promise((resolve) =>
       workers.addEventListener("controllerchange", resolve, { once: true }),
     );
