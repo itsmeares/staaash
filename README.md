@@ -1,8 +1,8 @@
 <div align="center">
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: light)" srcset="design/App/Staaash%20App%20Icon-White%400.25.png">
-    <source media="(prefers-color-scheme: dark)" srcset="design/App/Staaash%20App%20Icon%400.25.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/App/Staaash%20App%20Icon-White%400.25.png">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/App/Staaash%20App%20Icon%400.25.png">
     <img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/App/Staaash%20App%20Icon%400.25.png" alt="Staaash" width="192" height="192">
   </picture>
 </p>
@@ -30,7 +30,7 @@ It supports resumable uploads, public links, media previews, multiple users, sto
   <tr>
     <td colspan="2">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/home-dashboard-dark.png">
+        <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/docs/assets/readme/home-dashboard-dark.png">
         <img src="https://raw.githubusercontent.com/itsmeares/staaash/main/docs/assets/readme/home-dashboard-light.png" alt="Staaash home with recent files as thumbnails, pinned items, recent activity, and shared links">
       </picture>
     </td>
@@ -38,13 +38,13 @@ It supports resumable uploads, public links, media previews, multiple users, sto
   <tr>
     <td width="50%">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/files-dark.png">
+        <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/docs/assets/readme/files-dark.png">
         <img src="https://raw.githubusercontent.com/itsmeares/staaash/main/docs/assets/readme/files-light.png" alt="Staaash folder in grid view with photo and video thumbnails">
       </picture>
     </td>
     <td width="50%">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/share-page-dark.png">
+        <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/docs/assets/readme/share-page-dark.png">
         <img src="https://raw.githubusercontent.com/itsmeares/staaash/main/docs/assets/readme/share-page-light.png" alt="Staaash public link to a video, playing inline">
       </picture>
     </td>
