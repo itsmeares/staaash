@@ -38,6 +38,21 @@ describe("physical disk headroom", () => {
     expect(message).toMatch(/Free at least 22.7 GB more/);
   });
 
+  it("counts space that uploads in progress still need", async () => {
+    mocks.statfs.mockResolvedValue(disk(71n * GB));
+    const error = await assertPhysicalHeadroom(10n * GB, 1024n).catch(
+      (caught: unknown) => caught,
+    );
+    const { message } = error as Error;
+    expect(message).toContain(
+      "10.0 GB still to arrive from uploads in progress",
+    );
+    expect(message).toContain("Free at least 32.7 GB more");
+    expect(error).toMatchObject({
+      details: expect.objectContaining({ marginBytes: expect.any(Number) }),
+    });
+  });
+
   it("admits an upload that leaves the margin free", async () => {
     mocks.statfs.mockResolvedValue(disk(200n * GB));
     await expect(assertPhysicalHeadroom(0n, GB)).resolves.toBeUndefined();

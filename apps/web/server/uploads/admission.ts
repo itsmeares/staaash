@@ -284,7 +284,11 @@ export const assertPhysicalHeadroom = async (
         marginBytes: Number(marginBytes),
         shortfallBytes: Number(shortfallBytes),
       },
-      `Not enough free disk space for this upload. Staaash keeps ${describeDiskMargin(marginBytes)} free, and only ${formatBytes(availableBytes)} is free. Free at least ${formatBytes(shortfallBytes)} more to upload this file.`,
+      `Not enough free disk space for this upload. Staaash keeps ${describeDiskMargin(marginBytes)} free, and only ${formatBytes(availableBytes)} is free${
+        outstandingGrowthBytes > 0n
+          ? `, with ${formatBytes(outstandingGrowthBytes)} still to arrive from uploads in progress`
+          : ""
+      }. Free at least ${formatBytes(shortfallBytes)} more to upload this file.`,
     );
   }
 };
