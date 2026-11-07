@@ -105,11 +105,9 @@ The desktop app keeps folders on your computer in sync with your drive and lives
 | Linux DEB      | [Installer x64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.5/Staaash-2.0.0-rc.5-linux-amd64.deb)       | [Installer ARM64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.5/Staaash-2.0.0-rc.5-linux-arm64.deb)      |
 | Linux RPM      | [Installer x64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.5/Staaash-2.0.0-rc.5-linux-x86_64.rpm)      | [Installer ARM64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.5/Staaash-2.0.0-rc.5-linux-aarch64.rpm)    |
 
-On macOS, the app is not signed by Apple. If the first launch is blocked, open System Settings, then Privacy & Security, and click Open Anyway.
+The installers are not code signed. On Windows, if SmartScreen blocks the installer, click More info, then Run anyway. On macOS, if the first launch is blocked, open System Settings, then Privacy & Security, and click Open Anyway.
 
-Windows and Linux update themselves. On macOS the app tells you when a new version is ready to download.
-
-See the [code signing policy](https://github.com/itsmeares/staaash/blob/main/docs/code-signing.md) for the Windows signing application and desktop app privacy information.
+The app checks GitHub for a new version when it starts and every six hours. Windows and Linux update themselves. On macOS the app tells you when a new version is ready to download.
 
 ## Learn more
 
