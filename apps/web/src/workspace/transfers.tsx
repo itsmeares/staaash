@@ -1,6 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Check, CircleAlert, Download, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { ItemIcon } from "@/components/file-list/file-list";
 import { MiddleName } from "@/components/file-list/middle-name";
@@ -31,20 +32,6 @@ import {
 } from "./desktop-downloads";
 
 const SESSION_PREFIX = "staaash:upload-session:";
-
-// A large batch is thousands of files, and a row for each freezes the page.
-// Uploads start in order, so the first rows are the ones moving; the header
-// carries the whole batch's progress and the rest wait as a count.
-const LISTED_ROWS = 50;
-
-function MoreRows({ count, what }: { count: number; what: string }) {
-  if (count <= 0) return null;
-  return (
-    <p className="m-0 py-1.5 text-label text-muted-foreground tabular-nums">
-      {count.toLocaleString()} more {what}
-    </p>
-  );
-}
 
 type UnfinishedUpload = { name: string; storageKey: string };
 
@@ -200,6 +187,14 @@ const downloadNote = (state: DownloadProgressState) => {
   return "Download started";
 };
 
+function SectionTitle({ title }: { title: string }) {
+  return (
+    <h3 className="m-0 pt-2 pb-0.5 font-sans text-label font-medium text-muted-foreground">
+      {title}
+    </h3>
+  );
+}
+
 function Section({
   title,
   children,
@@ -209,11 +204,55 @@ function Section({
 }) {
   return (
     <section className="grid">
-      <h3 className="m-0 pt-2 pb-0.5 font-sans text-label font-medium text-muted-foreground">
-        {title}
-      </h3>
+      <SectionTitle title={title} />
       {children}
     </section>
+  );
+}
+
+type ListRow = { key: string; node: ReactNode };
+
+/**
+ * The popover's list. A batch can be thousands of files, so only the rows
+ * near the scroll position are mounted, and every file keeps its own row.
+ */
+function TransferList({
+  rows,
+  children,
+}: {
+  rows: ListRow[];
+  children: ReactNode;
+}) {
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scroller,
+    getItemKey: (index) => rows[index]!.key,
+    estimateSize: () => 56,
+    overscan: 8,
+  });
+  return (
+    <div ref={setScroller} className="grid max-h-[60dvh] gap-1 overflow-y-auto">
+      {rows.length > 0 ? (
+        <div
+          className="relative"
+          style={{ height: virtualizer.getTotalSize() }}
+        >
+          {virtualizer.getVirtualItems().map((item) => (
+            <div
+              className="absolute inset-x-0"
+              data-index={item.index}
+              key={item.key}
+              ref={virtualizer.measureElement}
+              style={{ top: item.start }}
+            >
+              {rows[item.index]!.node}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {children}
+    </div>
   );
 }
 
@@ -343,37 +382,37 @@ function RingIcon({
   return <Spinner className="size-4" />;
 }
 
-function UploadGroups({
-  uploading,
-  onCancel,
-}: {
-  uploading: UploadingFile[];
-  onCancel: (key: string) => void;
-}) {
+/** Uploads by the folder they go into, a title above each folder's files. */
+function uploadRows(
+  uploading: UploadingFile[],
+  onCancel: (key: string) => void,
+): ListRow[] {
   const groups = new Map<string, UploadingFile[]>();
-  for (const upload of uploading.slice(0, LISTED_ROWS)) {
+  for (const upload of uploading) {
     const key = upload.destination ?? "";
-    groups.set(key, [...(groups.get(key) ?? []), upload]);
+    const group = groups.get(key);
+    if (group) group.push(upload);
+    else groups.set(key, [upload]);
   }
-  return (
-    <>
-      {[...groups].map(([destination, items]) => (
-        <Section
-          key={destination}
+  return [...groups].flatMap(([destination, items]) => [
+    {
+      key: `title:${destination}`,
+      node: (
+        <SectionTitle
           title={destination ? `Uploading to ${destination}` : "Uploading"}
-        >
-          {items.map((upload) => (
-            <UploadRow
-              key={upload.clientKey}
-              upload={upload}
-              onCancel={() => onCancel(upload.clientKey)}
-            />
-          ))}
-        </Section>
-      ))}
-      <MoreRows count={uploading.length - LISTED_ROWS} what="waiting" />
-    </>
-  );
+        />
+      ),
+    },
+    ...items.map((upload) => ({
+      key: upload.clientKey,
+      node: (
+        <UploadRow
+          upload={upload}
+          onCancel={() => onCancel(upload.clientKey)}
+        />
+      ),
+    })),
+  ]);
 }
 
 function UnfinishedRow({
@@ -520,37 +559,38 @@ function TransfersButton({
   );
 }
 
-function NeedsYou({
+/** Failed uploads and ones a previous visit left unfinished. */
+function needsYouRows({
   failed,
   unfinished,
+  onCancel,
+  onRetry,
   onForget,
 }: {
   failed: UploadingFile[];
   unfinished: UnfinishedUpload[];
+  onCancel: (key: string) => void;
+  onRetry: (key: string) => void;
   onForget: (item: UnfinishedUpload) => void;
-}) {
-  const { dismissUpload, retryUpload } = useTransferContext();
-  if (failed.length + unfinished.length === 0) return null;
-  return (
-    <Section title="Needs you">
-      {failed.slice(0, LISTED_ROWS).map((upload) => (
+}): ListRow[] {
+  if (failed.length + unfinished.length === 0) return [];
+  return [
+    { key: "title:needs-you", node: <SectionTitle title="Needs you" /> },
+    ...failed.map((upload) => ({
+      key: upload.clientKey,
+      node: (
         <UploadRow
-          key={upload.clientKey}
           upload={upload}
-          onCancel={() => dismissUpload(upload.clientKey)}
-          onRetry={() => retryUpload(upload.clientKey)}
+          onCancel={() => onCancel(upload.clientKey)}
+          onRetry={() => onRetry(upload.clientKey)}
         />
-      ))}
-      <MoreRows count={failed.length - LISTED_ROWS} what="failed" />
-      {unfinished.map((item) => (
-        <UnfinishedRow
-          item={item}
-          key={item.storageKey}
-          onForget={() => onForget(item)}
-        />
-      ))}
-    </Section>
-  );
+      ),
+    })),
+    ...unfinished.map((item) => ({
+      key: item.storageKey,
+      node: <UnfinishedRow item={item} onForget={() => onForget(item)} />,
+    })),
+  ];
 }
 
 /** Uploads a previous visit left unfinished, kept fresh as uploads change. */
@@ -578,7 +618,7 @@ function useUnfinishedUploads(uploads: UploadingFile[]) {
 export function Transfers() {
   const desktop = useDesktopDownloads();
   const downloads = summarizeDownloads(desktop.downloads);
-  const { uploadingFiles, activeDownload, dismissUpload } =
+  const { uploadingFiles, activeDownload, dismissUpload, retryUpload } =
     useTransferContext();
   const phone = useMediaQuery("(max-width: 39.99rem)");
   const justDone = useFinishedUploads(uploadingFiles);
@@ -629,21 +669,23 @@ export function Transfers() {
             </div>
           ) : null}
           <BatchHeader summary={summary} />
-          <div className="grid max-h-[60dvh] gap-1 overflow-y-auto">
-            <UploadGroups
-              onCancel={dismissUpload}
-              uploading={summary.uploading}
-            />
-            <NeedsYou
-              failed={summary.failed}
-              unfinished={unfinished}
-              onForget={forget}
-            />
+          <TransferList
+            rows={[
+              ...uploadRows(summary.uploading, dismissUpload),
+              ...needsYouRows({
+                failed: summary.failed,
+                unfinished,
+                onCancel: dismissUpload,
+                onRetry: retryUpload,
+                onForget: forget,
+              }),
+            ]}
+          >
             <ZipRow />
             {desktop.api ? (
               <DesktopDownloadGroups api={desktop.api} summary={downloads} />
             ) : null}
-          </div>
+          </TransferList>
           <DoneFooter
             done={summary.done.length + downloads.completed.length}
             clearable={downloads.failed.length + downloads.cancelled.length > 0}
