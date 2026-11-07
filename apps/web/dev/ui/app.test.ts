@@ -1475,7 +1475,7 @@ describe("public demo drive", () => {
       resolution: { listing: { files: Array<{ id: string; name: string }> } };
     }>(`/s/${demoShareToken}/view`);
     const photo = share.resolution.listing.files.find(
-      (entry) => entry.name === "Hidden cove.jpg",
+      (entry) => entry.name === "IMG_4228.jpg",
     )!;
     for (const action of ["thumbnail", "content"]) {
       const response = await client.request(

@@ -652,9 +652,7 @@ const desktopReleaseNotes = ({ repository, release }) => {
 | macOS | [Universal DMG](${download("mac-universal.dmg")}) | [Universal DMG](${download("mac-universal.dmg")}) |
 | Linux AppImage | [Installer x64](${download("linux-x86_64.AppImage")}) | [Installer ARM64](${download("linux-arm64.AppImage")}) |
 | Linux DEB | [Installer x64](${download("linux-amd64.deb")}) | [Installer ARM64](${download("linux-arm64.deb")}) |
-| Linux RPM | [Installer x64](${download("linux-x86_64.rpm")}) | [Installer ARM64](${download("linux-aarch64.rpm")}) |
-
-[Code signing policy](https://github.com/${repository}/blob/main/docs/code-signing.md)`;
+| Linux RPM | [Installer x64](${download("linux-x86_64.rpm")}) | [Installer ARM64](${download("linux-aarch64.rpm")}) |`;
 };
 
 const createDraftInput = ({

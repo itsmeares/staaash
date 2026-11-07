@@ -22,12 +22,16 @@ const assets: Assets = {
   },
 };
 
+// A saved drive can only point at sample files this build ships, so new or
+// removed samples start visitors on a fresh drive even without a version bump.
+const build = `${version} ${JSON.stringify(__DEMO_ASSET_SIZES__)}`;
+
 // The browser stops an idle worker after about 30 seconds, so the drive is
 // read back from browser storage whenever the worker starts again.
 let drive: ReturnType<typeof openSavedDrive> | undefined;
 const { app } = createPreviewApp(async (c, next) => {
   // A failed start is retried on the next request instead of kept.
-  drive ??= openSavedDrive(version, () => seedState(assets, "demo")).catch(
+  drive ??= openSavedDrive(build, () => seedState(assets, "demo")).catch(
     (error: unknown) => {
       drive = undefined;
       throw error;

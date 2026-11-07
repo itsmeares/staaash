@@ -1,20 +1,19 @@
-# Packing list
+# Lisbon packing list
 
 ## Documents
 
-- [x] Passport
-- [x] Train tickets
+- [x] Passports
+- [x] Flight confirmation
 - [ ] Travel insurance printout
 
 ## Clothes
 
-- [x] Rain jacket
-- [x] Hiking boots
-- [ ] Swimsuit
-- [ ] Warm layer for the evenings
+- [x] Walking shoes for the hills
+- [x] Light jacket for the evenings
+- [ ] Swimsuits for Cascais
 
 ## Gear
 
 - [x] Camera and spare battery
-- [ ] Phone charger and adapter
-- [ ] Reusable water bottle
+- [ ] Phone chargers and an EU adapter
+- [ ] Viva Viagem cards for the trams

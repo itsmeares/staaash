@@ -1,0 +1,12 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin
+    restart: unless-stopped
+  immich:
+    image: ghcr.io/immich-app/immich-server
+    restart: unless-stopped
+  staaash:
+    image: ghcr.io/itsmeares/staaash
+    restart: unless-stopped
+    ports:
+      - 2113:2113
