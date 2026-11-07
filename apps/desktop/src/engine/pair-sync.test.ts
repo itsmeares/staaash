@@ -413,3 +413,35 @@ it("preserves a local edit made while a download was running", async () => {
     "local edit",
   );
 });
+
+it("stops promptly when paused with a large queue", async () => {
+  const r = await rig([]);
+  const count = 100_000;
+  vi.spyOn(local, "scanLocal").mockResolvedValue({
+    entries: Array.from({ length: count }, (_, i) => ({
+      rel: `node_modules/f${i}.js`,
+      type: "file" as const,
+      size: 1,
+      mtimeMs: Date.now() - 60_000,
+      ino: String(i + 1),
+    })),
+    excluded: [],
+  });
+  vi.spyOn(local, "hashFile").mockResolvedValue("0".repeat(64));
+  // Paused as soon as the queue is planned.
+  let paused = false;
+  const started = performance.now();
+  await syncPair({
+    ...r.ctx,
+    current: () => !paused,
+    waiting: (each) => {
+      r.waiting.push(each);
+      paused = true;
+    },
+  });
+  // Was minutes for a few hundred thousand files, with the engine frozen.
+  expect(performance.now() - started).toBeLessThan(3000);
+  expect(r.waiting[0]?.files).toBe(count);
+  expect(r.waiting.at(-1)?.files).toBe(0);
+  expect(r.start).not.toHaveBeenCalled();
+});
