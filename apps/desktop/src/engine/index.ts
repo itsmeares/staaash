@@ -19,11 +19,15 @@ let nextRequest = 0;
 const waiting = new Map<number, (error: string | null) => void>();
 
 // The main process passes the data folder, which outlives every engine run.
-const [dataDir] = process.argv.slice(-1);
+const [dataDir, version] = process.argv.slice(-2);
 mkdirSync(dataDir, { recursive: true });
 
 let token: string | undefined;
-const log = createSyncLog(path.join(dataDir, SYNC_LOG_NAME), () => token);
+const log = createSyncLog(
+  path.join(dataDir, SYNC_LOG_NAME),
+  version,
+  () => token,
+);
 // Includes a database that can't open or upgrade. The main process restarts us.
 process.on("uncaughtException", (error) => {
   log("sync engine crashed", error);
