@@ -55,11 +55,14 @@ over 255 UTF-8 bytes and paths over 4095 bytes are rejected before preparation.
 
 ## Resource ownership
 
-Single user operations own the storage paths their steps touch. A path also
-covers everything below it, so an operation inside a folder waits for a rename
-of that folder, while operations elsewhere in the same account proceed.
-Purges, batch parents, and worker artifact publishes own the whole account, as
-before.
+Every operation owns the storage paths its steps touch. A path also covers
+everything below it, so an operation inside a folder waits for a rename of that
+folder, while operations elsewhere in the same account proceed. Thumbnail and
+preview publishes and purges also hold the original file they were built from.
+Emptying the trash and trash retention own each trashed item they
+will purge. An operation that names no path, a folder in the legacy trash
+layout, and legacy recovery own the whole account. A `recovery_required` entry
+keeps what it owns, so it blocks only those paths.
 
 ## Upgrade cutover
 

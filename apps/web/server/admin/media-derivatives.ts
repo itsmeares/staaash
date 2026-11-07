@@ -199,7 +199,7 @@ export async function removeDerivative(id: string) {
   const db = getPrisma();
   const derivative = await db.mediaDerivative.findUnique({
     where: { id },
-    include: { file: { select: { ownerUserId: true } } },
+    include: { file: { select: { ownerUserId: true, storageKey: true } } },
   });
   if (!derivative) throw notFound();
 
@@ -212,6 +212,8 @@ export async function removeDerivative(id: string) {
       kind: "derivative_purge",
       ownerUserId: derivative.file.ownerUserId,
       idempotencyKey: `admin-derivative-purge:${id}:${derivative.storageRevision}`,
+      // A purge of the original also deletes this derivative.
+      readStorageKeys: [derivative.file.storageKey],
       metadataOperations: [
         {
           action: "update",

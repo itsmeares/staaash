@@ -81,6 +81,7 @@ export type DurableStorageMutationInput = {
   steps: StorageMutationStepInput[];
   entities?: StorageMutationEntityInput[];
   resourceKeys?: string[];
+  readStorageKeys?: string[];
   details?: Record<string, unknown>;
   uploadSessionId?: string | null;
   mutationId?: string;
@@ -264,6 +265,7 @@ const prepareDurableStorageMutation = async (
         initialResultJson: input.resultJson,
         // Without explicit keys, the journal locks the step paths.
         resourceKeys: input.resourceKeys ?? (input.parentId ? [] : undefined),
+        readStorageKeys: input.readStorageKeys,
         reservedBytes: input.reservedBytes,
         steps: input.steps,
         entities: input.entities,
