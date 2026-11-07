@@ -9,7 +9,7 @@ import {
   getRenameSelectionEnd,
   moveSelection,
   pruneSelection,
-  splitName,
+  middleCut,
   type SelectionState,
 } from "@/components/file-list/list-model";
 
@@ -143,32 +143,38 @@ describe("rubber band boxes", () => {
   });
 });
 
-describe("splitName", () => {
-  it("keeps the extension and a few characters visible", () => {
-    expect(splitName("holiday-photo-from-the-beach.jpeg")).toEqual({
-      head: "holiday-photo-from-the",
-      tail: "-beach.jpeg",
-    });
+describe("middleCut", () => {
+  const within = (length: number) => (text: string) =>
+    Array.from(text).length <= length;
+
+  it("keeps a name that fits", () => {
+    expect(middleCut("Lisbon 2026", within(11))).toBe("Lisbon 2026");
   });
 
-  it("keeps short names intact", () => {
-    expect(splitName("notes.md")).toEqual({ head: "notes.md", tail: "" });
+  it("keeps the extension and the end that tells similar names apart", () => {
+    expect(middleCut("Project status draft.pdf", within(16))).toBe(
+      "Proje… draft.pdf",
+    );
+    expect(middleCut("Project status final.pdf", within(16))).toBe(
+      "Proje… final.pdf",
+    );
   });
 
-  it("keeps emoji together when splitting a name", () => {
-    expect(splitName("Vacation 👨‍👩‍👧‍👦abcdef.pdf")).toEqual({
-      head: "Vacation 👨‍👩‍👧‍👦",
-      tail: "abcdef.pdf",
-    });
-  });
-
-  it("keeps the distinguishing end of similar names", () => {
-    expect(splitName("Project status draft.pdf").tail).toBe(" draft.pdf");
-    expect(splitName("Project status final.pdf").tail).toBe(" final.pdf");
+  it("shows one cut, shortening the end only when space is tight", () => {
+    expect(middleCut("holiday-photo-from-the-beach.jpeg", within(6))).toBe(
+      "….jpeg",
+    );
   });
 
   it("treats a long suffix after a dot as part of the name", () => {
-    expect(splitName("version.1.2.final-final-draft").tail).toBe("-draft");
+    expect(middleCut("version.1.2.final-final-draft", within(14))).toBe(
+      "version…-draft",
+    );
+  });
+
+  it("never splits an emoji", () => {
+    const cut = middleCut("Vacation 👨‍👩‍👧‍👦 abcdef.pdf", within(24));
+    expect(cut).toBe("Vacation …abcdef.pdf");
   });
 });
 

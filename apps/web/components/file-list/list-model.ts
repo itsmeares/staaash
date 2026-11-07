@@ -135,22 +135,29 @@ export const boxesIntersect = (a: Box, b: Box) =>
   );
 
 /**
- * Splits a name so the end stays visible when the start is cut: the
- * extension and a few characters before it. `head` truncates in CSS.
+ * Cuts a name in the middle so its end stays visible: the extension and up to
+ * six characters before it. `fits` says whether a candidate fits the space.
  */
-export function splitName(name: string): { head: string; tail: string } {
-  const dot = name.lastIndexOf(".");
-  const extension = dot > 0 && name.length - dot <= 8 ? name.slice(dot) : "";
-  const stem = extension ? name.slice(0, dot) : name;
+export function middleCut(name: string, fits: (text: string) => boolean) {
+  if (fits(name)) return name;
   const parts = [
-    ...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(stem),
+    ...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(name),
   ].map((part) => part.segment);
-  const splitAt = Math.max(0, parts.length - 6);
-  if (splitAt <= 4) return { head: name, tail: "" };
-  return {
-    head: parts.slice(0, splitAt).join(""),
-    tail: parts.slice(splitAt).join("") + extension,
-  };
+  const dot = name.lastIndexOf(".");
+  const extension = dot > 0 && name.length - dot <= 8 ? name.length - dot : 0;
+  let tailLength = Math.min(extension + 6, Math.floor(parts.length / 2));
+  while (tailLength > 0 && !fits(`…${parts.slice(-tailLength).join("")}`)) {
+    tailLength--;
+  }
+  const tail = tailLength ? parts.slice(-tailLength).join("") : "";
+  let low = 0;
+  let high = parts.length - tailLength;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (fits(`${parts.slice(0, middle).join("")}…${tail}`)) low = middle;
+    else high = middle - 1;
+  }
+  return `${parts.slice(0, low).join("")}…${tail}`;
 }
 
 /** Rename selects the name up to the extension, so typing replaces it. */
