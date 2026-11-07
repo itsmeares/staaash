@@ -45,7 +45,7 @@ async function readSaved(db: IDBDatabase) {
 export async function openSavedDrive(version: string, seed: () => State) {
   const db = await open();
   const { saved, blobs } = await readSaved(db);
-  // A new release or a week away starts a fresh drive, so old saved data
+  // A new release, new samples, or a week away starts a fresh drive, so old saved data
   // never meets code that does not expect it.
   const kept =
     saved?.version === version && Date.now() - saved.seenAt < IDLE_LIMIT;
