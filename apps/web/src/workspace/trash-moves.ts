@@ -316,6 +316,7 @@ const isClearTrashOperation = (
   );
 
 const EMPTY_TRASH_POLL_MS = 1_000;
+const EMPTY_TRASH_MAX_MISSED_POLLS = 30;
 
 /** "12 of 200 items", once the server knows how many there are. */
 const emptyTrashProgress = ({
@@ -333,25 +334,37 @@ const emptyTrashProgress = ({
 async function runEmptyTrash(
   onProgress: (operation: ClearTrashOperationResponse) => void,
 ) {
-  let operation = await submitStorageMutationPost({
+  const started = await submitStorageMutationPost({
     action: "/api/files/trash/clear",
     logicalAction: "empty-trash",
     headers: { Prefer: "respond-async" },
   });
-  while (
-    isClearTrashOperation(operation) &&
-    (operation.status === "queued" || operation.status === "running")
-  ) {
+  if (!isClearTrashOperation(started)) {
+    throw new Error("Staaash lost track of it. Refresh to see what is left.");
+  }
+  let operation = started;
+  // The run goes on in the worker, so a dropped poll is not a failure; only
+  // a run of them in a row, or a run the server no longer knows, ends it.
+  let missed = 0;
+  while (operation.status === "queued" || operation.status === "running") {
     onProgress(operation);
     await new Promise((resolve) => setTimeout(resolve, EMPTY_TRASH_POLL_MS));
     const poll = await fetch(
       `/api/files/trash/clear/${encodeURIComponent(operation.operationId)}`,
       { headers: { Accept: "application/json" } },
-    );
-    operation = poll.ok ? await poll.json().catch(() => null) : null;
-  }
-  if (!isClearTrashOperation(operation)) {
-    throw new Error("Staaash lost track of it. Refresh to see what is left.");
+    ).catch(() => null);
+    const value: unknown = poll?.ok
+      ? await poll.json().catch(() => null)
+      : null;
+    if (isClearTrashOperation(value)) {
+      operation = value;
+      missed = 0;
+    } else if (
+      poll?.status === 404 ||
+      ++missed >= EMPTY_TRASH_MAX_MISSED_POLLS
+    ) {
+      throw new Error("Staaash lost track of it. Refresh to see what is left.");
+    }
   }
   if (operation.status === "recovery_required") {
     throw new StorageRequestError(
