@@ -372,9 +372,9 @@ const isWindows = process.platform === "win32";
 // Windows flushes only handles opened for writing; Linux refuses to open a
 // directory for writing.
 const syncFlags = isWindows ? "r+" : "r";
-const syncDirectory = async (directoryPath: string) =>
+export const syncDirectory = async (directoryPath: string) =>
   syncHandle(await open(directoryPath, syncFlags), "directory");
-const syncFile = async (filePath: string) =>
+export const syncFile = async (filePath: string) =>
   syncHandle(await open(filePath, syncFlags), "file");
 
 // Windows refuses a rename while another program, such as antivirus or an

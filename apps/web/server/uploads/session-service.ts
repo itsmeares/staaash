@@ -10,6 +10,7 @@ import {
   Prisma,
   type PostgresPoolClient,
 } from "@staaash/db/client";
+import { syncDirectory } from "@staaash/db/storage-mutation-executor";
 
 import { getTmpUploadPath } from "@/server/storage";
 import { normalizeFileName } from "@/server/files/storage-layout";
@@ -140,6 +141,8 @@ const allocateEmptyStagingFile = async (tmpPath: string) => {
   await mkdir(path.dirname(tmpPath), { recursive: true });
   const handle = await open(tmpPath, "wx");
   await handle.close();
+  // Chunks flush their bytes; the journal also needs the entry itself.
+  await syncDirectory(path.dirname(tmpPath));
 };
 
 const markResumableStagingReleased = async (id: string, now = new Date()) => {
