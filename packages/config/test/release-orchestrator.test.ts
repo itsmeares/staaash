@@ -912,7 +912,7 @@ describe("exact release resolution", () => {
           "linux-aarch64.rpm",
         ].map(
           (suffix) =>
-            `https://github.com/itsmeares/staaash/releases/download/${tag}/Staaash-${tag.slice(1)}-${suffix}`,
+            `https://github.com/itsmeares/staaash/releases/download/${tag}/Staaash-Desktop-${tag.slice(1)}-${suffix}`,
         ),
       );
       expect(input.body).toContain("Notes.\n");
