@@ -42,6 +42,7 @@ type FileRecord = {
   id: string;
   ownerUserId: string;
   folderId: string | null;
+  storageKey: string;
 };
 
 type SystemSettingsRecord = {
@@ -75,7 +76,12 @@ const isFileProtectedByFolderShare = async (
 ): Promise<boolean> => {
   const file = await prisma.file.findUnique({
     where: { id: fileId },
-    select: { id: true, ownerUserId: true, folderId: true } as object,
+    select: {
+      id: true,
+      ownerUserId: true,
+      folderId: true,
+      storageKey: true,
+    } as object,
   });
 
   if (!file?.folderId) return false;
@@ -155,7 +161,12 @@ const purgeDerivative = async ({
 }) => {
   const file = await prisma.file.findUnique({
     where: { id: derivative.fileId },
-    select: { id: true, ownerUserId: true, folderId: true } as object,
+    select: {
+      id: true,
+      ownerUserId: true,
+      folderId: true,
+      storageKey: true,
+    } as object,
   });
   if (!file) return;
   const checksum = await calculateStorageChecksumIfPresent(
@@ -168,6 +179,8 @@ const purgeDerivative = async ({
     ownerUserId: file.ownerUserId,
     idempotencyKey: `derivative-purge:${derivative.id}:${derivative.storageRevision}`,
     storagePaths,
+    // A purge of the original also deletes this derivative.
+    readStorageKeys: [file.storageKey],
     metadataOperations: [
       {
         action: "update",

@@ -85,9 +85,8 @@ export const hashStorageMutationRequest = (value: unknown) =>
 export type StorageMutationKind = (typeof STORAGE_MUTATION_KINDS)[number];
 
 /**
- * Single user operations. They lock only the paths their steps touch, and the
- * executor may roll them back before metadata commit. Purges, batch parents,
- * and worker artifact publishes keep the account-wide lock and roll forward.
+ * Single user operations. The executor may roll them back before metadata
+ * commit. Purges, batch parents, and worker artifact publishes roll forward.
  */
 export const USER_STORAGE_MUTATION_KINDS: ReadonlySet<string> = new Set([
   "folder_create",
@@ -230,6 +229,11 @@ type PrepareStorageMutationInput = {
   intentJson: Prisma.InputJsonValue;
   initialResultJson?: Prisma.InputJsonValue;
   resourceKeys?: string[];
+  /**
+   * Storage keys the mutation reads but does not change. They are locked like
+   * step paths, so nothing moves or deletes them before the metadata commit.
+   */
+  readStorageKeys?: string[];
   steps: StorageMutationStepInput[];
   entities?: StorageMutationEntityInput[];
   uploadSessionId?: string | null;
@@ -1229,16 +1233,16 @@ export const storagePathResourceKey = (
   storageKey: string,
 ) => `${ownerResourceKey(ownerUserId)}/${storageKey}`;
 
+// A mutation locks the paths its steps touch and the paths it reads. One that
+// names no path locks the whole account.
 const deriveStorageMutationResourceKeys = (
   input: PrepareStorageMutationInput,
 ) => {
-  if (!USER_STORAGE_MUTATION_KINDS.has(input.kind)) {
-    return [ownerResourceKey(input.ownerUserId)];
-  }
-  const keys = input.steps.flatMap((step) =>
-    [step.sourceKey, step.targetKey].flatMap((key) =>
-      key ? [storagePathResourceKey(input.ownerUserId, key)] : [],
-    ),
+  const keys = [
+    ...input.steps.flatMap((step) => [step.sourceKey, step.targetKey]),
+    ...(input.readStorageKeys ?? []),
+  ].flatMap((key) =>
+    key ? [storagePathResourceKey(input.ownerUserId, key)] : [],
   );
   return keys.length > 0 ? keys : [ownerResourceKey(input.ownerUserId)];
 };
@@ -2079,6 +2083,41 @@ export const createLegacyRecoveryRequiredMutation = async ({
   return findStorageMutation(claimed.id);
 };
 
+// Emptying the trash locks the trashed items it will purge, not the account. A
+// folder in the legacy trash layout has no single root, so it locks the account.
+const trashPurgeResourceKeys = async (
+  ownerUserId: string,
+  intentJson: Prisma.InputJsonValue,
+) => {
+  const items =
+    (intentJson as { orderedItems?: Array<{ kind: string; id: string }> })
+      .orderedItems ?? [];
+  const idsOf = (kind: "file" | "folder") =>
+    items.filter((item) => item.kind === kind).map((item) => item.id);
+  const prisma = getPrisma();
+  const [files, folders] = await Promise.all([
+    prisma.file.findMany({
+      where: { ownerUserId, id: { in: idsOf("file") } },
+      select: { storageKey: true },
+    }),
+    prisma.folder.findMany({
+      where: { ownerUserId, id: { in: idsOf("folder") } },
+      select: {
+        trashEntry: { select: { layoutVersion: true, storageRootKey: true } },
+      },
+    }),
+  ]);
+  const folderRoots = folders.map(({ trashEntry }) =>
+    trashEntry?.layoutVersion === "isolated" ? trashEntry.storageRootKey : null,
+  );
+  if (folderRoots.some((root) => !root)) {
+    return [ownerResourceKey(ownerUserId)];
+  }
+  return [...files.map((file) => file.storageKey), ...folderRoots].map((key) =>
+    storagePathResourceKey(ownerUserId, key!),
+  );
+};
+
 export const prepareStorageMutationParent = async (
   {
     id = randomUUID(),
@@ -2112,7 +2151,12 @@ export const prepareStorageMutationParent = async (
       requestHash,
       intentJson,
       initialResultJson: { children: [] },
-      resourceKeys: resourceKeys ?? [`owner:${ownerUserId}`, `parent:${id}`],
+      resourceKeys: resourceKeys ?? [
+        ...(kind === "batch_move"
+          ? [ownerResourceKey(ownerUserId)]
+          : await trashPurgeResourceKeys(ownerUserId, intentJson)),
+        `parent:${id}`,
+      ],
       steps: [],
       entities,
       originDeviceId,

@@ -402,6 +402,8 @@ export const handleMediaDerivativeGenerate = async (
       ownerUserId: file.ownerUserId,
       idempotencyKey: `derivative-publish:${job.id}`,
       storagePaths,
+      // A purge of the original also deletes this derivative row.
+      readStorageKeys: [file.storageKey],
       signal: context?.signal,
       metadataOperations: [
         {

@@ -1916,7 +1916,7 @@ describe("STO-02 durable PostgreSQL protocol", () => {
           targetName: "Photos/inside.jpg",
         }),
       ).rejects.toMatchObject({ code: "STORAGE_MUTATION_IN_PROGRESS" });
-      // Account-wide kinds conflict with any held path.
+      // A mutation that names no path locks the account.
       await expect(
         prepareStorageMutation({
           kind: "file_purge",
@@ -1925,6 +1925,173 @@ describe("STO-02 durable PostgreSQL protocol", () => {
           requestHash: randomUUID(),
           intentJson: intent([]) as unknown as Prisma.InputJsonValue,
           steps: [],
+        }),
+      ).rejects.toMatchObject({ code: "STORAGE_MUTATION_IN_PROGRESS" });
+    });
+
+    const resourceKeysOf = async (mutationId: string) =>
+      (
+        await db.storageMutationResource.findMany({
+          where: { mutationId },
+          select: { resourceKey: true },
+          orderBy: { resourceKey: "asc" },
+        })
+      ).map((row) => row.resourceKey);
+
+    const prepareRename = (
+      owner: Awaited<ReturnType<typeof setupOwner>>,
+      sourceKey: string,
+    ) =>
+      prepareStorageMutation({
+        kind: "folder_rename",
+        ownerUserId: owner.user.id,
+        idempotencyKey: randomUUID(),
+        requestHash: randomUUID(),
+        intentJson: intent([]) as unknown as Prisma.InputJsonValue,
+        steps: [
+          {
+            action: "rename",
+            sourceKey,
+            targetKey: `files/${owner.user.storageId}/${randomUUID()}`,
+            expectedNodeType: "directory",
+            treeManifestDigest: EMPTY_TREE_MANIFEST_DIGEST,
+          },
+        ],
+      });
+
+    const createTrashedFolder = async (
+      owner: Awaited<ReturnType<typeof setupOwner>>,
+      layoutVersion: "isolated" | "legacy",
+    ) => {
+      const folder = await db.folder.create({
+        data: {
+          ownerUserId: owner.user.id,
+          parentId: owner.root.id,
+          name: randomUUID(),
+          deletedAt: new Date(),
+        },
+      });
+      const storageRootKey = `.trash/${owner.user.storageId}/folders/${folder.id}`;
+      const entry = await db.trashEntry.create({
+        data: {
+          ownerUserId: owner.user.id,
+          rootKind: "folder",
+          rootEntityId: folder.id,
+          deletedAt: folder.deletedAt!,
+          layoutVersion,
+          storageRootKey: layoutVersion === "isolated" ? storageRootKey : null,
+        },
+      });
+      await db.folder.update({
+        where: { id: folder.id },
+        data: { trashEntryId: entry.id },
+      });
+      return { folder, storageRootKey };
+    };
+
+    const prepareClearTrash = (
+      owner: Awaited<ReturnType<typeof setupOwner>>,
+      orderedItems: Array<{ id: string; kind: "file" | "folder" }>,
+    ) =>
+      prepareStorageMutationParent({
+        kind: "clear_trash",
+        ownerUserId: owner.user.id,
+        idempotencyKey: `clear:${randomUUID()}`,
+        requestHash: randomUUID(),
+        intentJson: { version: 1, metadataOperations: [], orderedItems },
+      });
+
+    it("locks only the trashed items Empty trash will purge", async () => {
+      const owner = await setupOwner();
+      const trashed = await createTrashedFolder(owner, "isolated");
+      const trashedFileKey = `.trash/${owner.user.storageId}/files/old.bin`;
+      const trashedFile = await db.file.create({
+        data: {
+          ownerUserId: owner.user.id,
+          folderId: owner.root.id,
+          originalName: "old.bin",
+          storageKey: trashedFileKey,
+          mimeType: "application/octet-stream",
+          sizeBytes: 1n,
+          deletedAt: new Date(),
+        },
+      });
+      const parent = await prepareClearTrash(owner, [
+        { id: trashedFile.id, kind: "file" },
+        { id: trashed.folder.id, kind: "folder" },
+      ]);
+
+      await expect(resourceKeysOf(parent.mutation.id)).resolves.toEqual(
+        [
+          storagePathResourceKey(owner.user.id, trashed.storageRootKey),
+          storagePathResourceKey(owner.user.id, trashedFileKey),
+          `parent:${parent.mutation.id}`,
+        ].sort(),
+      );
+      // Uploads and other folders stay writable while the trash empties.
+      await prepareUpload({ owner, bytes: Buffer.from("still writable") });
+      await prepareRename(owner, `files/${owner.user.storageId}/Elsewhere`);
+      // A restore of an item being purged waits for the purge.
+      await expect(
+        prepareRename(owner, `${trashed.storageRootKey}/inside`),
+      ).rejects.toMatchObject({ code: "STORAGE_MUTATION_IN_PROGRESS" });
+    });
+
+    it("locks the account to empty a folder in the legacy trash layout", async () => {
+      const owner = await setupOwner();
+      const trashed = await createTrashedFolder(owner, "legacy");
+      const parent = await prepareClearTrash(owner, [
+        { id: trashed.folder.id, kind: "folder" },
+      ]);
+
+      await expect(resourceKeysOf(parent.mutation.id)).resolves.toEqual([
+        `owner:${owner.user.id}`,
+        `parent:${parent.mutation.id}`,
+      ]);
+    });
+
+    it("holds the original while its derivative publishes", async () => {
+      const owner = await setupOwner();
+      const originalKey = `files/${owner.user.storageId}/photo.jpg`;
+      const publish = await prepareStorageMutation({
+        kind: "derivative_publish",
+        ownerUserId: owner.user.id,
+        idempotencyKey: randomUUID(),
+        requestHash: randomUUID(),
+        intentJson: intent([]) as unknown as Prisma.InputJsonValue,
+        readStorageKeys: [originalKey],
+        steps: [
+          {
+            action: "rename",
+            sourceKey: `tmp/derivatives/${randomUUID()}.jpg.tmp`,
+            targetKey: `derivatives/${owner.user.id}/file-1/thumb-480.jpg`,
+            expectedNodeType: "file",
+            expectedSizeBytes: 1n,
+            expectedChecksum: checksumOf(Buffer.from("x")),
+          },
+        ],
+      });
+
+      await expect(resourceKeysOf(publish.mutation.id)).resolves.toContain(
+        storagePathResourceKey(owner.user.id, originalKey),
+      );
+      await prepareUpload({ owner, bytes: Buffer.from("unrelated") });
+      // Purging or moving the original waits until the publish commits.
+      await expect(
+        prepareStorageMutation({
+          kind: "file_purge",
+          ownerUserId: owner.user.id,
+          idempotencyKey: randomUUID(),
+          requestHash: randomUUID(),
+          intentJson: intent([]) as unknown as Prisma.InputJsonValue,
+          steps: [
+            {
+              action: "rename",
+              sourceKey: originalKey,
+              targetKey: `tmp/quarantine/${randomUUID()}`,
+              expectedNodeType: "file",
+            },
+          ],
         }),
       ).rejects.toMatchObject({ code: "STORAGE_MUTATION_IN_PROGRESS" });
     });

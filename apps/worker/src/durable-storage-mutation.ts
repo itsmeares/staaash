@@ -147,6 +147,7 @@ type WorkerStorageMutationArgs = {
   resultJson?: Prisma.InputJsonValue;
   requestHashPayload?: unknown;
   resourceKeys?: string[];
+  readStorageKeys?: string[];
   signal?: AbortSignal;
 };
 
@@ -231,6 +232,7 @@ export const runWorkerStorageMutation = async ({
   resultJson,
   requestHashPayload,
   resourceKeys,
+  readStorageKeys,
   signal,
 }: WorkerStorageMutationArgs) => {
   await assertStorageFilesystemSupported(storagePaths.filesRoot);
@@ -257,8 +259,9 @@ export const runWorkerStorageMutation = async ({
             intentJson: intent as unknown as Prisma.InputJsonValue,
             steps,
             entities,
-            resourceKeys:
-              resourceKeys ?? (parentId ? [] : [`owner:${ownerUserId}`]),
+            // Without explicit keys, the journal locks the step paths.
+            resourceKeys: resourceKeys ?? (parentId ? [] : undefined),
+            readStorageKeys,
           },
           { deadline, signal },
         ),
