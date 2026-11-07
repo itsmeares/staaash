@@ -144,10 +144,24 @@ export function mountFiles(app: Hono<PreviewEnv>) {
     state.folders = state.folders.filter((f) => !ids.has(f.id));
     state.shares = state.shares.filter((s) => !ids.has(s.targetId));
     for (const id of ids) state.blobs.delete(id);
-    return c.json({
+    const response = {
       deletedFileCount: files.length,
       deletedFolderCount: folders.length,
-    });
+    };
+    if (!/respond-async/i.test(c.req.header("prefer") ?? "")) {
+      return c.json(response);
+    }
+    // The preview has no worker, so the run has already finished.
+    return c.json(
+      {
+        operationId: crypto.randomUUID(),
+        status: "succeeded",
+        totalCount: ids.size,
+        doneCount: ids.size,
+        response,
+      },
+      202,
+    );
   });
   app.get("/api/files/files/:id/:action", async (c) => {
     const state = c.var.state;

@@ -14,7 +14,7 @@ const isBatchMoveResponse = (value: unknown): value is BatchMoveResponse =>
     Array.isArray((value as { results?: unknown }).results),
   );
 
-const operationStatus = (
+export const operationStatus = (
   status: string,
 ): BatchMoveOperationResponse["status"] => {
   if (status === "succeeded") return "succeeded";

@@ -6,6 +6,7 @@ import {
   StorageRequestError,
   submitStorageMutationPost,
 } from "@/src/storage-mutation-submit";
+import type { ClearTrashOperationResponse } from "@/server/files/types";
 import { toast, toastManager } from "@staaash/ui/components/toast";
 
 type Item = { id: string; kind: "file" | "folder"; name?: string };
@@ -304,45 +305,107 @@ const EMPTY_TRASH_CONFIRM = {
   destructive: true,
 };
 
+const isClearTrashOperation = (
+  value: unknown,
+): value is ClearTrashOperationResponse =>
+  Boolean(
+    value &&
+    typeof value === "object" &&
+    typeof (value as { operationId?: unknown }).operationId === "string" &&
+    typeof (value as { status?: unknown }).status === "string",
+  );
+
+const EMPTY_TRASH_POLL_MS = 1_000;
+
+/** "12 of 200 items", once the server knows how many there are. */
+const emptyTrashProgress = ({
+  doneCount,
+  totalCount,
+}: ClearTrashOperationResponse) =>
+  totalCount > 0
+    ? `${doneCount} of ${totalCount} ${totalCount === 1 ? "item" : "items"}`
+    : undefined;
+
 /**
- * Empties trash after a confirm, with a toast that stays until it is done.
- * A second click while it runs does nothing; that toast already shows it.
+ * Starts Empty trash in the background and follows it until it settles.
+ * The worker keeps going if this page closes; the trash shows what is left.
+ */
+async function runEmptyTrash(
+  onProgress: (operation: ClearTrashOperationResponse) => void,
+) {
+  let operation = await submitStorageMutationPost({
+    action: "/api/files/trash/clear",
+    logicalAction: "empty-trash",
+    headers: { Prefer: "respond-async" },
+  });
+  while (
+    isClearTrashOperation(operation) &&
+    (operation.status === "queued" || operation.status === "running")
+  ) {
+    onProgress(operation);
+    await new Promise((resolve) => setTimeout(resolve, EMPTY_TRASH_POLL_MS));
+    const poll = await fetch(
+      `/api/files/trash/clear/${encodeURIComponent(operation.operationId)}`,
+      { headers: { Accept: "application/json" } },
+    );
+    operation = poll.ok ? await poll.json().catch(() => null) : null;
+  }
+  if (!isClearTrashOperation(operation)) {
+    throw new Error("Staaash lost track of it. Refresh to see what is left.");
+  }
+  if (operation.status === "recovery_required") {
+    throw new StorageRequestError(
+      operation.error ?? "Empty trash could not finish.",
+      503,
+      "STORAGE_RECOVERY_REQUIRED",
+      operation.operationId,
+      "clear_trash",
+    );
+  }
+  return operation;
+}
+
+/**
+ * Empties trash after a confirm, with a toast that counts the items until
+ * it is done. A second click while it runs does nothing; that toast already
+ * shows it.
  */
 export async function emptyTrash(refresh: () => unknown) {
   if (emptying) return;
   if (!(await confirmAction(EMPTY_TRASH_CONFIRM))) return;
-  emptying = submitStorageMutationPost({
-    action: "/api/files/trash/clear",
-    logicalAction: "empty-trash",
+  const toastId = toastManager.add({
+    title: "Emptying trash",
+    type: "loading",
+    timeout: 0,
   });
+  emptying = runEmptyTrash((operation) =>
+    toastManager.update(toastId, {
+      description: emptyTrashProgress(operation),
+    }),
+  );
   try {
-    await toastManager.promise(emptying, {
-      loading: {
-        title: "Emptying trash",
-        description: "Large folders can take a few minutes.",
-      },
-      success: { title: "Trash emptied", description: undefined },
-      error: (error: unknown) => {
-        const reason = reasonOf(error, "clear_trash");
-        return {
-          title:
-            reason === "finishing"
-              ? "Trash is still being emptied"
-              : "Trash could not be emptied",
-          description:
-            reason === "finishing"
-              ? "It finishes on its own. Refresh to check."
-              : reason === "busy"
-                ? "Storage is busy with another change. Try again in a moment."
-                : error instanceof Error
-                  ? error.message
-                  : undefined,
-          timeout: 0,
-        };
-      },
+    await emptying;
+    toastManager.update(toastId, {
+      title: "Trash emptied",
+      description: undefined,
+      type: "success",
+      timeout: 5_000,
     });
-  } catch {
-    // The toast already says what happened.
+  } catch (error) {
+    const reason = reasonOf(error, "clear_trash");
+    toastManager.update(toastId, {
+      title: "Trash could not be emptied",
+      description:
+        reason === "recovery"
+          ? `${KEPT_SAFE} Storage recovery has to check it first.`
+          : reason === "busy"
+            ? "Storage is busy with another change. Try again in a moment."
+            : error instanceof Error
+              ? error.message
+              : undefined,
+      type: "error",
+      timeout: 0,
+    });
   } finally {
     // Emptying again is always a new request: replaying an earlier one that
     // finished would report success and leave newer items in trash.

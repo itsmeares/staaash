@@ -25,10 +25,12 @@ export const submitStorageMutationPost = async ({
   action,
   json,
   logicalAction,
+  headers,
 }: {
   action: string;
   json?: Record<string, unknown>;
   logicalAction: string;
+  headers?: Record<string, string>;
 }) => {
   const idempotencyKey =
     storageMutationKeys.get(logicalAction) ?? randomClientId();
@@ -39,6 +41,7 @@ export const submitStorageMutationPost = async ({
       Accept: "application/json",
       "Content-Type": "application/json",
       "Idempotency-Key": idempotencyKey,
+      ...headers,
     },
     body: JSON.stringify(json ?? {}),
   });
