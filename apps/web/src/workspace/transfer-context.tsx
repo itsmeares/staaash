@@ -30,6 +30,7 @@ import {
   UploadRateTracker,
 } from "@/lib/transfers/upload-progress";
 import { UploadTaskPool } from "@/lib/transfers/upload-task-pool";
+import { groupSentBytes, groupUploads } from "@/lib/transfers/upload-groups";
 import {
   getUploadDirectoryPath,
   type FolderUploadSelection,
@@ -133,6 +134,12 @@ type EnsureFolderPathsResponse = {
     path: string;
     folderId: string;
   }>;
+};
+
+type UploadRequest = {
+  clientKey: string;
+  storageMutationKey: string;
+  file: File;
 };
 
 const isAbortError = (error: unknown) =>
@@ -544,82 +551,162 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
 
   // ---- Upload ----
 
-  // Each branch is one upload failure the user can see.
+  // One request for a group of small files. Each file keeps its own retry
+  // key, so a retry of one file replays what the group saved.
+  // Each branch is one upload outcome the user can see.
   // fallow-ignore-next-line complexity
-  const uploadSingleFile = async (
-    clientKey: string,
-    storageMutationKey: string,
-    file: File,
+  const uploadGroup = async (
+    members: UploadRequest[],
     folderId: string,
     currentPath: string,
-    signal: AbortSignal,
   ) => {
+    const controller = new AbortController();
+    for (const member of members) {
+      uploadAbortControllers.current.get(member.clientKey)?.abort();
+      uploadAbortControllers.current.set(member.clientKey, controller);
+    }
+    // A file dismissed from the list no longer belongs to this request.
+    const owned = () =>
+      members.filter(
+        (member) =>
+          uploadAbortControllers.current.get(member.clientKey) === controller,
+      );
+    const release = () => {
+      for (const member of owned()) {
+        uploadAbortControllers.current.delete(member.clientKey);
+      }
+    };
     const startTime = Date.now();
     const formData = new FormData();
     formData.append("folderId", folderId);
     formData.append("redirectTo", currentPath);
     formData.append(
       "manifest",
-      JSON.stringify([
-        {
+      JSON.stringify(
+        members.map(({ clientKey, storageMutationKey, file }) => ({
           clientKey,
+          idempotencyKey: storageMutationKey,
           originalName: file.name,
           conflictStrategy: "fail",
           clientModifiedAt: new Date(file.lastModified).toISOString(),
-        },
-      ]),
+        })),
+      ),
     );
-    formData.append("files", file);
+    for (const member of members) formData.append("files", member.file);
+    const sizes = members.map((member) => member.file.size);
 
+    let result: Awaited<ReturnType<typeof queuedXhrUpload>>;
     try {
-      const result = await queuedXhrUpload({
+      result = await queuedXhrUpload({
         url: "/api/files/files",
         body: formData,
-        signal,
-        headers: { "Idempotency-Key": storageMutationKey },
+        signal: controller.signal,
         onProgress: (loaded, total) => {
-          const progress = Math.round((loaded / total) * 100);
+          const sentBytes = groupSentBytes(sizes, loaded, total);
+          const sent = new Map(
+            members.map((member, index) => [
+              member.clientKey,
+              sentBytes[index]!,
+            ]),
+          );
           const elapsed = (Date.now() - startTime) / 1000;
           const speed = elapsed > 0 ? loaded / elapsed : 0;
+          const finishing = loaded >= total;
           setUploadingFiles((prev) =>
-            prev.map((f) =>
-              f.clientKey === clientKey
-                ? {
-                    ...f,
-                    progress,
-                    transferredBytes: loaded,
-                    speed,
-                    statusLabel:
-                      progress >= 100 ? "Finishing upload…" : undefined,
-                  }
-                : f,
-            ),
+            prev.map((f) => {
+              const transferredBytes = sent.get(f.clientKey);
+              if (transferredBytes === undefined || f.status !== "uploading") {
+                return f;
+              }
+              return {
+                ...f,
+                progress: finishing
+                  ? 100
+                  : calculateUploadProgress(transferredBytes, f.size),
+                transferredBytes,
+                speed,
+                statusLabel: finishing ? "Finishing upload…" : undefined,
+              };
+            }),
           );
         },
       });
-
-      if (result.status >= 200 && result.status < 300) {
-        let fileId: string | undefined;
-        try {
-          fileId = JSON.parse(result.responseText)?.uploadedFiles?.[0]?.id;
-        } catch {
-          /* ignore */
-        }
-        markUploadComplete({ clientKey, file, fileId });
-      } else {
-        let msg = "Upload failed";
-        try {
-          msg = JSON.parse(result.responseText)?.error ?? msg;
-        } catch {
-          /* ignore */
-        }
-        markUploadFailed(clientKey, new Error(msg));
-      }
     } catch (err) {
-      if (isAbortError(err)) return;
-      markUploadFailed(clientKey, new Error("Connection failed"));
-    } finally {
-      uploadAbortControllers.current.delete(clientKey);
+      const remaining = owned();
+      release();
+      if (!isAbortError(err)) {
+        markUploadsFailed(
+          new Set(remaining.map((member) => member.clientKey)),
+          new Error("Connection failed"),
+        );
+      } else if (remaining.length > 0) {
+        // Someone dismissed a file of this group before it was sent: send
+        // the rest again without it.
+        startUploads(remaining, folderId, currentPath);
+      }
+      return;
+    }
+
+    const remaining = owned();
+    release();
+    let body: {
+      error?: string;
+      uploadedFiles?: Array<{ id?: string }>;
+      conflicts?: Array<{ clientKey?: string }>;
+    } = {};
+    try {
+      body = JSON.parse(result.responseText) ?? {};
+    } catch {
+      /* ignore */
+    }
+    const conflicted = new Set(
+      (body.conflicts ?? []).map((conflict) => conflict.clientKey),
+    );
+    const saved =
+      (result.status >= 200 && result.status < 300) ||
+      (result.status === 409 && conflicted.size > 0);
+    if (!saved) {
+      markUploadsFailed(
+        new Set(remaining.map((member) => member.clientKey)),
+        new Error(body.error ?? "Upload failed"),
+      );
+      return;
+    }
+    // Saved files come back in request order, without the conflicts.
+    const fileIds = new Map(
+      members
+        .filter((member) => !conflicted.has(member.clientKey))
+        .map((member, index) => [
+          member.clientKey,
+          body.uploadedFiles?.[index]?.id,
+        ]),
+    );
+    const done = remaining.filter((member) => fileIds.has(member.clientKey));
+    if (done.length > 0) {
+      setUploadingFiles((current) =>
+        current.map((upload) =>
+          done.some((member) => member.clientKey === upload.clientKey)
+            ? {
+                ...upload,
+                status: "done",
+                progress: 100,
+                transferredBytes: upload.size,
+                fileId: fileIds.get(upload.clientKey),
+                statusLabel: undefined,
+              }
+            : upload,
+        ),
+      );
+      startTransition(() => void refresh());
+    }
+    const refused = remaining.filter((member) =>
+      conflicted.has(member.clientKey),
+    );
+    if (refused.length > 0) {
+      markUploadsFailed(
+        new Set(refused.map((member) => member.clientKey)),
+        new Error(body.error ?? "Upload failed"),
+      );
     }
   };
 
@@ -954,28 +1041,25 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const startUpload = (
-    clientKey: string,
-    storageMutationKey: string,
-    file: File,
+  const startUploads = (
+    uploads: UploadRequest[],
     folderId: string,
     currentPath: string,
   ) => {
-    const existing = uploadAbortControllers.current.get(clientKey);
-    existing?.abort();
-    const controller = new AbortController();
-    uploadAbortControllers.current.set(clientKey, controller);
-    if (file.size >= CHUNKED_UPLOAD_THRESHOLD) {
+    const small: UploadRequest[] = [];
+    for (const upload of uploads) {
+      if (upload.file.size < CHUNKED_UPLOAD_THRESHOLD) {
+        small.push(upload);
+        continue;
+      }
+      const { clientKey, file } = upload;
+      uploadAbortControllers.current.get(clientKey)?.abort();
+      const controller = new AbortController();
+      uploadAbortControllers.current.set(clientKey, controller);
       void uploadLargeFile(clientKey, file, folderId, controller.signal);
-    } else {
-      void uploadSingleFile(
-        clientKey,
-        storageMutationKey,
-        file,
-        folderId,
-        currentPath,
-        controller.signal,
-      );
+    }
+    for (const group of groupUploads(small)) {
+      void uploadGroup(group, folderId, currentPath);
     }
   };
 
@@ -1058,16 +1142,17 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           }),
         );
       }
+      const uploadsByFolder = new Map<string, UploadRequest[]>();
       for (const upload of uploadKeys) {
         const targetFolderId = targets.get(upload.clientKey);
         if (!targetFolderId) continue;
-        startUpload(
-          upload.clientKey,
-          upload.storageMutationKey,
-          upload.file,
-          targetFolderId,
-          currentPath,
-        );
+        uploadsByFolder.set(targetFolderId, [
+          ...(uploadsByFolder.get(targetFolderId) ?? []),
+          upload,
+        ]);
+      }
+      for (const [targetFolderId, uploads] of uploadsByFolder) {
+        startUploads(uploads, targetFolderId, currentPath);
       }
 
       if (uploadKeys.length === 0) startTransition(() => void refresh());
@@ -1097,9 +1182,15 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
       const upload = uploadingFilesRef.current.find(
         (item) => item.clientKey === clientKey,
       );
-      controller.abort();
+      const waiting = upload?.status === "uploading" && upload.progress >= 100;
       uploadAbortControllers.current.delete(clientKey);
-      if (upload?.status === "uploading" && upload.progress >= 100) {
+      const sharedWithGroup = [...uploadAbortControllers.current.values()].some(
+        (other) => other === controller,
+      );
+      // Once a group is sent, stopping it would not stop the server, only
+      // the replies for the other files.
+      if (!(waiting && sharedWithGroup)) controller.abort();
+      if (waiting) {
         markUploadFailed(
           clientKey,
           new Error(
@@ -1167,10 +1258,14 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         folderId: targetFolderId,
         statusLabel: undefined,
       });
-      startUpload(
-        clientKey,
-        file.storageMutationKey,
-        fileRef,
+      startUploads(
+        [
+          {
+            clientKey,
+            storageMutationKey: file.storageMutationKey,
+            file: fileRef,
+          },
+        ],
         targetFolderId,
         "",
       );

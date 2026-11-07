@@ -480,6 +480,21 @@ const uploadRequestHash = (
   ...(item.ifFileId !== undefined && { ifFileId: item.ifFileId }),
 });
 
+/** At most this many new files commit as one upload_create mutation. */
+const UPLOAD_CREATE_GROUP_LIMIT = 100;
+
+/**
+ * A new file's id follows from its retry key. A group of new files commits
+ * as one mutation under its first file's key, so a retry of any other file
+ * in the group finds that mutation by this id.
+ */
+const uploadCreateFileId = (ownerUserId: string, idempotencyKey: string) =>
+  deterministicUuid(`upload-create:${ownerUserId}:${idempotencyKey}`);
+
+// A group splits where two names might be one file on a disk that ignores
+// case, the rule safe renames follow too.
+const uploadGroupNameKey = (name: string) => name.toLowerCase();
+
 const getFolderHref = (folder: Pick<FolderSummary, "id" | "isFilesRoot">) =>
   folder.isFilesRoot ? "/files" : `/files/f/${folder.id}`;
 
@@ -880,22 +895,42 @@ export const createFilesService = ({
       },
     });
 
+  const serializeFileSummary = (file: FileSummary) => ({
+    ...file,
+    deletedAt: file.deletedAt?.toISOString() ?? null,
+    createdAt: file.createdAt.toISOString(),
+    updatedAt: file.updatedAt.toISOString(),
+    storageMutation: null,
+  });
+
   const serializeFileMutationResult = (
     result: FileMutationResult,
   ): Prisma.InputJsonValue =>
     toMetadataJson({
       response: {
-        file: result.file
-          ? {
-              ...result.file,
-              deletedAt: result.file.deletedAt?.toISOString() ?? null,
-              createdAt: result.file.createdAt.toISOString(),
-              updatedAt: result.file.updatedAt.toISOString(),
-              storageMutation: null,
-            }
-          : null,
+        file: result.file ? serializeFileSummary(result.file) : null,
         deletedFileId: result.deletedFileId ?? null,
         restoredTo: result.restoredTo ?? null,
+      },
+    });
+
+  type UploadGroupEntry = {
+    idempotencyKey: string | null;
+    requestHash: string;
+    file: FileSummary;
+  };
+
+  // Each file of a group keeps its own key and request hash, so a retry of
+  // one file is checked against what that file asked for.
+  const serializeUploadGroupResult = (
+    entries: UploadGroupEntry[],
+  ): Prisma.InputJsonValue =>
+    toMetadataJson({
+      response: {
+        uploads: entries.map((entry) => ({
+          ...entry,
+          file: serializeFileSummary(entry.file),
+        })),
       },
     });
 
@@ -974,6 +1009,124 @@ export const createFilesService = ({
       deletedFileId,
       restoredTo: replayRestoreLocation(response),
     };
+  };
+
+  const uploadGroupReplayEntry = (
+    resultJson: Prisma.JsonValue | null,
+    idempotencyKey: string,
+  ) => {
+    const uploads = mutationReplayResponse(resultJson)?.uploads;
+    if (!Array.isArray(uploads)) return undefined;
+    const entry = uploads.find(
+      (value): value is Record<string, unknown> =>
+        !!value &&
+        typeof value === "object" &&
+        !Array.isArray(value) &&
+        value.idempotencyKey === idempotencyKey,
+    );
+    return entry && typeof entry.requestHash === "string"
+      ? { requestHash: entry.requestHash, file: replayFileSummary(entry.file) }
+      : undefined;
+  };
+
+  /**
+   * Finds earlier attempts of these uploads: a replacement or a single
+   * upload by its key, a file of a group by the file id its key names.
+   */
+  const findUploadReplays = async (
+    ownerUserId: string,
+    idempotencyKeys: string[],
+  ) => {
+    const priorSelect = {
+      kind: true,
+      status: true,
+      ownerUserId: true,
+      idempotencyKey: true,
+      requestHash: true,
+      resultJson: true,
+    } as const;
+    const [byKey, byFile] = await Promise.all([
+      getPrisma().storageMutation.findMany({
+        where: { idempotencyKey: { in: idempotencyKeys } },
+        select: priorSelect,
+      }),
+      getPrisma().storageMutationEntity.findMany({
+        where: {
+          entityType: "file",
+          entityId: {
+            in: idempotencyKeys.map((key) =>
+              uploadCreateFileId(ownerUserId, key),
+            ),
+          },
+          mutation: { kind: "upload_create", ownerUserId },
+        },
+        select: { entityId: true, mutation: { select: priorSelect } },
+      }),
+    ]);
+    return (idempotencyKey: string) =>
+      byKey.find((prior) => prior.idempotencyKey === idempotencyKey) ??
+      byFile.find(
+        (entity) =>
+          entity.entityId === uploadCreateFileId(ownerUserId, idempotencyKey),
+      )?.mutation;
+  };
+
+  // What an earlier attempt answered for this file: its entry in a group's
+  // reply, or the whole reply of a mutation started under this file's key.
+  const priorUploadReply = (
+    prior: {
+      idempotencyKey: string | null;
+      requestHash: string | null;
+      resultJson: Prisma.JsonValue | null;
+    },
+    idempotencyKey: string,
+  ) =>
+    uploadGroupReplayEntry(prior.resultJson, idempotencyKey) ??
+    (prior.idempotencyKey === idempotencyKey
+      ? {
+          requestHash: prior.requestHash,
+          file: parseFileMutationReplay(prior.resultJson)?.file,
+        }
+      : null);
+
+  const replayUpload = (
+    prior: {
+      kind: string;
+      status: string;
+      ownerUserId: string;
+      idempotencyKey: string | null;
+      requestHash: string | null;
+      resultJson: Prisma.JsonValue | null;
+    },
+    idempotencyKey: string,
+    requestHash: string,
+    actor: FilesActor,
+  ): FileSummary => {
+    if (
+      !["upload_create", "upload_replace"].includes(prior.kind) ||
+      !canAccessPrivateNamespace({
+        ...actor,
+        namespaceOwnerUserId: prior.ownerUserId,
+      })
+    ) {
+      throw new StorageMutationConflictError("STORAGE_IDEMPOTENCY_KEY_REUSED");
+    }
+    const reply = priorUploadReply(prior, idempotencyKey);
+    if (reply && reply.requestHash !== requestHash) {
+      throw new StorageMutationConflictError("STORAGE_IDEMPOTENCY_KEY_REUSED");
+    }
+    if (prior.status !== "succeeded") {
+      throw new StorageMutationConflictError(
+        prior.status === "recovery_required"
+          ? "STORAGE_RECOVERY_REQUIRED"
+          : "STORAGE_MUTATION_RECOVERING",
+      );
+    }
+    // A pruned reply can no longer say which file this was.
+    if (!reply?.file) {
+      throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
+    }
+    return reply.file;
   };
 
   const persistDirectMutationReplay = async (
@@ -5063,58 +5216,51 @@ export const createFilesService = ({
         Awaited<ReturnType<typeof stageUpload>>
       >();
       const replayedUploads = new Map<number, FileSummary>();
-      if (!repo && idempotencyKey) {
+      const normalizedNames = items.map((item) =>
+        normalizeFileName(item.originalName || item.file.name),
+      );
+      const itemIdempotencyKeys = items.map(
+        (item, ordinal) =>
+          item.idempotencyKey ??
+          (idempotencyKey ? `${idempotencyKey}:${ordinal}` : undefined),
+      );
+      const replayKeys = itemIdempotencyKeys.filter(
+        (key): key is string => key !== undefined,
+      );
+      if (!repo && replayKeys.length > 0) {
         try {
           for (const [itemOrdinal, item] of items.entries()) {
-            const normalizedName = normalizeFileName(
-              item.originalName || item.file.name,
+            preStagedUploads.set(
+              itemOrdinal,
+              await stageUpload(
+                { ...item, originalName: normalizedNames[itemOrdinal]! },
+                uploadDeadline,
+              ),
             );
-            const stagedFile = await stageUpload(
-              { ...item, originalName: normalizedName },
-              uploadDeadline,
+          }
+          const findPrior = await findUploadReplays(actorUserId, replayKeys);
+          for (const [itemOrdinal, item] of items.entries()) {
+            const key = itemIdempotencyKeys[itemOrdinal];
+            const prior = key ? findPrior(key) : undefined;
+            if (!key || !prior) continue;
+            const stagedFile = preStagedUploads.get(itemOrdinal)!;
+            replayedUploads.set(
+              itemOrdinal,
+              replayUpload(
+                prior,
+                key,
+                hashDurableStorageRequest(
+                  uploadRequestHash(
+                    folderId,
+                    normalizedNames[itemOrdinal]!,
+                    stagedFile,
+                    item,
+                  ),
+                ),
+                { actorRole, actorUserId },
+              ),
             );
-            preStagedUploads.set(itemOrdinal, stagedFile);
-            const requestHashPayload = uploadRequestHash(
-              folderId,
-              normalizedName,
-              stagedFile,
-              item,
-            );
-            const prior = await getPrisma().storageMutation.findUnique({
-              where: { idempotencyKey: `${idempotencyKey}:${itemOrdinal}` },
-            });
-            if (!prior) {
-              preStagedUploads.set(itemOrdinal, stagedFile);
-              continue;
-            }
-            if (
-              !["upload_create", "upload_replace"].includes(prior.kind) ||
-              prior.requestHash !==
-                hashDurableStorageRequest(requestHashPayload) ||
-              !canAccessPrivateNamespace({
-                actorRole,
-                actorUserId,
-                namespaceOwnerUserId: prior.ownerUserId,
-              })
-            ) {
-              throw new StorageMutationConflictError(
-                "STORAGE_IDEMPOTENCY_KEY_REUSED",
-              );
-            }
-            if (prior.status !== "succeeded") {
-              throw new StorageMutationConflictError(
-                prior.status === "recovery_required"
-                  ? "STORAGE_RECOVERY_REQUIRED"
-                  : "STORAGE_MUTATION_RECOVERING",
-              );
-            }
-            const response = parseFileMutationReplay(prior.resultJson);
-            if (!response?.file) {
-              throw new StorageMutationConflictError(
-                "STORAGE_RECOVERY_REQUIRED",
-              );
-            }
-            replayedUploads.set(itemOrdinal, response.file);
+            preStagedUploads.delete(itemOrdinal);
             await cleanupStagedUpload(stagedFile.tmpPath);
           }
         } catch (error) {
@@ -5186,14 +5332,164 @@ export const createFilesService = ({
       const conflicts: UploadConflictItem[] = [];
       let stagedAnyUpload = false;
 
+      const pendingCreates: Array<{
+        ordinal: number;
+        idempotencyKey: string | null;
+        requestHash: string;
+        stagedFile: Awaited<ReturnType<typeof stageUpload>>;
+        name: string;
+        storageKey: string;
+        fileId: string;
+      }> = [];
+      // A rejected durable upload owns nothing: it failed validation or
+      // was rolled back to staging and aborted.
+      const ownsNothing = (error: unknown) =>
+        repo ||
+        error instanceof FilesError ||
+        error instanceof RevisionConflictError ||
+        error instanceof StorageMutationRejectedError ||
+        error instanceof StorageAdmissionBusyError ||
+        error instanceof StorageAdmissionCancelledError;
+      // New files commit together: one journal mutation, one quota check,
+      // and one metadata transaction for the whole group.
+      const flushPendingCreates = async () => {
+        const group = pendingCreates.splice(0);
+        if (group.length === 0) return;
+        const ownerUserId = targetFolder.ownerUserId;
+        const groupEntries = (files: FileSummary[]) =>
+          group.map((entry, index) => ({
+            idempotencyKey: entry.idempotencyKey,
+            requestHash: entry.requestHash,
+            file: files[index]!,
+          }));
+        try {
+          await runDurableStorageMutation({
+            signal,
+            kind: "upload_create",
+            ownerUserId,
+            idempotencyKey: group[0]!.idempotencyKey,
+            reservedBytes: BigInt(
+              group.reduce(
+                (total, entry) => total + entry.stagedFile.sizeBytes,
+                0,
+              ),
+            ),
+            requestHashPayload: {
+              uploads: group.map(({ idempotencyKey, requestHash }) => ({
+                idempotencyKey,
+                requestHash,
+              })),
+            },
+            metadataOperations: [
+              {
+                action: "assert_owner_quota",
+                ownerUserId,
+                additionalBytes: String(
+                  group.reduce(
+                    (total, entry) => total + entry.stagedFile.sizeBytes,
+                    0,
+                  ),
+                ),
+              },
+              ...group.map(
+                ({ stagedFile, name, storageKey, fileId }) =>
+                  ({
+                    action: "create_file",
+                    data: {
+                      id: fileId,
+                      ownerUserId,
+                      folderId: targetFolder.id,
+                      originalName: name,
+                      storageKey,
+                      mimeType: stagedFile.mimeType,
+                      sizeBytes: String(stagedFile.sizeBytes),
+                      contentChecksum: stagedFile.actualChecksum,
+                      clientModifiedAt:
+                        stagedFile.clientModifiedAt?.toISOString() ?? null,
+                    },
+                  }) as const,
+              ),
+            ],
+            steps: group.map(({ stagedFile, storageKey }) => ({
+              action: "rename" as const,
+              sourceKey: storageKeyForAbsolutePath(stagedFile.tmpPath),
+              targetKey: storageKey,
+              expectedNodeType: "file" as const,
+              expectedSizeBytes: BigInt(stagedFile.sizeBytes),
+              expectedChecksum: stagedFile.actualChecksum,
+            })),
+            entities: group.map(({ stagedFile, name, storageKey, fileId }) => ({
+              entityType: "file" as const,
+              entityId: fileId,
+              preRevision: -1,
+              postRevision: 0,
+              beforeJson: null,
+              afterJson: toMetadataJson({
+                storageKey,
+                originalName: name,
+                sizeBytes: stagedFile.sizeBytes,
+                contentChecksum: stagedFile.actualChecksum,
+              }),
+            })),
+            resultJson: serializeUploadGroupResult(
+              groupEntries(
+                group.map(({ stagedFile, name, fileId }) => ({
+                  id: fileId,
+                  ownerUserId,
+                  ownerStorageId: targetFolder.ownerStorageId,
+                  folderId: targetFolder.id,
+                  name,
+                  mimeType: stagedFile.mimeType,
+                  sizeBytes: stagedFile.sizeBytes,
+                  viewerKind: null,
+                  deletedAt: null,
+                  createdAt: now(),
+                  updatedAt: now(),
+                })),
+              ),
+            ),
+          });
+        } catch (error) {
+          if (ownsNothing(error)) {
+            await Promise.all(
+              group.map((entry) =>
+                cleanupStagedUpload(entry.stagedFile.tmpPath),
+              ),
+            );
+          }
+          throw error;
+        }
+        await Promise.all(
+          group.map((entry) => cleanupStagedUpload(entry.stagedFile.tmpPath)),
+        );
+        const createdFiles = new Map(
+          (
+            await activeRepo.listFilesByIds(
+              ownerUserId,
+              group.map((entry) => entry.fileId),
+            )
+          ).map((file) => [file.id, toFileSummary(file)]),
+        );
+        const files = group.map((entry) => {
+          const file = createdFiles.get(entry.fileId);
+          if (!file) {
+            throw new Error("Durable upload committed without file metadata.");
+          }
+          return file;
+        });
+        await persistDirectMutationReplay(
+          group[0]!.idempotencyKey,
+          serializeUploadGroupResult(groupEntries(files)),
+        );
+        for (const [index, entry] of group.entries()) {
+          uploadedFilesByOrdinal.set(entry.ordinal, files[index]!);
+        }
+      };
+
       for (const [itemOrdinal, item] of items.entries()) {
         if (replayedUploads.has(itemOrdinal)) continue;
-        const itemIdempotencyKey = idempotencyKey
-          ? `${idempotencyKey}:${itemOrdinal}`
-          : undefined;
-        const normalizedName = normalizeFileName(
-          item.originalName || item.file.name,
-        );
+        const itemIdempotencyKey = itemIdempotencyKeys[itemOrdinal];
+        const normalizedName = normalizedNames[itemOrdinal]!;
         const stagedFile =
           preStagedUploads.get(itemOrdinal) ??
           (await stageUpload(
@@ -5208,61 +5504,22 @@ export const createFilesService = ({
 
         try {
           assertStorageAdmissionActive(signal);
+          if (
+            pendingCreates.length >= UPLOAD_CREATE_GROUP_LIMIT ||
+            pendingCreates.some(
+              (entry) =>
+                uploadGroupNameKey(entry.name) ===
+                uploadGroupNameKey(normalizedName),
+            )
+          ) {
+            await flushPendingCreates();
+          }
           await coordinateStorageMutation({
             lockKeys: targetFolderLockKeys,
             deadline: uploadDeadline,
             // Replacement callback preserves staging and quota-transfer ordering.
             // fallow-ignore-next-line complexity
             callback: async () => {
-              if (!repo && itemIdempotencyKey) {
-                const prior = await getPrisma().storageMutation.findUnique({
-                  where: { idempotencyKey: itemIdempotencyKey },
-                });
-                if (prior) {
-                  if (
-                    !["upload_create", "upload_replace"].includes(prior.kind) ||
-                    !canAccessPrivateNamespace({
-                      actorRole,
-                      actorUserId,
-                      namespaceOwnerUserId: prior.ownerUserId,
-                    })
-                  ) {
-                    throw new StorageMutationConflictError(
-                      "STORAGE_IDEMPOTENCY_KEY_REUSED",
-                    );
-                  }
-                  if (prior.status !== "succeeded") {
-                    throw new StorageMutationConflictError(
-                      prior.status === "recovery_required"
-                        ? "STORAGE_RECOVERY_REQUIRED"
-                        : "STORAGE_MUTATION_RECOVERING",
-                    );
-                  }
-                  const replayPayload = uploadRequestHash(
-                    folderId,
-                    normalizedName,
-                    stagedFile,
-                    item,
-                  );
-                  if (
-                    prior.requestHash !==
-                    hashDurableStorageRequest(replayPayload)
-                  ) {
-                    throw new StorageMutationConflictError(
-                      "STORAGE_IDEMPOTENCY_KEY_REUSED",
-                    );
-                  }
-                  const response = parseFileMutationReplay(prior.resultJson);
-                  if (!response?.file) {
-                    throw new StorageMutationConflictError(
-                      "STORAGE_RECOVERY_REQUIRED",
-                    );
-                  }
-                  uploadedFilesByOrdinal.set(itemOrdinal, response.file);
-                  await cleanupStagedUpload(stagedFile.tmpPath);
-                  return;
-                }
-              }
               const activeConflict = await activeRepo.findActiveNameConflict({
                 ownerUserId: targetFolder.ownerUserId,
                 parentId: targetFolder.id,
@@ -5485,6 +5742,7 @@ export const createFilesService = ({
                   finalName = buildSafeRenamedFileName(normalizedName, [
                     ...siblings[0].map((folder) => folder.name),
                     ...siblings[1].map((file) => file.name),
+                    ...pendingCreates.map((entry) => entry.name),
                   ]);
                 } else {
                   conflicts.push({
@@ -5511,105 +5769,30 @@ export const createFilesService = ({
                 trashed: false,
               });
               const fileId = itemIdempotencyKey
-                ? deterministicUuid(
-                    `upload-create:${targetFolder.ownerUserId}:${itemIdempotencyKey}`,
+                ? uploadCreateFileId(
+                    targetFolder.ownerUserId,
+                    itemIdempotencyKey,
                   )
                 : randomUUID();
               const targetPath = getStoragePath(storageKey);
 
               if (!repo) {
-                const stagedStorageKey = storageKeyForAbsolutePath(
-                  stagedFile.tmpPath,
-                );
-                await runDurableStorageMutation({
-                  signal,
-                  kind: "upload_create",
-                  ownerUserId: targetFolder.ownerUserId,
-                  idempotencyKey: itemIdempotencyKey,
-                  reservedBytes: BigInt(stagedFile.sizeBytes),
-                  requestHashPayload: uploadRequestHash(
-                    folderId,
-                    normalizedName,
-                    stagedFile,
-                    item,
+                pendingCreates.push({
+                  ordinal: itemOrdinal,
+                  idempotencyKey: itemIdempotencyKey ?? null,
+                  requestHash: hashDurableStorageRequest(
+                    uploadRequestHash(
+                      folderId,
+                      normalizedName,
+                      stagedFile,
+                      item,
+                    ),
                   ),
-                  metadataOperations: [
-                    {
-                      action: "assert_owner_quota",
-                      ownerUserId: targetFolder.ownerUserId,
-                      additionalBytes: String(stagedFile.sizeBytes),
-                    },
-                    {
-                      action: "create_file",
-                      data: {
-                        id: fileId,
-                        ownerUserId: targetFolder.ownerUserId,
-                        folderId: targetFolder.id,
-                        originalName: finalName,
-                        storageKey,
-                        mimeType: stagedFile.mimeType,
-                        sizeBytes: String(stagedFile.sizeBytes),
-                        contentChecksum: stagedFile.actualChecksum,
-                        clientModifiedAt:
-                          stagedFile.clientModifiedAt?.toISOString() ?? null,
-                      },
-                    },
-                  ],
-                  steps: [
-                    {
-                      action: "rename",
-                      sourceKey: stagedStorageKey,
-                      targetKey: storageKey,
-                      expectedNodeType: "file",
-                      expectedSizeBytes: BigInt(stagedFile.sizeBytes),
-                      expectedChecksum: stagedFile.actualChecksum,
-                    },
-                  ],
-                  entities: [
-                    {
-                      entityType: "file",
-                      entityId: fileId,
-                      preRevision: -1,
-                      postRevision: 0,
-                      beforeJson: null,
-                      afterJson: toMetadataJson({
-                        storageKey,
-                        originalName: finalName,
-                        sizeBytes: stagedFile.sizeBytes,
-                        contentChecksum: stagedFile.actualChecksum,
-                      }),
-                    },
-                  ],
-                  details: { stagedStorageKey },
-                  resultJson: serializeFileMutationResult({
-                    file: {
-                      id: fileId,
-                      ownerUserId: targetFolder.ownerUserId,
-                      ownerStorageId: targetFolder.ownerStorageId,
-                      folderId: targetFolder.id,
-                      name: finalName,
-                      mimeType: stagedFile.mimeType,
-                      sizeBytes: stagedFile.sizeBytes,
-                      viewerKind: null,
-                      deletedAt: null,
-                      createdAt: now(),
-                      updatedAt: now(),
-                    },
-                  }),
+                  stagedFile,
+                  name: finalName,
+                  storageKey,
+                  fileId,
                 });
-                await cleanupStagedUpload(stagedFile.tmpPath);
-                const createdFile = await activeRepo.findFileById(fileId);
-                if (!createdFile) {
-                  throw new Error(
-                    "Durable upload committed without file metadata.",
-                  );
-                }
-                const result = { file: toFileSummary(createdFile) };
-                await persistDirectMutationReplay(
-                  itemIdempotencyKey,
-                  serializeFileMutationResult(result),
-                );
-                uploadedFilesByOrdinal.set(itemOrdinal, result.file);
                 return;
               }
 
@@ -5655,28 +5838,27 @@ export const createFilesService = ({
             },
           });
         } catch (error) {
-          // A rejected durable upload owns nothing: it failed validation or
-          // was rolled back to staging and aborted.
-          if (
-            repo ||
-            error instanceof FilesError ||
-            error instanceof RevisionConflictError ||
-            error instanceof StorageMutationRejectedError ||
-            error instanceof StorageAdmissionBusyError ||
-            error instanceof StorageAdmissionCancelledError
-          ) {
+          if (ownsNothing(error)) {
             await cleanupStagedUpload(stagedFile.tmpPath);
           }
 
+          // Files still waiting for their group were never handed over.
           await Promise.all(
-            Array.from(preStagedUploads.values()).map((staged) =>
-              cleanupStagedUpload(staged.tmpPath),
-            ),
+            [
+              ...preStagedUploads.values(),
+              ...pendingCreates.map((entry) => entry.stagedFile),
+            ].map((staged) => cleanupStagedUpload(staged.tmpPath)),
           );
           // Unknown ownership stays on disk for the retention/recovery worker.
           await scheduleStagingCleanup().catch(() => undefined);
           throw error;
         }
+      }
+      try {
+        await flushPendingCreates();
+      } catch (error) {
+        await scheduleStagingCleanup().catch(() => undefined);
+        throw error;
       }
 
       if (stagedAnyUpload) {
