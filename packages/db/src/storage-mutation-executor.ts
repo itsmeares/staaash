@@ -312,7 +312,7 @@ const treeManifestMatches = async (
     : hashLegacyTreeManifestRecords(records) === expected;
 };
 
-type CapturedTreeEntry =
+export type CapturedTreeEntry =
   | { kind: "directory"; relativeKey: string }
   | {
       kind: "file";
@@ -340,21 +340,9 @@ const sameTreeShape = (
   );
 };
 
-/**
- * The manifest of a tree whose files the metadata already describes. When the
- * disk holds exactly those names and sizes, the manifest also carries the
- * tree's lstat fingerprint so the move or delete can skip reading every byte.
- * Otherwise it carries only the content digest, and execution reads every
- * byte and fails closed as before.
- */
-export const captureTreeManifest = async (
-  treeRoot: string,
-  entries: CapturedTreeEntry[],
-) => {
-  const content = calculateCapturedTreeManifestDigest(entries);
-  let onDisk: TreeStatEntry[];
+const readTreeStatEntriesIfPlain = async (treeRoot: string) => {
   try {
-    onDisk = await readTreeStatEntries(treeRoot);
+    return await readTreeStatEntries(treeRoot);
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (
@@ -362,12 +350,34 @@ export const captureTreeManifest = async (
       code === "ENOENT" ||
       code === "ENOTDIR"
     ) {
-      return content;
+      return null;
     }
     throw error;
   }
-  if (!sameTreeShape(entries, onDisk)) return content;
-  return `v3:${content.slice("v2:".length)}:${hashTreeStatEntries(onDisk)}`;
+};
+
+/**
+ * The manifest of a tree whose files the metadata describes. When the disk
+ * holds exactly those names and sizes, and nothing changed while
+ * `buildEntries` read checksums, the manifest also carries the tree's lstat
+ * fingerprint so the move or delete can skip reading every byte. Otherwise it
+ * carries only the content digest, and execution reads every byte and fails
+ * closed as before.
+ */
+export const captureTreeManifest = async (
+  treeRoot: string,
+  buildEntries: () => Promise<CapturedTreeEntry[]>,
+) => {
+  const before = await readTreeStatEntriesIfPlain(treeRoot);
+  const entries = await buildEntries();
+  const content = calculateCapturedTreeManifestDigest(entries);
+  if (!before) return content;
+  const after = await readTreeStatEntriesIfPlain(treeRoot);
+  if (!after || !sameTreeShape(entries, after)) return content;
+  const fingerprint = hashTreeStatEntries(after);
+  return fingerprint === hashTreeStatEntries(before)
+    ? `v3:${content.slice("v2:".length)}:${fingerprint}`
+    : content;
 };
 
 export const calculateCapturedTreeManifestDigest = (

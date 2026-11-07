@@ -116,6 +116,7 @@ import {
 } from "@staaash/db/storage-mutations";
 import {
   captureTreeManifest,
+  type CapturedTreeEntry,
   calculateStorageFileChecksum,
   calculateTreeManifestDigest,
   EMPTY_TREE_MANIFEST_DIGEST,
@@ -705,28 +706,35 @@ const captureFolderTreeManifest = async ({
     }
     return relative;
   };
-  const entries: Parameters<typeof captureTreeManifest>[1] =
-    folderStorageKeys.map((storageKey) => ({
-      kind: "directory",
-      relativeKey: relativeKey(storageKey),
-    }));
   const checksums = new Map<string, string>();
-  for (const file of files) {
-    const checksum =
-      file.contentChecksum ??
-      (await calculateStorageFileChecksum(getStorageRoot(), file.storageKey));
-    checksums.set(file.id, checksum);
-    entries.push({
-      kind: "file",
-      relativeKey: relativeKey(file.storageKey),
-      sizeBytes: BigInt(file.sizeBytes),
-      checksum,
-    });
-  }
-  return {
-    digest: await captureTreeManifest(getStoragePath(rootStorageKey), entries),
-    checksums,
-  };
+  const digest = await captureTreeManifest(
+    getStoragePath(rootStorageKey),
+    async () => {
+      const entries: CapturedTreeEntry[] = folderStorageKeys.map(
+        (storageKey) => ({
+          kind: "directory",
+          relativeKey: relativeKey(storageKey),
+        }),
+      );
+      for (const file of files) {
+        const checksum =
+          file.contentChecksum ??
+          (await calculateStorageFileChecksum(
+            getStorageRoot(),
+            file.storageKey,
+          ));
+        checksums.set(file.id, checksum);
+        entries.push({
+          kind: "file",
+          relativeKey: relativeKey(file.storageKey),
+          sizeBytes: BigInt(file.sizeBytes),
+          checksum,
+        });
+      }
+      return entries;
+    },
+  );
+  return { digest, checksums };
 };
 
 const storageKeyForAbsolutePath = (absolutePath: string) => {

@@ -2084,6 +2084,7 @@ describe("STO-02 durable PostgreSQL protocol", () => {
       sizeBytes: BigInt(knownBytes.length),
       checksum: createHash("sha256").update(knownBytes).digest("hex"),
     };
+    const known = async () => [knownEntry];
     const seedTree = async (storageKey: string) => {
       const treePath = path.join(storageRoot(), ...storageKey.split("/"));
       await mkdir(treePath, { recursive: true });
@@ -2123,11 +2124,24 @@ describe("STO-02 durable PostgreSQL protocol", () => {
       const treePath = await seedTree(`files/${user.storageId}/differs`);
       await writeFile(path.join(treePath, "unexpected.bin"), "private");
 
-      await expect(captureTreeManifest(treePath, [knownEntry])).resolves.toBe(
+      await expect(captureTreeManifest(treePath, known)).resolves.toBe(
         calculateCapturedTreeManifestDigest([knownEntry]),
       );
       await expect(
-        captureTreeManifest(`${treePath}-missing`, [knownEntry]),
+        captureTreeManifest(`${treePath}-missing`, known),
+      ).resolves.toBe(calculateCapturedTreeManifestDigest([knownEntry]));
+    });
+
+    it("captures only the content digest when a file changes while its checksum is read", async () => {
+      const user = await createUser();
+      const treePath = await seedTree(`files/${user.storageId}/racing`);
+
+      await expect(
+        captureTreeManifest(treePath, async () => {
+          // Same size, written after the first stat and before the second.
+          await writeFile(path.join(treePath, "known.bin"), "KNOWN");
+          return [knownEntry];
+        }),
       ).resolves.toBe(calculateCapturedTreeManifestDigest([knownEntry]));
     });
 
@@ -2137,10 +2151,8 @@ describe("STO-02 durable PostgreSQL protocol", () => {
       const editedKey = `files/${user.storageId}/edited`;
       const unchanged = await seedTree(unchangedKey);
       const edited = await seedTree(editedKey);
-      const unchangedDigest = await captureTreeManifest(unchanged, [
-        knownEntry,
-      ]);
-      const editedDigest = await captureTreeManifest(edited, [knownEntry]);
+      const unchangedDigest = await captureTreeManifest(unchanged, known);
+      const editedDigest = await captureTreeManifest(edited, known);
       expect(unchangedDigest).toMatch(/^v3:/);
       // Same size, different bytes: only the change time gives it away.
       await writeFile(path.join(edited, "known.bin"), "KNOWN");
@@ -2179,7 +2191,7 @@ describe("STO-02 durable PostgreSQL protocol", () => {
       await seedTree(sourceKey);
       const captured = await captureTreeManifest(
         path.join(storageRoot(), ...sourceKey.split("/")),
-        [knownEntry],
+        known,
       );
       // Matching stats with a content digest the bytes do not have: only a
       // check that reads the bytes can refuse it.
@@ -2211,7 +2223,7 @@ describe("STO-02 durable PostgreSQL protocol", () => {
       const trashKey = `.trash/${user.storageId}/folders/fingerprinted`;
       const quarantineKey = `tmp/quarantine/${randomUUID()}/tree`;
       const trashPath = await seedTree(trashKey);
-      const storedDigest = await captureTreeManifest(trashPath, [knownEntry]);
+      const storedDigest = await captureTreeManifest(trashPath, known);
       expect(storedDigest).toMatch(/^v3:/);
       await writeFile(path.join(trashPath, "added-later.bin"), "private");
       const prepared = await prepareStorageMutation({
