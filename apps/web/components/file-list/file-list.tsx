@@ -101,8 +101,11 @@ type FileListProps<T extends FileListItem> = {
   empty?: ReactNode;
   /** Rendered after the items, inside the list. */
   children?: ReactNode;
-  /** Rendered before the first item, in the list's own layout (new folder). */
-  leading?: ReactNode;
+  /**
+   * Cells before the first item, in the list's own layout: a new-folder row,
+   * files still uploading. Each needs a key.
+   */
+  leading?: ReactNode[];
   className?: string;
 };
 
@@ -490,7 +493,7 @@ export function FileList<T extends FileListItem>({
   tiles = false,
   empty,
   children,
-  leading,
+  leading = [],
   className,
 }: FileListProps<T>) {
   const [sheetItem, setSheetItem] = useState<T | null>(null);
@@ -519,7 +522,7 @@ export function FileList<T extends FileListItem>({
       column.align === "end" && "text-right",
     );
 
-  const hasRows = !isEmpty || Boolean(leading);
+  const hasRows = !isEmpty || leading.length > 0;
   const headerRows = Number(
     view === "list" && head && !isEmpty && columns.length > 0,
   );
@@ -762,11 +765,11 @@ export function FileList<T extends FileListItem>({
           </div>
         ) : null}
 
-        {isEmpty && !leading && !loading?.loading && !loading?.error
+        {isEmpty && leading.length === 0 && !loading?.loading && !loading?.error
           ? empty
           : null}
 
-        {(isEmpty && leading
+        {(isEmpty && leading.length > 0
           ? [{ label: "", items: [] as T[] }]
           : sections.filter((section) => section.items.length > 0)
         ).map((section, index) => (
@@ -778,7 +781,7 @@ export function FileList<T extends FileListItem>({
             items={section.items}
             view={view}
             tiles={tiles}
-            leading={index === 0 ? leading : undefined}
+            leading={index === 0 ? leading : []}
             renderItem={renderItem}
           />
         ))}

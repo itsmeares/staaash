@@ -32,6 +32,20 @@ import {
 
 const SESSION_PREFIX = "staaash:upload-session:";
 
+// A large batch is thousands of files, and a row for each freezes the page.
+// Uploads start in order, so the first rows are the ones moving; the header
+// carries the whole batch's progress and the rest wait as a count.
+const LISTED_ROWS = 50;
+
+function MoreRows({ count, what }: { count: number; what: string }) {
+  if (count <= 0) return null;
+  return (
+    <p className="m-0 py-1.5 text-label text-muted-foreground tabular-nums">
+      {count.toLocaleString()} more {what}
+    </p>
+  );
+}
+
 type UnfinishedUpload = { name: string; storageKey: string };
 
 /**
@@ -337,24 +351,29 @@ function UploadGroups({
   onCancel: (key: string) => void;
 }) {
   const groups = new Map<string, UploadingFile[]>();
-  for (const upload of uploading) {
+  for (const upload of uploading.slice(0, LISTED_ROWS)) {
     const key = upload.destination ?? "";
     groups.set(key, [...(groups.get(key) ?? []), upload]);
   }
-  return [...groups].map(([destination, items]) => (
-    <Section
-      key={destination}
-      title={destination ? `Uploading to ${destination}` : "Uploading"}
-    >
-      {items.map((upload) => (
-        <UploadRow
-          key={upload.clientKey}
-          upload={upload}
-          onCancel={() => onCancel(upload.clientKey)}
-        />
+  return (
+    <>
+      {[...groups].map(([destination, items]) => (
+        <Section
+          key={destination}
+          title={destination ? `Uploading to ${destination}` : "Uploading"}
+        >
+          {items.map((upload) => (
+            <UploadRow
+              key={upload.clientKey}
+              upload={upload}
+              onCancel={() => onCancel(upload.clientKey)}
+            />
+          ))}
+        </Section>
       ))}
-    </Section>
-  ));
+      <MoreRows count={uploading.length - LISTED_ROWS} what="waiting" />
+    </>
+  );
 }
 
 function UnfinishedRow({
@@ -514,7 +533,7 @@ function NeedsYou({
   if (failed.length + unfinished.length === 0) return null;
   return (
     <Section title="Needs you">
-      {failed.map((upload) => (
+      {failed.slice(0, LISTED_ROWS).map((upload) => (
         <UploadRow
           key={upload.clientKey}
           upload={upload}
@@ -522,6 +541,7 @@ function NeedsYou({
           onRetry={() => retryUpload(upload.clientKey)}
         />
       ))}
+      <MoreRows count={failed.length - LISTED_ROWS} what="failed" />
       {unfinished.map((item) => (
         <UnfinishedRow
           item={item}
