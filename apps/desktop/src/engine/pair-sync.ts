@@ -608,9 +608,13 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     };
   };
 
+  // Running totals: summing the queue again for every action that starts is
+  // quadratic: 100,000 queued files froze the engine for most of a minute.
   let queued = new Set<Action>();
-  const reportWaiting = () => {
-    const waiting = { files: queued.size, bytes: 0, uploadBytes: 0 };
+  let waiting: Waiting = { files: 0, bytes: 0, uploadBytes: 0 };
+  const queue = (actions: Action[]) => {
+    queued = new Set(actions.filter((action) => transferSize(action) !== null));
+    waiting = { files: queued.size, bytes: 0, uploadBytes: 0 };
     for (const action of queued) {
       waiting.bytes += transferSize(action) ?? 0;
       waiting.uploadBytes += uploadSize(action) ?? 0;
@@ -619,7 +623,14 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
   };
 
   const run = async (action: Action) => {
-    if (queued.delete(action)) reportWaiting();
+    if (queued.delete(action)) {
+      waiting = {
+        files: waiting.files - 1,
+        bytes: waiting.bytes - (transferSize(action) ?? 0),
+        uploadBytes: waiting.uploadBytes - (uploadSize(action) ?? 0),
+      };
+      ctx.waiting(waiting);
+    }
     const rel = "rel" in action ? action.rel : action.from;
     if (!ctx.current() || waits(action)) return;
     try {
@@ -743,8 +754,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         order[a.kind] - order[b.kind] ||
         (uploadSize(a) ?? 0) - (uploadSize(b) ?? 0),
     );
-    queued = new Set(sorted.filter((action) => transferSize(action) !== null));
-    reportWaiting();
+    queue(sorted);
     // Folders first, top-down; transfers in parallel; deletions last.
     for (const stage of [0, 1, 2, 3, 4, 5]) {
       const batch = sorted.filter((action) => order[action.kind] === stage);
