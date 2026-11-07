@@ -15,7 +15,7 @@ extraResources:
 # Native watcher binaries cannot load from inside the archive.
 asarUnpack:
   - "**/node_modules/@parcel/watcher*/**"
-artifactName: Staaash-${version}-${os}-${arch}.${ext}
+artifactName: Staaash-Desktop-${version}-${os}-${arch}.${ext}
 publish:
   provider: github
   owner: itsmeares

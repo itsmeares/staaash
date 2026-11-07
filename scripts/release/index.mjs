@@ -643,7 +643,7 @@ const generateReleaseNotes = (repository, tag) =>
 const desktopReleaseNotes = ({ repository, release }) => {
   const version = release.tag.slice(1);
   const download = (suffix) =>
-    `https://github.com/${repository}/releases/download/${release.tag}/Staaash-${version}-${suffix}`;
+    `https://github.com/${repository}/releases/download/${release.tag}/Staaash-Desktop-${version}-${suffix}`;
   return `## Desktop app
 
 | System | x64 | ARM64 |
