@@ -38,7 +38,9 @@ type UploadSessionCleanupClient = {
     deleteMany(args: object): Promise<{ count: number }>;
   };
   storageMutationStep?: {
-    findMany(args: object): Promise<Array<{ sourceKey: string | null }>>;
+    findMany(
+      args: object,
+    ): Promise<Array<{ sourceKey: string | null; targetKey: string | null }>>;
   };
   backgroundJob?: {
     findMany(
@@ -220,8 +222,9 @@ const listActiveGeneratedPaths = async ({
 
 /**
  * A generated temp is job output that no journal owns yet. A publish journal
- * owns its temp from the moment it is prepared, and those sources are in
- * `protectedPaths`; a queued or running job still owns its own temp. Anything
+ * owns its temp from the moment it is prepared, and every path an unfinished
+ * mutation names is in `protectedPaths`; a queued or running job still owns
+ * its own temp. Anything
  * else past retention was left by a job that died before handing it over, and
  * is a rebuildable derivative or archive, so it is removed like upload staging.
  */
@@ -569,10 +572,11 @@ export const cleanupUploadSessionLifecycle = async ({
     where: { stagingReleasedAt: null },
     select: { id: true, tmpPath: true },
   });
-  const protectedMutationSources =
+  // Unfinished mutations keep every path they name, including recovery
+  // records that list leftovers as delete targets for an operator.
+  const protectedMutationPaths =
     (await client.storageMutationStep?.findMany({
       where: {
-        sourceKey: { not: null },
         mutation: {
           status: {
             in: [
@@ -587,14 +591,14 @@ export const cleanupUploadSessionLifecycle = async ({
           },
         },
       },
-      select: { sourceKey: true },
+      select: { sourceKey: true, targetKey: true },
     })) ?? [];
   const protectedPaths = new Set([
     ...protectedSessions.map((session) => path.resolve(session.tmpPath)),
-    ...protectedMutationSources.flatMap((step) =>
-      step.sourceKey
-        ? [path.resolve(storagePaths.filesRoot, step.sourceKey)]
-        : [],
+    ...protectedMutationPaths.flatMap((step) =>
+      [step.sourceKey, step.targetKey].flatMap((key) =>
+        key ? [path.resolve(storagePaths.filesRoot, key)] : [],
+      ),
     ),
   ]);
   const effectiveStagingTtlMs =

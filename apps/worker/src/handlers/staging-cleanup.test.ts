@@ -601,6 +601,9 @@ describe("staging cleanup handler", () => {
     const journaledPreview = await writeTemp(
       path.join(derivativesRoot, "derivative-publishing.jpg.tmp"),
     );
+    const cutoverResidue = await writeTemp(
+      path.join(archivesRoot, "archive-cutover.zip.tmp"),
+    );
     const recentPreview = await writeTemp(
       path.join(derivativesRoot, "derivative-recent.jpg.tmp"),
       new Date(fixedNow.getTime() - stagingTtlMs + 60_000),
@@ -612,7 +615,14 @@ describe("staging cleanup handler", () => {
     const extendedClient = Object.assign(client, {
       storageMutationStep: {
         findMany: vi.fn(async () => [
-          { sourceKey: "tmp/derivatives/derivative-publishing.jpg.tmp" },
+          {
+            sourceKey: "tmp/derivatives/derivative-publishing.jpg.tmp",
+            targetKey: "derivatives/owner-1/file-3/thumbnail.jpg",
+          },
+          {
+            sourceKey: null,
+            targetKey: "tmp/archives/archive-cutover.zip.tmp",
+          },
         ]),
       },
       backgroundJob: {
@@ -665,6 +675,7 @@ describe("staging cleanup handler", () => {
     await expectPathToExist(runningPreview);
     await expectPathToExist(runningArchive);
     await expectPathToExist(journaledPreview);
+    await expectPathToExist(cutoverResidue);
     await expectPathToExist(recentPreview);
     await expectPathToExist(unknownName);
     await rm(filesRoot, { recursive: true, force: true });
