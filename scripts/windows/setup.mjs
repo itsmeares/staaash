@@ -429,13 +429,13 @@ const getJson = async (url) => {
 // A new instance is not ready until its owner signs up: storage switches to
 // its current format only after setup. Until then, a working setup page is
 // as healthy as it gets.
-const waitForHealth = async ({ port, logs }) => {
+const waitForHealth = async ({ port, logs, answering = false }) => {
   const origin = `http://127.0.0.1:${port}`;
   const giveUpAt = Date.now() + HEALTH_TIMEOUT_MS;
   while (Date.now() < giveUpAt) {
     try {
       const entry = await getJson(`${origin}/api/views/entry`);
-      if (entry?.state === "setup") return;
+      if (entry?.state === "setup" || (entry && answering)) return;
       if (entry && (await getJson(`${origin}/api/health/ready`))?.ok) return;
     } catch {
       // Not listening yet.
@@ -493,7 +493,13 @@ const install = async ({ appDir, dataDir, port, account, firewall }) => {
   run("sc.exe", ["start", POSTGRES_SERVICE]);
   await waitForState(POSTGRES_SERVICE, "Running");
   ensureDatabase({ appDir, databaseUrl: settings.DATABASE_URL });
-  for (const service of SERVICES) run("sc.exe", ["start", service.id]);
+  // The web service migrates the database before it listens, and the worker
+  // needs those tables, so it starts once the web service answers.
+  const [web, worker] = SERVICES;
+  run("sc.exe", ["start", web.id]);
+  await waitForHealth({ port, logs: paths.logs, answering: true });
+  run("sc.exe", ["start", worker.id]);
+  await waitForState(worker.id, "Running");
   await waitForHealth({ port, logs: paths.logs });
 };
 
