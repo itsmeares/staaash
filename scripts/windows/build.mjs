@@ -1,7 +1,7 @@
 // Builds Staaash-Server-<version>-win-x64.exe from a built checkout:
 // pnpm install, pnpm db:generate, and pnpm build must have run first.
 // Needs makensis and, off Windows, unzip.
-import { execFileSync } from "node:child_process";
+import { execFileSync, execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   cpSync,
@@ -31,14 +31,13 @@ const components = readJson(path.join(here, "components.json"));
 // pnpm and npm are .cmd shims on Windows and need cmd.exe, which splits
 // unquoted arguments at spaces.
 const shims = new Set(["pnpm", "npm"]);
-const run = (command, args, options = {}) => {
-  const shell = process.platform === "win32" && shims.has(command);
-  return execFileSync(command, shell ? args.map((arg) => `"${arg}"`) : args, {
-    stdio: "inherit",
-    shell,
-    ...options,
-  });
-};
+const run = (command, args, options = {}) =>
+  process.platform === "win32" && shims.has(command)
+    ? execSync([command, ...args.map((arg) => `"${arg}"`)].join(" "), {
+        stdio: "inherit",
+        ...options,
+      })
+    : execFileSync(command, args, { stdio: "inherit", ...options });
 
 const sha256 = (file) =>
   createHash("sha256").update(readFileSync(file)).digest("hex");
