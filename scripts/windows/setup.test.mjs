@@ -74,6 +74,19 @@ test("precheck refuses a database from another PostgreSQL major", () => {
   });
 });
 
+test("precheck refuses a whole drive as the data folder", () => {
+  assert.throws(
+    () =>
+      precheck({
+        installed: "",
+        version: "2.0.0",
+        appDir,
+        dataDir: path.parse(appDir).root,
+      }),
+    /not a whole drive/,
+  );
+});
+
 test("precheck refuses a data folder inside the program folder", () => {
   for (const name of ["data", "..data"]) {
     assert.throws(

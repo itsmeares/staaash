@@ -7,6 +7,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -74,6 +75,10 @@ const isInside = (child, parent) => {
  * replace it), and a database from another PostgreSQL major.
  */
 export const precheck = ({ installed, version, appDir, dataDir }) => {
+  // The data folder's permissions are locked down, which must not hit a drive.
+  if (path.parse(path.resolve(dataDir)).root === path.resolve(dataDir)) {
+    throw new SetupError("Pick a folder for the data, not a whole drive.");
+  }
   if (isInside(dataDir, appDir)) {
     throw new SetupError(
       "Pick a data folder outside the Staaash Server program folder.",
@@ -249,7 +254,7 @@ const freePort = (start) =>
 
 const whoAmI = () => run("whoami.exe", []).trim();
 
-const lockDataFolder = (dataDir) => {
+const lockDataFolder = (dataDir, { firstInstall }) => {
   // Other people who can sign in to this computer must not read the drive.
   run("icacls.exe", [
     dataDir,
@@ -259,6 +264,11 @@ const lockDataFolder = (dataDir) => {
     `${SID.administrators}:(OI)(CI)F`,
     `${SID.networkService}:(OI)(CI)M`,
   ]);
+  // A folder picked on first install may hold files with their own grants.
+  // Updates skip this: everything there was made under the lock.
+  if (firstInstall && readdirSync(dataDir).length > 0) {
+    run("icacls.exe", [path.join(dataDir, "*"), "/reset", "/T", "/C", "/Q"]);
+  }
 };
 
 const lockEnvFile = (envFile) => {
@@ -454,7 +464,7 @@ const install = async ({ appDir, dataDir, port, account, firewall }) => {
   await stopServices();
   installRuntime(appDir);
   mkdirSync(dataDir, { recursive: true });
-  lockDataFolder(dataDir);
+  lockDataFolder(dataDir, { firstInstall: !existsSync(paths.env) });
   mkdirSync(paths.files, { recursive: true });
   mkdirSync(paths.logs, { recursive: true });
 
