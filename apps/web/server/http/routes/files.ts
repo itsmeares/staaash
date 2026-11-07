@@ -24,7 +24,11 @@ import {
   batchMoveRequestSchema,
   startBatchMove,
 } from "@/server/files/batch-move-request";
-import { clearTrash } from "@/server/files/clear-trash";
+import {
+  clearTrash,
+  startClearTrash,
+  toClearTrashOperationResponse,
+} from "@/server/files/clear-trash";
 import { getPrivatePreviewStatus } from "@/server/files/derivative-status";
 import { downloadPrivateFile } from "@/server/files/download";
 import { FilesError } from "@/server/files/errors";
@@ -42,6 +46,7 @@ import {
 } from "@/server/http/core";
 import {
   BatchMoveOperationSchema,
+  ClearTrashOperationSchema,
   FavoriteBody,
   FileMutationSchema,
   FileSchema,
@@ -405,7 +410,8 @@ const emptyTrash = createRoute({
   method: "post",
   path: "/api/files/trash/clear",
   tags: ["Files"],
-  summary: "Delete everything in your trash for good.",
+  summary:
+    "Delete everything in your trash for good. Send Prefer: respond-async to run it in the background and poll the operation.",
   middleware: user,
   responses: {
     200: json(
@@ -415,6 +421,20 @@ const emptyTrash = createRoute({
       }),
       "Emptied.",
     ),
+    202: json(ClearTrashOperationSchema, "Started in the background."),
+    ...errorResponses,
+  },
+});
+
+const emptyTrashStatus = createRoute({
+  method: "get",
+  path: "/api/files/trash/clear/{mutationId}",
+  tags: ["Files"],
+  summary: "One background Empty trash run.",
+  middleware: user,
+  request: { params: z.object({ mutationId: z.string() }) },
+  responses: {
+    200: json(ClearTrashOperationSchema, "The run."),
     ...errorResponses,
   },
 });
@@ -929,12 +949,34 @@ export const filesRoutes = router()
     return c.json(toBatchMoveOperationResponse(mutation), 200);
   })
   .openapi(emptyTrash, async (c) => {
-    const { mutationId, result } = await clearTrash(
-      actorOf(c.var.session),
-      readStorageIdempotencyKey(c.req.raw),
-    );
+    const actor = actorOf(c.var.session);
+    const idempotencyKey = readStorageIdempotencyKey(c.req.raw);
+    if (/\brespond-async\b/i.test(c.req.header("prefer") ?? "")) {
+      const operation = await startClearTrash(actor, idempotencyKey);
+      c.header("Preference-Applied", "respond-async");
+      c.header("X-Storage-Mutation-Id", operation.operationId);
+      return c.json(operation, 202);
+    }
+    const { mutationId, result } = await clearTrash(actor, idempotencyKey);
     c.header("X-Storage-Mutation-Id", mutationId);
     return c.json(result, 200);
+  })
+  .openapi(emptyTrashStatus, async (c) => {
+    const mutation = await findStorageMutation(c.req.valid("param").mutationId);
+    if (
+      !mutation ||
+      mutation.kind !== "clear_trash" ||
+      mutation.parentId !== null ||
+      !canAccessPrivateNamespace({
+        ...actorOf(c.var.session),
+        namespaceOwnerUserId: mutation.ownerUserId,
+      })
+    ) {
+      throw httpError(404, "OPERATION_NOT_FOUND", "Operation not found.");
+    }
+    c.header("cache-control", "no-store");
+    c.header("X-Storage-Mutation-Id", mutation.id);
+    return c.json(toClearTrashOperationResponse(mutation), 200);
   })
   .openapi(createArchive, async (c) =>
     c.json(

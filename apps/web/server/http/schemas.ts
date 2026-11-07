@@ -176,6 +176,26 @@ export const BatchMoveOperationSchema = z
   })
   .openapi("BatchMoveOperation");
 
+export const ClearTrashOperationSchema = z
+  .object({
+    operationId: z.string(),
+    status: z.enum(["queued", "running", "succeeded", "recovery_required"]),
+    totalCount: z.number().int().openapi({
+      description: "Top-level trash items this run purges.",
+    }),
+    doneCount: z.number().int().openapi({
+      description: "Items finished so far.",
+    }),
+    response: z
+      .object({
+        deletedFolderCount: z.number().int(),
+        deletedFileCount: z.number().int(),
+      })
+      .optional(),
+    error: z.string().optional(),
+  })
+  .openapi("ClearTrashOperation");
+
 export const FavoriteBody = z.object({
   /** Defaults to true. Ignored when quickAccessPinned is sent. */
   isFavorite: z.boolean().optional(),

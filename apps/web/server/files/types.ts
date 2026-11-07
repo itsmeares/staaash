@@ -162,3 +162,14 @@ export type TrashClearResult = {
   deletedFolderCount: number;
   deletedFileCount: number;
 };
+
+export type ClearTrashOperationResponse = {
+  operationId: string;
+  status: BatchMoveOperationStatus;
+  /** Top-level trash items this run purges. */
+  totalCount: number;
+  /** Items finished so far, purged or skipped. */
+  doneCount: number;
+  response?: TrashClearResult;
+  error?: string;
+};

@@ -46,7 +46,8 @@ const runMaintenance = async () => {
   await recoverUnjournaledUserStorageProvisioning({ storagePaths });
   await recoverStorageMutations({
     storagePaths,
-    excludeKinds: ["batch_move"],
+    // The runner's storage lanes poll these every second.
+    excludeKinds: ["batch_move", "clear_trash"],
   });
   await pruneSucceededStorageMutationResults(
     new Date(Date.now() - 7 * 24 * 60 * 60 * 1_000),

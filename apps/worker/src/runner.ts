@@ -32,8 +32,13 @@ import { JobNotifications } from "./job-notifications.js";
 const MIN_IDLE_DELAY_MS = 1_000;
 const MAX_IDLE_DELAY_MS = 30_000;
 const SCHEDULER_TICK_MS = 60_000;
-const MOVE_STORAGE_MUTATION_CONCURRENCY = 5;
 const STORAGE_MUTATION_POLL_MS = 1_000;
+// Each lane waits for its batch before polling again, so a long Empty trash
+// gets its own lane instead of holding up moves.
+const STORAGE_MUTATION_LANES = [
+  { kind: "batch_move", leaseOwner: "storage-move", concurrency: 5 },
+  { kind: "clear_trash", leaseOwner: "storage-trash", concurrency: 1 },
+] as const;
 
 const isAbortError = (error: unknown) =>
   error instanceof StorageAdmissionCancelledError ||
@@ -45,7 +50,7 @@ export class WorkerRunner {
   private idleDelayMs = MIN_IDLE_DELAY_MS;
   private activeJobController: AbortController | null = null;
   private processing: Promise<boolean> | null = null;
-  private storageMutationLoop: Promise<void> | null = null;
+  private storageMutationLoops: Promise<void>[] = [];
   private schedulerTimer: NodeJS.Timeout | null = null;
   private idleWait = new AbortController();
   private readonly jobNotifications = new JobNotifications(() => {
@@ -63,7 +68,9 @@ export class WorkerRunner {
 
   async start() {
     if (!this.options.lane || this.options.lane === "general") {
-      this.storageMutationLoop = this.runStorageMutationLoop();
+      this.storageMutationLoops = STORAGE_MUTATION_LANES.map((lane) =>
+        this.runStorageMutationLoop(lane),
+      );
       this.schedulerTimer = setInterval(() => {
         void schedulePeriodicJobs().catch((error) => {
           console.warn("[worker] Failed to schedule periodic jobs.", {
@@ -102,7 +109,7 @@ export class WorkerRunner {
       }
     }
 
-    await this.storageMutationLoop;
+    await Promise.all(this.storageMutationLoops);
   }
 
   async stop(timeoutMs = 25_000) {
@@ -112,7 +119,7 @@ export class WorkerRunner {
     if (this.schedulerTimer) clearInterval(this.schedulerTimer);
     this.activeJobController?.abort();
 
-    const active = [this.processing, this.storageMutationLoop].filter(
+    const active = [this.processing, ...this.storageMutationLoops].filter(
       (value) => value !== null,
     );
     if (active.length === 0) return;
@@ -123,18 +130,23 @@ export class WorkerRunner {
     ]);
   }
 
-  private async runStorageMutationLoop() {
+  private async runStorageMutationLoop({
+    kind,
+    leaseOwner,
+    concurrency,
+  }: (typeof STORAGE_MUTATION_LANES)[number]) {
     while (!this.stopping) {
       try {
         await recoverStorageMutations({
           storagePaths: this.options.storagePaths,
-          leaseOwner: `storage-move:${this.options.workerId}`,
-          kinds: ["batch_move"],
-          take: MOVE_STORAGE_MUTATION_CONCURRENCY,
-          concurrency: MOVE_STORAGE_MUTATION_CONCURRENCY,
+          leaseOwner: `${leaseOwner}:${this.options.workerId}`,
+          kinds: [kind],
+          take: concurrency,
+          concurrency,
         });
       } catch (error) {
-        console.warn("[worker] Move operation poll failed.", {
+        console.warn("[worker] Storage operation poll failed.", {
+          kind,
           error: getErrorMessage(error),
         });
       }
