@@ -33,6 +33,7 @@ import {
 import {
   applyStorageMutationSteps,
   calculateCapturedTreeManifestDigest,
+  captureTreeManifest,
   claimAndExecuteStorageMutation,
   EMPTY_TREE_MANIFEST_DIGEST,
   StorageMutationAbruptInterruptionError,
@@ -2073,6 +2074,176 @@ describe("STO-02 durable PostgreSQL protocol", () => {
         "utf8",
       ),
     ).resolves.toBe("private");
+  });
+
+  describe("tree manifests with an lstat fingerprint", () => {
+    const knownBytes = Buffer.from("known");
+    const knownEntry = {
+      kind: "file" as const,
+      relativeKey: "known.bin",
+      sizeBytes: BigInt(knownBytes.length),
+      checksum: createHash("sha256").update(knownBytes).digest("hex"),
+    };
+    const seedTree = async (storageKey: string) => {
+      const treePath = path.join(storageRoot(), ...storageKey.split("/"));
+      await mkdir(treePath, { recursive: true });
+      await writeFile(path.join(treePath, "known.bin"), knownBytes);
+      return treePath;
+    };
+    const prepareTreeRename = async (
+      ownerUserId: string,
+      sourceKey: string,
+      targetKey: string,
+      treeManifestDigest: string,
+    ) =>
+      prepareStorageMutation({
+        kind: "folder_rename",
+        ownerUserId,
+        idempotencyKey: randomUUID(),
+        requestHash: randomUUID(),
+        intentJson: intent([]) as unknown as Prisma.InputJsonValue,
+        steps: [
+          {
+            action: "rename",
+            sourceKey,
+            targetKey,
+            expectedNodeType: "directory",
+            treeManifestDigest,
+          },
+        ],
+      });
+    const statusOf = (id: string) =>
+      db.storageMutation.findUniqueOrThrow({
+        where: { id },
+        select: { status: true },
+      });
+
+    it("captures only the content digest when the disk differs from metadata", async () => {
+      const user = await createUser();
+      const treePath = await seedTree(`files/${user.storageId}/differs`);
+      await writeFile(path.join(treePath, "unexpected.bin"), "private");
+
+      await expect(captureTreeManifest(treePath, [knownEntry])).resolves.toBe(
+        calculateCapturedTreeManifestDigest([knownEntry]),
+      );
+      await expect(
+        captureTreeManifest(`${treePath}-missing`, [knownEntry]),
+      ).resolves.toBe(calculateCapturedTreeManifestDigest([knownEntry]));
+    });
+
+    it("moves an unchanged tree and refuses one edited in place", async () => {
+      const user = await createUser();
+      const unchangedKey = `files/${user.storageId}/unchanged`;
+      const editedKey = `files/${user.storageId}/edited`;
+      const unchanged = await seedTree(unchangedKey);
+      const edited = await seedTree(editedKey);
+      const unchangedDigest = await captureTreeManifest(unchanged, [
+        knownEntry,
+      ]);
+      const editedDigest = await captureTreeManifest(edited, [knownEntry]);
+      expect(unchangedDigest).toMatch(/^v3:/);
+      // Same size, different bytes: only the change time gives it away.
+      await writeFile(path.join(edited, "known.bin"), "KNOWN");
+
+      const moved = await prepareTreeRename(
+        user.id,
+        unchangedKey,
+        `${unchangedKey}-moved`,
+        unchangedDigest,
+      );
+      await execute(moved.mutation);
+      await expect(statusOf(moved.mutation.id)).resolves.toEqual({
+        status: "succeeded",
+      });
+
+      const refused = await prepareTreeRename(
+        user.id,
+        editedKey,
+        `${editedKey}-moved`,
+        editedDigest,
+      );
+      await expect(execute(refused.mutation)).rejects.toBeInstanceOf(
+        StorageMutationAmbiguityError,
+      );
+      await expect(
+        readFile(path.join(edited, "known.bin"), "utf8"),
+      ).resolves.toBe("KNOWN");
+      await expect(statusOf(refused.mutation.id)).resolves.toEqual({
+        status: "recovery_required",
+      });
+    });
+
+    it("reads every byte again on a retried attempt", async () => {
+      const user = await createUser();
+      const sourceKey = `files/${user.storageId}/retried`;
+      await seedTree(sourceKey);
+      const captured = await captureTreeManifest(
+        path.join(storageRoot(), ...sourceKey.split("/")),
+        [knownEntry],
+      );
+      // Matching stats with a content digest the bytes do not have: only a
+      // check that reads the bytes can refuse it.
+      const [, , statHash] = captured.split(":");
+      const prepared = await prepareTreeRename(
+        user.id,
+        sourceKey,
+        `${sourceKey}-moved`,
+        `v3:${"0".repeat(64)}:${statHash}`,
+      );
+      await db.storageMutation.update({
+        where: { id: prepared.mutation.id },
+        data: { attemptCount: 1 },
+      });
+
+      await expect(execute(prepared.mutation)).rejects.toBeInstanceOf(
+        StorageMutationAmbiguityError,
+      );
+      await expect(
+        readFile(
+          path.join(storageRoot(), ...sourceKey.split("/"), "known.bin"),
+          "utf8",
+        ),
+      ).resolves.toBe("known");
+    });
+
+    it("keeps bytes added to a trash tree after its fingerprint was stored", async () => {
+      const user = await createUser();
+      const trashKey = `.trash/${user.storageId}/folders/fingerprinted`;
+      const quarantineKey = `tmp/quarantine/${randomUUID()}/tree`;
+      const trashPath = await seedTree(trashKey);
+      const storedDigest = await captureTreeManifest(trashPath, [knownEntry]);
+      expect(storedDigest).toMatch(/^v3:/);
+      await writeFile(path.join(trashPath, "added-later.bin"), "private");
+      const prepared = await prepareStorageMutation({
+        kind: "folder_purge",
+        ownerUserId: user.id,
+        idempotencyKey: randomUUID(),
+        requestHash: randomUUID(),
+        intentJson: intent([]) as unknown as Prisma.InputJsonValue,
+        steps: [
+          {
+            action: "rename",
+            sourceKey: trashKey,
+            targetKey: quarantineKey,
+            expectedNodeType: "directory",
+            treeManifestDigest: storedDigest,
+          },
+          {
+            action: "delete_tree",
+            targetKey: quarantineKey,
+            expectedNodeType: "directory",
+            treeManifestDigest: storedDigest,
+          },
+        ],
+      });
+
+      await expect(execute(prepared.mutation)).rejects.toBeInstanceOf(
+        StorageMutationAmbiguityError,
+      );
+      await expect(
+        readFile(path.join(trashPath, "added-later.bin"), "utf8"),
+      ).resolves.toBe("private");
+    });
   });
 
   it("rolls forward after rename completed but step-state write was lost", async () => {

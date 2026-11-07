@@ -20,7 +20,7 @@ import {
 } from "@staaash/db/storage-mutations";
 import {
   calculateStorageFileChecksum,
-  calculateCapturedTreeManifestDigest,
+  captureTreeManifest,
   resolveMutationStoragePath,
   StorageMutationAmbiguityError,
 } from "@staaash/db/storage-mutation-executor";
@@ -501,11 +501,12 @@ const captureBatchFolderTreeManifest = async ({
     }
     return relative;
   };
-  const entries: Parameters<typeof calculateCapturedTreeManifestDigest>[0] =
-    descendantKeys.map((storageKey) => ({
+  const entries: Parameters<typeof captureTreeManifest>[1] = descendantKeys.map(
+    (storageKey) => ({
       kind: "directory",
       relativeKey: relativeKey(storageKey),
-    }));
+    }),
+  );
   const checksums = new Map<string, string>();
   for (const file of files) {
     const checksum = await resolveBatchFileChecksum(
@@ -526,7 +527,10 @@ const captureBatchFolderTreeManifest = async ({
     });
   }
   return {
-    digest: calculateCapturedTreeManifestDigest(entries),
+    digest: await captureTreeManifest(
+      resolveMutationStoragePath(storagePaths.filesRoot, sourceKey),
+      entries,
+    ),
     checksums,
   };
 };

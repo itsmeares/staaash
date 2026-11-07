@@ -218,13 +218,16 @@ const readTreeManifestRecords = async (treeRoot: string) => {
   return records;
 };
 
-const hashTreeManifestRecords = (records: string[]) => {
+const hashRecords = (records: string[]) => {
   const hash = createHash("sha256");
   for (const record of records) {
     hash.update(`${Buffer.byteLength(record)}:`).update(record);
   }
-  return `v2:${hash.digest("hex")}`;
+  return hash.digest("hex");
 };
+
+const hashTreeManifestRecords = (records: string[]) =>
+  `v2:${hashRecords(records)}`;
 
 const hashLegacyTreeManifestRecords = (records: string[]) =>
   createHash("sha256").update(records.join("\n")).digest("hex");
@@ -234,23 +237,141 @@ export const EMPTY_TREE_MANIFEST_DIGEST = hashTreeManifestRecords([]);
 export const calculateTreeManifestDigest = async (treeRoot: string) =>
   hashTreeManifestRecords(await readTreeManifestRecords(treeRoot));
 
-const treeManifestMatches = async (treeRoot: string, expected: string) => {
+// A v3 manifest pairs the content digest with a fingerprint of the same tree
+// from lstat: names, sizes, inode numbers, and modification and change times.
+// Writing a file moves its change time, which no program can set back, so a
+// matching fingerprint shows the tree is as captured without reading every
+// byte. Only a mutation's first attempt trusts it; recovery reads every byte.
+type TreeStatEntry =
+  | { kind: "directory"; relativeKey: string }
+  | { kind: "file"; relativeKey: string; sizeBytes: bigint; record: string };
+
+const readTreeStatEntries = async (treeRoot: string) => {
+  const entries: TreeStatEntry[] = [];
+  const visit = async (directoryPath: string, prefix: string) => {
+    const children = await readdir(directoryPath, { withFileTypes: true });
+    children.sort((left, right) =>
+      left.name < right.name ? -1 : left.name > right.name ? 1 : 0,
+    );
+    for (const child of children) {
+      const relativeKey = path.posix.join(prefix, child.name);
+      const childPath = path.resolve(directoryPath, child.name);
+      if (child.isSymbolicLink()) {
+        throw new StorageMutationAmbiguityError(
+          "Tree manifest contains symbolic link.",
+        );
+      }
+      if (child.isDirectory()) {
+        entries.push({ kind: "directory", relativeKey });
+        await visit(childPath, relativeKey);
+      } else if (child.isFile()) {
+        const info = await lstat(childPath, { bigint: true });
+        entries.push({
+          kind: "file",
+          relativeKey,
+          sizeBytes: info.size,
+          record: `F ${relativeKey} ${info.size} ${info.ino} ${info.mtimeNs} ${info.ctimeNs}`,
+        });
+      } else {
+        throw new StorageMutationAmbiguityError(
+          "Tree manifest contains unsupported node.",
+        );
+      }
+    }
+  };
+  await visit(treeRoot, "");
+  return entries;
+};
+
+const hashTreeStatEntries = (entries: TreeStatEntry[]) =>
+  hashRecords(
+    entries.map((entry) =>
+      entry.kind === "directory" ? `D ${entry.relativeKey}` : entry.record,
+    ),
+  );
+
+const treeManifestMatches = async (
+  treeRoot: string,
+  expected: string,
+  trustStats: boolean,
+) => {
+  const [version, contentHash, statHash] = expected.split(":");
+  if (version === "v3") {
+    if (
+      trustStats &&
+      hashTreeStatEntries(await readTreeStatEntries(treeRoot)) === statHash
+    ) {
+      return true;
+    }
+    const records = await readTreeManifestRecords(treeRoot);
+    return hashRecords(records) === contentHash;
+  }
   const records = await readTreeManifestRecords(treeRoot);
   return expected.startsWith("v2:")
     ? hashTreeManifestRecords(records) === expected
     : hashLegacyTreeManifestRecords(records) === expected;
 };
 
+type CapturedTreeEntry =
+  | { kind: "directory"; relativeKey: string }
+  | {
+      kind: "file";
+      relativeKey: string;
+      sizeBytes: bigint;
+      checksum: string;
+    };
+
+const sameTreeShape = (
+  captured: CapturedTreeEntry[],
+  onDisk: TreeStatEntry[],
+) => {
+  if (captured.length !== onDisk.length) return false;
+  const sizes = new Map(
+    onDisk.map((entry) => [
+      entry.relativeKey,
+      entry.kind === "file" ? entry.sizeBytes : null,
+    ]),
+  );
+  return captured.every(
+    (entry) =>
+      sizes.has(entry.relativeKey) &&
+      sizes.get(entry.relativeKey) ===
+        (entry.kind === "file" ? entry.sizeBytes : null),
+  );
+};
+
+/**
+ * The manifest of a tree whose files the metadata already describes. When the
+ * disk holds exactly those names and sizes, the manifest also carries the
+ * tree's lstat fingerprint so the move or delete can skip reading every byte.
+ * Otherwise it carries only the content digest, and execution reads every
+ * byte and fails closed as before.
+ */
+export const captureTreeManifest = async (
+  treeRoot: string,
+  entries: CapturedTreeEntry[],
+) => {
+  const content = calculateCapturedTreeManifestDigest(entries);
+  let onDisk: TreeStatEntry[];
+  try {
+    onDisk = await readTreeStatEntries(treeRoot);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (
+      error instanceof StorageMutationAmbiguityError ||
+      code === "ENOENT" ||
+      code === "ENOTDIR"
+    ) {
+      return content;
+    }
+    throw error;
+  }
+  if (!sameTreeShape(entries, onDisk)) return content;
+  return `v3:${content.slice("v2:".length)}:${hashTreeStatEntries(onDisk)}`;
+};
+
 export const calculateCapturedTreeManifestDigest = (
-  entries: Array<
-    | { kind: "directory"; relativeKey: string }
-    | {
-        kind: "file";
-        relativeKey: string;
-        sizeBytes: bigint;
-        checksum: string;
-      }
-  >,
+  entries: CapturedTreeEntry[],
 ) => {
   const compareKeys = (left: string, right: string) => {
     const leftParts = left.split("/");
@@ -330,11 +451,12 @@ const assertExpectedTreeManifest = async (
   candidate: string,
   state: StoragePathState,
   step: StorageMutationStep,
+  trustStats: boolean,
 ) => {
   if (!step.treeManifestDigest) return;
   if (
     state.type !== "directory" ||
-    !(await treeManifestMatches(candidate, step.treeManifestDigest))
+    !(await treeManifestMatches(candidate, step.treeManifestDigest, trustStats))
   ) {
     throw new StorageMutationAmbiguityError(
       "Mutation tree differs from captured manifest.",
@@ -345,13 +467,14 @@ const assertExpectedTreeManifest = async (
 const validateExpectedNode = async (
   candidate: string,
   step: StorageMutationStep,
+  trustStats: boolean,
 ) => {
   const state = await pathState(candidate);
   assertExpectedNodeExists(state);
   assertExpectedNodeType(state, step);
   assertExpectedNodeSize(state, step);
   await assertExpectedNodeChecksum(candidate, state, step);
-  await assertExpectedTreeManifest(candidate, state, step);
+  await assertExpectedTreeManifest(candidate, state, step, trustStats);
 };
 
 const syncHandle = async (handle: FileHandle, label: string) => {
@@ -716,6 +839,7 @@ const applyRename = async (
   filesRoot: string,
   step: StorageMutationStep,
   assertLease: () => Promise<void>,
+  trustStats: boolean,
 ) => {
   assertRenameStepIntent(step);
   const { source, target, sourceState } = await resolveRenameState(
@@ -723,10 +847,10 @@ const applyRename = async (
     step,
   );
   if (!sourceState.exists) {
-    await validateExpectedNode(target, step);
+    await validateExpectedNode(target, step, trustStats);
     return;
   }
-  await validateExpectedNode(source, step);
+  await validateExpectedNode(source, step, trustStats);
   await syncRenameSource(source, sourceState);
   // Staging writers may have synced the node but not its directory entry.
   // Persist the source entry before a rename can remove it.
@@ -768,7 +892,9 @@ const applyMkdir = async (
       target,
       beforeCreate: assertLease,
     });
-  } else if (!(await treeManifestMatches(target, step.treeManifestDigest))) {
+  } else if (
+    !(await treeManifestMatches(target, step.treeManifestDigest, false))
+  ) {
     throw new StorageMutationAmbiguityError(
       "Existing mkdir target is not the captured empty directory.",
     );
@@ -780,13 +906,14 @@ const deleteMutationFile = async (
   target: string,
   step: StorageMutationStep,
   assertLease: () => Promise<void>,
+  trustStats: boolean,
 ) => {
   if (!step.expectedChecksum) {
     throw new StorageMutationAmbiguityError(
       "File-delete step lacks a captured checksum.",
     );
   }
-  await validateExpectedNode(target, step);
+  await validateExpectedNode(target, step, trustStats);
   await assertLease();
   await rm(target);
 };
@@ -797,6 +924,7 @@ const deleteMutationTree = async (
   step: StorageMutationStep,
   assertLease: () => Promise<void>,
   allowOwnedPartialTreeDelete: boolean,
+  trustStats: boolean,
 ) => {
   if (state.type !== "directory") {
     throw new StorageMutationAmbiguityError(
@@ -809,7 +937,7 @@ const deleteMutationTree = async (
     );
   }
   if (
-    !(await treeManifestMatches(target, step.treeManifestDigest)) &&
+    !(await treeManifestMatches(target, step.treeManifestDigest, trustStats)) &&
     !allowOwnedPartialTreeDelete
   ) {
     throw new StorageMutationAmbiguityError(
@@ -849,15 +977,17 @@ const deleteExistingMutationNode = async ({
   step,
   assertLease,
   allowOwnedPartialTreeDelete,
+  trustStats,
 }: {
   target: string;
   state: StoragePathState;
   step: StorageMutationStep;
   assertLease: () => Promise<void>;
   allowOwnedPartialTreeDelete: boolean;
+  trustStats: boolean;
 }) => {
   if (step.action === "delete_file") {
-    await deleteMutationFile(target, step, assertLease);
+    await deleteMutationFile(target, step, assertLease, trustStats);
     return;
   }
   if (step.action === "delete_tree") {
@@ -867,6 +997,7 @@ const deleteExistingMutationNode = async ({
       step,
       assertLease,
       allowOwnedPartialTreeDelete,
+      trustStats,
     );
     return;
   }
@@ -877,7 +1008,8 @@ const applyDelete = async (
   filesRoot: string,
   step: StorageMutationRecord["steps"][number],
   assertLease: () => Promise<void>,
-  allowOwnedPartialTreeDelete = false,
+  allowOwnedPartialTreeDelete: boolean,
+  trustStats: boolean,
 ) => {
   const key = step.targetKey ?? step.sourceKey;
   if (!key) {
@@ -900,6 +1032,7 @@ const applyDelete = async (
     step,
     assertLease,
     allowOwnedPartialTreeDelete,
+    trustStats,
   });
   await syncParents(target);
   await removeEmptyArtifactAncestors(filesRoot, key, target);
@@ -944,8 +1077,11 @@ const applyFilesystemStep = async ({
   step: StorageMutationStep;
   assertLease: () => Promise<void>;
 }) => {
+  // The first attempt runs right after capture; any later attempt follows a
+  // crash or failure and checks every byte.
+  const trustStats = mutation.attemptCount === 1;
   if (step.action === "rename") {
-    await applyRename(filesRoot, step, assertLease);
+    await applyRename(filesRoot, step, assertLease, trustStats);
     return;
   }
   if (step.action === "mkdir") {
@@ -957,6 +1093,7 @@ const applyFilesystemStep = async ({
     step,
     assertLease,
     isOwnedQuarantineTreeDelete(mutation, step),
+    trustStats,
   );
 };
 
@@ -1145,6 +1282,7 @@ const undoForwardSteps = async (
         filesRoot,
         { ...step, sourceKey: step.targetKey, targetKey: step.sourceKey },
         assertLease,
+        false,
       );
     } else if (step.action === "mkdir") {
       await assertLease();

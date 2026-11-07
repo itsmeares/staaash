@@ -115,7 +115,7 @@ import {
   storageMutationRejectionFromResult,
 } from "@staaash/db/storage-mutations";
 import {
-  calculateCapturedTreeManifestDigest,
+  captureTreeManifest,
   calculateStorageFileChecksum,
   calculateTreeManifestDigest,
   EMPTY_TREE_MANIFEST_DIGEST,
@@ -705,7 +705,7 @@ const captureFolderTreeManifest = async ({
     }
     return relative;
   };
-  const entries: Parameters<typeof calculateCapturedTreeManifestDigest>[0] =
+  const entries: Parameters<typeof captureTreeManifest>[1] =
     folderStorageKeys.map((storageKey) => ({
       kind: "directory",
       relativeKey: relativeKey(storageKey),
@@ -724,7 +724,7 @@ const captureFolderTreeManifest = async ({
     });
   }
   return {
-    digest: calculateCapturedTreeManifestDigest(entries),
+    digest: await captureTreeManifest(getStoragePath(rootStorageKey), entries),
     checksums,
   };
 };
