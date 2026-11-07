@@ -11,9 +11,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { submitStorageMutationPost } from "@/src/storage-mutation-submit";
-import { confirmAction } from "@/components/confirm-dialog";
-import { toast } from "@staaash/ui/components/toast";
+import { emptyTrash } from "@/src/workspace/trash-moves";
 import { FolderOpen, RefreshCw } from "lucide-react";
 
 import {
@@ -239,28 +237,6 @@ export function DashboardPageContextMenu({
       </ContextMenu>
     </>
   );
-}
-
-export const EMPTY_TRASH_CONFIRM = {
-  title: "Empty trash?",
-  description: "Everything in it is deleted for good.",
-  confirmLabel: "Empty trash",
-  destructive: true,
-};
-
-export async function emptyTrash(refresh: () => Promise<unknown>) {
-  if (!(await confirmAction(EMPTY_TRASH_CONFIRM))) return;
-  try {
-    await submitStorageMutationPost({
-      action: "/api/files/trash/clear",
-      logicalAction: "dashboard:empty-trash",
-    });
-    await refresh();
-  } catch (error) {
-    toast.error(
-      error instanceof Error ? error.message : "Storage operation failed.",
-    );
-  }
 }
 
 export function WorkspacePresetPageContextMenu({

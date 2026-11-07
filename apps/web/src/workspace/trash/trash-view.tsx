@@ -32,7 +32,7 @@ import {
   sizeColumn,
   type WorkspaceItemFilterType,
 } from "../workspace-item-helpers";
-import { moveTrash, showUndo } from "../undo";
+import { moveWithUndo } from "../trash-moves";
 import { EmptyTrashAction } from "./trash-file-actions";
 import {
   sortTrashItems,
@@ -96,14 +96,7 @@ export function TrashView({
     action: "restore" | "delete",
   ) => {
     if (action === "restore") {
-      const restored = await moveTrash(targets, "restore");
-      if (restored.length < targets.length) toast.error("Restore failed.");
-      void refresh();
-      showUndo({
-        items: restored,
-        done: "restore",
-        onUndone: () => void refresh(),
-      });
+      await moveWithUndo(targets, "restore", () => void refresh());
       return;
     }
     try {

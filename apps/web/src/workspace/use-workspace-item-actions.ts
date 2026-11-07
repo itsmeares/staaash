@@ -1,9 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useRefresh } from "@/lib/use-refresh";
 import { Download, FolderInput, Trash2 } from "lucide-react";
-import { useState } from "react";
 
-import { submitStorageMutationPost } from "@/src/storage-mutation-submit";
 import { buildItemActions } from "@/components/file-list/item-actions";
 import { toast, toastManager } from "@staaash/ui/components/toast";
 import { startValidatedDownload } from "@/lib/transfers/download";
@@ -12,7 +10,7 @@ import { submitMove } from "./files/files-move";
 import { chooseMoveDestination } from "./move-dialog";
 import type { SelectionBarAction } from "./selection-bar";
 import { useTransferContext } from "./transfer-context";
-import { moveTrash, showUndo } from "./undo";
+import { useMoveToTrash } from "./trash-moves";
 
 /** The fields Recent, Favorites and Search all carry for each item. */
 type WorkspaceActionItem = {
@@ -31,13 +29,13 @@ const kindPath = (item: WorkspaceActionItem) =>
 /**
  * Open, download, trash, restore and favorite for lists of items that live
  * in different folders. Trash is optimistic: `trashedIds` holds items the
- * server has not confirmed yet.
+ * list leaves out while the server moves them.
  */
 export function useWorkspaceItemActions(redirectTo: string) {
   const navigate = useNavigate();
   const refresh = useRefresh();
   const { handleDownload } = useTransferContext();
-  const [trashedIds, setTrashedIds] = useState<ReadonlySet<string>>(new Set());
+  const moveToTrash = useMoveToTrash(() => void refresh());
 
   const fail = (caught: unknown, fallback: string, retry?: () => void) =>
     toast.error(caught instanceof Error ? caught.message : fallback, { retry });
@@ -71,54 +69,10 @@ export function useWorkspaceItemActions(redirectTo: string) {
     void navigate({ href: parent ? `/files/f/${parent}` : "/files" });
   };
 
-  const trash = async (items: WorkspaceActionItem[]) => {
-    const targets = items.filter((item) => !item.storageMutationStatus);
-    if (targets.length === 0) return;
-    setTrashedIds(
-      (current) => new Set([...current, ...targets.map((t) => t.id)]),
-    );
-    const moved = await moveTrash(targets, "trash");
-    if (moved.length < targets.length) {
-      const failed = new Set(
-        targets.filter((t) => !moved.includes(t)).map((t) => t.id),
-      );
-      setTrashedIds(
-        (current) => new Set([...current].filter((id) => !failed.has(id))),
-      );
-      const left = targets.filter((t) => failed.has(t.id));
-      toast.error("Some items could not be moved to trash.", {
-        retry: () => void trash(left),
-      });
-    }
-    if (moved.length === 0) return;
-    void refresh();
-    showUndo({
-      items: moved,
-      done: "trash",
-      onUndone: () => {
-        const back = new Set(moved.map((t) => t.id));
-        setTrashedIds(
-          (current) => new Set([...current].filter((id) => !back.has(id))),
-        );
-        void refresh();
-      },
-    });
-  };
+  const trash = (items: WorkspaceActionItem[]) =>
+    moveToTrash.trash(items.filter((item) => !item.storageMutationStatus));
 
-  const restore = async (item: WorkspaceActionItem) => {
-    try {
-      await submitStorageMutationPost({
-        action: `/api/files/${kindPath(item)}/${item.id}/restore`,
-        logicalAction: `${redirectTo}:restore:${item.kind}:${item.id}`,
-      });
-      setTrashedIds(
-        (current) => new Set([...current].filter((id) => id !== item.id)),
-      );
-      void refresh();
-    } catch (caught) {
-      fail(caught, "Restore failed.", () => void restore(item));
-    }
-  };
+  const restore = (item: WorkspaceActionItem) => moveToTrash.restore([item]);
 
   /** Picks a folder, moves there, and offers to move everything back. */
   const move = async (items: WorkspaceActionItem[]) => {
@@ -213,7 +167,7 @@ export function useWorkspaceItemActions(redirectTo: string) {
   };
 
   return {
-    trashedIds,
+    trashedIds: moveToTrash.hiddenIds,
     open,
     move,
     download,
