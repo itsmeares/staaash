@@ -214,7 +214,7 @@ Section "Staaash Server"
   File "${PAYLOAD}\node\node.exe"
   File "${PAYLOAD}\setup\setup.mjs"
   File "${PAYLOAD}\setup\version.mjs"
-  !insertmacro Setup "$PLUGINSDIR\setup\node.exe" "$PLUGINSDIR\setup\setup.mjs" 'precheck --installed "$Installed" --version "${VERSION}" --app "$INSTDIR" --data "$DataDir"'
+  !insertmacro Setup "$PLUGINSDIR\setup\node.exe" "$PLUGINSDIR\setup\setup.mjs" 'precheck --installed "$Installed" --version "${VERSION}" --app "$INSTDIR" --data "$DataDir" --port "$Port" --account "$Account"'
   ${If} $0 != 0
     MessageBox MB_ICONSTOP "Nothing was changed. See the details below." /SD IDOK
     SetErrorLevel $0

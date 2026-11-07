@@ -311,7 +311,7 @@ const initDatabase = ({ appDir, paths, password, port }) => {
       "listen_addresses = '127.0.0.1'",
       `port = ${port}`,
       "logging_collector = on",
-      `log_directory = '${logDir}'`,
+      `log_directory = '${logDir.replaceAll("'", "''")}'`,
       "log_rotation_size = 10MB",
       "",
     ].join("\n"),
@@ -449,8 +449,6 @@ const waitForHealth = async ({ port, logs, answering = false }) => {
 };
 
 const install = async ({ appDir, dataDir, port, account, firewall }) => {
-  if (!(account in ACCOUNTS))
-    throw new SetupError(`Unknown account ${account}.`);
   const paths = dataPaths(dataDir);
   // A running service cannot be registered again, so a re-run stops first.
   await stopServices();
@@ -534,6 +532,15 @@ const main = async (argv) => {
       version: { type: "string" },
     },
   });
+  // Checked for every command, so precheck refuses a bad silent update
+  // before the installer stops anything.
+  const port = Number(values.port);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new SetupError(`Port ${values.port} is not a valid port.`);
+  }
+  if (!(values.account in ACCOUNTS)) {
+    throw new SetupError(`Unknown account ${values.account}.`);
+  }
   if (command === "precheck") {
     return precheck({
       installed: values.installed,
@@ -544,10 +551,6 @@ const main = async (argv) => {
   }
   if (command === "stop") return stopServices();
   if (command === "install") {
-    const port = Number(values.port);
-    if (!Number.isInteger(port) || port < 1 || port > 65_535) {
-      throw new SetupError(`Port ${values.port} is not a valid port.`);
-    }
     return install({
       appDir: values.app,
       dataDir: values.data,
