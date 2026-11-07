@@ -111,7 +111,9 @@ export const getInstanceDiskInfo = async (): Promise<DiskInfo | null> => {
     // The files volume, which may be its own mount, not the app directory.
     const s = await statfs(getStorageRoot());
     const capacity = BigInt(s.blocks) * BigInt(s.bsize);
-    const free = BigInt(s.bfree) * BigInt(s.bsize);
+    // bavail, not bfree: the same free space the upload check and the health
+    // warning use, without blocks reserved for root.
+    const free = BigInt(s.bavail) * BigInt(s.bsize);
     return { capacityBytes: capacity, usedBytes: capacity - free };
   } catch {
     return null;

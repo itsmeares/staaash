@@ -12,10 +12,15 @@ import { getStorageMutationHealth } from "@staaash/db/storage-mutations";
 import { assertStorageFilesystemSupported } from "@staaash/db/storage-mutation-executor";
 import { getPrisma } from "@staaash/db/client";
 
+import { formatBytes } from "@/lib/format-bytes";
 import { resolveAppVersion } from "@/server/app-version";
 import { deriveUpdateState } from "@/server/admin/updates";
 import { getSystemSettings } from "@/server/settings";
 import { buildRestoreReconciliationHealthSummary } from "@/server/restore";
+import {
+  describeDiskMargin,
+  uploadDiskMarginBytes,
+} from "@/server/uploads/disk-margin";
 import {
   ensureStorageDirectories,
   getStorageRoot,
@@ -34,7 +39,8 @@ type HeartbeatPayload = {
   timestamp: string;
 };
 
-const toStorageWarningSummary = (
+// fallow-ignore-next-line unused-export
+export const toStorageWarningSummary = (
   availableBytes: bigint | null,
   totalBytes: bigint | null,
 ): StorageWarningSummary => {
@@ -47,14 +53,14 @@ const toStorageWarningSummary = (
     };
   }
 
-  const ratio = Number(availableBytes) / Number(totalBytes);
+  const marginBytes = uploadDiskMarginBytes(totalBytes);
 
-  if (ratio <= 0.1) {
+  if (availableBytes <= marginBytes) {
     return {
       status: "warning",
       freeBytes: availableBytes,
       totalBytes,
-      message: "Available disk space is low.",
+      message: `Only ${formatBytes(availableBytes)} of disk space is free, at or below the ${describeDiskMargin(marginBytes)} that Staaash keeps free. New uploads are refused until more space is freed.`,
     };
   }
 
