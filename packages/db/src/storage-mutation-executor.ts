@@ -244,7 +244,19 @@ export const calculateTreeManifestDigest = async (treeRoot: string) =>
 // byte. Only a mutation's first attempt trusts it; recovery reads every byte.
 type TreeStatEntry =
   | { kind: "directory"; relativeKey: string }
-  | { kind: "file"; relativeKey: string; sizeBytes: bigint; record: string };
+  | {
+      kind: "file";
+      relativeKey: string;
+      sizeBytes: bigint;
+      modifiedAtNs: bigint;
+      record: string;
+    };
+
+// Filesystem timestamps advance in clock ticks (about 16 ms on NTFS, up to
+// 2 s on FAT), so a same-size write in the same tick as the last write keeps
+// every lstat field. A file written this recently is never fingerprinted; any
+// later write to an older file moves its modification time.
+const TREE_STAT_SETTLE_MS = 2_000;
 
 const readTreeStatEntries = async (treeRoot: string) => {
   const entries: TreeStatEntry[] = [];
@@ -270,6 +282,7 @@ const readTreeStatEntries = async (treeRoot: string) => {
           kind: "file",
           relativeKey,
           sizeBytes: info.size,
+          modifiedAtNs: info.mtimeNs,
           record: `F ${relativeKey} ${info.size} ${info.ino} ${info.mtimeNs} ${info.ctimeNs}`,
         });
       } else {
@@ -358,11 +371,11 @@ const readTreeStatEntriesIfPlain = async (treeRoot: string) => {
 
 /**
  * The manifest of a tree whose files the metadata describes. When the disk
- * holds exactly those names and sizes, and nothing changed while
- * `buildEntries` read checksums, the manifest also carries the tree's lstat
- * fingerprint so the move or delete can skip reading every byte. Otherwise it
- * carries only the content digest, and execution reads every byte and fails
- * closed as before.
+ * holds exactly those names and sizes, nothing changed while `buildEntries`
+ * read checksums, and no file was written in the last few seconds, the manifest
+ * also carries the tree's lstat fingerprint so the move or delete can skip
+ * reading every byte. Otherwise it carries only the content digest, and
+ * execution reads every byte and fails closed as before.
  */
 export const captureTreeManifest = async (
   treeRoot: string,
@@ -372,10 +385,15 @@ export const captureTreeManifest = async (
   const entries = await buildEntries();
   const content = calculateCapturedTreeManifestDigest(entries);
   if (!before) return content;
+  const settledBeforeNs = BigInt(Date.now() - TREE_STAT_SETTLE_MS) * 1_000_000n;
   const after = await readTreeStatEntriesIfPlain(treeRoot);
   if (!after || !sameTreeShape(entries, after)) return content;
+  const settled = after.every(
+    (entry) =>
+      entry.kind === "directory" || entry.modifiedAtNs < settledBeforeNs,
+  );
   const fingerprint = hashTreeStatEntries(after);
-  return fingerprint === hashTreeStatEntries(before)
+  return settled && fingerprint === hashTreeStatEntries(before)
     ? `v3:${content.slice("v2:".length)}:${fingerprint}`
     : content;
 };

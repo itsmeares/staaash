@@ -8,6 +8,7 @@ import {
   readFile,
   rename,
   rm,
+  utimes,
   writeFile,
 } from "node:fs/promises";
 import path from "node:path";
@@ -2085,10 +2086,15 @@ describe("STO-02 durable PostgreSQL protocol", () => {
       checksum: createHash("sha256").update(knownBytes).digest("hex"),
     };
     const known = async () => [knownEntry];
-    const seedTree = async (storageKey: string) => {
+    const seedTree = async (storageKey: string, { settled = true } = {}) => {
       const treePath = path.join(storageRoot(), ...storageKey.split("/"));
       await mkdir(treePath, { recursive: true });
-      await writeFile(path.join(treePath, "known.bin"), knownBytes);
+      const filePath = path.join(treePath, "known.bin");
+      await writeFile(filePath, knownBytes);
+      if (settled) {
+        const anHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        await utimes(filePath, anHourAgo, anHourAgo);
+      }
       return treePath;
     };
     const prepareTreeRename = async (
@@ -2130,6 +2136,18 @@ describe("STO-02 durable PostgreSQL protocol", () => {
       await expect(
         captureTreeManifest(`${treePath}-missing`, known),
       ).resolves.toBe(calculateCapturedTreeManifestDigest([knownEntry]));
+    });
+
+    it("captures only the content digest for a file written moments ago", async () => {
+      const user = await createUser();
+      // A same-size write in the same clock tick would keep every lstat field.
+      const treePath = await seedTree(`files/${user.storageId}/fresh`, {
+        settled: false,
+      });
+
+      await expect(captureTreeManifest(treePath, known)).resolves.toBe(
+        calculateCapturedTreeManifestDigest([knownEntry]),
+      );
     });
 
     it("captures only the content digest when a file changes while its checksum is read", async () => {
