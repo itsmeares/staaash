@@ -40,6 +40,8 @@ export type UploadManifestItem = {
   ifRevision?: number;
   /** With `replace`: apply only if the existing file has this id. */
   ifFileId?: string;
+  /** This file's own retry key, so one file of a group can be retried alone. */
+  idempotencyKey?: string;
 };
 
 export type UploadRequestItem = UploadManifestItem & {
@@ -123,6 +125,7 @@ const uploadManifestSchema = z
       clientModifiedAt: z.coerce.date().nullable().optional(),
       ifRevision: z.number().int().min(0).optional(),
       ifFileId: z.string().min(1).optional(),
+      idempotencyKey: z.string().trim().min(1).max(200).optional(),
     }),
   )
   .nonempty();

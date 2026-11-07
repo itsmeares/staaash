@@ -5508,7 +5508,7 @@
                   },
                   "manifest": {
                     "type": "string",
-                    "description": "JSON array, one entry per file in the same order: `clientKey`, `originalName`, optional `expectedChecksum`, `conflictStrategy` (`fail`, `safeRename`, `replace`), `clientModifiedAt`, and with `replace` an optional `ifRevision` and `ifFileId`: replace only if the existing file is still at that storageRevision and has that id, otherwise 409 REVISION_MISMATCH with the current file in `details`."
+                    "description": "JSON array, one entry per file in the same order: `clientKey`, `originalName`, optional `expectedChecksum`, `conflictStrategy` (`fail`, `safeRename`, `replace`), `clientModifiedAt`, and with `replace` an optional `ifRevision` and `ifFileId`: replace only if the existing file is still at that storageRevision and has that id, otherwise 409 REVISION_MISMATCH with the current file in `details`. An optional `idempotencyKey` per file replaces `<Idempotency-Key>:<index>` as that file's retry key, so one file of the request can be retried on its own."
                   },
                   "files": {
                     "type": "array",
