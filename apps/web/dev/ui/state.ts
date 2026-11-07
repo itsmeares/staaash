@@ -108,9 +108,11 @@ export function createState(scenario: Scenario = "owner") {
   const users: User[] = ["owner", "admin", "member"].map((role, index) => ({
     id: role,
     email: demo
-      ? [demoAccount.email, "sam@example.com", "mia@example.com"][index]!
+      ? [demoAccount.email, "alex@rivera.home", "mia@rivera.home"][index]!
       : `${role}@staaash.test`,
-    displayName: ["Alex Morgan", "Sam Rivera", "Mia Chen"][index]!,
+    displayName: (demo
+      ? ["Sam Rivera", "Alex Rivera", "Mia Rivera"]
+      : ["Alex Morgan", "Sam Rivera", "Mia Chen"])[index]!,
     avatarUrl: null,
     role: role as User["role"],
     storageId: `sample-${role}`,
@@ -192,8 +194,8 @@ const daysAgo = (days: number) =>
 /** The owner gets the whole demo drive; the others a slice for the admin pages. */
 const demoSlices: Record<string, DemoFolderKey[] | null> = {
   owner: null,
-  admin: ["photos", "alps"],
-  member: ["documents"],
+  admin: ["recipes"],
+  member: ["school", "music"],
 };
 function seedDemoDrive(state: State, user: User) {
   const slice = demoSlices[user.id] ?? null;
@@ -229,7 +231,7 @@ function seedDemoDrive(state: State, user: User) {
         parentId: folder.parent ? id(folder.parent) : root.id,
         isFilesRoot: false,
         color: folder.color,
-        favorite: folder.key === "alps",
+        favorite: folder.key === "recipes",
         pinned: "pinned" in folder,
         createdAt: daysAgo(170),
         updatedAt: daysAgo(1),
@@ -248,7 +250,7 @@ function seedDemoDrive(state: State, user: User) {
         thumbnailAsset: file.thumbnailAsset,
         folderId: file.folder ? id(file.folder) : root.id,
         sizeBytes: 0,
-        favorite: ["red-kayaks", "miso"].includes(file.key),
+        favorite: ["img-4210", "taxes"].includes(file.key),
         createdAt: daysAgo(file.daysAgo),
         updatedAt: daysAgo(file.daysAgo),
       })),
@@ -264,12 +266,12 @@ function seedDemoExtras(
   state.files.push({
     ...state.files.find((file) => file.id === id("lease"))!,
     id: id("old-lease"),
-    name: "Old lease agreement.pdf",
+    name: "Old apartment lease.pdf",
     deletedAt: daysAgo(3),
   });
   for (const [key, token, targetType, downloadDisabled] of [
-    ["beach", demoShareToken, "folder", false],
-    ["lease", "lease-agreement", "file", true],
+    ["lisbon", demoShareToken, "folder", false],
+    ["lease", "apartment-lease", "file", true],
   ] as const)
     state.shares.push({
       id: id(`share-${key}`),

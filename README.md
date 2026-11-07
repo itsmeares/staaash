@@ -1,55 +1,69 @@
 <div align="center">
-<p align="center">
+<a href="https://itsmeares.github.io/staaash/">
   <picture>
-    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/App/Staaash%20App%20Icon-White%400.25.png">
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/App/Staaash%20App%20Icon%400.25.png">
-    <img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/App/Staaash%20App%20Icon%400.25.png" alt="Staaash" width="192" height="192">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Banner/Staaash%20Banner-Dark.jpg">
+    <img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Banner/Staaash%20Banner-Light.jpg" alt="Staaash, the drive for your homelab. Screens of a family drive: a Lisbon photo folder, a tax PDF, a music player, and a recipe.">
   </picture>
-</p>
-<h1>Staaash</h1>
+</a>
 
 [![License: AGPL-3.0](https://img.shields.io/github/license/itsmeares/staaash?style=for-the-badge&label=license)](https://github.com/itsmeares/staaash/blob/main/LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/itsmeares/staaash?style=for-the-badge&label=latest%20release&logo=github&logoColor=white)](https://github.com/itsmeares/staaash/releases)
 [![Docker pulls](https://ghcr-badge.elias.eu.org/shield/itsmeares/staaash/staaash)](https://github.com/itsmeares/staaash/pkgs/container/staaash)
 [![CI](https://img.shields.io/github/actions/workflow/status/itsmeares/staaash/ci.yml?branch=main&style=for-the-badge&label=ci&logo=githubactions&logoColor=white)](https://github.com/itsmeares/staaash/actions/workflows/ci.yml)
 
+**[Try the demo](https://itsmeares.github.io/staaash/)** · **[Get started](#get-started)** · **[Desktop app](#desktop-app)**
+
 </div>
 
-## Your files, on your hardware.
+Staaash is a drive you run yourself. Your photos, documents, and music live on your own disk, and you reach them from a browser, a desktop app that syncs folders, or a link you send to someone else. It runs from one Docker Compose file with PostgreSQL and a disk, and it is made for one person, a family, or a small group.
 
-> [!IMPORTANT]
-> Staaash is a file drive, not a backup system. Keep an independent backup of important files and test that you can restore it.
-
-Staaash is a self-hosted file drive for people who want the convenience of a cloud drive without handing their files to a cloud provider. It gives you folders, uploads, previews, sharing, and user accounts in a browser, backed by storage you control.
-
-It supports resumable uploads, public links, media previews, multiple users, storage quotas, and trash and restore.
-
-**[Try the demo](https://itsmeares.github.io/staaash/)**. It runs in your browser, so nothing you upload leaves your computer.
+The [demo](https://itsmeares.github.io/staaash/) runs entirely in your browser, so nothing you upload leaves your computer.
 
 <table>
   <tr>
     <td colspan="2">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/docs/assets/readme/home-dashboard-dark.png">
-        <img src="https://raw.githubusercontent.com/itsmeares/staaash/main/docs/assets/readme/home-dashboard-light.png" alt="Staaash home with recent files as thumbnails, pinned items, recent activity, and shared links">
+        <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/lisbon-dark.jpg">
+        <img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/lisbon-light.jpg" alt="A Lisbon trip folder in Staaash with photo thumbnails, a video, and a packing list">
       </picture>
     </td>
   </tr>
   <tr>
     <td width="50%">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/docs/assets/readme/files-dark.png">
-        <img src="https://raw.githubusercontent.com/itsmeares/staaash/main/docs/assets/readme/files-light.png" alt="Staaash folder in grid view with photo and video thumbnails">
+        <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/pdf-dark.jpg">
+        <img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/pdf-light.jpg" alt="A tax summary PDF open in the Staaash viewer">
       </picture>
     </td>
     <td width="50%">
       <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/docs/assets/readme/share-page-dark.png">
-        <img src="https://raw.githubusercontent.com/itsmeares/staaash/main/docs/assets/readme/share-page-light.png" alt="Staaash public link to a video, playing inline">
+        <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/share-dark.jpg">
+        <img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/share-light.jpg" alt="What a visitor sees when opening a shared Lisbon photo folder">
       </picture>
     </td>
   </tr>
 </table>
+
+## Why Staaash
+
+- **Your files stay normal files.** Staaash keeps each file on your disk at a readable path that matches the folders you see in the app. You can read, copy, or back up that folder without Staaash.
+- **It is built not to lose data.** Uploads, renames, moves, and deletes go through a journal in PostgreSQL. After a crash or a power cut, Staaash finishes or rolls back each change that was in progress. When it cannot tell what happened, it keeps every byte and stops for you to look.
+- **One box to run.** The app, a background worker, and PostgreSQL. No Redis, no object storage, no other services.
+- **Open what you keep.** Photos (HEIC too), videos, music, PDFs, and text files open right in the browser, on a laptop or a phone.
+- **Sync with your computer.** The desktop app for Windows, macOS, and Linux syncs folders two ways, download-only, or upload-only.
+- **Share with anyone.** Send a link to a file or a folder, with an expiry date, a password, or downloads turned off. Visitors do not need an account.
+- **Room for the family.** Invite members and give each one a storage limit. The owner runs the server but cannot open members' private files.
+- **Big uploads finish.** Large uploads resume where they stopped, and every file is checked against its checksum before it is saved.
+- **Find things fast.** Search ignores case and accents and matches folder names in the path. Deleted files wait in the trash until you restore them or the trash clears.
+- **Build on it.** A [documented API](https://github.com/itsmeares/staaash/blob/main/apps/web/openapi.json) covers files, folders, uploads, shares, and sync.
+
+## What Staaash is not
+
+> [!IMPORTANT]
+> Staaash is a file drive, not a backup system. Keep an independent backup of important files and test that you can restore it.
+
+- It does not edit documents, and it has no calendar, contacts, or chat. It is a drive.
+- It is made for a person, a family, or a small group, not a whole company.
 
 ## Get started
 
@@ -99,11 +113,12 @@ See the [code signing policy](https://github.com/itsmeares/staaash/blob/main/doc
 
 ## Learn more
 
-- [Backup and restore](https://github.com/itsmeares/staaash/blob/main/docs/operations/backup-restore.md) — protect your files and practice recovery.
-- [Reverse proxy](https://github.com/itsmeares/staaash/blob/main/docs/operations/reverse-proxy.md) — put Staaash behind a domain.
-- [Release notes](https://github.com/itsmeares/staaash/releases) — check changes before upgrading.
-- [Storage mutation recovery](https://github.com/itsmeares/staaash/blob/main/docs/operations/storage-mutation-recovery.md) — recover interrupted storage operations.
-- [Architecture](https://github.com/itsmeares/staaash/blob/main/docs/architecture.md) and [resumable uploads](https://github.com/itsmeares/staaash/blob/main/docs/operations/resumable-uploads.md) — understand how Staaash works.
+- [Backup and restore](https://github.com/itsmeares/staaash/blob/main/docs/operations/backup-restore.md): protect your files and practice recovery.
+- [Reverse proxy](https://github.com/itsmeares/staaash/blob/main/docs/operations/reverse-proxy.md): put Staaash behind a domain.
+- [Release notes](https://github.com/itsmeares/staaash/releases): check changes before upgrading.
+- [Storage mutation recovery](https://github.com/itsmeares/staaash/blob/main/docs/operations/storage-mutation-recovery.md): recover interrupted storage operations.
+- [Architecture](https://github.com/itsmeares/staaash/blob/main/docs/architecture.md) and [resumable uploads](https://github.com/itsmeares/staaash/blob/main/docs/operations/resumable-uploads.md): understand how Staaash works.
+- [Brand kit](https://github.com/itsmeares/staaash/blob/main/design/README.md): logos, colors, and screenshots for writing about Staaash.
 
 ## Community
 

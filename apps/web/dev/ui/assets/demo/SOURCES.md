@@ -1,30 +1,24 @@
-# Demo photo sources
+# Demo media sources
 
-Every photo here is CC0 (public domain), from Wikimedia Commons, which
-mirrors them from Unsplash. They were resized to 1280 px with a 480 px
-thumbnail, and their metadata was removed.
+Every photo, the video, and the recording here are CC0 (public domain), from
+Wikimedia Commons. The photos were resized to 1280 px with a 480 px thumbnail,
+the video was cut to 10 seconds, the recording to 75 seconds, and their
+metadata was removed. The documents, notes, and Office files were written for
+this demo.
 
-| File                | Source                                                                                                                                                             |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| lake-dawn.jpg       | [Peaceful mountain lake (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3APeaceful_mountain_lake_%28Unsplash%29.jpg)                                       |
-| red-kayaks.jpg      | [Red kayaks on a mountain lake (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ARed_kayaks_on_a_mountain_lake_%28Unsplash%29.jpg)                         |
-| ripples.jpg         | [Ripples on a mountain lake (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ARipples_on_a_mountain_lake_%28Unsplash%29.jpg)                               |
-| lookout.jpg         | [Sitting over mountain lakes (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ASitting_over_mountain_lakes_%28Unsplash%29.jpg)                             |
-| forest-path.jpg     | [Overgrown forest path (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AOvergrown_forest_path_%28Unsplash%29.jpg)                                         |
-| brick-street.jpg    | [City of bricks (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ACity_of_bricks_%28Unsplash%29.jpg)                                                       |
-| night-drive.jpg     | [Light painting on city street (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ALight_painting_on_city_street_%28Unsplash%29.jpg)                         |
-| genoa-alley.jpg     | [Narrow Streets of Genoa (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ANarrow_Streets_of_Genoa_%28Unsplash%29.jpg)                                     |
-| old-town.jpg        | [Quaint City Streets (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AQuaint_City_Streets_%28Unsplash%29.jpg)                                             |
-| morning-coffee.jpg  | [Black coffee cup (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ABlack_coffee_cup_%28Unsplash%29.jpg)                                                   |
-| coffee-friends.jpg  | [Coffee and Friends (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ACoffee_and_Friends_%28Unsplash%29.jpg)                                               |
-| flat-white.jpg      | [Frothy coffee (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AFrothy_coffee_%28Unsplash%29.jpg)                                                         |
-| biscuit.jpg         | [Bel Air, Maryland dog (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ABel_Air%2C_Maryland_dog_%28Unsplash%29.jpg)                                       |
-| beach-dog.jpg       | [Happy dog at Anjuna Beach (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AHappy_dog_at_Anjuna_Beach_%28Unsplash%29.jpg)                                 |
-| miso.jpg            | [Cat portrait (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ACat_portrait_%28Unsplash%29.jpg)                                                           |
-| beach-huts.jpg      | [Colorful beach huts on beach (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AColorful_beach_huts_on_beach_%28Unsplash%29.jpg)                           |
-| nagtabon-bay.jpg    | [Nagtabon Beach, Puerto Princesa (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ANagtabon_Beach%2C_Puerto_Princesa_%28Unsplash%29.jpg)                   |
-| cove.jpg            | [Paradise beach (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AParadise_beach_%28Unsplash%29.jpg)                                                       |
-| last-sunset.jpg     | [Sunset over beach (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ASunset_over_beach_%28Unsplash%29.jpg)                                                 |
-| highway.jpg         | [Highway Horizons (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AHighway_Horizons_%28Unsplash%29.jpg)                                                   |
-| red-desert.jpg      | [Road through the red desert (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ARoad_through_the_red_desert_%28Unsplash%29.jpg)                             |
-| monument-valley.jpg | [Surreal Sunrise in Oljato-Monument Valley (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ASurreal_Sunrise_in_Oljato-Monument_Valley_%28Unsplash%29.jpg) |
+| File               | Source |
+| ------------------ | ------ |
+| img-4183.jpg       | [Graffiti (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AGraffiti_%28Unsplash%29.jpg) |
+| img-4186.jpg       | [Lisbon, Portugal (Unsplash Brj1YY8FoD4).jpg](https://commons.wikimedia.org/wiki/File%3ALisbon%2C_Portugal_%28Unsplash_Brj1YY8FoD4%29.jpg) |
+| img-4198.jpg       | [Lisbon, Portugal (Unsplash Rwz-jGQ1Tsk).jpg](https://commons.wikimedia.org/wiki/File%3ALisbon%2C_Portugal_%28Unsplash_Rwz-jGQ1Tsk%29.jpg) |
+| img-4204.jpg       | [Lisbon, Portugal (Unsplash YOYRGRytq7s).jpg](https://commons.wikimedia.org/wiki/File%3ALisbon%2C_Portugal_%28Unsplash_YOYRGRytq7s%29.jpg) |
+| img-4210.jpg       | [Lisbon, Portugal (Unsplash dRNT zPMZ6k).jpg](https://commons.wikimedia.org/wiki/File%3ALisbon%2C_Portugal_%28Unsplash_dRNT_zPMZ6k%29.jpg) |
+| img-4213.jpg       | [Lisbon, Portugal (Unsplash frsPGSMd64s).jpg](https://commons.wikimedia.org/wiki/File%3ALisbon%2C_Portugal_%28Unsplash_frsPGSMd64s%29.jpg) |
+| img-4216.jpg       | [Lisbon, Portugal (Unsplash hq8s4zjhj3I).jpg](https://commons.wikimedia.org/wiki/File%3ALisbon%2C_Portugal_%28Unsplash_hq8s4zjhj3I%29.jpg) |
+| img-4228.jpg       | [Lisbon beach featuring boat (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ALisbon_beach_featuring_boat_%28Unsplash%29.jpg) |
+| img-4234.jpg       | [Old city (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AOld_city_%28Unsplash%29.jpg) |
+| img-4246.jpg       | [UP 1 (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AUP_1_%28Unsplash%29.jpg) |
+| img-4252.jpg       | [Woman overlooking Lisbon sunset (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AWoman_overlooking_Lisbon_sunset_%28Unsplash%29.jpg) |
+| img-4255.jpg       | [Yellow car side (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AYellow_car_side_%28Unsplash%29.jpg) |
+| beach-sunset.mp4   | [Sunset timelapse on the beach in Libreville, Gabon.webm](https://commons.wikimedia.org/wiki/File%3ASunset_timelapse_on_the_beach_in_Libreville%2C_Gabon.webm) |
+| piano-practice.m4a | [Chopin - Nocturne Op. posth. 72 no. 1.ogg](https://commons.wikimedia.org/wiki/File%3AChopin_-_Nocturne_Op._posth._72_no._1.ogg) |

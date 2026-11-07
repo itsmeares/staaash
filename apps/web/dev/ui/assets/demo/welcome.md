@@ -1,12 +1,13 @@
 # Welcome to Staaash
 
-This is a demo drive. It runs entirely in your browser, so nothing you upload
-leaves your computer.
+This is the Rivera family's demo drive. It runs entirely in your browser, so
+nothing you upload leaves your computer.
 
 Some things to try:
 
 - Drag a few files or a whole folder onto the page to upload them.
-- Open **Photos** and use the arrow keys to flip through the pictures.
+- Open **Lisbon 2026** and use the arrow keys to flip through the trip.
+- Open a PDF in **Documents**, or play Mia's piano practice in **Music**.
 - Right-click a file to rename, move, favorite, or share it.
 - Share a folder, then open the link in a new tab to see what a visitor sees.
 - Delete something, then bring it back from **Trash**.
