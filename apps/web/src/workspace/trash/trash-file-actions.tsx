@@ -1,5 +1,5 @@
 import { useRefresh } from "@/lib/use-refresh";
-import { emptyTrash } from "@/src/dashboard-context-menu";
+import { emptyTrash } from "@/src/workspace/trash-moves";
 import { Button } from "@staaash/ui/components/button";
 
 export function EmptyTrashAction({ disabled }: { disabled: boolean }) {

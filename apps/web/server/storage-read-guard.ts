@@ -42,6 +42,8 @@ export class StorageEntityUnavailableError extends Error {
     | "STORAGE_RECOVERY_REQUIRED";
   readonly status = 503;
   readonly mutationId: string;
+  /** Sent with the error, so a client can tell which change holds the item. */
+  readonly details: { mutationKind: string };
 
   constructor(state: StorageMutationState) {
     const recovering = [
@@ -66,6 +68,7 @@ export class StorageEntityUnavailableError extends Error {
           ? "STORAGE_MUTATION_RECOVERING"
           : "STORAGE_MUTATION_IN_PROGRESS";
     this.mutationId = state.id;
+    this.details = { mutationKind: state.kind };
   }
 }
 

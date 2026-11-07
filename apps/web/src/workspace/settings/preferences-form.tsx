@@ -13,9 +13,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { AUTO_TIME_ZONE } from "@staaash/config/time-zone";
 
-import { EMPTY_TRASH_CONFIRM } from "@/src/dashboard-context-menu";
-import { submitStorageMutationPost } from "@/src/storage-mutation-submit";
-import { confirmAction } from "@/components/confirm-dialog";
+import { emptyTrash } from "@/src/workspace/trash-moves";
 import { DeviceList } from "@/components/device-list";
 import type { Device } from "@/lib/user-agent";
 import { MiniDrive } from "@/components/mini-drive";
@@ -548,19 +546,6 @@ function StorageSettings({ storage }: { storage: StorageBreakdown }) {
   // Without a limit the bar shows how the used space splits.
   const scale = storage.limitBytes ?? Math.max(1, storage.usedBytes);
 
-  const emptyTrash = async () => {
-    if (!(await confirmAction(EMPTY_TRASH_CONFIRM))) return;
-    try {
-      await submitStorageMutationPost({
-        action: "/api/files/trash/clear",
-        logicalAction: "trash-clear",
-      });
-      void refresh();
-    } catch (caught) {
-      failed(caught, "Empty trash failed.");
-    }
-  };
-
   return (
     <SettingsCard>
       <div className="grid gap-2.5 px-4 py-3.5">
@@ -610,7 +595,7 @@ function StorageSettings({ storage }: { storage: StorageBreakdown }) {
           disabled={storage.trashItems === 0}
           size="sm"
           variant="outline"
-          onClick={() => void emptyTrash()}
+          onClick={() => void emptyTrash(refresh)}
         >
           Empty trash
         </Button>

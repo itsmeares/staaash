@@ -94,6 +94,7 @@ export type DurableStorageMutationInput = {
 
 const mutationStateConflict = (mutation: {
   id: string;
+  kind: string;
   status: string;
   resultJson?: unknown;
 }) =>
@@ -111,6 +112,7 @@ const mutationStateConflict = (mutation: {
             ? "STORAGE_MUTATION_RECOVERING"
             : "STORAGE_MUTATION_IN_PROGRESS",
         mutation.id,
+        mutation.kind,
       );
 
 const buildDurableMutationPlan = (input: DurableStorageMutationInput) => {
@@ -144,6 +146,8 @@ const findConflictingMutation = async (
       ? await findStorageMutationByIdempotencyKey(idempotencyKey)
       : await findStorageMutation(durableMutationId);
   } catch {
+    // The lookup failed, so nothing shows this mutation was recorded: no
+    // kind, and the client treats the outcome as unconfirmed.
     throw new StorageMutationConflictError(
       "STORAGE_MUTATION_RECOVERING",
       durableMutationId,
@@ -204,7 +208,10 @@ const resolveDurablePreparationFailure = async ({
   throw error;
 };
 
-const resolveInterruptedExecution = async (mutationId: string) => {
+const resolveInterruptedExecution = async (
+  mutationId: string,
+  kind: string,
+) => {
   let current: Awaited<ReturnType<typeof findStorageMutation>> = null;
   try {
     current = await findStorageMutation(mutationId);
@@ -213,9 +220,12 @@ const resolveInterruptedExecution = async (mutationId: string) => {
   }
   if (current?.status === "succeeded") return current;
   if (current) throw mutationStateConflict(current);
+  // The mutation was prepared before it ran, so it is recorded even when
+  // this lookup fails.
   throw new StorageMutationConflictError(
     "STORAGE_MUTATION_RECOVERING",
     mutationId,
+    kind,
   );
 };
 
@@ -242,7 +252,7 @@ const executePreparedMutation = async ({
       kind: mutation.kind,
       error,
     });
-    return resolveInterruptedExecution(mutation.id);
+    return resolveInterruptedExecution(mutation.id, mutation.kind);
   }
   return (await findStorageMutation(mutation.id)) ?? mutation;
 };

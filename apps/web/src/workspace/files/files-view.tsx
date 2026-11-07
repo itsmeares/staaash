@@ -111,7 +111,7 @@ import {
 import { ShareDialog } from "./share-dialog";
 import { FolderColorPicker } from "@/components/file-list/folder-color-picker";
 import { NewFolderRow, NewFolderSheet } from "./new-folder-row";
-import { moveTrash, showUndo } from "../undo";
+import { isLeavingForTrash, useMoveToTrash } from "../trash-moves";
 import { useTransferContext } from "../transfer-context";
 import { useCoarsePointer } from "../use-coarse-pointer";
 import type { ShareLinkSummary as ServerShareLinkSummary } from "@/server/sharing";
@@ -225,11 +225,6 @@ const nameInListing = (
         (folder) => folder.id === id,
       )?.name;
 
-function prunePendingTrash(current: Set<string>, listed: Set<string>) {
-  const next = new Set([...current].filter((id) => listed.has(id)));
-  return next.size === current.size ? current : next;
-}
-
 /** A file keeps the time it was last changed on the uploader's computer. */
 const modifiedAt = (item: {
   updatedAt: string;
@@ -285,10 +280,13 @@ export function FilesView({
   });
 
   // ---- Optimistic trash ----
-  // Items moved to trash are filtered out client-side before the server-side
-  // refresh comes back so the list visually updates instantly. Cleared once
-  // the new listing arrives (the server response no longer contains them).
-  const [trashedIds, setTrashedIds] = useState<Set<string>>(new Set());
+  // Items moved to trash leave the list before the server answers, and stay
+  // out while the server finishes moving them.
+  const trashMoves = useMoveToTrash(() =>
+    startTransition(() => void refresh()),
+  );
+  const trashedIds = trashMoves.hiddenIds;
+  const { reconcile: reconcileTrash } = trashMoves;
   const [moveOperations, setMoveOperations] = useState<
     Map<string, MoveOperation>
   >(new Map());
@@ -362,9 +360,8 @@ export function FilesView({
     Set<string>
   >(new Set());
   useEffect(() => {
-    const listed = getListedItemIds(listing);
-    setTrashedIds((current) => prunePendingTrash(current, listed));
-  }, [listing]);
+    reconcileTrash(getListedItemIds(listing));
+  }, [listing, reconcileTrash]);
   useEffect(() => {
     const listedIds = getListedItemIds(listing);
     setOptimisticallyMovedIds((current) => {
@@ -528,12 +525,12 @@ export function FilesView({
       .flatMap((operation) => operation.items.map((item) => item.id)),
   );
   // Moving items stay in place, faded, until the move is done.
-  const visibleFolders = listing.childFolders.filter(
-    (f) => !trashedIds.has(f.id) && !optimisticallyMovedIds.has(f.id),
-  );
-  const visibleFiles = listing.files.filter(
-    (f) => !trashedIds.has(f.id) && !optimisticallyMovedIds.has(f.id),
-  );
+  const hidden = (item: FolderSummary | FileSummary) =>
+    trashedIds.has(item.id) ||
+    optimisticallyMovedIds.has(item.id) ||
+    isLeavingForTrash(item.storageMutation);
+  const visibleFolders = listing.childFolders.filter((f) => !hidden(f));
+  const visibleFiles = listing.files.filter((f) => !hidden(f));
 
   // Flat ordered list of all items (folders first, then files)
   const allItems: BatchMoveItem[] = [
@@ -812,43 +809,10 @@ export function FilesView({
     startTransition(() => void refresh());
   };
 
-  const offerUndo = (items: { id: string; kind: "folder" | "file" }[]) =>
-    showUndo({
-      items,
-      done: "trash",
-      onUndone: () => {
-        const back = new Set(items.map((item) => item.id));
-        setTrashedIds(
-          (prev) => new Set([...prev].filter((id) => !back.has(id))),
-        );
-        startTransition(() => void refresh());
-      },
-    });
-
-  const trashItems = async (items: BatchMoveItem[]) => {
-    setTrashedIds((prev) => {
-      const next = new Set(prev);
-      for (const item of items) next.add(item.id);
-      return next;
-    });
-    const moved = await moveTrash(items, "trash");
-    const movedIds = new Set(moved.map((item) => item.id));
-    const failedIds = new Set(
-      items.filter((item) => !movedIds.has(item.id)).map((item) => item.id),
+  const trashItems = (items: BatchMoveItem[]) =>
+    trashMoves.trash(
+      items.map((item) => ({ ...item, name: dataOf(item)?.name })),
     );
-    if (failedIds.size > 0) {
-      setTrashedIds((prev) => {
-        const next = new Set(prev);
-        for (const id of failedIds) next.delete(id);
-        return next;
-      });
-      toast.error("Some items could not be moved to trash.");
-    }
-    if (moved.length > 0) {
-      startTransition(() => void refresh());
-      offerUndo(moved.map(({ id, kind }) => ({ id, kind })));
-    }
-  };
 
   const trashItem = (id: string, kind: "folder" | "file") =>
     trashItems([{ id, kind }]);

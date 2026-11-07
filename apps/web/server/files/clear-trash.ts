@@ -81,6 +81,7 @@ const prepareClearTrash = async ({
 class ClearTrashRecoveringError extends Error {
   readonly status = 503;
   readonly code = "STORAGE_MUTATION_RECOVERING";
+  readonly details = { mutationKind: "clear_trash" };
   constructor(readonly mutationId: string) {
     super("Clear trash is in progress or being recovered.");
   }

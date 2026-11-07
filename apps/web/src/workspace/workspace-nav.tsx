@@ -27,7 +27,7 @@ import { toastManager } from "@staaash/ui/components/toast";
 import type { ShellPin } from "./app-sidebar";
 import { dropTargetProps, type DraggedItems } from "./drag-items";
 import { submitMove } from "./files/files-move";
-import { moveTrash, showUndo } from "./undo";
+import { moveWithUndo } from "./trash-moves";
 
 export type WorkspaceNavItem = {
   href: string;
@@ -110,15 +110,8 @@ function useDropActions() {
   const refresh = useRefresh();
   const pathname = useLocation({ select: (location) => location.pathname });
   return {
-    trash: async ({ items }: DraggedItems) => {
-      const moved = await moveTrash(items, "trash");
-      void refresh();
-      showUndo({
-        items: moved,
-        done: "trash",
-        onUndone: refresh,
-      });
-    },
+    trash: ({ items }: DraggedItems) =>
+      moveWithUndo(items, "trash", () => void refresh()),
     moveTo: async ({ items, from }: DraggedItems, folder: ShellPin) => {
       if (folder.id === from) return;
       try {

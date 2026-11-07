@@ -394,3 +394,36 @@ it("keeps every byte in trash when request and worker recovery roll back a folde
     expect(await readFile(getStoragePath(file.storageKey))).toEqual(bytes);
   }
 }, 60000);
+
+it("names the request's own unfinished move to trash when it is sent again", async () => {
+  const { root, actor } = await createOwner();
+  const folder = (
+    await service.createFolder({ ...actor, parentId: root.id, name: "Again" })
+  ).folder;
+  const idempotencyKey = randomUUID();
+  await service.trashFolder({ ...actor, folderId: folder.id, idempotencyKey });
+  const mutation = await db.storageMutation.update({
+    where: { idempotencyKey },
+    data: { status: "metadata_committed" },
+  });
+
+  await expect(
+    service.trashFolder({ ...actor, folderId: folder.id, idempotencyKey }),
+  ).rejects.toMatchObject({
+    code: "STORAGE_MUTATION_RECOVERING",
+    mutationId: mutation.id,
+    details: { mutationKind: "folder_trash" },
+  });
+
+  await db.storageMutation.update({
+    where: { id: mutation.id },
+    data: { status: "recovery_required" },
+  });
+  await expect(
+    service.trashFolder({ ...actor, folderId: folder.id, idempotencyKey }),
+  ).rejects.toMatchObject({
+    code: "STORAGE_RECOVERY_REQUIRED",
+    mutationId: mutation.id,
+    details: { mutationKind: "folder_trash" },
+  });
+});

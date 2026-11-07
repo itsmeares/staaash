@@ -807,12 +807,26 @@ export const createFilesService = ({
     }
   };
 
-  const assertDirectMutationReplayComplete = (prior: { status: string }) => {
+  // Naming the request's own mutation and its kind tells the client this
+  // change was accepted and is still finishing, not refused before it started.
+  const assertDirectMutationReplayComplete = (prior: {
+    id: string;
+    kind: string;
+    status: string;
+  }) => {
     if (prior.status === "recovery_required") {
-      throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
+      throw new StorageMutationConflictError(
+        "STORAGE_RECOVERY_REQUIRED",
+        prior.id,
+        prior.kind,
+      );
     }
     if (prior.status !== "succeeded") {
-      throw new StorageMutationConflictError("STORAGE_MUTATION_RECOVERING");
+      throw new StorageMutationConflictError(
+        "STORAGE_MUTATION_RECOVERING",
+        prior.id,
+        prior.kind,
+      );
     }
   };
 
