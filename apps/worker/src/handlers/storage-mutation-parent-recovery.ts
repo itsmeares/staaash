@@ -20,7 +20,8 @@ import {
 } from "@staaash/db/storage-mutations";
 import {
   calculateStorageFileChecksum,
-  calculateCapturedTreeManifestDigest,
+  captureTreeManifest,
+  type CapturedTreeEntry,
   resolveMutationStoragePath,
   StorageMutationAmbiguityError,
 } from "@staaash/db/storage-mutation-executor";
@@ -501,34 +502,36 @@ const captureBatchFolderTreeManifest = async ({
     }
     return relative;
   };
-  const entries: Parameters<typeof calculateCapturedTreeManifestDigest>[0] =
-    descendantKeys.map((storageKey) => ({
-      kind: "directory",
-      relativeKey: relativeKey(storageKey),
-    }));
   const checksums = new Map<string, string>();
-  for (const file of files) {
-    const checksum = await resolveBatchFileChecksum(
-      storagePaths.filesRoot,
-      file,
-    );
-    if (!checksum) {
-      throw new StorageMutationAmbiguityError(
-        "Folder file checksum is ambiguous.",
-      );
-    }
-    checksums.set(file.id, checksum);
-    entries.push({
-      kind: "file",
-      relativeKey: relativeKey(file.storageKey),
-      sizeBytes: file.sizeBytes,
-      checksum,
-    });
-  }
-  return {
-    digest: calculateCapturedTreeManifestDigest(entries),
-    checksums,
-  };
+  const digest = await captureTreeManifest(
+    resolveMutationStoragePath(storagePaths.filesRoot, sourceKey),
+    async () => {
+      const entries: CapturedTreeEntry[] = descendantKeys.map((storageKey) => ({
+        kind: "directory",
+        relativeKey: relativeKey(storageKey),
+      }));
+      for (const file of files) {
+        const checksum = await resolveBatchFileChecksum(
+          storagePaths.filesRoot,
+          file,
+        );
+        if (!checksum) {
+          throw new StorageMutationAmbiguityError(
+            "Folder file checksum is ambiguous.",
+          );
+        }
+        checksums.set(file.id, checksum);
+        entries.push({
+          kind: "file",
+          relativeKey: relativeKey(file.storageKey),
+          sizeBytes: file.sizeBytes,
+          checksum,
+        });
+      }
+      return entries;
+    },
+  );
+  return { digest, checksums };
 };
 
 const buildBatchFolderMovePlan = async ({
