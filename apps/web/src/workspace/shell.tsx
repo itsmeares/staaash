@@ -24,7 +24,7 @@ import { WorkspaceSearch } from "./workspace-search";
 /** The signed-in drive around every workspace page: sidebar, top bar, dialogs. */
 export function WorkspaceShell({ children }: { children: ReactNode }) {
   const { data } = useSuspenseQuery(shellQuery);
-  const { info, updateState, person, nodeVersion } = data;
+  const { info, updateState, person, nodeVersion, installKind } = data;
 
   return (
     <TimeProvider clock={person.clock} timeZone={person.timeZone}>
@@ -32,6 +32,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         <UpdatesProvider
           appVersion={info.appVersion}
           initialState={updateState}
+          installKind={installKind}
           nodeVersion={nodeVersion}
           notify={person.notify}
         >

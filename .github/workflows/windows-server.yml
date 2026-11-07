@@ -1,0 +1,167 @@
+name: Windows server
+
+# Builds the Windows server installer, installs and updates it on Windows,
+# and runs the storage tests there. A release attaches the installer.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit or tag to build
+        required: true
+        type: string
+      release_tag:
+        description: Attach the installer to this release; empty keeps it as an artifact
+        required: false
+        type: string
+        default: ""
+
+env:
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+# Permissions come from the calling job: read in CI, write for a release.
+# A source from before the Windows server skips every step.
+jobs:
+  installer:
+    name: Build Windows server installer
+    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: voidzero-dev/setup-vp@cab1ab9eaff52d4857875f4f2c016e36af8f2c76 # v1.22.0
+        if: hashFiles('scripts/windows/staaash-server.nsi') != ''
+        with:
+          node-version: 24.22.2
+          cache: true
+      - name: Install NSIS
+        if: hashFiles('scripts/windows/staaash-server.nsi') != ''
+        run: sudo apt-get update && sudo apt-get install -y nsis
+      - name: Build the app
+        if: hashFiles('scripts/windows/staaash-server.nsi') != ''
+        run: vp run db:generate && vp run build
+      - name: Setup script tests
+        if: hashFiles('scripts/windows/staaash-server.nsi') != ''
+        run: node --test scripts/windows/setup.test.mjs
+      - name: Build the installer
+        if: hashFiles('scripts/windows/staaash-server.nsi') != ''
+        run: node scripts/windows/build.mjs
+      - name: Keep the installer
+        if: hashFiles('scripts/windows/staaash-server.nsi') != ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: windows-server-installer
+          path: .data/windows-build/out/Staaash-Server-*.exe
+          compression-level: 0
+          retention-days: 7
+
+  install:
+    name: Install, update, and uninstall on Windows
+    needs: installer
+    timeout-minutes: 30
+    runs-on: windows-2025
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        id: download
+        continue-on-error: true
+        with:
+          name: windows-server-installer
+          path: installer
+      - name: Install, reinstall over it, and uninstall
+        if: steps.download.outcome == 'success'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $installer = (Get-ChildItem installer\Staaash-Server-*.exe).FullName
+          $data = "C:\staaash-ci"
+          function Install-Staaash {
+            $process = Start-Process $installer -ArgumentList "/S", "/DATA=$data", "/PORT=2113" -Wait -PassThru
+            if ($process.ExitCode -ne 0) { throw "Installer exited with $($process.ExitCode)." }
+            $ready = Invoke-WebRequest http://127.0.0.1:2113/api/health/ready -UseBasicParsing
+            if ($ready.StatusCode -ne 200) { throw "Health check answered $($ready.StatusCode)." }
+            foreach ($service in "StaaashPostgres", "StaaashWeb", "StaaashWorker") {
+              if ((Get-Service $service).Status -ne "Running") { throw "$service is not running." }
+            }
+          }
+          Install-Staaash
+          New-Item -ItemType File "$data\files\keep.txt" | Out-Null
+          # The same installer again takes the update path.
+          Install-Staaash
+          $uninstaller = "C:\Program Files\Staaash Server\Uninstall.exe"
+          $process = Start-Process $uninstaller -ArgumentList "/S" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Uninstaller exited with $($process.ExitCode)." }
+          # The uninstaller hands off to a copy of itself; wait for the services to go.
+          $deadline = (Get-Date).AddMinutes(2)
+          while ((Get-Service StaaashWeb -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep 2 }
+          if (Get-Service StaaashWeb, StaaashWorker, StaaashPostgres -ErrorAction SilentlyContinue) { throw "Services remain after uninstall." }
+          if (-not (Test-Path "$data\files\keep.txt")) { throw "Uninstall removed the data folder." }
+          if (-not (Test-Path "$data\postgres\PG_VERSION")) { throw "Uninstall removed the database." }
+      - name: Save logs
+        if: failure() && steps.download.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: windows-server-logs
+          path: C:\staaash-ci\logs
+          retention-days: 7
+
+  storage:
+    name: Storage tests on Windows
+    timeout-minutes: 30
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: voidzero-dev/setup-vp@cab1ab9eaff52d4857875f4f2c016e36af8f2c76 # v1.22.0
+        if: hashFiles('scripts/windows/staaash-server.nsi') != ''
+        with:
+          node-version: 24.22.2
+          cache: true
+      - name: Start PostgreSQL 18
+        if: hashFiles('scripts/windows/staaash-server.nsi') != ''
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $zip = "$env:RUNNER_TEMP\pgsql.zip"
+          $source = (Get-Content scripts\windows\components.json | ConvertFrom-Json).postgres
+          Invoke-WebRequest $source.url -OutFile $zip
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne $source.sha256) { throw "PostgreSQL checksum mismatch." }
+          tar -xf $zip -C $env:RUNNER_TEMP pgsql/bin pgsql/lib pgsql/share
+          $bin = "$env:RUNNER_TEMP\pgsql\bin"
+          Set-Content "$env:RUNNER_TEMP\pw.txt" "test-only-password" -NoNewline
+          & "$bin\initdb.exe" -D "$env:RUNNER_TEMP\pgdata" -U test --pwfile "$env:RUNNER_TEMP\pw.txt" --auth=scram-sha-256 --encoding=UTF8 --locale-provider=builtin --builtin-locale=C.UTF-8
+          & "$bin\pg_ctl.exe" start -D "$env:RUNNER_TEMP\pgdata" -o "-p 5432 -c listen_addresses=127.0.0.1" -l "$env:RUNNER_TEMP\pg.log" -w
+          $env:PGPASSWORD = "test-only-password"
+          & "$bin\createdb.exe" -h 127.0.0.1 -U test staaash_test
+      - name: Generate Prisma client and build shared packages
+        if: hashFiles('scripts/windows/staaash-server.nsi') != ''
+        run: vp run db:generate && vp run build:deps
+      - name: Storage executor tests
+        if: hashFiles('scripts/windows/staaash-server.nsi') != ''
+        run: vp run --filter @staaash/db test src/storage-mutation-executor.test.ts
+      - name: Storage PostgreSQL tests
+        if: hashFiles('scripts/windows/staaash-server.nsi') != ''
+        env:
+          POSTGRES_TEST_DATABASE_URL: postgresql://test:test-only-password@127.0.0.1:5432/staaash_test
+        run: >-
+          vp run --filter web test:postgres
+          server/storage-mutations.postgres.test.ts
+          server/files/name-conflicts.postgres.test.ts
+
+  attach:
+    name: Attach the installer to the release
+    if: inputs.release_tag != ''
+    needs: [installer, install]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: windows-server-installer
+          path: installer
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: gh release upload "$RELEASE_TAG" installer/Staaash-Server-*.exe --clobber --repo "$GITHUB_REPOSITORY"

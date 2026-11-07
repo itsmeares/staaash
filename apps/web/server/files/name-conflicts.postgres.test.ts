@@ -93,3 +93,68 @@ it("finds exact active names within the owner and destination, honoring exclusio
     }),
   ).toBeNull();
 });
+
+it("ignores letter case when the storage disk does", async () => {
+  const db = getPrisma();
+  const owner = await db.user.create({
+    data: {
+      email: `${randomUUID()}@conflicts.test`,
+      storageId: randomUUID(),
+      passwordHash: "test-only",
+    },
+  });
+  const root = await db.folder.create({
+    data: { ownerUserId: owner.id, name: "Files", isFilesRoot: true },
+  });
+  const file = await db.file.create({
+    data: {
+      ownerUserId: owner.id,
+      folderId: root.id,
+      originalName: "Photo_1.JPG",
+      storageKey: `files/${owner.storageId}/${randomUUID()}`,
+      mimeType: "image/jpeg",
+      sizeBytes: 10,
+    },
+  });
+  const folder = await db.folder.create({
+    data: { ownerUserId: owner.id, parentId: root.id, name: "Trips" },
+  });
+  const find = (ignoreCase: boolean, name: string, exclusions = {}) =>
+    createPrismaFilesRepository(
+      undefined,
+      async () => ignoreCase,
+    ).findActiveNameConflict({
+      ownerUserId: owner.id,
+      parentId: root.id,
+      name,
+      ...exclusions,
+    });
+
+  expect(await find(false, "photo_1.jpg")).toBeNull();
+  expect(await find(true, "photo_1.jpg")).toMatchObject({
+    kind: "file",
+    item: { id: file.id },
+  });
+  expect(await find(true, "TRIPS")).toMatchObject({
+    kind: "folder",
+    item: { id: folder.id },
+  });
+  await db.file.create({
+    data: {
+      ownerUserId: owner.id,
+      folderId: root.id,
+      originalName: "PhotoX1.jpg",
+      storageKey: `files/${owner.storageId}/${randomUUID()}`,
+      mimeType: "image/jpeg",
+      sizeBytes: 10,
+    },
+  });
+  // A case-only rename does not clash with the item being renamed, and the
+  // underscore does not match the X in PhotoX1.jpg.
+  expect(
+    await find(true, "photo_1.jpg", { excludeFileId: file.id }),
+  ).toBeNull();
+  // Percent signs and backslashes are plain characters, not wildcards.
+  expect(await find(true, "photo%")).toBeNull();
+  expect(await find(true, "photo\\_1.jpg")).toBeNull();
+});

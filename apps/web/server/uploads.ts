@@ -322,9 +322,13 @@ export const buildSafeRenamedFileName = (
   originalName: string,
   existingNames: Iterable<string>,
 ) => {
-  const takenNames = new Set(Array.from(existingNames));
+  // Skip case variants too, so the new name also fits on disks that ignore case.
+  const takenNames = new Set(
+    Array.from(existingNames, (name) => name.toLowerCase()),
+  );
+  const isTaken = (name: string) => takenNames.has(name.toLowerCase());
 
-  if (!takenNames.has(originalName)) {
+  if (!isTaken(originalName)) {
     return originalName;
   }
 
@@ -338,7 +342,7 @@ export const buildSafeRenamedFileName = (
       maxFilesystemComponentBytes - Buffer.byteLength(suffix),
     )}${suffix}`;
 
-    if (!takenNames.has(candidate)) {
+    if (!isTaken(candidate)) {
       return candidate;
     }
   }

@@ -4,6 +4,7 @@ import {
   access,
   chmod,
   mkdir,
+  readdir,
   readFile,
   rename,
   rm,
@@ -2106,9 +2107,52 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     ).resolves.toMatchObject({ status: "succeeded" });
   });
 
-  const fsyncIt = process.platform === "win32" ? it.skip : it;
+  it.each([false, true])(
+    "renames to a new letter case (already renamed before restart: %s)",
+    async (renamedBeforeRestart) => {
+      const user = await createUser();
+      const sourceKey = `files/${user.storageId}/case/photo.jpg`;
+      const targetKey = `files/${user.storageId}/case/Photo.jpg`;
+      const source = path.join(storageRoot(), ...sourceKey.split("/"));
+      const target = path.join(storageRoot(), ...targetKey.split("/"));
+      await mkdir(path.dirname(source), { recursive: true });
+      await writeFile(source, "case-only");
+      const prepared = await prepareStorageMutation({
+        kind: "file_rename",
+        ownerUserId: user.id,
+        idempotencyKey: randomUUID(),
+        requestHash: randomUUID(),
+        intentJson: intent([]) as unknown as Prisma.InputJsonValue,
+        steps: [
+          {
+            action: "rename",
+            sourceKey,
+            targetKey,
+            expectedNodeType: "file",
+            expectedSizeBytes: 9n,
+            expectedChecksum: createHash("sha256")
+              .update("case-only")
+              .digest("hex"),
+          },
+        ],
+      });
+      if (renamedBeforeRestart) await rename(source, target);
 
-  fsyncIt.each(executorBoundaryCases)(
+      await execute(prepared.mutation);
+
+      await expect(readdir(path.dirname(target))).resolves.toEqual([
+        "Photo.jpg",
+      ]);
+      await expect(readFile(target, "utf8")).resolves.toBe("case-only");
+      await expect(
+        db.storageMutation.findUniqueOrThrow({
+          where: { id: prepared.mutation.id },
+        }),
+      ).resolves.toMatchObject({ status: "succeeded" });
+    },
+  );
+
+  it.each(executorBoundaryCases)(
     "recovers $family after interruption at $boundary ($phase)",
     async ({ family, boundary, phase }) => {
       const caseId = randomUUID();
@@ -2231,7 +2275,7 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     },
   );
 
-  fsyncIt("recovers after an interrupted rename", async () => {
+  it("recovers after an interrupted rename", async () => {
     const user = await createUser();
     const sourceKey = `files/${user.storageId}/executor-source.bin`;
     const targetKey = `files/${user.storageId}/executor-target.bin`;
@@ -2297,7 +2341,7 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     ).resolves.toEqual({ status: "succeeded" });
   });
 
-  fsyncIt("recovers after child-process death following rename", async () => {
+  it("recovers after child-process death following rename", async () => {
     const user = await createUser();
     const sourceKey = `files/${user.storageId}/child-source.bin`;
     const targetKey = `files/${user.storageId}/child-target.bin`;

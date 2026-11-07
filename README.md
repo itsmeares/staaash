@@ -93,6 +93,10 @@ The release files are the supported installation path. Files on `main` may conta
 
 To try Staaash 2.0, download `docker-compose.yml` and `example.env` from the [v2.0.0-rc.5 release](https://github.com/itsmeares/staaash/releases/tag/v2.0.0-rc.5) instead. Follow the same steps above. The release files select the matching server version. Back up your database and files together before upgrading an existing installation.
 
+### Windows server
+
+To run the server on Windows Server 2019 or newer, or Windows 10 or 11, without Docker, use the `Staaash-Server-<version>-win-x64.exe` installer from a release that has one. It installs the web app, the worker, and PostgreSQL as Windows services. See [Windows Server](docs/operations/windows.md).
+
 ### Desktop app
 
 The desktop app keeps folders on your computer in sync with your drive and lives in the tray. It needs a Staaash 2.0 server or newer. Download the [v2.0.0-rc.5 release candidate](https://github.com/itsmeares/staaash/releases/tag/v2.0.0-rc.5) for your system:

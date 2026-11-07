@@ -368,10 +368,33 @@ const syncHandle = async (handle: FileHandle, label: string) => {
   }
 };
 
+const isWindows = process.platform === "win32";
+// Windows flushes only handles opened for writing; Linux refuses to open a
+// directory for writing.
+const syncFlags = isWindows ? "r+" : "r";
 const syncDirectory = async (directoryPath: string) =>
-  syncHandle(await open(directoryPath, "r"), "directory");
+  syncHandle(await open(directoryPath, syncFlags), "directory");
 const syncFile = async (filePath: string) =>
-  syncHandle(await open(filePath, "r"), "file");
+  syncHandle(await open(filePath, syncFlags), "file");
+
+// Windows refuses a rename while another program, such as antivirus or an
+// indexer, holds a file inside. Wait it out briefly; after that the error
+// reaches the journal, which retries the mutation later.
+const RENAME_BUSY_CODES = new Set(["EPERM", "EBUSY", "EACCES"]);
+const RENAME_BUSY_DEADLINE_MS = 5_000;
+const renameWhenFree = async (source: string, target: string) => {
+  const giveUpAt = Date.now() + RENAME_BUSY_DEADLINE_MS;
+  for (let delayMs = 50; ; delayMs = Math.min(delayMs * 2, 1_000)) {
+    try {
+      return await rename(source, target);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code ?? "";
+      if (!isWindows || !RENAME_BUSY_CODES.has(code)) throw error;
+      if (Date.now() + delayMs > giveUpAt) throw error;
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+};
 const syncParents = async (...items: string[]) => {
   for (const parent of new Set(items.map((item) => path.dirname(item)))) {
     await syncDirectory(parent);
@@ -510,14 +533,21 @@ const durableMkdirWithinRoot = async ({
 
 const STORAGE_FILESYSTEM_PROBE_TTL_MS = 60_000;
 
+type StorageFilesystemTraits = {
+  /** Names that differ only in letter case are one entry on this disk. */
+  ignoresCase: boolean;
+};
+
 type FilesystemProbeCacheEntry = {
-  probe: Promise<void>;
+  probe: Promise<StorageFilesystemTraits>;
   verifiedAt: number | null;
 };
 
 const supportedFilesystemRoots = new Map<string, FilesystemProbeCacheEntry>();
 
-const probeStorageFilesystemSupport = async (filesRoot: string) => {
+const probeStorageFilesystemSupport = async (
+  filesRoot: string,
+): Promise<StorageFilesystemTraits> => {
   const probeRoot = path.resolve(filesRoot, "tmp", "capability");
   const source = path.resolve(
     probeRoot,
@@ -529,10 +559,14 @@ const probeStorageFilesystemSupport = async (filesRoot: string) => {
     const handle = await open(source, "wx");
     await handle.writeFile("staaash-storage-probe");
     await syncHandle(handle, "file");
+    const ignoresCase = (
+      await pathState(path.join(probeRoot, path.basename(source).toUpperCase()))
+    ).exists;
     await rename(source, target);
     await syncDirectory(probeRoot);
     await rm(target);
     await syncDirectory(probeRoot);
+    return { ignoresCase };
   } catch (error) {
     await rm(source, { force: true }).catch(() => undefined);
     await rm(target, { force: true }).catch(() => undefined);
@@ -556,12 +590,13 @@ export const assertStorageFilesystemSupported = async (filesRoot: string) => {
     return existing.probe;
   }
   const entry: FilesystemProbeCacheEntry = {
-    probe: Promise.resolve(),
+    probe: Promise.resolve({ ignoresCase: false }),
     verifiedAt: null,
   };
   entry.probe = probeStorageFilesystemSupport(resolvedRoot)
-    .then(() => {
+    .then((traits) => {
       entry.verifiedAt = Date.now();
+      return traits;
     })
     .catch((error) => {
       if (supportedFilesystemRoots.get(resolvedRoot) === entry) {
@@ -611,6 +646,21 @@ const assertRenameStepIntent = (step: StorageMutationStep) => {
   validateFingerprint(step);
 };
 
+const isCaseOnlyRename = async (source: string, target: string) => {
+  if (
+    source === target ||
+    path.dirname(source) !== path.dirname(target) ||
+    source.toLowerCase() !== target.toLowerCase()
+  ) {
+    return false;
+  }
+  const [sourceInfo, targetInfo] = await Promise.all([
+    lstat(source, { bigint: true }),
+    lstat(target, { bigint: true }),
+  ]);
+  return sourceInfo.dev === targetInfo.dev && sourceInfo.ino === targetInfo.ino;
+};
+
 const resolveRenameState = async (
   filesRoot: string,
   step: StorageMutationStep,
@@ -626,9 +676,25 @@ const resolveRenameState = async (
     pathState(target),
   ]);
   if (sourceState.exists && targetState.exists) {
-    throw new StorageMutationAmbiguityError(
-      "Both rename source and target exist.",
-    );
+    if (!(await isCaseOnlyRename(source, target))) {
+      throw new StorageMutationAmbiguityError(
+        "Both rename source and target exist.",
+      );
+    }
+    // On a disk that ignores case both names find the same entry; the
+    // directory listing shows which spelling it has now.
+    const spelled = await readdir(path.dirname(target));
+    const hasSource = spelled.includes(path.basename(source));
+    const hasTarget = spelled.includes(path.basename(target));
+    if (hasSource && hasTarget) {
+      throw new StorageMutationAmbiguityError(
+        "Both rename source and target exist.",
+      );
+    }
+    if (hasTarget) {
+      return { source, target, sourceState: { exists: false as const } };
+    }
+    return { source, target, sourceState };
   }
   if (!sourceState.exists && !targetState.exists) {
     throw new StorageMutationAmbiguityError(
@@ -671,7 +737,7 @@ const applyRename = async (
     beforeCreate: assertLease,
   });
   await assertLease();
-  await rename(source, target);
+  await renameWhenFree(source, target);
   await syncParents(source, target);
 };
 

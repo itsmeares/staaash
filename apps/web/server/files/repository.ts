@@ -4,8 +4,10 @@ import {
   readFolderAncestorIds,
   readFolderSubtreeIds,
 } from "@staaash/db/folder-tree";
+import { assertStorageFilesystemSupported } from "@staaash/db/storage-mutation-executor";
 
 import type { FolderSummary, StoredFile } from "@/server/files/types";
+import { getStorageRoot } from "@/server/storage";
 
 export const findArchiveSelectionItems = async (ids: string[]) => {
   const client = getPrisma();
@@ -374,6 +376,9 @@ export type FilesRepository = {
 // fallow-ignore-next-line unused-export
 export const createPrismaFilesRepository = (
   client?: FilesPrismaClient,
+  // A disk that ignores case cannot hold names that differ only in case.
+  namesIgnoreCase = async () =>
+    (await assertStorageFilesystemSupported(getStorageRoot())).ignoresCase,
 ): FilesRepository => {
   const getClient = () =>
     client ?? (getPrisma() as unknown as FilesPrismaClient);
@@ -404,12 +409,19 @@ export const createPrismaFilesRepository = (
       excludeFileId,
     }) {
       const client = getClient();
+      // Prisma matches insensitive equality with ILIKE, so escape its wildcards.
+      const match = (await namesIgnoreCase())
+        ? {
+            equals: name.replace(/[\\%_]/g, "\\$&"),
+            mode: "insensitive" as const,
+          }
+        : { equals: name };
       const [folder, file] = await Promise.all([
         client.folder.findFirst({
           where: {
             ownerUserId,
             parentId,
-            name,
+            name: match,
             deletedAt: null,
             ...(excludeFolderId ? { id: { not: excludeFolderId } } : {}),
           },
@@ -420,7 +432,7 @@ export const createPrismaFilesRepository = (
           where: {
             ownerUserId,
             folderId: parentId,
-            originalName: name,
+            originalName: match,
             deletedAt: null,
             storageStatus: "available",
             ...(excludeFileId ? { id: { not: excludeFileId } } : {}),

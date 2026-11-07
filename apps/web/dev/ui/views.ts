@@ -325,6 +325,7 @@ export function shellView(
     },
     updateState: user.role === "owner" ? updates : null,
     nodeVersion: globalThis.process?.version ?? "In your browser",
+    installKind: "container" as const,
     person: {
       label: user.displayName ?? user.email,
       email: user.email,
