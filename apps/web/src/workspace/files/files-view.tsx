@@ -91,7 +91,7 @@ import {
   type DraggedItems,
 } from "../drag-items";
 import { SelectionBar, floatingBarClass } from "../selection-bar";
-import { UploadingRow } from "../transfers";
+import { uploadCells } from "../transfers";
 import { WorkspacePage } from "../workspace-page";
 import {
   WORKSPACE_ITEM_FILTERS,
@@ -2106,13 +2106,7 @@ export function FilesView({
                     />,
                   ]
                 : []),
-              ...uploadsHere.map((upload) => (
-                <UploadingRow
-                  key={upload.clientKey}
-                  upload={upload}
-                  view={view}
-                />
-              )),
+              ...uploadCells(uploadsHere, view),
             ]}
             coarse={isCoarsePointer}
             columns={columns}

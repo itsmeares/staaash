@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Check, CircleAlert, Download, X } from "lucide-react";
+import { Check, CircleAlert, Clock, Download, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { ItemIcon } from "@/components/file-list/file-list";
@@ -32,6 +32,10 @@ import {
 } from "./desktop-downloads";
 
 const SESSION_PREFIX = "staaash:upload-session:";
+
+// Uploads start in order and only a few send at once, so the first few are
+// the ones moving. The rest of a large batch shows as a count.
+const SENDING_ROWS = 3;
 
 type UnfinishedUpload = { name: string; storageKey: string };
 
@@ -382,37 +386,74 @@ function RingIcon({
   return <Spinner className="size-4" />;
 }
 
-/** Uploads by the folder they go into, a title above each folder's files. */
-function uploadRows(
-  uploading: UploadingFile[],
-  onCancel: (key: string) => void,
-): ListRow[] {
+/**
+ * The files sending now, under the folder they go into, then the rest of
+ * the batch as one line that opens into a row per file.
+ */
+function uploadRows({
+  uploading,
+  onCancel,
+  showWaiting,
+  onShowWaiting,
+}: {
+  uploading: UploadingFile[];
+  onCancel: (key: string) => void;
+  showWaiting: boolean;
+  onShowWaiting: (show: boolean) => void;
+}): ListRow[] {
+  const row = (upload: UploadingFile) => ({
+    key: upload.clientKey,
+    node: (
+      <UploadRow upload={upload} onCancel={() => onCancel(upload.clientKey)} />
+    ),
+  });
   const groups = new Map<string, UploadingFile[]>();
-  for (const upload of uploading) {
+  for (const upload of uploading.slice(0, SENDING_ROWS)) {
     const key = upload.destination ?? "";
     const group = groups.get(key);
     if (group) group.push(upload);
     else groups.set(key, [upload]);
   }
-  return [...groups].flatMap(([destination, items]) => [
-    {
-      key: `title:${destination}`,
-      node: (
-        <SectionTitle
-          title={destination ? `Uploading to ${destination}` : "Uploading"}
-        />
-      ),
-    },
-    ...items.map((upload) => ({
-      key: upload.clientKey,
-      node: (
-        <UploadRow
-          upload={upload}
-          onCancel={() => onCancel(upload.clientKey)}
-        />
-      ),
-    })),
-  ]);
+  const waiting = uploading.slice(SENDING_ROWS);
+  return [
+    ...[...groups].flatMap(([destination, items]) => [
+      {
+        key: `title:${destination}`,
+        node: (
+          <SectionTitle
+            title={destination ? `Uploading to ${destination}` : "Uploading"}
+          />
+        ),
+      },
+      ...items.map(row),
+    ]),
+    ...(waiting.length > 0
+      ? [
+          {
+            key: "waiting",
+            node: (
+              <div className="flex items-center gap-2.5 py-1.5">
+                <span className="grid size-8 shrink-0 place-items-center rounded-md bg-hover">
+                  <Clock aria-hidden className="size-4 text-muted-foreground" />
+                </span>
+                <span className="min-w-0 flex-1 text-body tabular-nums">
+                  {waiting.length.toLocaleString()} waiting
+                </span>
+                <Button
+                  aria-expanded={showWaiting}
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => onShowWaiting(!showWaiting)}
+                >
+                  {showWaiting ? "Hide" : "Show"}
+                </Button>
+              </div>
+            ),
+          },
+          ...(showWaiting ? waiting.map(row) : []),
+        ]
+      : []),
+  ];
 }
 
 function UnfinishedRow({
@@ -624,7 +665,13 @@ export function Transfers() {
   const justDone = useFinishedUploads(uploadingFiles);
   useReadyArchive();
   const { unfinished, forget } = useUnfinishedUploads(uploadingFiles);
+  const [showWaiting, setShowWaiting] = useState(false);
   const summary = summarize(uploadingFiles);
+  // Opening the waiting files belongs to one batch; the next starts folded.
+  const someWaiting = summary.uploading.length > SENDING_ROWS;
+  useEffect(() => {
+    if (!someWaiting) setShowWaiting(false);
+  }, [someWaiting]);
   const needsYou =
     summary.failed.length + unfinished.length + downloads.failed.length > 0;
   const visible = [
@@ -671,7 +718,12 @@ export function Transfers() {
           <BatchHeader summary={summary} />
           <TransferList
             rows={[
-              ...uploadRows(summary.uploading, dismissUpload),
+              ...uploadRows({
+                uploading: summary.uploading,
+                onCancel: dismissUpload,
+                showWaiting,
+                onShowWaiting: setShowWaiting,
+              }),
               ...needsYouRows({
                 failed: summary.failed,
                 unfinished,
@@ -701,8 +753,60 @@ export function Transfers() {
   );
 }
 
+/**
+ * Files on their way into the open folder: the few sending now, then the
+ * rest as one count, so a large batch doesn't push the folder's own files
+ * out of sight. Finished files show up as the folder's own.
+ */
+export function uploadCells(
+  uploads: UploadingFile[],
+  view: "list" | "grid",
+): ReactNode[] {
+  const waiting = uploads.length - SENDING_ROWS;
+  return [
+    ...uploads
+      .slice(0, SENDING_ROWS)
+      .map((upload) => (
+        <UploadingRow key={upload.clientKey} upload={upload} view={view} />
+      )),
+    ...(waiting > 0
+      ? [<WaitingUploads count={waiting} key="waiting" view={view} />]
+      : []),
+  ];
+}
+
+function WaitingUploads({
+  count,
+  view,
+}: {
+  count: number;
+  view: "list" | "grid";
+}) {
+  const label = `${count.toLocaleString()} more waiting to upload`;
+  if (view === "grid") {
+    return (
+      <div className="grid grid-cols-1 gap-1.5 p-1.5">
+        <span className="grid aspect-4/3 w-full place-items-center rounded-lg bg-hover text-body text-muted-foreground tabular-nums">
+          +{count.toLocaleString()}
+        </span>
+        <span className="px-1 text-body text-muted-foreground">
+          Waiting to upload
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex min-h-11 items-center gap-2.5 rounded-lg px-1.5 py-1 text-body text-muted-foreground tabular-nums">
+      <span className="grid size-7 shrink-0 place-items-center rounded-md bg-hover">
+        <Clock aria-hidden className="size-4" />
+      </span>
+      {label}
+    </div>
+  );
+}
+
 /** A file on its way into the open folder, shown before it lands. */
-export function UploadingRow({
+function UploadingRow({
   upload,
   view,
 }: {
