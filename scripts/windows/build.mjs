@@ -28,12 +28,17 @@ const version = readJson(
 ).version;
 const components = readJson(path.join(here, "components.json"));
 
-const run = (command, args, options = {}) =>
-  execFileSync(command, args, {
+// pnpm and npm are .cmd shims on Windows and need cmd.exe, which splits
+// unquoted arguments at spaces.
+const shims = new Set(["pnpm", "npm"]);
+const run = (command, args, options = {}) => {
+  const shell = process.platform === "win32" && shims.has(command);
+  return execFileSync(command, shell ? args.map((arg) => `"${arg}"`) : args, {
     stdio: "inherit",
-    shell: process.platform === "win32",
+    shell,
     ...options,
   });
+};
 
 const sha256 = (file) =>
   createHash("sha256").update(readFileSync(file)).digest("hex");

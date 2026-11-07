@@ -78,8 +78,12 @@ jobs:
           function Install-Staaash {
             $process = Start-Process $installer -ArgumentList "/S", "/DATA=$data", "/PORT=2113" -Wait -PassThru
             if ($process.ExitCode -ne 0) { throw "Installer exited with $($process.ExitCode)." }
-            $ready = Invoke-WebRequest http://127.0.0.1:2113/api/health/ready -UseBasicParsing
-            if ($ready.StatusCode -ne 200) { throw "Health check answered $($ready.StatusCode)." }
+            # Readiness stays 503 until the owner account exists.
+            $entry = Invoke-RestMethod http://127.0.0.1:2113/api/views/entry
+            if ($entry.state -ne "setup") {
+              $ready = Invoke-WebRequest http://127.0.0.1:2113/api/health/ready -UseBasicParsing
+              if ($ready.StatusCode -ne 200) { throw "Health check answered $($ready.StatusCode)." }
+            }
             foreach ($service in "StaaashPostgres", "StaaashWeb", "StaaashWorker") {
               if ((Get-Service $service).Status -ne "Running") { throw "$service is not running." }
             }

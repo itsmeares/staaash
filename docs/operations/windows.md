@@ -24,7 +24,7 @@ It supports 64-bit Windows Server 2019 and newer, and Windows 10 and 11.
      the web port only. The database listens on `127.0.0.1` and is never
      opened.
 4. The installer waits until Staaash answers its health check, then opens
-   `http://localhost:2113/` to create the owner account.
+   `http://localhost:<port>/` to create the owner account.
 
 For HTTPS, put a reverse proxy in front of the web port as described in
 [reverse-proxy.md](reverse-proxy.md). With [Caddy for Windows](https://caddyserver.com/docs/install#windows),
@@ -78,18 +78,35 @@ back, restore the backup you made before updating.
 
 The rules in [backup-restore.md](backup-restore.md) apply. On Windows:
 
-1. In Services, stop `Staaash Web`, then `Staaash Worker`, then
-   `StaaashPostgres`:
+1. In an administrator PowerShell, stop the web service so no new change can
+   start:
 
-   ```console
-   sc stop StaaashWeb
-   sc stop StaaashWorker
-   sc stop StaaashPostgres
+   ```powershell
+   sc.exe stop StaaashWeb
    ```
 
-2. Copy the whole data folder, including `files`, `postgres`, and
+2. Let the worker finish unfinished storage changes. Repeat this until it
+   returns no rows:
+
+   ```powershell
+   $url = (Select-String '^DATABASE_URL=' C:\ProgramData\Staaash\staaash.env).Line.Substring(13)
+   'SELECT status, count(*) FROM "StorageMutation" WHERE status IN (''prepared'', ''running'', ''retrying'', ''metadata_committed'', ''finalizing'') GROUP BY status' |
+     & 'C:\Program Files\Staaash Server\pgsql\bin\psql.exe' $url
+   ```
+
+   Change the paths if you picked other folders. Leave a
+   `recovery_required` change as it is.
+
+3. Stop the worker, then PostgreSQL:
+
+   ```powershell
+   sc.exe stop StaaashWorker
+   sc.exe stop StaaashPostgres
+   ```
+
+4. Copy the whole data folder, including `files`, `postgres`, and
    `staaash.env`, into one backup set.
-3. Start the services again in reverse order, or restart the computer.
+5. Start the services again in reverse order, or restart the computer.
 
 To restore, stop the three services, replace the data folder with the backup,
 and start them again.
