@@ -79,10 +79,10 @@ back, restore the backup you made before updating.
 The rules in [backup-restore.md](backup-restore.md) apply. On Windows:
 
 1. In an administrator PowerShell, stop the web service so no new change can
-   start:
+   start. `Stop-Service` returns once the service has stopped:
 
    ```powershell
-   sc.exe stop StaaashWeb
+   Stop-Service StaaashWeb
    ```
 
 2. Let the worker finish unfinished storage changes. Repeat this until it
@@ -100,16 +100,17 @@ The rules in [backup-restore.md](backup-restore.md) apply. On Windows:
 3. Stop the worker, then PostgreSQL:
 
    ```powershell
-   sc.exe stop StaaashWorker
-   sc.exe stop StaaashPostgres
+   Stop-Service StaaashWorker
+   Stop-Service StaaashPostgres
    ```
 
 4. Copy the whole data folder, including `files`, `postgres`, and
    `staaash.env`, into one backup set.
 5. Start the services again in reverse order, or restart the computer.
 
-To restore, stop the three services, replace the data folder with the backup,
-and start them again.
+To restore, stop the three services with the `Stop-Service` commands from steps
+1 and 3, in that order, replace the data folder with the backup, and start
+them again.
 
 ## Uninstall
 

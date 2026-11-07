@@ -62,7 +62,11 @@ const dataPaths = (dataDir) => ({
 
 const isInside = (child, parent) => {
   const relative = path.relative(parent.toLowerCase(), child.toLowerCase());
-  return !relative.startsWith("..") && !path.isAbsolute(relative);
+  return (
+    relative !== ".." &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
+  );
 };
 
 /**

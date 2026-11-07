@@ -75,16 +75,18 @@ test("precheck refuses a database from another PostgreSQL major", () => {
 });
 
 test("precheck refuses a data folder inside the program folder", () => {
-  assert.throws(
-    () =>
-      precheck({
-        installed: "",
-        version: "2.0.0",
-        appDir,
-        dataDir: path.join(appDir, "data"),
-      }),
-    /outside the Staaash Server program folder/,
-  );
+  for (const name of ["data", "..data"]) {
+    assert.throws(
+      () =>
+        precheck({
+          installed: "",
+          version: "2.0.0",
+          appDir,
+          dataDir: path.join(appDir, name),
+        }),
+      /outside the Staaash Server program folder/,
+    );
+  }
 });
 
 test("settings survive a write and read", () => {
