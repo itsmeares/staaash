@@ -21,7 +21,6 @@ import { folderColorStyle } from "@/lib/folder-color";
 import { getItemVisual } from "@staaash/ui/item-visuals";
 import { WorkspaceActionSheet } from "./action-sheet";
 import { MiddleName } from "./middle-name";
-import { GridName } from "./grid-name";
 import { Button } from "@staaash/ui/components/button";
 import { Menu, MenuPopup, MenuTrigger } from "@staaash/ui/components/menu";
 import { canHaveThumbnail } from "@staaash/config/media-types";
@@ -540,7 +539,7 @@ export function FileList<T extends FileListItem>({
     const name =
       renderName?.(item) ??
       (view === "grid" ? (
-        <GridName name={item.name} />
+        <MiddleName className="font-medium" lines={3} name={item.name} />
       ) : (
         <MiddleName className="font-medium" name={item.name} />
       ));
