@@ -138,7 +138,6 @@ const buildDurableMutationPlan = (input: DurableStorageMutationInput) => {
 
 const findConflictingMutation = async (
   durableMutationId: string,
-  kind: string,
   idempotencyKey?: string | null,
 ) => {
   try {
@@ -146,10 +145,11 @@ const findConflictingMutation = async (
       ? await findStorageMutationByIdempotencyKey(idempotencyKey)
       : await findStorageMutation(durableMutationId);
   } catch {
+    // The lookup failed, so nothing shows this mutation was recorded: no
+    // kind, and the client treats the outcome as unconfirmed.
     throw new StorageMutationConflictError(
       "STORAGE_MUTATION_RECOVERING",
       durableMutationId,
-      kind,
     );
   }
 };
@@ -169,7 +169,6 @@ const resolveDurablePreparationFailure = async ({
 }) => {
   const existing = await findConflictingMutation(
     durableMutationId,
-    input.kind,
     input.idempotencyKey,
   );
   const matchesRequest =
@@ -220,6 +219,8 @@ const resolveInterruptedExecution = async (
   }
   if (current?.status === "succeeded") return current;
   if (current) throw mutationStateConflict(current);
+  // The mutation was prepared before it ran, so it is recorded even when
+  // this lookup fails.
   throw new StorageMutationConflictError(
     "STORAGE_MUTATION_RECOVERING",
     mutationId,

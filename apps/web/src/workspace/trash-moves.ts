@@ -23,7 +23,8 @@ const TRASH_CONCURRENCY = 6;
  * - `finishing`: the server took it and is still finishing it.
  * - `recovery`: storage recovery has to look at it first.
  * - `refused`: the server said no, with a reason.
- * - `unknown`: no answer came back, so it may or may not have moved.
+ * - `unknown`: the server could not confirm either way, so it may or may
+ *   not have moved.
  */
 type FailureReason = "busy" | "finishing" | "recovery" | "refused" | "unknown";
 type Failure = { item: Item; reason: FailureReason; message: string };
@@ -37,9 +38,10 @@ const reasonOf = (error: unknown, kind: string): FailureReason => {
     error.code === "STORAGE_MUTATION_RECOVERING" ||
     error.code === "STORAGE_MUTATION_IN_PROGRESS"
   ) {
-    // Only the same change already under way is still finishing. Any other
-    // change holding the item, or storage recovering after a restart,
-    // turned this request away before it started.
+    // Only the same change already under way is still finishing, and
+    // another change holding the item turned this request away. Without a
+    // named change the server could not tell, so the outcome is open.
+    if (!error.mutationKind) return "unknown";
     return error.mutationKind === kind ? "finishing" : "busy";
   }
   return error.status < 500 ? "refused" : "unknown";
@@ -134,7 +136,7 @@ const failureCopy: Record<
     };
   },
   unknown: () => ({
-    description: "Staaash didn't answer. Refresh to see where it is now.",
+    description: "Staaash couldn't confirm it. Refresh to see where it is now.",
     retry: true,
   }),
 };
@@ -223,9 +225,9 @@ export async function moveWithUndo(
  */
 export function useMoveToTrash(refresh: () => void) {
   const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(new Set());
-  // Accepted moves the server is still finishing. The next listing decides
-  // whether they stay out of sight.
-  const finishing = useRef(new Set<string>());
+  // Moves the server is still finishing, or could not confirm. The next
+  // listing decides whether they stay out of sight.
+  const unsettled = useRef(new Set<string>());
   const show = (ids: string[]) =>
     setHiddenIds((current) => {
       const next = new Set(current);
@@ -237,19 +239,18 @@ export function useMoveToTrash(refresh: () => void) {
     if (items.length === 0) return;
     setHiddenIds((current) => new Set([...current, ...items.map((i) => i.id)]));
     const { moved, failed } = await moveTrash(items, "trash");
-    const stillFinishing = failed.filter(
-      (failure) => failure.reason === "finishing",
-    );
-    for (const failure of stillFinishing) {
-      finishing.current.add(failure.item.id);
+    const open = (failure: Failure) =>
+      failure.reason === "finishing" || failure.reason === "unknown";
+    for (const failure of failed.filter(open)) {
+      unsettled.current.add(failure.item.id);
     }
     show(
       failed
-        .filter((failure) => failure.reason !== "finishing")
+        .filter((failure) => !open(failure))
         .map((failure) => failure.item.id),
     );
     reportFailures(failed, "trash", (left) => void trash(left));
-    if (moved.length > 0 || stillFinishing.length > 0) refresh();
+    if (moved.length > 0 || failed.some(open)) refresh();
     showUndo({
       items: moved,
       done: "trash",
@@ -271,8 +272,8 @@ export function useMoveToTrash(refresh: () => void) {
    * left out by that state, so neither needs hiding any more.
    */
   const reconcile = useCallback((listed: ReadonlySet<string>) => {
-    const settled = new Set(finishing.current);
-    finishing.current.clear();
+    const settled = new Set(unsettled.current);
+    unsettled.current.clear();
     setHiddenIds((current) => {
       const next = new Set(
         [...current].filter((id) => listed.has(id) && !settled.has(id)),
