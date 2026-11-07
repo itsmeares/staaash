@@ -91,23 +91,23 @@ Then:
 
 The release files are the supported installation path. Files on `main` may contain unreleased changes.
 
-To try Staaash 2.0, download `docker-compose.yml` and `example.env` from the [v2.0.0-rc.5 release](https://github.com/itsmeares/staaash/releases/tag/v2.0.0-rc.5) instead. Follow the same steps above. The release files select the matching server version. Back up your database and files together before upgrading an existing installation.
+To try Staaash 2.0, download `docker-compose.yml` and `example.env` from the [v2.0.0-rc.6 release](https://github.com/itsmeares/staaash/releases/tag/v2.0.0-rc.6) instead. Follow the same steps above. The release files select the matching server version. Back up your database and files together before upgrading an existing installation.
 
 ### Windows server
 
-To run the server on Windows Server 2019 or newer, or Windows 10 or 11, without Docker, use the `Staaash-Server-<version>-win-x64.exe` installer from a release that has one. It installs the web app, the worker, and PostgreSQL as Windows services. See [Windows Server](docs/operations/windows.md).
+To run the server on Windows Server 2019 or newer, or Windows 10 or 11, without Docker, download the [v2.0.0-rc.6 server installer](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.6/Staaash-Server-2.0.0-rc.6-win-x64.exe). It installs the web app, the worker, and PostgreSQL as Windows services. See [Windows Server](docs/operations/windows.md).
 
 ### Desktop app
 
-The desktop app keeps folders on your computer in sync with your drive and lives in the tray. It needs a Staaash 2.0 server or newer. Download the [v2.0.0-rc.5 release candidate](https://github.com/itsmeares/staaash/releases/tag/v2.0.0-rc.5) for your system:
+The desktop app keeps folders on your computer in sync with your drive and lives in the tray. It needs a Staaash 2.0 server or newer. Download the [v2.0.0-rc.6 release candidate](https://github.com/itsmeares/staaash/releases/tag/v2.0.0-rc.6) for your system:
 
-| System         | x64                                                                                                                          | ARM64                                                                                                                         |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Windows        | [Installer x64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.5/Staaash-2.0.0-rc.5-win-x64.exe)           | [Installer ARM64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.5/Staaash-2.0.0-rc.5-win-arm64.exe)        |
-| macOS          | [Universal DMG](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.5/Staaash-2.0.0-rc.5-mac-universal.dmg)     | [Universal DMG](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.5/Staaash-2.0.0-rc.5-mac-universal.dmg)      |
-| Linux AppImage | [Installer x64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.5/Staaash-2.0.0-rc.5-linux-x86_64.AppImage) | [Installer ARM64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.5/Staaash-2.0.0-rc.5-linux-arm64.AppImage) |
-| Linux DEB      | [Installer x64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.5/Staaash-2.0.0-rc.5-linux-amd64.deb)       | [Installer ARM64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.5/Staaash-2.0.0-rc.5-linux-arm64.deb)      |
-| Linux RPM      | [Installer x64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.5/Staaash-2.0.0-rc.5-linux-x86_64.rpm)      | [Installer ARM64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.5/Staaash-2.0.0-rc.5-linux-aarch64.rpm)    |
+| System         | x64                                                                                                                                  | ARM64                                                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Windows        | [Installer x64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.6/Staaash-Desktop-2.0.0-rc.6-win-x64.exe)           | [Installer ARM64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.6/Staaash-Desktop-2.0.0-rc.6-win-arm64.exe)        |
+| macOS          | [Universal DMG](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.6/Staaash-Desktop-2.0.0-rc.6-mac-universal.dmg)     | [Universal DMG](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.6/Staaash-Desktop-2.0.0-rc.6-mac-universal.dmg)      |
+| Linux AppImage | [Installer x64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.6/Staaash-Desktop-2.0.0-rc.6-linux-x86_64.AppImage) | [Installer ARM64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.6/Staaash-Desktop-2.0.0-rc.6-linux-arm64.AppImage) |
+| Linux DEB      | [Installer x64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.6/Staaash-Desktop-2.0.0-rc.6-linux-amd64.deb)       | [Installer ARM64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.6/Staaash-Desktop-2.0.0-rc.6-linux-arm64.deb)      |
+| Linux RPM      | [Installer x64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.6/Staaash-Desktop-2.0.0-rc.6-linux-x86_64.rpm)      | [Installer ARM64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.6/Staaash-Desktop-2.0.0-rc.6-linux-aarch64.rpm)    |
 
 The installers are not code signed. On Windows, if SmartScreen blocks the installer, click More info, then Run anyway. On macOS, if the first launch is blocked, open System Settings, then Privacy & Security, and click Open Anyway.
 
