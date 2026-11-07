@@ -2095,26 +2095,25 @@ export function FilesView({
 
           <FileList
             loading={continuous}
-            leading={
-              (newFolderOpen && !isCoarsePointer) || uploadsHere.length > 0 ? (
-                <>
-                  {newFolderOpen && !isCoarsePointer ? (
+            leading={[
+              ...(newFolderOpen && !isCoarsePointer
+                ? [
                     <NewFolderRow
+                      key="new-folder"
                       parentId={listing.currentFolder.id}
                       view={view}
                       onDone={finishNewFolder}
-                    />
-                  ) : null}
-                  {uploadsHere.map((upload) => (
-                    <UploadingRow
-                      key={upload.clientKey}
-                      upload={upload}
-                      view={view}
-                    />
-                  ))}
-                </>
-              ) : null
-            }
+                    />,
+                  ]
+                : []),
+              ...uploadsHere.map((upload) => (
+                <UploadingRow
+                  key={upload.clientKey}
+                  upload={upload}
+                  view={view}
+                />
+              )),
+            ]}
             coarse={isCoarsePointer}
             columns={columns}
             empty={

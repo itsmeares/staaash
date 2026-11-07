@@ -364,13 +364,21 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const markUploadFailed = (clientKey: string, error: unknown) => {
-    updateUploadingFile(clientKey, {
-      status: "error",
+  const markUploadsFailed = (clientKeys: Set<string>, error: unknown) => {
+    const failure = {
+      status: "error" as const,
       error: error instanceof Error ? error.message : "Upload failed",
       statusLabel: undefined,
-    });
+    };
+    setUploadingFiles((current) =>
+      current.map((upload) =>
+        clientKeys.has(upload.clientKey) ? { ...upload, ...failure } : upload,
+      ),
+    );
   };
+
+  const markUploadFailed = (clientKey: string, error: unknown) =>
+    markUploadsFailed(new Set([clientKey]), error);
 
   const markUploadComplete = ({
     clientKey,
@@ -981,44 +989,42 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    const folderUpload = selection.directoryPaths.length > 0;
+    const uploadKeys = selection.files.map(({ file, relativePath }) => ({
+      clientKey: randomClientId(),
+      storageMutationKey: randomClientId(),
+      file,
+      relativePath,
+    }));
+    // One update for the whole batch: a large selection is thousands of
+    // rows, and adding them one at a time copies the list for each.
     // A batch that just finished does not count toward this one.
-    setUploadingFiles(settleUploads);
-    const uploadKeys = selection.files.map(({ file, relativePath }) => {
-      const clientKey = randomClientId();
-      const storageMutationKey = randomClientId();
-      cancelledUploadKeys.current.delete(clientKey);
-      setUploadingFiles((prev) => [
-        ...prev,
-        {
+    setUploadingFiles((prev) => [
+      ...settleUploads(prev),
+      ...uploadKeys.map(
+        ({ clientKey, storageMutationKey, file, relativePath }) => ({
           clientKey,
           storageMutationKey,
           name: relativePath,
           size: file.size,
-          status: "uploading",
+          status: "uploading" as const,
           progress: 0,
           transferredBytes: 0,
           speed: 0,
           fileRef: file,
           destination,
-          folderId:
-            selection.directoryPaths.length === 0 ? folderId : undefined,
-          folderUploadRootId:
-            selection.directoryPaths.length > 0 ? folderId : undefined,
-          statusLabel:
-            selection.directoryPaths.length === 0
-              ? undefined
-              : "Preparing folders…",
-        },
-      ]);
-
-      return { clientKey, storageMutationKey, file, relativePath };
-    });
+          folderId: folderUpload ? undefined : folderId,
+          folderUploadRootId: folderUpload ? folderId : undefined,
+          statusLabel: folderUpload ? "Preparing folders…" : undefined,
+        }),
+      ),
+    ]);
 
     // Request wiring; each branch is one response.
     // fallow-ignore-next-line complexity
     void (async () => {
       const folderIds = new Map<string, string>();
-      if (selection.directoryPaths.length > 0) {
+      if (folderUpload) {
         const result = await ensureUploadFolders({
           folderId,
           paths: selection.directoryPaths,
@@ -1028,23 +1034,33 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      const targets = new Map<string, string>();
       for (const upload of uploadKeys) {
-        if (cancelledUploadKeys.current.has(upload.clientKey)) {
-          continue;
-        }
-
+        if (cancelledUploadKeys.current.has(upload.clientKey)) continue;
         const uploadDirectoryPath = getUploadDirectoryPath(upload.relativePath);
         const targetFolderId =
-          selection.directoryPaths.length === 0 || uploadDirectoryPath === ""
+          !folderUpload || uploadDirectoryPath === ""
             ? folderId
             : folderIds.get(uploadDirectoryPath);
         if (!targetFolderId) {
           throw new Error("The upload folder could not be prepared.");
         }
-        updateUploadingFile(upload.clientKey, {
-          folderId: targetFolderId,
-          statusLabel: undefined,
-        });
+        targets.set(upload.clientKey, targetFolderId);
+      }
+      // Plain files already carry their folder.
+      if (folderUpload) {
+        setUploadingFiles((current) =>
+          current.map((upload) => {
+            const target = targets.get(upload.clientKey);
+            return target
+              ? { ...upload, folderId: target, statusLabel: undefined }
+              : upload;
+          }),
+        );
+      }
+      for (const upload of uploadKeys) {
+        const targetFolderId = targets.get(upload.clientKey);
+        if (!targetFolderId) continue;
         startUpload(
           upload.clientKey,
           upload.storageMutationKey,
@@ -1063,11 +1079,14 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
             : "Failed to prepare upload folders",
         );
       }
-      for (const upload of uploadKeys) {
-        if (!cancelledUploadKeys.current.has(upload.clientKey)) {
-          markUploadFailed(upload.clientKey, error);
-        }
-      }
+      markUploadsFailed(
+        new Set(
+          uploadKeys
+            .map((upload) => upload.clientKey)
+            .filter((key) => !cancelledUploadKeys.current.has(key)),
+        ),
+        error,
+      );
     });
   };
 

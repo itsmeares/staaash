@@ -24,18 +24,22 @@ export function MiddleName({
     const measure = probe.current;
     if (!container || !measure) return;
 
+    // Candidates go through one text node's data. Replacing the probe's
+    // children instead makes the browser restyle much of the page before each
+    // read, which stalls it when hundreds of names mount together.
+    const sample = measure.appendChild(document.createTextNode(""));
     let frame = 0;
     let active = true;
     const update = () => {
       if (!active || container.clientWidth === 0) return;
-      measure.textContent = "M";
+      sample.data = "M";
       // scrollHeight rounds, so count lines instead of comparing heights.
       const line = measure.scrollHeight;
       const text = middleCut(name, (candidate) => {
-        measure.textContent = candidate;
+        sample.data = candidate;
         return Math.round(measure.scrollHeight / line) <= lines;
       });
-      measure.textContent = "";
+      sample.data = "";
       setCut({ name, text });
     };
     const schedule = () => {
@@ -50,6 +54,7 @@ export function MiddleName({
       active = false;
       cancelAnimationFrame(frame);
       observer.disconnect();
+      sample.remove();
     };
   }, [name, lines]);
 

@@ -1,6 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
-  Fragment,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -50,7 +49,7 @@ function VirtualRows<T extends { id: string }>({
   items: T[];
   grid: boolean;
   tiles: boolean;
-  leading?: ReactNode;
+  leading: ReactNode[];
   renderItem: (item: T, index: number) => ReactNode;
   browse?: (id: string) => void;
 }) {
@@ -59,8 +58,10 @@ function VirtualRows<T extends { id: string }>({
   const [offset, setOffset] = useState(0);
   const [width, setWidth] = useState(800);
   const columns = columnsFor(width, grid, tiles);
-  // The leading cell (a new-folder row) takes the first slot.
-  const cells = (leading ? 1 : 0) + items.length;
+  // Leading cells (a new-folder row, files still uploading) come first, and
+  // are mounted only near the screen like items, however many there are.
+  const leadingCells = leading.length;
+  const cells = leadingCells + items.length;
   const virtualizer = useVirtualizer({
     count: Math.ceil(cells / columns),
     getScrollElement: () => scroller,
@@ -93,7 +94,7 @@ function VirtualRows<T extends { id: string }>({
 
   const rows = virtualizer.getVirtualItems();
   const lastCell = Math.min(cells, ((rows.at(-1)?.index ?? -1) + 1) * columns);
-  const lastItem = items[lastCell - (leading ? 1 : 0) - 1];
+  const lastItem = items[lastCell - leadingCells - 1];
   useEffect(() => {
     if (lastItem) browse?.(lastItem.id);
   }, [lastItem, browse]);
@@ -107,14 +108,13 @@ function VirtualRows<T extends { id: string }>({
       );
       if (index === -1) return;
       browse?.(items[index]!.id);
-      virtualizer.scrollToIndex(
-        Math.floor((index + (leading ? 1 : 0)) / columns),
-        { align: "auto" },
-      );
+      virtualizer.scrollToIndex(Math.floor((index + leadingCells) / columns), {
+        align: "auto",
+      });
     };
     list?.addEventListener("staaash:list-focus", focus);
     return () => list?.removeEventListener("staaash:list-focus", focus);
-  }, [items, columns, leading, browse, virtualizer]);
+  }, [items, columns, leadingCells, browse, virtualizer]);
 
   return (
     <div
@@ -142,10 +142,8 @@ function VirtualRows<T extends { id: string }>({
             }}
           >
             {slots.map((cell) => {
-              if (leading && cell === 0) {
-                return <Fragment key="leading">{leading}</Fragment>;
-              }
-              const index = cell - (leading ? 1 : 0);
+              if (cell < leadingCells) return leading[cell];
+              const index = cell - leadingCells;
               return renderItem(items[index]!, index);
             })}
           </div>
@@ -170,7 +168,7 @@ export function VirtualSection<T extends { id: string }>({
   label: string;
   view: "list" | "grid";
   tiles: boolean;
-  leading?: ReactNode;
+  leading: ReactNode[];
   renderItem: (item: T, index: number) => ReactNode;
   browse?: (id: string) => void;
 }) {
@@ -182,7 +180,7 @@ export function VirtualSection<T extends { id: string }>({
         </div>
       ) : null}
       <div className={view === "grid" ? "grid gap-2 pt-2" : "grid gap-px pt-1"}>
-        {virtual && items.length > 0 ? (
+        {virtual && items.length + leading.length > 0 ? (
           <VirtualRows
             browse={browse}
             grid={view === "grid"}
