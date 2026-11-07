@@ -52,7 +52,7 @@ The [demo](https://itsmeares.github.io/staaash/) runs entirely in your browser, 
 - **Open what you keep.** Photos (HEIC too), videos, music, PDFs, and text files open right in the browser, on a laptop or a phone.
 - **Sync with your computer.** The desktop app for Windows, macOS, and Linux syncs folders two ways, download-only, or upload-only.
 - **Share with anyone.** Send a link to a file or a folder, with an expiry date, a password, or downloads turned off. Visitors do not need an account.
-- **Room for the family.** Invite members and give each one a storage limit. The owner runs the server but cannot open members' private files.
+- **Room for the family.** Invite members and give each one a storage limit. The app keeps members' private files out of the owner's view, though whoever runs the server can still read its disk.
 - **Big uploads finish.** Large uploads resume where they stopped, and every file is checked against its checksum before it is saved.
 - **Find things fast.** Search ignores case and accents and matches folder names in the path. Deleted files wait in the trash until you restore them or the trash clears.
 - **Build on it.** A [documented API](https://github.com/itsmeares/staaash/blob/main/apps/web/openapi.json) covers files, folders, uploads, shares, and sync.

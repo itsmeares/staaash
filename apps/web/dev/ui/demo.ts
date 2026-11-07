@@ -202,7 +202,8 @@ export const demoFiles: DemoFile[] = [
     "backup.log",
     "homelab",
     1,
-    "backup.log",
+    // Stored as .txt because the repository ignores *.log files.
+    "backup-log.txt",
     "text/plain",
     "text",
   ),

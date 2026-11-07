@@ -1,0 +1,11 @@
+2026-11-01 03:00:02 backup started: /srv/staaash -> offsite:/backups/staaash
+2026-11-01 03:14:37 backup finished: 2,481 files, 38.2 GB, 0 errors
+2026-11-02 03:00:01 backup started: /srv/staaash -> offsite:/backups/staaash
+2026-11-02 03:02:15 backup finished: 64 files changed, 1.1 GB, 0 errors
+2026-11-03 03:00:02 backup started: /srv/staaash -> offsite:/backups/staaash
+2026-11-03 03:01:48 backup finished: 27 files changed, 312 MB, 0 errors
+2026-11-04 03:00:01 backup started: /srv/staaash -> offsite:/backups/staaash
+2026-11-04 03:00:58 backup finished: 9 files changed, 41 MB, 0 errors
+2026-11-05 03:00:02 backup started: /srv/staaash -> offsite:/backups/staaash
+2026-11-05 03:03:31 backup finished: 112 files changed, 2.4 GB, 0 errors
+2026-11-05 03:03:31 check: restore test of 20 random files passed
