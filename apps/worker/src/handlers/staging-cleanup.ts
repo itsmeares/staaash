@@ -4,7 +4,6 @@ import { access, lstat, opendir, rm } from "node:fs/promises";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import { resolveUploadStagingRetentionHours } from "@staaash/config";
 import { getPrisma } from "@staaash/db/client";
-import { createLegacyRecoveryRequiredMutation } from "@staaash/db/storage-mutations";
 import { pruneStorageChanges } from "@staaash/db/storage-changes";
 import {
   ACTIVE_UPLOAD_SESSION_STATUSES,
@@ -39,7 +38,9 @@ type UploadSessionCleanupClient = {
     deleteMany(args: object): Promise<{ count: number }>;
   };
   storageMutationStep?: {
-    findMany(args: object): Promise<Array<{ sourceKey: string | null }>>;
+    findMany(
+      args: object,
+    ): Promise<Array<{ sourceKey: string | null; targetKey: string | null }>>;
   };
   backgroundJob?: {
     findMany(
@@ -53,15 +54,8 @@ type UploadSessionCleanupClient = {
         fileId: string;
         kind: string;
         profile: string;
-        file?: { ownerUserId: string };
       }>
     >;
-  };
-  zipArchive?: {
-    findMany(args: object): Promise<Array<{ id: string; userId: string }>>;
-  };
-  user?: {
-    findMany(args: object): Promise<Array<{ id: string }>>;
   };
   systemSettings?: {
     findUnique(args: object): Promise<{
@@ -142,26 +136,21 @@ const getPathPresence = async (targetPath: string) => {
   }
 };
 
-type GeneratedDerivative =
-  NonNullable<UploadSessionCleanupClient["mediaDerivative"]> extends {
-    findMany(args: object): Promise<infer Rows>;
-  }
-    ? Rows extends Array<infer Row>
-      ? Row
-      : never
-    : never;
-type GeneratedArchive =
-  NonNullable<UploadSessionCleanupClient["zipArchive"]> extends {
-    findMany(args: object): Promise<infer Rows>;
-  }
-    ? Rows extends Array<infer Row>
-      ? Row
-      : never
-    : never;
+const GENERATED_TEMP_NAMESPACES = ["derivatives", "archives"] as const;
+type GeneratedTempNamespace = (typeof GENERATED_TEMP_NAMESPACES)[number];
 
-const listGeneratedEntityIds = async (storagePaths: WorkerStoragePaths) => {
-  const ids = { derivatives: [] as string[], archives: [] as string[] };
-  for (const namespace of ["derivatives", "archives"] as const) {
+const generatedEntityId = (namespace: GeneratedTempNamespace, name: string) =>
+  namespace === "derivatives"
+    ? name.match(/^(.+)\.(?:jpg|mp4)\.tmp$/)?.[1]
+    : name.match(/^(.+)\.zip\.tmp$/)?.[1];
+
+const listGeneratedTemps = async (storagePaths: WorkerStoragePaths) => {
+  const temps: Array<{
+    namespace: GeneratedTempNamespace;
+    entityId: string;
+    absolutePath: string;
+  }> = [];
+  for (const namespace of GENERATED_TEMP_NAMESPACES) {
     const root = path.resolve(storagePaths.tmpRoot, namespace);
     let directory;
     try {
@@ -171,19 +160,28 @@ const listGeneratedEntityIds = async (storagePaths: WorkerStoragePaths) => {
       throw error;
     }
     for await (const entry of directory) {
-      const id = generatedEntityId(namespace, entry.name);
-      if (id) ids[namespace].push(id);
+      const entityId = generatedEntityId(namespace, entry.name);
+      if (!entry.isFile() || !entityId) continue;
+      temps.push({
+        namespace,
+        entityId,
+        absolutePath: path.resolve(root, entry.name),
+      });
     }
   }
-  return ids;
+  return temps;
 };
 
-const loadGeneratedCleanupContext = async (
-  client: UploadSessionCleanupClient,
-  storagePaths: WorkerStoragePaths,
-) => {
-  const entityIds = await listGeneratedEntityIds(storagePaths);
-  const [activeJobs, derivatives, archives] = await Promise.all([
+const listActiveGeneratedPaths = async ({
+  client,
+  storagePaths,
+  derivativeIds,
+}: {
+  client: UploadSessionCleanupClient;
+  storagePaths: WorkerStoragePaths;
+  derivativeIds: string[];
+}) => {
+  const [activeJobs, derivatives] = await Promise.all([
     client.backgroundJob?.findMany({
       where: {
         kind: { in: ["media.derivative.generate", "zip.archive.generate"] },
@@ -192,32 +190,11 @@ const loadGeneratedCleanupContext = async (
       select: { kind: true, dedupeKey: true },
     }) ?? [],
     client.mediaDerivative?.findMany({
-      where: { id: { in: entityIds.derivatives } },
-      select: {
-        id: true,
-        fileId: true,
-        kind: true,
-        profile: true,
-        file: { select: { ownerUserId: true } },
-      },
-    }) ?? [],
-    client.zipArchive?.findMany({
-      where: { id: { in: entityIds.archives } },
-      select: { id: true, userId: true },
+      where: { id: { in: derivativeIds } },
+      select: { id: true, fileId: true, kind: true, profile: true },
     }) ?? [],
   ]);
-  return { activeJobs, derivatives, archives };
-};
-
-const buildActiveGeneratedPaths = ({
-  activeKeys,
-  derivatives,
-  storagePaths,
-}: {
-  activeKeys: Set<string>;
-  derivatives: GeneratedDerivative[];
-  storagePaths: WorkerStoragePaths;
-}) => {
+  const activeKeys = new Set(activeJobs.flatMap((job) => job.dedupeKey ?? []));
   const activeGeneratedPaths = new Set(
     derivatives
       .filter((item) =>
@@ -243,182 +220,59 @@ const buildActiveGeneratedPaths = ({
   return activeGeneratedPaths;
 };
 
-const generatedEntityId = (namespace: string, name: string) =>
-  namespace === "derivatives"
-    ? name.match(/^(.+)\.(?:jpg|mp4)\.tmp$/)?.[1]
-    : name.match(/^(.+)\.zip\.tmp$/)?.[1];
-
-const generatedTempOwner = ({
-  namespace,
-  entityId,
-  derivatives,
-  archives,
-}: {
-  namespace: string;
-  entityId: string | undefined;
-  derivatives: GeneratedDerivative[];
-  archives: GeneratedArchive[];
-}) =>
-  namespace === "derivatives"
-    ? derivatives.find((item) => item.id === entityId)?.file?.ownerUserId
-    : archives.find((item) => item.id === entityId)?.userId;
-
-const addOwnerResidue = (
-  residueByOwner: Map<string, string[]>,
-  ownerUserId: string,
-  residueKey: string,
-) => {
-  residueByOwner.set(ownerUserId, [
-    ...(residueByOwner.get(ownerUserId) ?? []),
-    residueKey,
-  ]);
-};
-
-// Classification keeps all fail-closed residue outcomes in one audit-friendly flow.
-// fallow-ignore-next-line complexity
-const collectGeneratedNamespaceResidue = async ({
-  namespace,
-  context,
+/**
+ * A generated temp is job output that no journal owns yet. A publish journal
+ * owns its temp from the moment it is prepared, and every path an unfinished
+ * mutation names is in `protectedPaths`; a queued or running job still owns
+ * its own temp. Anything
+ * else past retention was left by a job that died before handing it over, and
+ * is a rebuildable derivative or archive, so it is removed like upload staging.
+ */
+const removeAbandonedGeneratedTemps = async ({
+  client,
   storagePaths,
   protectedPaths,
-  activeGeneratedPaths,
   now,
-  residueByOwner,
-  unknownResidue,
-  warnings,
+  removeStagingPath,
 }: {
-  namespace: string;
-  context: Awaited<ReturnType<typeof loadGeneratedCleanupContext>>;
+  client: UploadSessionCleanupClient;
   storagePaths: WorkerStoragePaths;
   protectedPaths: Set<string>;
-  activeGeneratedPaths: Set<string>;
   now: Date;
-  residueByOwner: Map<string, string[]>;
-  unknownResidue: string[];
-  warnings: string[];
+  removeStagingPath: (targetPath: string) => Promise<void>;
 }) => {
-  const root = path.resolve(storagePaths.tmpRoot, namespace);
-  let directory;
-  try {
-    directory = await opendir(root);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
-    throw error;
-  }
-  for await (const entry of directory) {
-    const candidate = path.resolve(root, entry.name);
-    if (protectedPaths.has(candidate) || activeGeneratedPaths.has(candidate)) {
-      continue;
-    }
-    const info = await lstat(candidate);
+  const temps = await listGeneratedTemps(storagePaths);
+  if (temps.length === 0) return [];
+  const activeGeneratedPaths = await listActiveGeneratedPaths({
+    client,
+    storagePaths,
+    derivativeIds: temps
+      .filter((temp) => temp.namespace === "derivatives")
+      .map((temp) => temp.entityId),
+  });
+  const warnings: string[] = [];
+  for (const { absolutePath } of temps) {
     if (
-      now.getTime() - info.mtime.getTime() <
-      storagePaths.uploadStagingTtlMs
+      protectedPaths.has(absolutePath) ||
+      activeGeneratedPaths.has(absolutePath)
     ) {
       continue;
     }
-    const residueKey = `tmp/${namespace}/${entry.name}`;
-    const entityId = generatedEntityId(namespace, entry.name);
-    const ownerUserId = generatedTempOwner({
-      namespace,
-      entityId,
-      derivatives: context.derivatives,
-      archives: context.archives,
-    });
-    if (ownerUserId) {
-      addOwnerResidue(residueByOwner, ownerUserId, residueKey);
-    } else {
-      unknownResidue.push(residueKey);
+    try {
+      const info = await lstat(absolutePath);
+      if (
+        !info.isFile() ||
+        now.getTime() - info.mtime.getTime() < storagePaths.uploadStagingTtlMs
+      ) {
+        continue;
+      }
+      await removeStagingPath(absolutePath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+      const key = path.relative(storagePaths.tmpRoot, absolutePath);
+      warnings.push(`generated temp ${key}: ${errorMessage(error)}`);
     }
-    protectedPaths.add(candidate);
-    warnings.push(`generated temp preserved for recovery: ${residueKey}`);
   }
-};
-
-const classifyGeneratedResidue = async ({
-  client,
-  classifyResidue,
-  residueByOwner,
-  unknownResidue,
-}: {
-  client: UploadSessionCleanupClient;
-  classifyResidue: (input: {
-    ownerUserId: string;
-    residueKeys: string[];
-    global: boolean;
-  }) => Promise<void>;
-  residueByOwner: Map<string, string[]>;
-  unknownResidue: string[];
-}) => {
-  for (const [ownerUserId, residueKeys] of residueByOwner) {
-    await classifyResidue({ ownerUserId, residueKeys, global: false });
-  }
-  if (unknownResidue.length === 0) return;
-  const fallbackOwner = ((await client.user?.findMany({
-    select: { id: true },
-    orderBy: { createdAt: "asc" },
-    take: 1,
-  })) ?? [])[0];
-  if (!fallbackOwner) {
-    throw new Error(
-      "Abandoned generated temp has no owner available for durable recovery.",
-    );
-  }
-  await classifyResidue({
-    ownerUserId: fallbackOwner.id,
-    residueKeys: unknownResidue,
-    global: true,
-  });
-};
-
-const classifyAbandonedGeneratedTemps = async ({
-  client,
-  storagePaths,
-  protectedPaths,
-  now,
-  classifyResidue,
-}: {
-  client: UploadSessionCleanupClient;
-  storagePaths: WorkerStoragePaths;
-  protectedPaths: Set<string>;
-  now: Date;
-  classifyResidue: (input: {
-    ownerUserId: string;
-    residueKeys: string[];
-    global: boolean;
-  }) => Promise<void>;
-}) => {
-  const context = await loadGeneratedCleanupContext(client, storagePaths);
-  const activeKeys = new Set(
-    context.activeJobs.flatMap((job) => job.dedupeKey ?? []),
-  );
-  const activeGeneratedPaths = buildActiveGeneratedPaths({
-    activeKeys,
-    derivatives: context.derivatives,
-    storagePaths,
-  });
-  const warnings: string[] = [];
-  const residueByOwner = new Map<string, string[]>();
-  const unknownResidue: string[] = [];
-  for (const namespace of ["derivatives", "archives"]) {
-    await collectGeneratedNamespaceResidue({
-      namespace,
-      context,
-      storagePaths,
-      protectedPaths,
-      activeGeneratedPaths,
-      now,
-      residueByOwner,
-      unknownResidue,
-      warnings,
-    });
-  }
-  await classifyGeneratedResidue({
-    client,
-    classifyResidue,
-    residueByOwner,
-    unknownResidue,
-  });
   return warnings;
 };
 
@@ -674,15 +528,6 @@ export const cleanupUploadSessionLifecycle = async ({
   removeStagingPath = (targetPath) => rm(targetPath, { force: true }),
   deleteTerminalRows = (sessionIds) =>
     client.uploadSession.deleteMany({ where: { id: { in: sessionIds } } }),
-  classifyResidue = async ({ ownerUserId, residueKeys, global }) => {
-    await createLegacyRecoveryRequiredMutation({
-      ownerUserId,
-      residueKeys,
-      ...(global ? { resourceKeys: ["storage:global-recovery"] } : {}),
-      reason:
-        "Abandoned generated temp has no safely determined publish outcome.",
-    });
-  },
 }: {
   client: UploadSessionCleanupClient;
   storagePaths: WorkerStoragePaths;
@@ -690,11 +535,6 @@ export const cleanupUploadSessionLifecycle = async ({
   now?: Date;
   removeStagingPath?: (targetPath: string) => Promise<void>;
   deleteTerminalRows?: (sessionIds: string[]) => Promise<unknown>;
-  classifyResidue?: (input: {
-    ownerUserId: string;
-    residueKeys: string[];
-    global: boolean;
-  }) => Promise<void>;
 }) => {
   const warnings: string[] = [];
   warnings.push(
@@ -732,10 +572,11 @@ export const cleanupUploadSessionLifecycle = async ({
     where: { stagingReleasedAt: null },
     select: { id: true, tmpPath: true },
   });
-  const protectedMutationSources =
+  // Unfinished mutations keep every path they name, including recovery
+  // records that list leftovers as delete targets for an operator.
+  const protectedMutationPaths =
     (await client.storageMutationStep?.findMany({
       where: {
-        sourceKey: { not: null },
         mutation: {
           status: {
             in: [
@@ -750,14 +591,14 @@ export const cleanupUploadSessionLifecycle = async ({
           },
         },
       },
-      select: { sourceKey: true },
+      select: { sourceKey: true, targetKey: true },
     })) ?? [];
   const protectedPaths = new Set([
     ...protectedSessions.map((session) => path.resolve(session.tmpPath)),
-    ...protectedMutationSources.flatMap((step) =>
-      step.sourceKey
-        ? [path.resolve(storagePaths.filesRoot, step.sourceKey)]
-        : [],
+    ...protectedMutationPaths.flatMap((step) =>
+      [step.sourceKey, step.targetKey].flatMap((key) =>
+        key ? [path.resolve(storagePaths.filesRoot, key)] : [],
+      ),
     ),
   ]);
   const effectiveStagingTtlMs =
@@ -769,12 +610,12 @@ export const cleanupUploadSessionLifecycle = async ({
     };
     try {
       warnings.push(
-        ...(await classifyAbandonedGeneratedTemps({
+        ...(await removeAbandonedGeneratedTemps({
           client,
           storagePaths: effectiveStoragePaths,
           protectedPaths,
           now,
-          classifyResidue,
+          removeStagingPath,
         })),
       );
     } catch (error) {
