@@ -28,7 +28,8 @@ const TRASH_CONCURRENCY = 6;
 type FailureReason = "busy" | "finishing" | "recovery" | "refused" | "unknown";
 type Failure = { item: Item; reason: FailureReason; message: string };
 
-const reasonOf = (error: unknown): FailureReason => {
+/** `kind` is the journal mutation this request starts, such as `file_trash`. */
+const reasonOf = (error: unknown, kind: string): FailureReason => {
   if (!(error instanceof StorageRequestError)) return "unknown";
   if (error.code === "STORAGE_ADMISSION_BUSY") return "busy";
   if (error.code === "STORAGE_RECOVERY_REQUIRED") return "recovery";
@@ -36,9 +37,10 @@ const reasonOf = (error: unknown): FailureReason => {
     error.code === "STORAGE_MUTATION_RECOVERING" ||
     error.code === "STORAGE_MUTATION_IN_PROGRESS"
   ) {
-    // Without its own mutation the request was turned away, for example
-    // while storage recovers after a restart.
-    return error.mutationId ? "finishing" : "busy";
+    // Only the same change already under way is still finishing. Any other
+    // change holding the item, or storage recovering after a restart,
+    // turned this request away before it started.
+    return error.mutationKind === kind ? "finishing" : "busy";
   }
   return error.status < 500 ? "refused" : "unknown";
 };
@@ -65,7 +67,7 @@ async function moveTrash(items: Item[], action: TrashAction) {
           keyOf(item, action === "trash" ? "restore" : "trash"),
         );
       } catch (error) {
-        const reason = reasonOf(error);
+        const reason = reasonOf(error, `${item.kind}_${action}`);
         // Only a lost answer is retried as the same request. Every other
         // outcome is settled, so the next attempt is a new move.
         if (reason !== "unknown") forgetStorageMutationKey(keyOf(item, action));
@@ -320,7 +322,7 @@ export async function emptyTrash(refresh: () => unknown) {
       },
       success: { title: "Trash emptied", description: undefined },
       error: (error: unknown) => {
-        const reason = reasonOf(error);
+        const reason = reasonOf(error, "clear_trash");
         return {
           title:
             reason === "finishing"

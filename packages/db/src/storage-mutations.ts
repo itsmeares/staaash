@@ -255,6 +255,8 @@ export class StorageMutationConflictError extends Error {
     | "STORAGE_IDEMPOTENCY_KEY_REUSED";
   readonly status: 409 | 503;
   readonly mutationId?: string;
+  /** Sent with the error, so a client can tell which change holds the item. */
+  readonly details?: { mutationKind: string };
 
   constructor(
     code:
@@ -263,6 +265,7 @@ export class StorageMutationConflictError extends Error {
       | "STORAGE_RECOVERY_REQUIRED"
       | "STORAGE_IDEMPOTENCY_KEY_REUSED",
     mutationId?: string,
+    mutationKind?: string,
   ) {
     super(
       code === "STORAGE_MUTATION_IN_PROGRESS"
@@ -277,6 +280,7 @@ export class StorageMutationConflictError extends Error {
     this.code = code;
     this.status = code === "STORAGE_IDEMPOTENCY_KEY_REUSED" ? 409 : 503;
     this.mutationId = mutationId;
+    if (mutationKind) this.details = { mutationKind };
   }
 }
 

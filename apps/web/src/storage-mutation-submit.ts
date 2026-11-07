@@ -8,8 +8,9 @@ export class StorageRequestError extends Error {
     message: string,
     readonly status: number,
     readonly code?: string,
-    /** Set when the server names this request's own journal mutation. */
+    /** The journal mutation that holds the item, when the server names it. */
     readonly mutationId?: string,
+    readonly mutationKind?: string,
   ) {
     super(message);
     this.name = "StorageRequestError";
@@ -45,12 +46,15 @@ export const submitStorageMutationPost = async ({
     const body = (await response.json().catch(() => ({}))) as {
       error?: string;
       code?: string;
+      details?: { mutationKind?: unknown };
     };
+    const kind = body.details?.mutationKind;
     throw new StorageRequestError(
       body.error ?? "Storage operation failed.",
       response.status,
       body.code,
       response.headers.get("X-Storage-Mutation-Id") ?? undefined,
+      typeof kind === "string" ? kind : undefined,
     );
   }
   storageMutationKeys.delete(logicalAction);

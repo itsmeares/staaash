@@ -412,6 +412,7 @@ it("names the request's own unfinished move to trash when it is sent again", asy
   ).rejects.toMatchObject({
     code: "STORAGE_MUTATION_RECOVERING",
     mutationId: mutation.id,
+    details: { mutationKind: "folder_trash" },
   });
 
   await db.storageMutation.update({
@@ -423,5 +424,6 @@ it("names the request's own unfinished move to trash when it is sent again", asy
   ).rejects.toMatchObject({
     code: "STORAGE_RECOVERY_REQUIRED",
     mutationId: mutation.id,
+    details: { mutationKind: "folder_trash" },
   });
 });
