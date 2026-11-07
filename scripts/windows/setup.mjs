@@ -241,12 +241,14 @@ const stopServices = async () => {
   }
 };
 
-const freePort = (start) =>
+// The web port is not in use yet on a first install, so skip it by name.
+const freePort = (start, skip) =>
   new Promise((resolve, reject) => {
+    if (start === skip) return resolve(freePort(start + 1, skip));
     const server = net.createServer();
     server.once("error", (error) => {
       if (error.code === "EADDRINUSE" && start < 65_000)
-        resolve(freePort(start + 1));
+        resolve(freePort(start + 1, skip));
       else reject(error);
     });
     server.listen(start, "127.0.0.1", () => server.close(() => resolve(start)));
@@ -481,7 +483,7 @@ const install = async ({ appDir, dataDir, port, account, firewall }) => {
     }
     const newDatabase = {
       password: randomBytes(24).toString("hex"),
-      port: await freePort(5433),
+      port: await freePort(5433, port),
     };
     initDatabase({ appDir, paths, ...newDatabase });
     settings.DATABASE_URL = `postgresql://staaash:${newDatabase.password}@127.0.0.1:${newDatabase.port}/staaash`;
@@ -548,7 +550,7 @@ const main = async (argv) => {
   if (!Number.isInteger(port) || port < 1 || port > 65_535) {
     throw new SetupError(`Port ${values.port} is not a valid port.`);
   }
-  if (!(values.account in ACCOUNTS)) {
+  if (!Object.hasOwn(ACCOUNTS, values.account)) {
     throw new SetupError(`Unknown account ${values.account}.`);
   }
   if (command === "precheck") {
