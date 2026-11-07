@@ -87,6 +87,19 @@ test("precheck refuses a whole drive as the data folder", () => {
   );
 });
 
+test("precheck refuses a data path the settings file cannot quote", () => {
+  assert.throws(
+    () =>
+      precheck({
+        installed: "",
+        version: "2.0.0",
+        appDir,
+        dataDir: path.join(os.tmpdir(), "O'Neil`s data"),
+      }),
+    /without both/,
+  );
+});
+
 test("precheck refuses a data folder inside the program folder", () => {
   for (const name of ["data", "..data"]) {
     assert.throws(

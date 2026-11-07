@@ -79,6 +79,12 @@ export const precheck = ({ installed, version, appDir, dataDir }) => {
   if (path.parse(path.resolve(dataDir)).root === path.resolve(dataDir)) {
     throw new SetupError("Pick a folder for the data, not a whole drive.");
   }
+  // The settings file can quote a value holding one of these, not both.
+  if (dataDir.includes("'") && dataDir.includes("`")) {
+    throw new SetupError(
+      "Pick a data folder without both ' and ` in its path.",
+    );
+  }
   if (isInside(dataDir, appDir)) {
     throw new SetupError(
       "Pick a data folder outside the Staaash Server program folder.",
