@@ -105,7 +105,8 @@ test("precheck refuses a data folder inside the program folder", () => {
 test("settings survive a write and read", () => {
   const settings = {
     DATABASE_URL: "postgresql://staaash:secret@127.0.0.1:5433/staaash",
-    UPLOAD_LOCATION: "D:\\Staaash Data\\files",
+    UPLOAD_LOCATION: "D:\\Staaash Data #2\\new\\files",
+    STAAASH_PUBLIC_URL: "https://drive.example.com/#it's",
     PORT: "2113",
   };
   assert.deepEqual(parseEnvFile(renderEnvFile(settings)), settings);

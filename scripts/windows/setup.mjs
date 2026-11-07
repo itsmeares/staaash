@@ -17,7 +17,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs } from "node:util";
+import { parseArgs, parseEnv } from "node:util";
 
 import { compareSemanticVersions } from "./version.mjs";
 
@@ -103,22 +103,22 @@ export const precheck = ({ installed, version, appDir, dataDir }) => {
   }
 };
 
-export const parseEnvFile = (text) =>
-  Object.fromEntries(
-    text
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line && !line.startsWith("#") && line.includes("="))
-      .map((line) => {
-        const at = line.indexOf("=");
-        return [line.slice(0, at).trim(), line.slice(at + 1).trim()];
-      }),
-  );
+// The services read this file with node --env-file, so parse it the same way.
+export const parseEnvFile = (text) => ({ ...parseEnv(text) });
+
+// Quoted so `#` stays part of the value; single quotes keep backslashes as is.
+const quoteEnvValue = (value) => {
+  if (!value.includes("'")) return `'${value}'`;
+  if (!value.includes("`")) return `\`${value}\``;
+  throw new SetupError(`A setting cannot hold both ' and \`: ${value}`);
+};
 
 export const renderEnvFile = (values) =>
   [
     "# Staaash server settings. Restart the Staaash services after a change.",
-    ...Object.entries(values).map(([key, value]) => `${key}=${value}`),
+    ...Object.entries(values).map(
+      ([key, value]) => `${key}=${quoteEnvValue(String(value))}`,
+    ),
     "",
   ].join("\r\n");
 
