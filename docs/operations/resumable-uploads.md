@@ -28,6 +28,8 @@ The per-user staged-byte limit must allow one maximum-size upload. The instance
 staged-byte limit must be at least the per-user limit.
 Staaash also requires projected free disk space to remain at least 10% of the
 storage filesystem after admitted resumable uploads reach their requested size.
+A refused upload reports the free space, the margin, and how much to free. The
+admin overview warns once free space is at or below the margin.
 
 Active resumable reservations count with committed files against a user's
 storage quota. A reservation admitted before a quota or limit reduction may

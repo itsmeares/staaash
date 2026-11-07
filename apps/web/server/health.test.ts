@@ -8,6 +8,7 @@ import {
   buildInstanceHealthSummary,
   getWorkerHeartbeatStatus,
   resolveVersionHealth,
+  toStorageWarningSummary,
   toJsonInstanceHealthSummary,
 } from "@/server/health";
 
@@ -30,6 +31,18 @@ const baseReconciliation = {
 describe("health summaries", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it("says uploads are refused when free space is within the safety margin", () => {
+    const gb = 1024n ** 3n;
+    const summary = toStorageWarningSummary(71n * gb, 937n * gb);
+    expect(summary.status).toBe("warning");
+    expect(summary.message).toContain("71.0 GB");
+    expect(summary.message).toContain("10% of the disk (93.7 GB)");
+    expect(summary.message).toContain("New uploads are refused");
+    expect(toStorageWarningSummary(200n * gb, 937n * gb).status).toBe(
+      "healthy",
+    );
   });
 
   it("marks missing heartbeat as a warning", () => {

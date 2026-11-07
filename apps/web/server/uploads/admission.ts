@@ -7,7 +7,12 @@ import {
   StorageAdmissionBusyError,
 } from "@staaash/db/storage-transactions";
 
+import { formatBytes } from "@/lib/format-bytes";
 import { getStorageRoot } from "@/server/storage";
+import {
+  describeDiskMargin,
+  uploadDiskMarginBytes,
+} from "@/server/uploads/disk-margin";
 import {
   OPEN_SESSION_LIMITS,
   TERMINAL_BACKLOG_LIMITS,
@@ -85,8 +90,9 @@ export class UploadAdmissionError extends Error {
   constructor(
     code: UploadAdmissionErrorCode,
     details?: Record<string, string | number>,
+    message = admissionErrorDetails[code].message,
   ) {
-    super(admissionErrorDetails[code].message);
+    super(message);
     this.name = "UploadAdmissionError";
     this.code = code;
     this.status = admissionErrorDetails[code].status;
@@ -252,7 +258,8 @@ const readAdmissionStats = async (
   };
 };
 
-const assertPhysicalHeadroom = async (
+// fallow-ignore-next-line unused-export
+export const assertPhysicalHeadroom = async (
   outstandingGrowthBytes: bigint,
   requestedBytes: bigint,
 ) => {
@@ -265,12 +272,20 @@ const assertPhysicalHeadroom = async (
   }
   const availableBytes = BigInt(disk.bavail) * BigInt(disk.bsize);
   const totalBytes = BigInt(disk.blocks) * BigInt(disk.bsize);
-  const safetyFloorBytes = totalBytes / 10n;
-  if (
-    availableBytes - outstandingGrowthBytes - requestedBytes <
-    safetyFloorBytes
-  ) {
-    throw new UploadAdmissionError("UPLOAD_STORAGE_CAPACITY_EXCEEDED");
+  const marginBytes = uploadDiskMarginBytes(totalBytes);
+  const projectedFreeBytes =
+    availableBytes - outstandingGrowthBytes - requestedBytes;
+  if (projectedFreeBytes < marginBytes) {
+    const shortfallBytes = marginBytes - projectedFreeBytes;
+    throw new UploadAdmissionError(
+      "UPLOAD_STORAGE_CAPACITY_EXCEEDED",
+      {
+        freeBytes: Number(availableBytes),
+        marginBytes: Number(marginBytes),
+        shortfallBytes: Number(shortfallBytes),
+      },
+      `Not enough free disk space for this upload. Staaash keeps ${describeDiskMargin(marginBytes)} free, and only ${formatBytes(availableBytes)} is free. Free at least ${formatBytes(shortfallBytes)} more to upload this file.`,
+    );
   }
 };
 
