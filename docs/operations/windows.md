@@ -43,8 +43,10 @@ Staaash-Server-<version>-win-x64.exe /S /DATA=D:\Staaash /PORT=2113 /ACCOUNT=Net
 ```
 
 `/ACCOUNT` is `NetworkService` or `LocalSystem`. `/FIREWALL=0` skips the
-firewall rule. The exit code is `0` when Staaash is up, `2` when it was
-installed but did not start, and another number when nothing was set up.
+firewall rule. The exit code is `0` when Staaash is up and `2` when it was
+installed but did not start. `3` refuses a downgrade and `4` a data folder
+from another PostgreSQL major version; both change nothing. Any other number
+means setup failed, and `<data>\logs\setup.log` says why.
 
 ## What it creates
 
@@ -100,6 +102,8 @@ folder. Delete that folder yourself to remove your files and database.
 
 ## Troubleshooting
 
+- **The installer says setup failed.** Read `<data>\logs\setup.log`, fix
+  the cause, and run the same installer again.
 - **The installer says Staaash did not start.** Read the newest files in
   `<data>\logs`: `StaaashWeb.out.log` and `StaaashWeb.err.log` for the web
   app, `StaaashWorker.*.log` for the worker, and `logs\postgres` for the

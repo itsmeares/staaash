@@ -3,6 +3,7 @@
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import {
+  appendFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -361,7 +362,8 @@ const registerPostgres = ({ appDir, paths }) => {
 const registerAppServices = ({ appDir, dataDir, account }) => {
   for (const service of SERVICES) {
     const wrapper = path.join(appDir, "services", `${service.id}.exe`);
-    if (serviceExists(service.id)) run(wrapper, ["uninstall"]);
+    // An update replaced the services folder, so WinSW needs its XML back
+    // before it can remove the old registration.
     writeFileSync(
       path.join(appDir, "services", `${service.id}.xml`),
       renderServiceXml({
@@ -372,6 +374,7 @@ const registerAppServices = ({ appDir, dataDir, account }) => {
         account,
       }),
     );
+    if (serviceExists(service.id)) run(wrapper, ["uninstall"]);
     run(wrapper, ["install"]);
   }
 };
@@ -524,6 +527,15 @@ const main = async (argv) => {
       port,
       account: values.account,
       firewall: values.firewall === "1",
+    }).catch((error) => {
+      // A silent install has no window to show the message in.
+      const { logs } = dataPaths(values.data);
+      mkdirSync(logs, { recursive: true });
+      appendFileSync(
+        path.join(logs, "setup.log"),
+        `${new Date().toISOString()} ${error.message}\n`,
+      );
+      throw error;
     });
   }
   if (command === "uninstall") return uninstall({ appDir: values.app });

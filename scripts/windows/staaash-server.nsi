@@ -267,7 +267,7 @@ Section "Staaash Server"
     MessageBox MB_ICONEXCLAMATION "Staaash did not start. See the logs in $DataDir\logs." /SD IDOK
     SetErrorLevel 2
   ${ElseIf} $0 != 0
-    MessageBox MB_ICONSTOP "Setup failed. See the details below." /SD IDOK
+    MessageBox MB_ICONSTOP "Setup failed. See the details below or $DataDir\logs\setup.log." /SD IDOK
     SetErrorLevel $0
     Abort
   ${EndIf}
