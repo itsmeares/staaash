@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 
 import { confirmAction } from "@/components/confirm-dialog";
 import {
+  forgetStorageMutationKey,
   StorageRequestError,
   submitStorageMutationPost,
 } from "@/src/storage-mutation-submit";
@@ -46,6 +47,8 @@ const reasonOf = (error: unknown): FailureReason => {
 async function moveTrash(items: Item[], action: TrashAction) {
   const moved = new Set<Item>();
   const failed: Failure[] = [];
+  const keyOf = (item: Item, of: TrashAction) =>
+    `${of}:${item.kind}:${item.id}`;
   let next = 0;
   const work = async () => {
     while (next < items.length) {
@@ -53,13 +56,22 @@ async function moveTrash(items: Item[], action: TrashAction) {
       try {
         await submitStorageMutationPost({
           action: `/api/files/${kindPath(item)}/${item.id}/${action}`,
-          logicalAction: `${action}:${item.kind}:${item.id}`,
+          logicalAction: keyOf(item, action),
         });
         moved.add(item);
+        // The item changed state, so an older attempt to move it the other
+        // way must not replay as done.
+        forgetStorageMutationKey(
+          keyOf(item, action === "trash" ? "restore" : "trash"),
+        );
       } catch (error) {
+        const reason = reasonOf(error);
+        // Only a lost answer is retried as the same request. Every other
+        // outcome is settled, so the next attempt is a new move.
+        if (reason !== "unknown") forgetStorageMutationKey(keyOf(item, action));
         failed.push({
           item,
-          reason: reasonOf(error),
+          reason,
           message: error instanceof Error ? error.message : "",
         });
       }
@@ -329,6 +341,9 @@ export async function emptyTrash(refresh: () => unknown) {
   } catch {
     // The toast already says what happened.
   } finally {
+    // Emptying again is always a new request: replaying an earlier one that
+    // finished would report success and leave newer items in trash.
+    forgetStorageMutationKey("empty-trash");
     emptying = null;
     await refresh();
   }

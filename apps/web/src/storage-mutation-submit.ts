@@ -56,3 +56,10 @@ export const submitStorageMutationPost = async ({
   storageMutationKeys.delete(logicalAction);
   return (await response.json().catch(() => null)) as unknown;
 };
+
+/**
+ * Drops the kept key so the next request for this change starts a new
+ * mutation. Call it once a retry should no longer replay the old one.
+ */
+export const forgetStorageMutationKey = (logicalAction: string) =>
+  storageMutationKeys.delete(logicalAction);
