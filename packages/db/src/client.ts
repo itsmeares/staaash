@@ -20,6 +20,15 @@ let productionDatabase:
     }
   | undefined;
 
+// The list queries' recursive CTEs push the planner's cost estimate past
+// jit_above_cost, so PostgreSQL spends most of each run compiling code for
+// work that takes a few milliseconds (Trash: 738 ms with JIT, 30 ms without).
+// Staaash runs no query large enough to gain from JIT.
+const connectionOptions = (connectionString: string | undefined) => ({
+  connectionString,
+  options: "-c jit=off",
+});
+
 function createDatabase() {
   const connectionString = process.env.DATABASE_URL;
 
@@ -27,8 +36,11 @@ function createDatabase() {
     throw new Error("DATABASE_URL is required before calling getPrisma().");
   }
 
-  const pool = new Pool({ connectionString });
-  const uploadPool = new Pool({ connectionString, max: 3 });
+  const pool = new Pool(connectionOptions(connectionString));
+  const uploadPool = new Pool({
+    ...connectionOptions(connectionString),
+    max: 3,
+  });
   // An idle connection dies when PostgreSQL restarts. The pool drops it and
   // opens a new one; without a listener Node would exit instead.
   for (const each of [pool, uploadPool]) {
@@ -42,7 +54,7 @@ function createDatabase() {
     uploadPool,
     prisma: new PrismaClient({ adapter }),
     storagePrisma: new PrismaClient({
-      adapter: new PrismaPg({ connectionString, max: 3 }),
+      adapter: new PrismaPg({ ...connectionOptions(connectionString), max: 3 }),
     }),
   };
 }
@@ -66,7 +78,7 @@ export function getStoragePrisma(): PrismaClient {
   // A development reload can reuse a cache created before the storage pool existed.
   database.storagePrisma ??= new PrismaClient({
     adapter: new PrismaPg({
-      connectionString: database.pool.options.connectionString,
+      ...connectionOptions(database.pool.options.connectionString),
       max: 3,
     }),
   });
