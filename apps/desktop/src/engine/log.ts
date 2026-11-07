@@ -42,6 +42,7 @@ const append = (file: string, text: string) => {
  */
 export const createSyncLog = (
   file: string,
+  version: string,
   token: () => string | undefined = () => undefined,
 ): SyncLog => {
   const written = new Map<string, number>();
@@ -52,6 +53,7 @@ export const createSyncLog = (
     const text = secret ? raw.replaceAll(secret, "[device token]") : raw;
     if (Date.now() - (written.get(text) ?? 0) < REPEAT_AFTER_MS) return;
     if (written.size >= 100) written.clear();
-    if (append(file, text)) written.set(text, Date.now());
+    if (append(file, `version ${version} ${text}`))
+      written.set(text, Date.now());
   };
 };

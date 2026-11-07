@@ -31,10 +31,10 @@ describe("the sync log", () => {
       }),
       { code: "ERR_TEST" },
     );
-    createSyncLog(file)("reading server changes", error);
+    createSyncLog(file, "1.2.3")("reading server changes", error);
     const text = readFileSync(file, "utf8");
     for (const part of [
-      "reading server changes",
+      "version 1.2.3 reading server changes",
       "code: ERR_TEST",
       "fetch failed",
       "caused by",
@@ -49,7 +49,7 @@ describe("the sync log", () => {
     const error = Object.assign(new Error("failed"), {
       headers: { authorization: "Bearer secret-token" },
     });
-    createSyncLog(file)("stage", error);
+    createSyncLog(file, "1.2.3")("stage", error);
     expect(readFileSync(file, "utf8")).not.toContain("secret-token");
   });
 
@@ -57,7 +57,7 @@ describe("the sync log", () => {
     const error = new TypeError(
       'Headers.append: "Bearer secret-token" is an invalid header value.',
     );
-    createSyncLog(file, () => "secret-token")("stage", error);
+    createSyncLog(file, "1.2.3", () => "secret-token")("stage", error);
     const text = readFileSync(file, "utf8");
     expect(text).not.toContain("secret-token");
     expect(text).toContain("[device token]");
@@ -65,7 +65,7 @@ describe("the sync log", () => {
 
   it("writes a failure later if the disk refused it the first time", () => {
     const missing = path.join(dir, "later");
-    const log = createSyncLog(path.join(missing, "sync.log"));
+    const log = createSyncLog(path.join(missing, "sync.log"), "1.2.3");
     log("stage", new Error("failed"));
     mkdirSync(missing);
     log("stage", new Error("failed"));
@@ -75,7 +75,7 @@ describe("the sync log", () => {
   });
 
   it("writes a repeated failure once, even between other failures", () => {
-    const log = createSyncLog(file);
+    const log = createSyncLog(file, "1.2.3");
     const first = new Error("first");
     const second = new Error("second");
     for (let pass = 0; pass < 3; pass += 1) {
@@ -86,16 +86,26 @@ describe("the sync log", () => {
     expect(readFileSync(file, "utf8").match(/Error: second/g)).toHaveLength(1);
   });
 
+  it("keeps older entries when a new version writes", () => {
+    createSyncLog(file, "1.0.0")("stage", new Error("old"));
+    createSyncLog(file, "2.0.0")("stage", new Error("new"));
+    const text = readFileSync(file, "utf8");
+    expect(text).toContain("version 1.0.0 stage");
+    expect(text).toContain("version 2.0.0 stage");
+  });
+
   it("moves a full log aside and keeps writing", () => {
     writeFileSync(file, "x".repeat(1024 * 1024));
-    createSyncLog(file)("stage", new Error("after"));
+    createSyncLog(file, "1.2.3")("stage", new Error("after"));
     expect(existsSync(`${file}.1`)).toBe(true);
+    expect(readFileSync(`${file}.1`, "utf8")).toBe("x".repeat(1024 * 1024));
+    expect(readFileSync(file, "utf8")).toContain("version 1.2.3");
     expect(readFileSync(file, "utf8")).toContain("after");
     expect(readFileSync(file, "utf8")).not.toContain("xxx");
   });
 
   it("never throws when the file can't be written", () => {
-    const log = createSyncLog(path.join(dir, "missing", "sync.log"));
+    const log = createSyncLog(path.join(dir, "missing", "sync.log"), "1.2.3");
     expect(() => log("stage", new Error("failed"))).not.toThrow();
   });
 });

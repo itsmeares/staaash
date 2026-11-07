@@ -176,7 +176,7 @@ const updateSettings = async (patch: Partial<Settings>) => {
 const startEngine = () => {
   const child = utilityProcess.fork(
     path.join(__dirname, "../engine/index.cjs"),
-    [dataDir()],
+    [dataDir(), app.getVersion()],
     {
       serviceName: "Staaash sync",
     },
