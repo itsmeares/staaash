@@ -202,6 +202,11 @@ const userViews = user
         },
         updateState,
         nodeVersion: process.version,
+        // Windows servers run from the installer; everything else is the image.
+        installKind:
+          process.platform === "win32"
+            ? ("windows" as const)
+            : ("container" as const),
         person: personOf(user),
       }),
     );

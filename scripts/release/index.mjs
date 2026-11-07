@@ -655,11 +655,19 @@ const desktopReleaseNotes = ({ repository, release }) => {
 | Linux RPM | [Installer x64](${download("linux-x86_64.rpm")}) | [Installer ARM64](${download("linux-aarch64.rpm")}) |`;
 };
 
+const windowsServerReleaseNotes = ({ repository, release }) => {
+  const version = release.tag.slice(1);
+  return `## Windows server
+
+[Installer x64](https://github.com/${repository}/releases/download/${release.tag}/Staaash-Server-${version}-win-x64.exe) for Windows Server 2019 and newer, and Windows 10 and 11. Install, update, and backup steps are in the [Windows guide](https://github.com/${repository}/blob/${release.tag}/docs/operations/windows.md).`;
+};
+
 const createDraftInput = ({
   context,
   generated,
   provenance,
   hasDesktop = false,
+  hasWindowsServer = false,
 }) => ({
   tag_name: context.release.tag,
   name: context.release.tag,
@@ -667,6 +675,7 @@ const createDraftInput = ({
     body: [
       `# 🚀 Staaash ${context.release.tag.slice(1)}`,
       hasDesktop ? desktopReleaseNotes(context) : "",
+      hasWindowsServer ? windowsServerReleaseNotes(context) : "",
       generated.body ?? "",
     ]
       .filter(Boolean)
@@ -690,6 +699,14 @@ const createDraft = ({ context, provenance }) => {
       provenance,
       hasDesktop: existsSync(
         path.join(releaseSourceRoot(), PACKAGE_FILES.desktop),
+      ),
+      hasWindowsServer: existsSync(
+        path.join(
+          releaseSourceRoot(),
+          "scripts",
+          "windows",
+          "staaash-server.nsi",
+        ),
       ),
     }),
   });

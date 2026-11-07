@@ -11,7 +11,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
     ...original,
     open: async (...args: Parameters<typeof original.open>) => {
       const handle = await original.open(...args);
-      if (args[1] !== "r") return handle;
+      if (args[1] !== "r" && args[1] !== "r+") return handle;
       return {
         close: () => handle.close(),
         sync: async () => undefined,
@@ -62,14 +62,20 @@ describe("storage filesystem capability cache", () => {
       path.join(os.tmpdir(), "staaash-storage-capability-"),
     );
     const capabilityRoot = path.join(filesRoot, "tmp", "capability");
+    // Windows and macOS disks ignore letter case by default.
+    const supported = {
+      ignoresCase: ["win32", "darwin"].includes(process.platform),
+    };
 
-    await assertStorageFilesystemSupported(filesRoot);
+    await expect(assertStorageFilesystemSupported(filesRoot)).resolves.toEqual(
+      supported,
+    );
     await rm(capabilityRoot, { recursive: true });
     await writeFile(capabilityRoot, "not-a-directory", "utf8");
 
-    await expect(
-      assertStorageFilesystemSupported(filesRoot),
-    ).resolves.toBeUndefined();
+    await expect(assertStorageFilesystemSupported(filesRoot)).resolves.toEqual(
+      supported,
+    );
 
     vi.useFakeTimers();
     vi.setSystemTime(Date.now() + 60_001);
@@ -78,9 +84,9 @@ describe("storage filesystem capability cache", () => {
     ).rejects.toBeInstanceOf(StorageFilesystemUnsupportedError);
 
     await rm(capabilityRoot);
-    await expect(
-      assertStorageFilesystemSupported(filesRoot),
-    ).resolves.toBeUndefined();
+    await expect(assertStorageFilesystemSupported(filesRoot)).resolves.toEqual(
+      supported,
+    );
     await rm(filesRoot, { recursive: true, force: true });
   });
 });

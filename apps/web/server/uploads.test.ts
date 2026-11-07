@@ -67,6 +67,12 @@ describe("upload guardrails", () => {
     ).toBe("photo (2).jpg");
   });
 
+  it("skips names that differ only in letter case", () => {
+    expect(
+      buildSafeRenamedFileName("photo.jpg", ["Photo.JPG", "PHOTO (1).jpg"]),
+    ).toBe("photo (2).jpg");
+  });
+
   it("trims the base name so a safe-rename suffix still fits 255 bytes", () => {
     const original = `${"a".repeat(249)}.txt`;
     const renamed = buildSafeRenamedFileName(original, [original]);

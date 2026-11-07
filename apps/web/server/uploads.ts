@@ -7,7 +7,11 @@ import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { z } from "zod";
 
-import { computeFileSha256 } from "@staaash/db/storage-mutation-executor";
+import {
+  computeFileSha256,
+  syncDirectory,
+  syncFile,
+} from "@staaash/db/storage-mutation-executor";
 
 import { getSystemSettings } from "@/server/settings";
 import {
@@ -256,6 +260,16 @@ export const stageUpload = async (
     throw new UploadError("CHECKSUM_MISMATCH");
   }
 
+  // The journal treats a missing staged file as ambiguous, so it must be on
+  // disk, entry included, before a mutation can name it.
+  try {
+    await syncFile(tmpPath);
+    await syncDirectory(path.dirname(tmpPath));
+  } catch (error) {
+    await cleanupStagedUpload(tmpPath);
+    throw error;
+  }
+
   return {
     uploadId,
     clientKey,
@@ -322,9 +336,13 @@ export const buildSafeRenamedFileName = (
   originalName: string,
   existingNames: Iterable<string>,
 ) => {
-  const takenNames = new Set(Array.from(existingNames));
+  // Skip case variants too, so the new name also fits on disks that ignore case.
+  const takenNames = new Set(
+    Array.from(existingNames, (name) => name.toLowerCase()),
+  );
+  const isTaken = (name: string) => takenNames.has(name.toLowerCase());
 
-  if (!takenNames.has(originalName)) {
+  if (!isTaken(originalName)) {
     return originalName;
   }
 
@@ -338,7 +356,7 @@ export const buildSafeRenamedFileName = (
       maxFilesystemComponentBytes - Buffer.byteLength(suffix),
     )}${suffix}`;
 
-    if (!takenNames.has(candidate)) {
+    if (!isTaken(candidate)) {
       return candidate;
     }
   }

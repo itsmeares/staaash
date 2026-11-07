@@ -34,11 +34,19 @@ import { checkForUpdatesNow } from "@/lib/update-check-client";
 const MarkdownView = lazy(() => import("@/src/markdown-view"));
 import { getUpdateStatusLabel, type UpdateState } from "@/lib/update-status";
 
+type InstallKind = "windows" | "container";
+
+const HOW_TO_UPDATE: Record<InstallKind, string> = {
+  container: "Pull the new image to update.",
+  windows: "Run the new Staaash-Server installer to update.",
+};
+
 type UpdatesContext = {
   /** Null for members: update news is for owners. */
   state: UpdateState | null;
   appVersion: string;
   nodeVersion: string;
+  installKind: InstallKind;
   /** The owner's "Tell me about new versions" preference. */
   notify: boolean;
   openAbout: () => void;
@@ -176,7 +184,7 @@ function AboutDialog({
   onOpenNotes: () => void;
   onState: (state: UpdateState) => void;
 }) {
-  const { state, appVersion, nodeVersion } = useUpdates();
+  const { state, appVersion, nodeVersion, installKind } = useUpdates();
   const { now, timeZone } = useTime();
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -219,7 +227,7 @@ function AboutDialog({
                     What&apos;s new
                   </Button>
                   <span className="text-meta text-muted-foreground">
-                    Pull the new image to update.
+                    {HOW_TO_UPDATE[installKind]}
                   </span>
                 </div>
               </div>
@@ -376,12 +384,14 @@ export function UpdatesProvider({
   initialState,
   appVersion,
   nodeVersion,
+  installKind,
   notify,
   children,
 }: {
   initialState: UpdateState | null;
   appVersion: string;
   nodeVersion: string;
+  installKind: InstallKind;
   notify: boolean;
   children: ReactNode;
 }) {
@@ -429,6 +439,7 @@ export function UpdatesProvider({
         state,
         appVersion,
         nodeVersion,
+        installKind,
         notify,
         openAbout: () => setAboutOpen(true),
         openNotes: () => setNotesOpen(true),

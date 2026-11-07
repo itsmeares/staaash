@@ -14,6 +14,10 @@
     "apps/web/playwright.system.config.ts",
     "packages/config/src/release.ts",
     "scripts/release/index.mjs",
+    // The Windows installer and services run these by path.
+    "scripts/windows/build.mjs",
+    "scripts/windows/setup.mjs",
+    "scripts/windows/start-web.mjs",
     // Electron loads these three by path, and the window page loads main.tsx.
     "apps/desktop/src/main/index.ts",
     "apps/desktop/src/preload/index.ts",

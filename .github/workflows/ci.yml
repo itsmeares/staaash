@@ -171,9 +171,16 @@ jobs:
     with:
       ref: ${{ github.sha }}
 
+  windows:
+    needs: select
+    if: needs.select.outputs.app == 'true'
+    uses: ./.github/workflows/windows-server.yml
+    with:
+      ref: ${{ github.sha }}
+
   validate:
     name: Lint, test, and build
-    needs: [select, checks, postgres, native, desktop]
+    needs: [select, checks, postgres, native, desktop, windows]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -184,6 +191,7 @@ jobs:
           APP: ${{ needs.select.outputs.app }}
           POSTGRES: ${{ needs.postgres.result }}
           NATIVE: ${{ needs.native.result }}
+          WINDOWS: ${{ needs.windows.result }}
           DESKTOP: ${{ needs.desktop.result }}
           DESKTOP_SELECTED: ${{ needs.select.outputs.desktop }}
         run: |
@@ -192,10 +200,12 @@ jobs:
           if test "$APP" = true; then
             test "$POSTGRES" = success
             test "$NATIVE" = success
+            test "$WINDOWS" = success
           else
             test "$APP" = false
             test "$POSTGRES" = skipped
             test "$NATIVE" = skipped
+            test "$WINDOWS" = skipped
           fi
           if test "$DESKTOP_SELECTED" = true; then
             test "$DESKTOP" = success
