@@ -5,7 +5,7 @@ import { createPrismaFilesRepository } from "./repository";
 
 it("finds exact active names within the owner and destination, honoring exclusions", async () => {
   const db = getPrisma();
-  const repo = createPrismaFilesRepository();
+  const repo = createPrismaFilesRepository(undefined, async () => false);
   const createOwner = () =>
     db.user.create({
       data: {

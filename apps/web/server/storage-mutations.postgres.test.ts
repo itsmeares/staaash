@@ -1762,25 +1762,30 @@ describe("STO-02 durable PostgreSQL protocol", () => {
       ).resolves.toEqual({ status: "succeeded" });
     });
 
-    it("aborts an overlong filesystem name instead of retrying it", async () => {
-      const owner = await setupOwner();
-      const bytes = Buffer.from("long-name");
-      const upload = await prepareUpload({
-        owner,
-        bytes,
-        targetName: `${"東京".repeat(50)}.txt`,
-      });
+    // NTFS fits this name and reports longer ones as ENOENT. The 255-byte
+    // name rule keeps them out before the journal there.
+    it.skipIf(process.platform === "win32")(
+      "aborts an overlong filesystem name instead of retrying it",
+      async () => {
+        const owner = await setupOwner();
+        const bytes = Buffer.from("long-name");
+        const upload = await prepareUpload({
+          owner,
+          bytes,
+          targetName: `${"東京".repeat(50)}.txt`,
+        });
 
-      await expect(execute(upload.mutation)).rejects.toMatchObject({
-        code: "STORAGE_PATH_TOO_LONG",
-        status: 400,
-      });
-      await expectAborted(upload.mutation.id);
-      await expectStorageBytes(upload.sourceKey, bytes);
+        await expect(execute(upload.mutation)).rejects.toMatchObject({
+          code: "STORAGE_PATH_TOO_LONG",
+          status: 400,
+        });
+        await expectAborted(upload.mutation.id);
+        await expectStorageBytes(upload.sourceKey, bytes);
 
-      const next = await prepareUpload({ owner, bytes: Buffer.from("ok") });
-      await execute(next.mutation);
-    });
+        const next = await prepareUpload({ owner, bytes: Buffer.from("ok") });
+        await execute(next.mutation);
+      },
+    );
 
     it("rolls back a transient pre-commit failure once attempts run out", async () => {
       const owner = await setupOwner();

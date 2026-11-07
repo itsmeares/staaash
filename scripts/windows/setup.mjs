@@ -180,10 +180,11 @@ export const SERVICES = [
   },
 ];
 
-const run = (command, args, { allowFailure = false } = {}) => {
+const run = (command, args, { allowFailure = false, env } = {}) => {
   try {
     return execFileSync(command, args, {
       encoding: "utf8",
+      env,
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     });
@@ -197,10 +198,13 @@ const run = (command, args, { allowFailure = false } = {}) => {
 const serviceExists = (id) =>
   run("sc.exe", ["query", id], { allowFailure: true }) !== null;
 
+// sc.exe translates its labels on non-English Windows; this enum name is fixed.
 const serviceState = (id) =>
-  /STATE\s+:\s+\d+\s+(\w+)/.exec(
-    run("sc.exe", ["query", id], { allowFailure: true }) ?? "",
-  )?.[1] ?? "MISSING";
+  run(
+    "powershell.exe",
+    ["-NoProfile", "-NonInteractive", "-Command", `(Get-Service ${id}).Status`],
+    { allowFailure: true },
+  )?.trim() || "Missing";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -208,7 +212,9 @@ const waitForState = async (id, wanted, timeoutMs = 90_000) => {
   const giveUpAt = Date.now() + timeoutMs;
   while (Date.now() < giveUpAt) {
     const state = serviceState(id);
-    if (state === wanted || state === "MISSING") return;
+    if (state === wanted || (wanted === "Stopped" && state === "Missing")) {
+      return;
+    }
     await sleep(500);
   }
   throw new SetupError(`The ${id} service did not reach ${wanted}.`);
@@ -222,7 +228,7 @@ const stopServices = async () => {
   ]) {
     if (!serviceExists(id)) continue;
     run("sc.exe", ["stop", id], { allowFailure: true });
-    await waitForState(id, "STOPPED");
+    await waitForState(id, "Stopped");
   }
 };
 
@@ -328,16 +334,26 @@ const installRuntime = (appDir) => {
   }
 };
 
-const createDatabase = ({ appDir, password, port }) => {
-  execFileSync(
-    path.join(appDir, "pgsql", "bin", "createdb.exe"),
-    ["-h", "127.0.0.1", "-p", String(port), "-U", "staaash", "staaash"],
-    {
-      env: { ...process.env, PGPASSWORD: password },
-      stdio: "pipe",
-      windowsHide: true,
-    },
-  );
+// Checked on every run, so a first install that stopped before this step
+// still gets its database when the installer runs again.
+const ensureDatabase = ({ appDir, databaseUrl }) => {
+  const url = new URL(databaseUrl);
+  const name = decodeURIComponent(url.pathname.slice(1));
+  const bin = (tool) => path.join(appDir, "pgsql", "bin", tool);
+  const connection = ["-h", url.hostname, "-p", url.port, "-U", url.username];
+  const env = { ...process.env, PGPASSWORD: decodeURIComponent(url.password) };
+  const found = run(
+    bin("psql.exe"),
+    [
+      ...connection,
+      "-d",
+      "postgres",
+      "-tAc",
+      `SELECT 1 FROM pg_database WHERE datname = '${name.replaceAll("'", "''")}'`,
+    ],
+    { env },
+  ).trim();
+  if (found !== "1") run(bin("createdb.exe"), [...connection, name], { env });
 };
 
 const registerPostgres = ({ appDir, paths }) => {
@@ -432,6 +448,8 @@ const install = async ({ appDir, dataDir, port, account, firewall }) => {
   if (!(account in ACCOUNTS))
     throw new SetupError(`Unknown account ${account}.`);
   const paths = dataPaths(dataDir);
+  // A running service cannot be registered again, so a re-run stops first.
+  await stopServices();
   installRuntime(appDir);
   mkdirSync(dataDir, { recursive: true });
   lockDataFolder(dataDir);
@@ -442,7 +460,6 @@ const install = async ({ appDir, dataDir, port, account, firewall }) => {
   const settings = existsSync(paths.env)
     ? parseEnvFile(readFileSync(paths.env, "utf8"))
     : {};
-  let newDatabase = null;
   if (!settings.DATABASE_URL) {
     if (existsSync(paths.postgres)) {
       throw new SetupError(
@@ -450,7 +467,7 @@ const install = async ({ appDir, dataDir, port, account, firewall }) => {
           "Restore the settings file from your backup.",
       );
     }
-    newDatabase = {
+    const newDatabase = {
       password: randomBytes(24).toString("hex"),
       port: await freePort(5433),
     };
@@ -470,8 +487,8 @@ const install = async ({ appDir, dataDir, port, account, firewall }) => {
   setFirewall({ port, open: firewall });
 
   run("sc.exe", ["start", POSTGRES_SERVICE]);
-  await waitForState(POSTGRES_SERVICE, "RUNNING");
-  if (newDatabase) createDatabase({ appDir, ...newDatabase });
+  await waitForState(POSTGRES_SERVICE, "Running");
+  ensureDatabase({ appDir, databaseUrl: settings.DATABASE_URL });
   for (const service of SERVICES) run("sc.exe", ["start", service.id]);
   await waitForHealth({ port, logs: paths.logs });
 };
