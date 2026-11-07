@@ -667,6 +667,11 @@ export function Transfers() {
   const { unfinished, forget } = useUnfinishedUploads(uploadingFiles);
   const [showWaiting, setShowWaiting] = useState(false);
   const summary = summarize(uploadingFiles);
+  // Opening the waiting files belongs to one batch; the next starts folded.
+  const someWaiting = summary.uploading.length > SENDING_ROWS;
+  useEffect(() => {
+    if (!someWaiting) setShowWaiting(false);
+  }, [someWaiting]);
   const needsYou =
     summary.failed.length + unfinished.length + downloads.failed.length > 0;
   const visible = [
