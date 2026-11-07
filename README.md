@@ -50,7 +50,7 @@ The [demo](https://itsmeares.github.io/staaash/) runs entirely in your browser, 
 - **It is built not to lose data.** Uploads, renames, moves, and deletes go through a journal in PostgreSQL. After a crash or a power cut, Staaash finishes or rolls back each change that was in progress. When it cannot tell what happened, it keeps every byte and stops for you to look.
 - **One box to run.** The app, a background worker, and PostgreSQL. No Redis, no object storage, no other services.
 - **Open what you keep.** Photos (HEIC too), videos, music, PDFs, and text files open right in the browser, on a laptop or a phone.
-- **Sync with your computer.** The desktop app for Windows, macOS, and Linux syncs folders two ways, download-only, or upload-only.
+- **Sync with your computer.** The desktop app for Windows, macOS, and Linux syncs folders two-way, download-only, or upload-only.
 - **Share with anyone.** Send a link to a file or a folder, with an expiry date, a password, or downloads turned off. Visitors do not need an account.
 - **Room for the family.** Invite members and give each one a storage limit. The app keeps members' private files out of the owner's view, though whoever runs the server can still read its disk.
 - **Big uploads finish.** Large uploads resume where they stopped, and every file is checked against its checksum before it is saved.
