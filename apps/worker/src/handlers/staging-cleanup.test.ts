@@ -573,34 +573,77 @@ describe("staging cleanup handler", () => {
     await rm(filesRoot, { recursive: true, force: true });
   });
 
-  it("journals and preserves abandoned generated temps", async () => {
+  it("removes abandoned generated temps without locking the account", async () => {
     const filesRoot = createTempRoot();
     const tmpRoot = path.join(filesRoot, "tmp");
-    const tempPath = path.join(tmpRoot, "derivatives", "derivative-1.jpg.tmp");
-    await mkdir(path.dirname(tempPath), { recursive: true });
-    await writeFile(tempPath, "generated", "utf8");
-    await utimes(
-      tempPath,
-      new Date(fixedNow.getTime() - stagingTtlMs - 1),
-      new Date(fixedNow.getTime() - stagingTtlMs - 1),
+    const derivativesRoot = path.join(tmpRoot, "derivatives");
+    const archivesRoot = path.join(tmpRoot, "archives");
+    await mkdir(derivativesRoot, { recursive: true });
+    await mkdir(archivesRoot, { recursive: true });
+    const expired = new Date(fixedNow.getTime() - stagingTtlMs - 1);
+    const writeTemp = async (filePath: string, mtime = expired) => {
+      await writeFile(filePath, "generated", "utf8");
+      await utimes(filePath, mtime, mtime);
+      return filePath;
+    };
+    const abandonedPreview = await writeTemp(
+      path.join(derivativesRoot, "derivative-dead.jpg.tmp"),
+    );
+    const abandonedArchive = await writeTemp(
+      path.join(archivesRoot, "archive-gone.zip.tmp"),
+    );
+    const runningPreview = await writeTemp(
+      path.join(derivativesRoot, "derivative-running.mp4.tmp"),
+    );
+    const runningArchive = await writeTemp(
+      path.join(archivesRoot, "archive-running.zip.tmp"),
+    );
+    const journaledPreview = await writeTemp(
+      path.join(derivativesRoot, "derivative-publishing.jpg.tmp"),
+    );
+    const recentPreview = await writeTemp(
+      path.join(derivativesRoot, "derivative-recent.jpg.tmp"),
+      new Date(fixedNow.getTime() - stagingTtlMs + 60_000),
+    );
+    const unknownName = await writeTemp(
+      path.join(derivativesRoot, "not-a-derivative.bin"),
     );
     const { client } = createSessionClient([]);
     const extendedClient = Object.assign(client, {
-      backgroundJob: { findMany: vi.fn(async () => []) },
-      mediaDerivative: {
+      storageMutationStep: {
+        findMany: vi.fn(async () => [
+          { sourceKey: "tmp/derivatives/derivative-publishing.jpg.tmp" },
+        ]),
+      },
+      backgroundJob: {
         findMany: vi.fn(async () => [
           {
-            id: "derivative-1",
-            fileId: "file-1",
-            kind: "preview",
-            profile: "default",
-            file: { ownerUserId: "owner-1" },
+            kind: "media.derivative.generate",
+            dedupeKey: "media.derivative.generate:file-2:preview:1080p",
+          },
+          {
+            kind: "zip.archive.generate",
+            dedupeKey: "zip.archive.generate:archive-running",
           },
         ]),
       },
-      zipArchive: { findMany: vi.fn(async () => []) },
+      mediaDerivative: {
+        findMany: vi.fn(async () => [
+          {
+            id: "derivative-dead",
+            fileId: "file-1",
+            kind: "thumbnail",
+            profile: "default",
+          },
+          {
+            id: "derivative-running",
+            fileId: "file-2",
+            kind: "preview",
+            profile: "1080p",
+          },
+        ]),
+      },
     });
-    const classifyResidue = vi.fn(async () => undefined);
     const { cleanupUploadSessionLifecycle } =
       await import("./staging-cleanup.js");
 
@@ -614,18 +657,16 @@ describe("staging cleanup handler", () => {
         uploadStagingTtlMs: stagingTtlMs,
       },
       now: fixedNow,
-      classifyResidue,
     });
 
-    expect(classifyResidue).toHaveBeenCalledWith({
-      ownerUserId: "owner-1",
-      residueKeys: ["tmp/derivatives/derivative-1.jpg.tmp"],
-      global: false,
-    });
-    expect(warnings).toContain(
-      "generated temp preserved for recovery: tmp/derivatives/derivative-1.jpg.tmp",
-    );
-    await expectPathToExist(tempPath);
+    expect(warnings).toEqual([]);
+    await expectPathToBeMissing(abandonedPreview);
+    await expectPathToBeMissing(abandonedArchive);
+    await expectPathToExist(runningPreview);
+    await expectPathToExist(runningArchive);
+    await expectPathToExist(journaledPreview);
+    await expectPathToExist(recentPreview);
+    await expectPathToExist(unknownName);
     await rm(filesRoot, { recursive: true, force: true });
   });
 });
