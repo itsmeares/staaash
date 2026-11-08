@@ -112,7 +112,8 @@ export function createState(scenario: Scenario = "owner") {
       : `${role}@staaash.test`,
     displayName: (demo
       ? ["Sam Rivera", "Alex Rivera", "Mia Rivera"]
-      : ["Alex Morgan", "Sam Rivera", "Mia Chen"])[index]!,
+      : ["Alex Morgan", "Sam Rivera", "Mia Chen"]
+    )[index]!,
     avatarUrl: null,
     role: role as User["role"],
     storageId: `sample-${role}`,
