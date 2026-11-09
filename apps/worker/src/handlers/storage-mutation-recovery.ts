@@ -81,9 +81,9 @@ const recoverForwardMutation = async ({
   const claimed = await claimStorageMutation({
     id: mutation.id,
     leaseOwner,
-    resourceKeys:
+    resolveResourceKeys:
       mutation.kind === "batch_move"
-        ? await batchMoveClaimResourceKeys(mutation)
+        ? (client) => batchMoveClaimResourceKeys(mutation, client)
         : undefined,
   });
   if (!claimed) return false;

@@ -135,7 +135,7 @@ it("moves a folder with 2,500 items after the worker stops right after claiming 
     id: mutationId,
     leaseOwner: "crashed-worker",
     leaseMs: 1,
-    resourceKeys: await batchMoveClaimResourceKeys(parent),
+    resolveResourceKeys: (client) => batchMoveClaimResourceKeys(parent, client),
   });
   expect(crashed?.leaseToken).toBe(1n);
   expect(
@@ -390,4 +390,69 @@ it("claims thousands of locks inside one storage transaction", async () => {
       },
     }),
   ).toBe(5_000);
+});
+
+it("refuses a move claim whose paths changed before its locks were taken", async () => {
+  const { user, root } = await createOwner();
+  const outer = await db.folder.create({
+    data: { ownerUserId: user.id, name: "Outer", parentId: root.id },
+  });
+  const selected = await db.folder.create({
+    data: { ownerUserId: user.id, name: "Selected", parentId: outer.id },
+  });
+  const target = await db.folder.create({
+    data: { ownerUserId: user.id, name: "Target", parentId: root.id },
+  });
+  const { mutationId } = await startBatchMove({
+    ownerUserId: user.id,
+    idempotencyKey: randomUUID(),
+    request: {
+      destinationFolderId: target.id,
+      items: [{ id: selected.id, kind: "folder" }],
+      source: "direct",
+    },
+  });
+  const parent = await db.storageMutation.findUniqueOrThrow({
+    where: { id: mutationId },
+  });
+  let renamed = false;
+
+  // An unselected parent is renamed after the paths were read.
+  await expect(
+    claimStorageMutation({
+      id: mutationId,
+      leaseOwner: "move-worker",
+      resolveResourceKeys: async (client) => {
+        const keys = await batchMoveClaimResourceKeys(parent, client);
+        if (!renamed) {
+          renamed = true;
+          await db.folder.update({
+            where: { id: outer.id },
+            data: { name: "Renamed" },
+          });
+        }
+        return keys;
+      },
+    }),
+  ).resolves.toBeNull();
+  expect(
+    await db.storageMutationResource.count({ where: { mutationId } }),
+  ).toBe(0);
+
+  const claimed = await claimStorageMutation({
+    id: mutationId,
+    leaseOwner: "move-worker",
+    resolveResourceKeys: (client) => batchMoveClaimResourceKeys(parent, client),
+  });
+  expect(claimed?.leaseToken).toBe(1n);
+  expect(
+    await db.storageMutationResource.findMany({
+      where: { mutationId, releasedAt: null },
+      select: { resourceKey: true },
+      orderBy: { resourceKey: "asc" },
+    }),
+  ).toEqual([
+    { resourceKey: `owner:${user.id}/files/${user.id}/Renamed/Selected` },
+    { resourceKey: `owner:${user.id}/files/${user.id}/Target/Selected` },
+  ]);
 });

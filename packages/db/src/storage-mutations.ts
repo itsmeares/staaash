@@ -1646,15 +1646,25 @@ export const claimStorageMutation = async ({
   now = new Date(),
   leaseMs = STORAGE_MUTATION_LEASE_MS,
   resourceKeys = [],
+  resolveResourceKeys,
 }: {
   id: string;
   leaseOwner: string;
   now?: Date;
   leaseMs?: number;
   resourceKeys?: string[];
+  /**
+   * Path keys read from current metadata. They are read again once the locks
+   * are held, and a rename that finished in between refuses the claim, so a
+   * stale path is never what protects the work.
+   */
+  resolveResourceKeys?: (client: Prisma.TransactionClient) => Promise<string[]>;
 }): Promise<ClaimedStorageMutation | null> => {
   const leaseExpiresAt = new Date(now.getTime() + leaseMs);
-  const uniqueResources = Array.from(new Set(resourceKeys)).sort();
+  const uniqueKeys = (keys: string[]) => Array.from(new Set(keys)).sort();
+  const uniqueResources = uniqueKeys(
+    resolveResourceKeys ? await resolveResourceKeys(getPrisma()) : resourceKeys,
+  );
   let claimed: { id: string; leaseToken: bigint } | null;
 
   try {
@@ -1672,6 +1682,13 @@ export const claimStorageMutation = async ({
           select: { id: true },
         });
         if (held) return null;
+        if (
+          resolveResourceKeys &&
+          uniqueKeys(await resolveResourceKeys(tx)).join("\0") !==
+            uniqueResources.join("\0")
+        ) {
+          return null;
+        }
       }
 
       const rows = await tx.$queryRaw<

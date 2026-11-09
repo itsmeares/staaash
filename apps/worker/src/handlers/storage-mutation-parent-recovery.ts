@@ -184,8 +184,8 @@ const readFolderKeyResolver = async (
   ownerUserId: string,
   folderIds: string[],
   subtreeRootId?: string,
+  prisma: Prisma.TransactionClient = getPrisma(),
 ) => {
-  const prisma = getPrisma();
   const [ancestorIds, subtreeIds] = await Promise.all([
     readFolderAncestorIds(prisma, ownerUserId, folderIds),
     subtreeRootId
@@ -268,6 +268,7 @@ const readBatchMoveIntent = (intentJson: unknown) => {
 const batchMovePaths = async (
   ownerUserId: string,
   intent: NonNullable<ReturnType<typeof readBatchMoveIntent>>,
+  client: Prisma.TransactionClient,
 ) => {
   const idsOf = (kind: string) =>
     intent.items
@@ -275,11 +276,13 @@ const batchMovePaths = async (
       .map((item) => item.id as string);
   const fileIds = idsOf("file");
   const [{ folderMap, resolve }, files] = await Promise.all([
-    readFolderKeyResolver(ownerUserId, [
-      intent.destinationFolderId,
-      ...idsOf("folder"),
-    ]),
-    getPrisma().file.findMany({
+    readFolderKeyResolver(
+      ownerUserId,
+      [intent.destinationFolderId, ...idsOf("folder")],
+      undefined,
+      client,
+    ),
+    client.file.findMany({
       where: { ownerUserId, id: { in: fileIds } },
       select: { id: true, originalName: true, storageKey: true },
     }),
@@ -306,14 +309,14 @@ const batchMovePaths = async (
  * covers everything below it, so the lock count follows the selection rather
  * than the number of files inside the moved folders.
  */
-export const batchMoveClaimResourceKeys = async (mutation: {
-  ownerUserId: string;
-  intentJson: unknown;
-}) => {
+export const batchMoveClaimResourceKeys = async (
+  mutation: { ownerUserId: string; intentJson: unknown },
+  client: Prisma.TransactionClient = getPrisma(),
+) => {
   const intent = readBatchMoveIntent(mutation.intentJson);
   try {
     if (!intent) throw new Error("Invalid batch move intent.");
-    const paths = await batchMovePaths(mutation.ownerUserId, intent);
+    const paths = await batchMovePaths(mutation.ownerUserId, intent, client);
     return paths.map((key) =>
       storagePathResourceKey(mutation.ownerUserId, key),
     );

@@ -77,11 +77,15 @@ describe("storage mutation recovery", () => {
     ).resolves.toBe(5);
 
     expect(maximumActive).toBe(2);
-    expect(mocks.claim).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "move-0",
-        resourceKeys: ["owner:owner-0/files/source"],
-      }),
+    const claim = mocks.claim.mock.calls.find(
+      ([input]) => input.id === "move-0",
+    );
+    await expect(claim?.[0].resolveResourceKeys("tx")).resolves.toEqual([
+      "owner:owner-0/files/source",
+    ]);
+    expect(mocks.claimKeys).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: "move-0" }),
+      "tx",
     );
   });
 
