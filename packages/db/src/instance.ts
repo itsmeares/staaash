@@ -1,6 +1,6 @@
 import { getPrisma } from "./client";
 
-/** Postgres channel the worker notifies after a check stores new releases. */
+/** Postgres channel notified when a check or a settings save changes the update state. */
 export const UPDATE_STATE_CHANGED_CHANNEL = "staaash_update_state_changed";
 
 export type UpdateRelease = {
@@ -89,6 +89,12 @@ export const writeInstanceUpdateCheck = async (
             updateReleases: result.releases,
           },
   });
+  await notifyUpdateStateChanged(activeClient);
+};
+
+/** Tells listening web processes to resend the update state to open pages. */
+export const notifyUpdateStateChanged = async (client?: InstanceClient) => {
+  const activeClient = client ?? (getPrisma() as unknown as InstanceClient);
   await activeClient
     .$executeRawUnsafe?.(
       `SELECT pg_notify('${UPDATE_STATE_CHANGED_CHANNEL}', '')`,

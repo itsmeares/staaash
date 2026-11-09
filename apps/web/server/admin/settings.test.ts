@@ -7,11 +7,15 @@ const mocks = vi.hoisted(() => ({
   upsert: vi.fn(),
   findUnique: vi.fn(),
   enqueueCheck: vi.fn(),
+  notifyUpdateState: vi.fn(),
 }));
 vi.mock("@staaash/db/client", () => ({
   getPrisma: () => ({
     systemSettings: { upsert: mocks.upsert, findUnique: mocks.findUnique },
   }),
+}));
+vi.mock("@staaash/db/instance", () => ({
+  notifyUpdateStateChanged: mocks.notifyUpdateState,
 }));
 vi.mock("@/server/admin/updates", () => ({
   enqueueAdminUpdateCheck: mocks.enqueueCheck,
@@ -205,6 +209,17 @@ describe("admin settings validation", () => {
       updateCheckEnabled: true,
     });
     expect(mocks.enqueueCheck).toHaveBeenCalledTimes(1);
+  });
+
+  it("tells open pages when update checks are switched off", async () => {
+    const data = form();
+    data.set("updateCheckEnabled", "");
+    await saveSystemSettings(Object.fromEntries(data));
+    expect(mocks.upsert.mock.calls.at(-1)![0].update).toMatchObject({
+      updateCheckEnabled: false,
+    });
+    expect(mocks.enqueueCheck).not.toHaveBeenCalled();
+    expect(mocks.notifyUpdateState).toHaveBeenCalledTimes(1);
   });
 
   it("saves Automatic as no stored channel", async () => {

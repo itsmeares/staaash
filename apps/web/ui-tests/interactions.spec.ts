@@ -70,7 +70,6 @@ for (const [path, sections] of [
     "/admin/settings",
     [
       "Uploads",
-      "Previews",
       "Media previews",
       "Sessions",
       "Downloads",
@@ -101,6 +100,21 @@ for (const [path, sections] of [
     }
     expect(errors).toEqual([]);
   });
+
+test("shows saved admin settings after leaving and returning", async ({
+  page,
+}) => {
+  await page.goto("/admin/settings");
+  const maxUpload = page.getByRole("textbox", { name: "Max upload size" });
+  await expect(maxUpload).toHaveValue("10");
+  await maxUpload.fill("15");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+
+  await page.getByRole("link", { name: "Users", exact: true }).click();
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await expect(maxUpload).toHaveValue("15");
+});
 
 for (const width of [390, 1280])
   test(`keeps long locations inside details at ${width}px`, async ({
