@@ -49,6 +49,12 @@ and frees its idempotency key. If the undo finds anything unexpected, the
 mutation becomes `recovery_required` as before. Batch children, purges, and
 worker artifact publishes never abort.
 
+A single user operation or a batch move that was never claimed also ends as
+`aborted` (`STORAGE_MUTATION_ABORTED`) once its claim has failed on a database
+error 10 times and it is at least 5 minutes old. Nothing on disk has changed
+at that point, so its paths and items are released. Waiting behind another
+running operation does not count as a failure.
+
 Direct uploads reserve their bytes when the mutation is prepared, so an
 over-quota upload is rejected with 413 before any bytes move. Name components
 over 255 UTF-8 bytes and paths over 4095 bytes are rejected before preparation.
@@ -57,7 +63,8 @@ over 255 UTF-8 bytes and paths over 4095 bytes are rejected before preparation.
 
 Every operation owns the storage paths its steps touch. A path also covers
 everything below it, so an operation inside a folder waits for a rename of that
-folder, while operations elsewhere in the same account proceed. Thumbnail and
+folder, while operations elsewhere in the same account proceed. A batch move
+owns the current and destination path of each selected item. Thumbnail and
 preview publishes and purges also hold the original file they were built from.
 Emptying the trash and trash retention own each trashed item they
 will purge. An operation that names no path, a folder in the legacy trash

@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   list: vi.fn(),
   claim: vi.fn(),
   recoverParent: vi.fn(),
+  claimKeys: vi.fn(),
 }));
 
 vi.mock("@staaash/db/storage-mutations", () => ({
@@ -23,6 +24,7 @@ vi.mock("@staaash/db/storage-mutation-executor", () => ({
 }));
 
 vi.mock("./storage-mutation-parent-recovery.js", () => ({
+  batchMoveClaimResourceKeys: mocks.claimKeys,
   ParentChildRecoveryRequiredError: class extends Error {},
   recoverStorageMutationParent: mocks.recoverParent,
 }));
@@ -44,6 +46,9 @@ describe("storage mutation recovery", () => {
     let active = 0;
     let maximumActive = 0;
     mocks.list.mockResolvedValue(mutations);
+    mocks.claimKeys.mockImplementation(async ({ ownerUserId }) => [
+      `owner:${ownerUserId}/files/source`,
+    ]);
     mocks.claim.mockImplementation(async ({ id }) => ({
       ...mutations.find((mutation) => mutation.id === id),
       leaseOwner: "test-worker",
@@ -74,7 +79,8 @@ describe("storage mutation recovery", () => {
     expect(maximumActive).toBe(2);
     expect(mocks.claim).toHaveBeenCalledWith(
       expect.objectContaining({
-        resourceKeys: ["file:file-0"],
+        id: "move-0",
+        resourceKeys: ["owner:owner-0/files/source"],
       }),
     );
   });
