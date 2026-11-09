@@ -37,6 +37,7 @@ import { checkForUpdatesNow } from "@/lib/update-check-client";
 import { getUpdateStatusLabel, type UpdateState } from "@/lib/update-status";
 
 import { api } from "@/lib/api";
+import { useRefresh } from "@/lib/use-refresh";
 import type { Plain } from "@/lib/plain";
 import {
   SETTINGS_DEFAULTS,
@@ -106,7 +107,7 @@ const differs = (
 /** Drive-wide settings. Changes wait for Save, which checks them all at once. */
 export function SettingsForm({
   settings,
-  updateState: initialUpdateState,
+  updateState,
   section,
 }: {
   settings: Plain<SystemSettings>;
@@ -114,6 +115,7 @@ export function SettingsForm({
   section?: string | null;
 }) {
   const { timeZone } = useTime();
+  const refresh = useRefresh();
   const [saved, setSaved] = useState(() => toSettingsValues(settings));
   const [draft, setDraft] = useState(saved);
   const [errors, setErrors] = useState<SettingsActionState["fieldErrors"]>({});
@@ -125,7 +127,6 @@ export function SettingsForm({
     setDraft(next);
     setVersion((current) => current + 1);
   };
-  const [updateState, setUpdateState] = useState(initialUpdateState);
   const [checking, setChecking] = useState(false);
   const [, action, saving] = useActionState(
     async (_previous: SettingsActionState, data: FormData) => {
@@ -144,6 +145,7 @@ export function SettingsForm({
         setSaved(result.values);
         replace(result.values);
         toastManager.add({ title: "Saved", type: "success", timeout: 1500 });
+        void refresh();
       }
       return result;
     },
@@ -194,7 +196,8 @@ export function SettingsForm({
   const checkNow = async () => {
     setChecking(true);
     try {
-      setUpdateState(await checkForUpdatesNow());
+      await checkForUpdatesNow();
+      await refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "The check failed.");
     } finally {

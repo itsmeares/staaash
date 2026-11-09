@@ -1,6 +1,7 @@
 import type { z } from "zod";
 
 import { getPrisma } from "@staaash/db/client";
+import { notifyUpdateStateChanged } from "@staaash/db/instance";
 
 import {
   ownerOnboardingSettingsSchema,
@@ -46,6 +47,8 @@ export async function saveSystemSettings(
   ) {
     await enqueueAdminUpdateCheck();
   }
+  // Open pages show the switch and channel too, and a check may never run.
+  await notifyUpdateStateChanged();
 
   return { success: true, values: toSettingsValues(parsed.data) };
 }
