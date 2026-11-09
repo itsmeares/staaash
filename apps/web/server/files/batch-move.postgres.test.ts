@@ -284,6 +284,7 @@ it("gives up on a move that can never start and frees its items", async () => {
     where: { id: mutationId },
   });
   expect(aborted).toMatchObject({ status: "aborted", idempotencyKey: null });
+  expect(aborted.lastError).toContain("claim timed out");
   await expect(
     assertStorageEntityReadable("folder", folder.id),
   ).resolves.toBeUndefined();

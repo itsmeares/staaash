@@ -1610,6 +1610,9 @@ const recordStorageMutationClaimFailure = async (
   error: Error,
   now: Date,
 ) => {
+  // The wrapper's message is fixed; the cause says what the database did.
+  const detail =
+    error.cause instanceof Error ? error.cause.message : error.message;
   const [mutation] = await getPrisma().$queryRaw<
     Array<{
       claimFailureCount: number;
@@ -1620,7 +1623,7 @@ const recordStorageMutationClaimFailure = async (
   >`
     UPDATE "StorageMutation"
        SET "claimFailureCount" = "claimFailureCount" + 1,
-           "lastError" = ${error.message.slice(0, 4_000)},
+           "lastError" = ${detail.slice(0, 4_000)},
            "updatedAt" = ${now}
      WHERE "id" = ${id} AND "status" = 'prepared' AND "leaseToken" = 0
     RETURNING "claimFailureCount", "createdAt", "kind", "parentId"
@@ -1628,7 +1631,7 @@ const recordStorageMutationClaimFailure = async (
   if (mutation && mayGiveUpUnstarted(mutation, now)) {
     await abortUnstartedStorageMutation({
       mutationId: id,
-      error: error.message,
+      error: detail,
       now,
     });
   }
