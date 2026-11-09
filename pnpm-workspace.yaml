@@ -19,7 +19,7 @@ overrides:
   postcss: 8.5.32
   valibot: 1.5.0
   # Same version as vite-plus in the catalog below.
-  vite@*: npm:@voidzero-dev/vite-plus-core@1.5.0
+  vite@*: npm:@voidzero-dev/vite-plus-core@1.5.1
   vitest@*: "catalog:"
 allowBuilds:
   "@prisma/engines": true
@@ -31,7 +31,7 @@ allowBuilds:
   prisma: true
 catalog:
   vitest: 5.1.0
-  vite-plus: 1.5.0
+  vite-plus: 1.5.1
 peerDependencyRules:
   allowAny:
     - vite
