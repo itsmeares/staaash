@@ -1,3 +1,5 @@
+import { storageMutationRejectionFromResult } from "@staaash/db/storage-mutations";
+
 import type {
   BatchMoveItem,
   BatchMoveOperationResponse,
@@ -87,6 +89,27 @@ export const toBatchMoveOperationResponse = (mutation: {
     ...getMoveMetadata(mutation.intentJson),
     ...getMoveMetadata(mutation.resultJson),
   };
+  if (mutation.status === "aborted") {
+    // It gave up before moving anything, so every item failed unchanged.
+    const rejection = storageMutationRejectionFromResult(mutation.resultJson);
+    const items = metadata.items ?? [];
+    return {
+      operationId: mutation.id,
+      status: "succeeded",
+      response: {
+        movedCount: 0,
+        failedCount: items.length,
+        results: items.map((item) => ({
+          ...item,
+          status: "failed",
+          code: rejection.code,
+          error: rejection.message,
+          retryable: true,
+        })),
+      },
+      ...metadata,
+    };
+  }
   if (status === "succeeded") {
     const response = getMoveResponse(mutation.resultJson);
     if (response) {

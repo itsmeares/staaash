@@ -29,12 +29,14 @@ export type AggregateStorageMutation = {
 export type StorageMutationAvgAggregateOutputType = {
   leaseToken: number | null
   attemptCount: number | null
+  claimFailureCount: number | null
   reservedBytes: number | null
 }
 
 export type StorageMutationSumAggregateOutputType = {
   leaseToken: bigint | null
   attemptCount: number | null
+  claimFailureCount: number | null
   reservedBytes: bigint | null
 }
 
@@ -50,6 +52,7 @@ export type StorageMutationMinAggregateOutputType = {
   leaseToken: bigint | null
   leaseExpiresAt: Date | null
   attemptCount: number | null
+  claimFailureCount: number | null
   lastAttemptAt: Date | null
   nextAttemptAt: Date | null
   lastError: string | null
@@ -74,6 +77,7 @@ export type StorageMutationMaxAggregateOutputType = {
   leaseToken: bigint | null
   leaseExpiresAt: Date | null
   attemptCount: number | null
+  claimFailureCount: number | null
   lastAttemptAt: Date | null
   nextAttemptAt: Date | null
   lastError: string | null
@@ -100,6 +104,7 @@ export type StorageMutationCountAggregateOutputType = {
   leaseToken: number
   leaseExpiresAt: number
   attemptCount: number
+  claimFailureCount: number
   lastAttemptAt: number
   nextAttemptAt: number
   lastError: number
@@ -117,12 +122,14 @@ export type StorageMutationCountAggregateOutputType = {
 export type StorageMutationAvgAggregateInputType = {
   leaseToken?: true
   attemptCount?: true
+  claimFailureCount?: true
   reservedBytes?: true
 }
 
 export type StorageMutationSumAggregateInputType = {
   leaseToken?: true
   attemptCount?: true
+  claimFailureCount?: true
   reservedBytes?: true
 }
 
@@ -138,6 +145,7 @@ export type StorageMutationMinAggregateInputType = {
   leaseToken?: true
   leaseExpiresAt?: true
   attemptCount?: true
+  claimFailureCount?: true
   lastAttemptAt?: true
   nextAttemptAt?: true
   lastError?: true
@@ -162,6 +170,7 @@ export type StorageMutationMaxAggregateInputType = {
   leaseToken?: true
   leaseExpiresAt?: true
   attemptCount?: true
+  claimFailureCount?: true
   lastAttemptAt?: true
   nextAttemptAt?: true
   lastError?: true
@@ -188,6 +197,7 @@ export type StorageMutationCountAggregateInputType = {
   leaseToken?: true
   leaseExpiresAt?: true
   attemptCount?: true
+  claimFailureCount?: true
   lastAttemptAt?: true
   nextAttemptAt?: true
   lastError?: true
@@ -301,6 +311,7 @@ export type StorageMutationGroupByOutputType = {
   leaseToken: bigint
   leaseExpiresAt: Date | null
   attemptCount: number
+  claimFailureCount: number
   lastAttemptAt: Date | null
   nextAttemptAt: Date | null
   lastError: string | null
@@ -350,6 +361,7 @@ export type StorageMutationWhereInput = {
   leaseToken?: Prisma.BigIntFilter<"StorageMutation"> | bigint | number
   leaseExpiresAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   attemptCount?: Prisma.IntFilter<"StorageMutation"> | number
+  claimFailureCount?: Prisma.IntFilter<"StorageMutation"> | number
   lastAttemptAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   nextAttemptAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   lastError?: Prisma.StringNullableFilter<"StorageMutation"> | string | null
@@ -383,6 +395,7 @@ export type StorageMutationOrderByWithRelationInput = {
   leaseToken?: Prisma.SortOrder
   leaseExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+  claimFailureCount?: Prisma.SortOrder
   lastAttemptAt?: Prisma.SortOrderInput | Prisma.SortOrder
   nextAttemptAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lastError?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -419,6 +432,7 @@ export type StorageMutationWhereUniqueInput = Prisma.AtLeast<{
   leaseToken?: Prisma.BigIntFilter<"StorageMutation"> | bigint | number
   leaseExpiresAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   attemptCount?: Prisma.IntFilter<"StorageMutation"> | number
+  claimFailureCount?: Prisma.IntFilter<"StorageMutation"> | number
   lastAttemptAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   nextAttemptAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   lastError?: Prisma.StringNullableFilter<"StorageMutation"> | string | null
@@ -452,6 +466,7 @@ export type StorageMutationOrderByWithAggregationInput = {
   leaseToken?: Prisma.SortOrder
   leaseExpiresAt?: Prisma.SortOrderInput | Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+  claimFailureCount?: Prisma.SortOrder
   lastAttemptAt?: Prisma.SortOrderInput | Prisma.SortOrder
   nextAttemptAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lastError?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -486,6 +501,7 @@ export type StorageMutationScalarWhereWithAggregatesInput = {
   leaseToken?: Prisma.BigIntWithAggregatesFilter<"StorageMutation"> | bigint | number
   leaseExpiresAt?: Prisma.DateTimeNullableWithAggregatesFilter<"StorageMutation"> | Date | string | null
   attemptCount?: Prisma.IntWithAggregatesFilter<"StorageMutation"> | number
+  claimFailureCount?: Prisma.IntWithAggregatesFilter<"StorageMutation"> | number
   lastAttemptAt?: Prisma.DateTimeNullableWithAggregatesFilter<"StorageMutation"> | Date | string | null
   nextAttemptAt?: Prisma.DateTimeNullableWithAggregatesFilter<"StorageMutation"> | Date | string | null
   lastError?: Prisma.StringNullableWithAggregatesFilter<"StorageMutation"> | string | null
@@ -510,6 +526,7 @@ export type StorageMutationCreateInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -543,6 +560,7 @@ export type StorageMutationUncheckedCreateInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -572,6 +590,7 @@ export type StorageMutationUpdateInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -605,6 +624,7 @@ export type StorageMutationUncheckedUpdateInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -636,6 +656,7 @@ export type StorageMutationCreateManyInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -660,6 +681,7 @@ export type StorageMutationUpdateManyMutationInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -686,6 +708,7 @@ export type StorageMutationUncheckedUpdateManyInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -727,6 +750,7 @@ export type StorageMutationCountOrderByAggregateInput = {
   leaseToken?: Prisma.SortOrder
   leaseExpiresAt?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+  claimFailureCount?: Prisma.SortOrder
   lastAttemptAt?: Prisma.SortOrder
   nextAttemptAt?: Prisma.SortOrder
   lastError?: Prisma.SortOrder
@@ -742,6 +766,7 @@ export type StorageMutationCountOrderByAggregateInput = {
 export type StorageMutationAvgOrderByAggregateInput = {
   leaseToken?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+  claimFailureCount?: Prisma.SortOrder
   reservedBytes?: Prisma.SortOrder
 }
 
@@ -757,6 +782,7 @@ export type StorageMutationMaxOrderByAggregateInput = {
   leaseToken?: Prisma.SortOrder
   leaseExpiresAt?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+  claimFailureCount?: Prisma.SortOrder
   lastAttemptAt?: Prisma.SortOrder
   nextAttemptAt?: Prisma.SortOrder
   lastError?: Prisma.SortOrder
@@ -781,6 +807,7 @@ export type StorageMutationMinOrderByAggregateInput = {
   leaseToken?: Prisma.SortOrder
   leaseExpiresAt?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+  claimFailureCount?: Prisma.SortOrder
   lastAttemptAt?: Prisma.SortOrder
   nextAttemptAt?: Prisma.SortOrder
   lastError?: Prisma.SortOrder
@@ -796,6 +823,7 @@ export type StorageMutationMinOrderByAggregateInput = {
 export type StorageMutationSumOrderByAggregateInput = {
   leaseToken?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
+  claimFailureCount?: Prisma.SortOrder
   reservedBytes?: Prisma.SortOrder
 }
 
@@ -974,6 +1002,7 @@ export type StorageMutationCreateWithoutOwnerInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -1005,6 +1034,7 @@ export type StorageMutationUncheckedCreateWithoutOwnerInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -1065,6 +1095,7 @@ export type StorageMutationScalarWhereInput = {
   leaseToken?: Prisma.BigIntFilter<"StorageMutation"> | bigint | number
   leaseExpiresAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   attemptCount?: Prisma.IntFilter<"StorageMutation"> | number
+  claimFailureCount?: Prisma.IntFilter<"StorageMutation"> | number
   lastAttemptAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   nextAttemptAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   lastError?: Prisma.StringNullableFilter<"StorageMutation"> | string | null
@@ -1089,6 +1120,7 @@ export type StorageMutationCreateWithoutUploadSessionsInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -1121,6 +1153,7 @@ export type StorageMutationUncheckedCreateWithoutUploadSessionsInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -1165,6 +1198,7 @@ export type StorageMutationUpdateWithoutUploadSessionsInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1197,6 +1231,7 @@ export type StorageMutationUncheckedUpdateWithoutUploadSessionsInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1225,6 +1260,7 @@ export type StorageMutationCreateWithoutChildrenInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -1257,6 +1293,7 @@ export type StorageMutationUncheckedCreateWithoutChildrenInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -1290,6 +1327,7 @@ export type StorageMutationCreateWithoutParentInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -1321,6 +1359,7 @@ export type StorageMutationUncheckedCreateWithoutParentInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -1371,6 +1410,7 @@ export type StorageMutationUpdateWithoutChildrenInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1403,6 +1443,7 @@ export type StorageMutationUncheckedUpdateWithoutChildrenInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1447,6 +1488,7 @@ export type StorageMutationCreateWithoutStepsInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -1479,6 +1521,7 @@ export type StorageMutationUncheckedCreateWithoutStepsInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -1523,6 +1566,7 @@ export type StorageMutationUpdateWithoutStepsInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1555,6 +1599,7 @@ export type StorageMutationUncheckedUpdateWithoutStepsInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1583,6 +1628,7 @@ export type StorageMutationCreateWithoutEntitiesInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -1615,6 +1661,7 @@ export type StorageMutationUncheckedCreateWithoutEntitiesInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -1659,6 +1706,7 @@ export type StorageMutationUpdateWithoutEntitiesInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1691,6 +1739,7 @@ export type StorageMutationUncheckedUpdateWithoutEntitiesInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1719,6 +1768,7 @@ export type StorageMutationCreateWithoutResourcesInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -1751,6 +1801,7 @@ export type StorageMutationUncheckedCreateWithoutResourcesInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -1795,6 +1846,7 @@ export type StorageMutationUpdateWithoutResourcesInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1827,6 +1879,7 @@ export type StorageMutationUncheckedUpdateWithoutResourcesInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1856,6 +1909,7 @@ export type StorageMutationCreateManyOwnerInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -1880,6 +1934,7 @@ export type StorageMutationUpdateWithoutOwnerInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1911,6 +1966,7 @@ export type StorageMutationUncheckedUpdateWithoutOwnerInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1941,6 +1997,7 @@ export type StorageMutationUncheckedUpdateManyWithoutOwnerInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1966,6 +2023,7 @@ export type StorageMutationCreateManyParentInput = {
   leaseToken?: bigint | number
   leaseExpiresAt?: Date | string | null
   attemptCount?: number
+  claimFailureCount?: number
   lastAttemptAt?: Date | string | null
   nextAttemptAt?: Date | string | null
   lastError?: string | null
@@ -1990,6 +2048,7 @@ export type StorageMutationUpdateWithoutParentInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2021,6 +2080,7 @@ export type StorageMutationUncheckedUpdateWithoutParentInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2051,6 +2111,7 @@ export type StorageMutationUncheckedUpdateManyWithoutParentInput = {
   leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -2144,6 +2205,7 @@ export type StorageMutationSelect<ExtArgs extends runtime.Types.Extensions.Inter
   leaseToken?: boolean
   leaseExpiresAt?: boolean
   attemptCount?: boolean
+  claimFailureCount?: boolean
   lastAttemptAt?: boolean
   nextAttemptAt?: boolean
   lastError?: boolean
@@ -2178,6 +2240,7 @@ export type StorageMutationSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   leaseToken?: boolean
   leaseExpiresAt?: boolean
   attemptCount?: boolean
+  claimFailureCount?: boolean
   lastAttemptAt?: boolean
   nextAttemptAt?: boolean
   lastError?: boolean
@@ -2206,6 +2269,7 @@ export type StorageMutationSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   leaseToken?: boolean
   leaseExpiresAt?: boolean
   attemptCount?: boolean
+  claimFailureCount?: boolean
   lastAttemptAt?: boolean
   nextAttemptAt?: boolean
   lastError?: boolean
@@ -2234,6 +2298,7 @@ export type StorageMutationSelectScalar = {
   leaseToken?: boolean
   leaseExpiresAt?: boolean
   attemptCount?: boolean
+  claimFailureCount?: boolean
   lastAttemptAt?: boolean
   nextAttemptAt?: boolean
   lastError?: boolean
@@ -2246,7 +2311,7 @@ export type StorageMutationSelectScalar = {
   updatedAt?: boolean
 }
 
-export type StorageMutationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "parentId" | "kind" | "status" | "ownerUserId" | "idempotencyKey" | "requestHash" | "intentJson" | "resultJson" | "leaseOwner" | "leaseToken" | "leaseExpiresAt" | "attemptCount" | "lastAttemptAt" | "nextAttemptAt" | "lastError" | "metadataCommittedAt" | "completedAt" | "recoveryRequiredAt" | "reservedBytes" | "originDeviceId" | "createdAt" | "updatedAt", ExtArgs["result"]["storageMutation"]>
+export type StorageMutationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "parentId" | "kind" | "status" | "ownerUserId" | "idempotencyKey" | "requestHash" | "intentJson" | "resultJson" | "leaseOwner" | "leaseToken" | "leaseExpiresAt" | "attemptCount" | "claimFailureCount" | "lastAttemptAt" | "nextAttemptAt" | "lastError" | "metadataCommittedAt" | "completedAt" | "recoveryRequiredAt" | "reservedBytes" | "originDeviceId" | "createdAt" | "updatedAt", ExtArgs["result"]["storageMutation"]>
 export type StorageMutationInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   parent?: boolean | Prisma.StorageMutation$parentArgs<ExtArgs>
   children?: boolean | Prisma.StorageMutation$childrenArgs<ExtArgs>
@@ -2291,6 +2356,10 @@ export type $StorageMutationPayload<ExtArgs extends runtime.Types.Extensions.Int
     leaseToken: bigint
     leaseExpiresAt: Date | null
     attemptCount: number
+    /**
+     * Claims that a database error rolled back before the mutation ever started.
+     */
+    claimFailureCount: number
     lastAttemptAt: Date | null
     nextAttemptAt: Date | null
     lastError: string | null
@@ -2747,6 +2816,7 @@ export interface StorageMutationFieldRefs {
   readonly leaseToken: Prisma.FieldRef<"StorageMutation", 'BigInt'>
   readonly leaseExpiresAt: Prisma.FieldRef<"StorageMutation", 'DateTime'>
   readonly attemptCount: Prisma.FieldRef<"StorageMutation", 'Int'>
+  readonly claimFailureCount: Prisma.FieldRef<"StorageMutation", 'Int'>
   readonly lastAttemptAt: Prisma.FieldRef<"StorageMutation", 'DateTime'>
   readonly nextAttemptAt: Prisma.FieldRef<"StorageMutation", 'DateTime'>
   readonly lastError: Prisma.FieldRef<"StorageMutation", 'String'>

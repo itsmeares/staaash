@@ -16,6 +16,7 @@ import { claimStorageMutation } from "@staaash/db/storage-mutations";
 
 import type { WorkerStoragePaths } from "../storage-maintenance.js";
 import {
+  batchMoveClaimResourceKeys,
   ParentChildRecoveryRequiredError,
   recoverStorageMutationParent,
 } from "./storage-mutation-parent-recovery.js";
@@ -80,13 +81,9 @@ const recoverForwardMutation = async ({
   const claimed = await claimStorageMutation({
     id: mutation.id,
     leaseOwner,
-    resourceKeys:
+    resolveResourceKeys:
       mutation.kind === "batch_move"
-        ? mutation.entities.length > 0
-          ? mutation.entities.map(
-              (entity) => `${entity.entityType}:${entity.entityId}`,
-            )
-          : [`owner:${mutation.ownerUserId}`]
+        ? (client) => batchMoveClaimResourceKeys(mutation, client)
         : undefined,
   });
   if (!claimed) return false;

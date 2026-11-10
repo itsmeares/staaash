@@ -13,6 +13,7 @@ import {
   completeStorageMutationParent,
   recordStorageMutationParentChild,
   renewStorageMutationLease,
+  storagePathResourceKey,
   type ClaimedStorageMutation,
   type StorageMetadataOperation,
   type StorageMutationEntityInput,
@@ -179,17 +180,14 @@ const recordChild = async ({
     result: result as Prisma.InputJsonValue,
   });
 
-const buildFolderKeyResolver = async (
+const readFolderKeyResolver = async (
   ownerUserId: string,
-  destinationId: string,
+  folderIds: string[],
   subtreeRootId?: string,
+  prisma: Prisma.TransactionClient = getPrisma(),
 ) => {
-  const prisma = getPrisma();
   const [ancestorIds, subtreeIds] = await Promise.all([
-    readFolderAncestorIds(prisma, ownerUserId, [
-      destinationId,
-      ...(subtreeRootId ? [subtreeRootId] : []),
-    ]),
+    readFolderAncestorIds(prisma, ownerUserId, folderIds),
     subtreeRootId
       ? readFolderSubtreeIds(prisma, ownerUserId, subtreeRootId)
       : [],
@@ -230,11 +228,102 @@ const buildFolderKeyResolver = async (
     if (!current?.isFilesRoot) throw new Error("FOLDER_PARENT_MISSING");
     return path.posix.join("files", owner.storageId, ...names);
   };
+  return { folderMap, resolve, subtreeIds };
+};
+
+const buildFolderKeyResolver = async (
+  ownerUserId: string,
+  destinationId: string,
+  subtreeRootId?: string,
+) => {
+  const { folderMap, resolve, subtreeIds } = await readFolderKeyResolver(
+    ownerUserId,
+    [destinationId, ...(subtreeRootId ? [subtreeRootId] : [])],
+    subtreeRootId,
+  );
   const descendantIds = new Set(
     subtreeIds.map(({ id }) => id).filter((id) => id !== subtreeRootId),
   );
   if (descendantIds.has(destinationId)) throw new Error("FOLDER_MOVE_CYCLE");
   return { descendantIds, folderMap, resolve };
+};
+
+const readBatchMoveIntent = (intentJson: unknown) => {
+  const intent = intentJson as {
+    destinationFolderId?: unknown;
+    items?: unknown;
+  };
+  if (
+    typeof intent.destinationFolderId !== "string" ||
+    !Array.isArray(intent.items)
+  ) {
+    return null;
+  }
+  return {
+    destinationFolderId: intent.destinationFolderId,
+    items: intent.items as Array<{ id?: unknown; kind?: unknown }>,
+  };
+};
+
+const batchMovePaths = async (
+  ownerUserId: string,
+  intent: NonNullable<ReturnType<typeof readBatchMoveIntent>>,
+  client: Prisma.TransactionClient,
+) => {
+  const idsOf = (kind: string) =>
+    intent.items
+      .filter((item) => item.kind === kind && typeof item.id === "string")
+      .map((item) => item.id as string);
+  const fileIds = idsOf("file");
+  const [{ folderMap, resolve }, files] = await Promise.all([
+    readFolderKeyResolver(
+      ownerUserId,
+      [intent.destinationFolderId, ...idsOf("folder")],
+      undefined,
+      client,
+    ),
+    client.file.findMany({
+      where: { ownerUserId, id: { in: fileIds } },
+      select: { id: true, originalName: true, storageKey: true },
+    }),
+  ]);
+  const destinationKey = resolve(intent.destinationFolderId);
+  const fileById = new Map(files.map((file) => [file.id, file]));
+  return intent.items.flatMap((item) => {
+    const file = item.kind === "file" ? fileById.get(String(item.id)) : null;
+    if (file) {
+      return [
+        file.storageKey,
+        path.posix.join(destinationKey, file.originalName),
+      ];
+    }
+    const folder =
+      item.kind === "folder" ? folderMap.get(String(item.id)) : null;
+    if (!folder) throw new Error("BATCH_MOVE_ITEM_NOT_FOUND");
+    return [resolve(folder.id), path.posix.join(destinationKey, folder.name)];
+  });
+};
+
+/**
+ * A batch move locks the old and new path of each selected item. A path lock
+ * covers everything below it, so the lock count follows the selection rather
+ * than the number of files inside the moved folders.
+ */
+export const batchMoveClaimResourceKeys = async (
+  mutation: { ownerUserId: string; intentJson: unknown },
+  client: Prisma.TransactionClient = getPrisma(),
+) => {
+  const intent = readBatchMoveIntent(mutation.intentJson);
+  try {
+    if (!intent) throw new Error("Invalid batch move intent.");
+    const paths = await batchMovePaths(mutation.ownerUserId, intent, client);
+    return paths.map((key) =>
+      storagePathResourceKey(mutation.ownerUserId, key),
+    );
+  } catch {
+    // An item that cannot be placed locks the whole account instead.
+    return [`owner:${mutation.ownerUserId}`];
+  }
 };
 
 const batchChildSelect = {

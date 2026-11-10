@@ -518,6 +518,7 @@ export const StorageMutationScalarFieldEnum = {
   leaseToken: 'leaseToken',
   leaseExpiresAt: 'leaseExpiresAt',
   attemptCount: 'attemptCount',
+  claimFailureCount: 'claimFailureCount',
   lastAttemptAt: 'lastAttemptAt',
   nextAttemptAt: 'nextAttemptAt',
   lastError: 'lastError',

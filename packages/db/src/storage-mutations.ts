@@ -12,6 +12,7 @@ import {
   waitForStorageAdmission,
   StorageAdmissionBusyError,
   storageSqlState,
+  StorageTransactionUnavailableError,
   type StorageTransactionOptions,
 } from "./storage-transactions";
 
@@ -1496,6 +1497,146 @@ export const prepareStorageMutation = async (
   }
 };
 
+// A user action whose claim keeps failing on database errors gives up instead
+// of blocking its items forever. Waiting behind another live mutation is not
+// a failure and never counts.
+const STORAGE_MUTATION_MAX_CLAIM_FAILURES = 10;
+const STORAGE_MUTATION_CLAIM_GIVE_UP_MS = 5 * 60_000;
+
+const releaseAbortedStorageMutation = async (
+  tx: Prisma.TransactionClient,
+  mutationId: string,
+  abortedAt: Date,
+) => {
+  await tx.storageMutationResource.updateMany({
+    where: { mutationId, releasedAt: null },
+    data: { releasedAt: abortedAt },
+  });
+  // A resumable commit cannot be retried once aborted; release its quota.
+  await tx.uploadSession.updateMany({
+    where: { storageMutationId: mutationId },
+    data: {
+      status: "failed",
+      terminalAt: abortedAt,
+      storageMutationId: null,
+    },
+  });
+};
+
+const abortedStorageMutationData = (
+  rejection: StorageMutationRejectedError,
+  error: string,
+  abortedAt: Date,
+) => ({
+  status: "aborted",
+  idempotencyKey: null,
+  reservedBytes: null,
+  resultJson: { abortedCode: rejection.code },
+  completedAt: abortedAt,
+  leaseOwner: null,
+  leaseExpiresAt: null,
+  nextAttemptAt: null,
+  lastError: error.slice(0, 4_000),
+});
+
+/**
+ * Aborts a mutation that never started: never claimed, no applied step, and
+ * no child. Nothing on disk changed, so its locks and items are released.
+ * Returns false when the mutation has started or is busy.
+ */
+export const abortUnstartedStorageMutation = async ({
+  mutationId,
+  error,
+  now = new Date(),
+}: {
+  mutationId: string;
+  error: string;
+  now?: Date;
+}) => {
+  try {
+    return await runStorageTransaction(async (tx) => {
+      const unstarted = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT mutation.id FROM "StorageMutation" mutation
+         WHERE mutation.id = ${mutationId}
+           AND mutation.status = 'prepared'
+           AND mutation."leaseToken" = 0
+           AND NOT EXISTS (
+             SELECT 1 FROM "StorageMutationStep" step
+              WHERE step."mutationId" = mutation.id AND step.status <> 'pending'
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM "StorageMutation" child
+              WHERE child."parentId" = mutation.id
+           )
+         FOR UPDATE NOWAIT
+      `;
+      if (!unstarted[0]) return false;
+      await tx.storageMutation.update({
+        where: { id: mutationId },
+        data: abortedStorageMutationData(
+          new StorageMutationRejectedError("STORAGE_MUTATION_ABORTED"),
+          error,
+          now,
+        ),
+      });
+      await releaseAbortedStorageMutation(tx, mutationId, now);
+      return true;
+    });
+  } catch (cause) {
+    if (cause instanceof StorageAdmissionBusyError) return false;
+    throw cause;
+  }
+};
+
+const mayGiveUpUnstarted = (
+  mutation: {
+    claimFailureCount: number;
+    createdAt: Date;
+    kind: string;
+    parentId: string | null;
+  },
+  now: Date,
+) =>
+  mutation.parentId === null &&
+  (USER_STORAGE_MUTATION_KINDS.has(mutation.kind) ||
+    mutation.kind === "batch_move") &&
+  mutation.claimFailureCount >= STORAGE_MUTATION_MAX_CLAIM_FAILURES &&
+  now.getTime() - mutation.createdAt.getTime() >=
+    STORAGE_MUTATION_CLAIM_GIVE_UP_MS;
+
+// Written outside the failed claim, whose own writes rolled back.
+const recordStorageMutationClaimFailure = async (
+  id: string,
+  error: Error,
+  now: Date,
+) => {
+  // The wrapper's message is fixed; the cause says what the database did.
+  const detail =
+    error.cause instanceof Error ? error.cause.message : error.message;
+  const [mutation] = await getPrisma().$queryRaw<
+    Array<{
+      claimFailureCount: number;
+      createdAt: Date;
+      kind: string;
+      parentId: string | null;
+    }>
+  >`
+    UPDATE "StorageMutation"
+       SET "claimFailureCount" = "claimFailureCount" + 1,
+           "lastError" = ${detail.slice(0, 4_000)},
+           "updatedAt" = ${now}
+     WHERE "id" = ${id} AND "status" = 'prepared' AND "leaseToken" = 0
+    RETURNING "claimFailureCount", "createdAt", "kind", "parentId"
+  `;
+  if (mutation && mayGiveUpUnstarted(mutation, now)) {
+    await abortUnstartedStorageMutation({
+      mutationId: id,
+      error: detail,
+      now,
+    });
+  }
+};
+
 export type ClaimedStorageMutation = StorageMutationRecord & {
   leaseOwner: string;
   leaseToken: bigint;
@@ -1508,15 +1649,25 @@ export const claimStorageMutation = async ({
   now = new Date(),
   leaseMs = STORAGE_MUTATION_LEASE_MS,
   resourceKeys = [],
+  resolveResourceKeys,
 }: {
   id: string;
   leaseOwner: string;
   now?: Date;
   leaseMs?: number;
   resourceKeys?: string[];
+  /**
+   * Path keys read from current metadata. They are read again once the locks
+   * are held, and a rename that finished in between refuses the claim, so a
+   * stale path is never what protects the work.
+   */
+  resolveResourceKeys?: (client: Prisma.TransactionClient) => Promise<string[]>;
 }): Promise<ClaimedStorageMutation | null> => {
   const leaseExpiresAt = new Date(now.getTime() + leaseMs);
-  const uniqueResources = Array.from(new Set(resourceKeys)).sort();
+  const uniqueKeys = (keys: string[]) => Array.from(new Set(keys)).sort();
+  const uniqueResources = uniqueKeys(
+    resolveResourceKeys ? await resolveResourceKeys(getPrisma()) : resourceKeys,
+  );
   let claimed: { id: string; leaseToken: bigint } | null;
 
   try {
@@ -1525,12 +1676,21 @@ export const claimStorageMutation = async ({
     claimed = await runStorageTransaction(async (tx) => {
       if (uniqueResources.length > 0) {
         await acquireStorageMutationResources(tx, uniqueResources, id);
-        for (const resourceKey of uniqueResources) {
-          const existing = await tx.storageMutationResource.findFirst({
-            where: { resourceKey, releasedAt: null },
-            select: { mutationId: true },
-          });
-          if (existing && existing.mutationId !== id) return null;
+        const held = await tx.storageMutationResource.findFirst({
+          where: {
+            resourceKey: { in: uniqueResources },
+            releasedAt: null,
+            mutationId: { not: id },
+          },
+          select: { id: true },
+        });
+        if (held) return null;
+        if (
+          resolveResourceKeys &&
+          uniqueKeys(await resolveResourceKeys(tx)).join("\0") !==
+            uniqueResources.join("\0")
+        ) {
+          return null;
         }
       }
 
@@ -1564,17 +1724,18 @@ export const claimStorageMutation = async ({
       const row = rows[0];
       if (!row) return null;
 
-      for (const resourceKey of uniqueResources) {
-        const existing = await tx.storageMutationResource.findFirst({
-          where: { resourceKey, releasedAt: null },
-          select: { mutationId: true },
-        });
-        if (!existing) {
-          await tx.storageMutationResource.create({
-            data: { resourceKey, mutationId: id, fenceToken: row.leaseToken },
-          });
-        }
-      }
+      // One statement for every key: a per-key loop ran out of transaction
+      // time on moves that lock thousands of keys.
+      await tx.$executeRaw`
+        INSERT INTO "StorageMutationResource" (id, "resourceKey", "mutationId", "fenceToken")
+        SELECT gen_random_uuid()::text, requested.key, ${id}, ${row.leaseToken}
+          FROM unnest(${uniqueResources}::text[]) AS requested(key)
+         WHERE NOT EXISTS (
+           SELECT 1 FROM "StorageMutationResource" active
+            WHERE active."resourceKey" = requested.key
+              AND active."releasedAt" IS NULL
+         )
+      `;
       await tx.storageMutationResource.updateMany({
         where: { mutationId: id, releasedAt: null },
         data: { fenceToken: row.leaseToken },
@@ -1583,6 +1744,11 @@ export const claimStorageMutation = async ({
     });
   } catch (error) {
     if (isUniqueViolation(error)) return null;
+    if (error instanceof StorageTransactionUnavailableError) {
+      await recordStorageMutationClaimFailure(id, error, now).catch(
+        () => undefined,
+      );
+    }
     throw error;
   }
 
@@ -2009,34 +2175,12 @@ export const abortStorageMutation = async ({
         status: "running",
         metadataCommittedAt: null,
       },
-      data: {
-        status: "aborted",
-        idempotencyKey: null,
-        reservedBytes: null,
-        resultJson: { abortedCode: rejection.code },
-        completedAt: abortedAt,
-        leaseOwner: null,
-        leaseExpiresAt: null,
-        nextAttemptAt: null,
-        lastError: error.slice(0, 4_000),
-      },
+      data: abortedStorageMutationData(rejection, error, abortedAt),
     });
     if (aborted.count !== 1) {
       throw new StorageMutationFenceError();
     }
-    await tx.storageMutationResource.updateMany({
-      where: { mutationId, releasedAt: null },
-      data: { releasedAt: abortedAt },
-    });
-    // A resumable commit cannot be retried once aborted; release its quota.
-    await tx.uploadSession.updateMany({
-      where: { storageMutationId: mutationId },
-      data: {
-        status: "failed",
-        terminalAt: abortedAt,
-        storageMutationId: null,
-      },
-    });
+    await releaseAbortedStorageMutation(tx, mutationId, abortedAt);
   });
 
 export const createLegacyRecoveryRequiredMutation = async ({
@@ -2312,7 +2456,7 @@ export const listRecentBatchMoveMutations = async ({
           },
         },
         {
-          status: "succeeded",
+          status: { in: ["succeeded", "aborted"] },
           completedAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
         },
       ],
