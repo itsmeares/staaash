@@ -60,6 +60,9 @@ import { useTime } from "@/components/time-provider";
 import { randomClientId } from "@/lib/client-id";
 import { formatDateTime, formatRelativeTime } from "@/lib/time";
 import { DashboardPageContextMenu } from "@/src/dashboard-context-menu";
+import { isStorageOperation } from "@/src/storage-mutation-submit";
+import { followFolderOperation } from "@/src/workspace/folder-operation";
+import type { FolderOperationResponse } from "@/server/files/types";
 import { getItemVisual } from "@staaash/ui/item-visuals";
 import { startValidatedDownload } from "@/lib/transfers/download";
 import {
@@ -780,10 +783,23 @@ export function FilesView({
       headers: {
         "Content-Type": "application/json",
         "Idempotency-Key": getStorageMutationKey(logicalAction),
+        ...(kind === "folder" ? { Prefer: "respond-async" } : {}),
       },
       body: JSON.stringify({ name }),
     });
     finishStorageMutationKey(logicalAction, response);
+    const started: unknown =
+      response.status === 202 ? await response.json().catch(() => null) : null;
+    if (isStorageOperation(started)) {
+      await followFolderOperation(
+        started as FolderOperationResponse,
+        `Renaming to ${name}`,
+      ).catch((error: unknown) =>
+        toast.error(`Couldn't rename to ${name}`, {
+          description: error instanceof Error ? error.message : undefined,
+        }),
+      );
+    }
     startTransition(() => void refresh());
   };
 

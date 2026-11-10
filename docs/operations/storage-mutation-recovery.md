@@ -32,6 +32,42 @@ Reads and writes for affected entities fail closed while recovery is active.
 Unrelated owners remain available, and so do unrelated paths of the same owner. Never manually move or delete a mutation's
 incoming, backup, quarantine, staging, or canonical paths.
 
+## Large folder changes
+
+A folder trash, restore, rename, move, or purge writes one journal entity and
+one metadata operation for every file and folder inside it. When either list
+is longer than 1,000, the journal splits the work so no transaction holds more
+than 1,000 rows:
+
+- **Preparation.** The first transaction takes the locks and writes the
+  mutation as `preparing`. Entities and their revision checks follow a chunk
+  per transaction, then the namespace checks, and the last transaction marks
+  it `prepared`. No executor runs a `preparing` mutation and nothing on disk
+  has moved, so a failed preparation deletes its rows and locks. One left for
+  60 seconds belongs to a request that stopped: worker recovery deletes it,
+  and a retry with the same idempotency key starts over.
+- **Commit.** After the disk steps, the operations for items inside the folder
+  commit a chunk per transaction. `metadataOperationsApplied` moves in the
+  same transaction as each chunk, so a retry resumes where the last attempt
+  stopped. The folder's own change, and its trash entry, commit last with the
+  change feed. From the first chunk on, the mutation only goes forward: it is
+  never rolled back or aborted, because committed rows already point at the
+  moved bytes.
+- **Visibility.** Every item in the folder stays hidden behind its journal
+  entity until the mutation finishes, so nobody reads a folder that is half
+  moved. Ancestor folder sizes can change between chunks.
+- **Change feed.** It records one entry for the folder, which covers
+  everything inside it, as it does for a small folder.
+
+A folder change sent with `Prefer: respond-async` whose tree holds more than
+2,000 files and folders answers `202` with a `FolderOperation`. The web server
+finishes it in the background; `GET /api/files/folders/operations/{id}`
+reports `queued` while it is planned and prepared, then `running` with the
+committed item count, then `succeeded`, `failed`, or `recovery_required`. If
+the server restarts, worker recovery finishes a prepared change, and a change
+that was still being planned never started. Without the header, or for a
+smaller tree, the request runs the change and answers `200` as before.
+
 ## Pre-commit rejection
 
 Single user operations (folder create, file and folder rename, move, trash,
@@ -47,7 +83,9 @@ The executor reverses applied forward steps newest first, with the same
 fingerprint checks as forward renames, then releases the mutation's resources
 and frees its idempotency key. If the undo finds anything unexpected, the
 mutation becomes `recovery_required` as before. Batch children, purges, and
-worker artifact publishes never abort.
+worker artifact publishes never abort. Neither does a large folder change once
+any of its metadata chunks has committed (see
+[Large folder changes](#large-folder-changes)).
 
 A single user operation or a batch move that was never claimed also ends as
 `aborted` (`STORAGE_MUTATION_ABORTED`) once its claim has failed on a database
@@ -138,11 +176,11 @@ per process, so ordinary reads cannot consume their connections. This adds three
 connections to the general pool's ten and the resumable-chunk pool's three.
 Size PostgreSQL connection capacity for all web and worker processes.
 
-The journal parent is awaited before a single SQL command inserts its steps,
-entities and resources in the same transaction. This prevents nested child writes
-from continuing after a parent transaction expires. Completion likewise redacts
-child details and releases resources in one command, after the fenced completion
-update. Any command failure rolls back the transaction. Quota aggregation runs in one SQL statement under the
+The journal parent is awaited before its steps and resources, then its
+entities, are inserted in the same transaction. This prevents nested child
+writes from continuing after a parent transaction expires. Completion redacts
+child details and releases resources after the fenced completion update. Any
+command failure rolls back the transaction. Quota aggregation runs in one SQL statement under the
 owner lock. Reservations, namespace checks, fencing and atomic publication are
 unchanged.
 

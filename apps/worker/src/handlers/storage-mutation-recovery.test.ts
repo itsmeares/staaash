@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@staaash/db/storage-mutations", () => ({
   applyStorageMutationIntentMetadata: vi.fn(),
   claimStorageMutation: mocks.claim,
+  discardStalePreparingStorageMutations: vi.fn().mockResolvedValue(0),
   listRecoverableStorageMutations: mocks.list,
   requireStorageMutationRecovery: vi.fn(),
   retryStorageMutation: vi.fn(),

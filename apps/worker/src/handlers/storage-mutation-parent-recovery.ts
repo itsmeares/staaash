@@ -696,15 +696,12 @@ const buildBatchFolderMovePlan = async ({
     files,
     storagePaths,
   });
+  // The moved folder's own change goes last; everything before it sits
+  // inside that folder and may commit in chunks.
+  const bulkOperationsEnd = descendants.length + files.length;
   return {
+    bulkOperationsEnd,
     operations: [
-      {
-        action: "update" as const,
-        entityType: "folder" as const,
-        entityId: folder!.id,
-        preRevision: folder!.storageRevision,
-        data: { parentId: destination.id },
-      },
       ...descendants.map((descendant): StorageMetadataOperation => ({
         action: "update",
         entityType: "folder",
@@ -724,6 +721,13 @@ const buildBatchFolderMovePlan = async ({
             : {}),
         },
       })),
+      {
+        action: "update" as const,
+        entityType: "folder" as const,
+        entityId: folder!.id,
+        preRevision: folder!.storageRevision,
+        data: { parentId: destination.id },
+      },
     ],
     steps: [
       {
@@ -845,6 +849,10 @@ const runBatchMoveChild = async ({
     ownerUserId: parent.ownerUserId,
     idempotencyKey: childKey,
     metadataOperations: plan.operations,
+    details:
+      "bulkOperationsEnd" in plan
+        ? { bulkOperationsEnd: plan.bulkOperationsEnd }
+        : undefined,
     steps: plan.steps,
     entities: plan.entities,
     storagePaths,
@@ -1154,6 +1162,7 @@ const buildTrashFolderOperations = ({
   derivatives: Array<{ id: string; storageRevision: number }>;
 }): StorageMetadataOperation[] => {
   const depth = trashFolderDepthResolver(folders);
+  // The top folders and the trash entry go last; see trashFolderBulkEnd.
   return [
     ...derivatives.map((derivative) => ({
       action: "delete" as const,
@@ -1177,6 +1186,16 @@ const buildTrashFolderOperations = ({
       })),
     { action: "delete_trash_entry", entityId: rootTrashEntryId },
   ];
+};
+
+// Everything before the top folders sits inside them and may commit in chunks.
+const trashFolderBulkEnd = (
+  operations: StorageMetadataOperation[],
+  folders: Array<{ id: string; parentId: string | null }>,
+) => {
+  const depth = trashFolderDepthResolver(folders);
+  const tops = folders.filter((folder) => depth(folder.id) === 0).length;
+  return operations.length - tops - 1;
 };
 
 const buildLegacyTrashTreeSteps = async ({
@@ -1348,14 +1367,16 @@ const buildClearTrashFolderPlan = async ({
           storagePaths,
         });
   await appendDerivativePurgeSteps({ steps, derivatives, storagePaths });
+  const operations = buildTrashFolderOperations({
+    rootTrashEntryId: root.trashEntryId!,
+    folders,
+    files,
+    derivatives,
+  });
   return {
     replay: null,
-    operations: buildTrashFolderOperations({
-      rootTrashEntryId: root.trashEntryId!,
-      folders,
-      files,
-      derivatives,
-    }),
+    operations,
+    bulkOperationsEnd: trashFolderBulkEnd(operations, folders),
     steps,
     entities: [
       ...derivatives.map((derivative) => ({
@@ -1443,6 +1464,10 @@ const runClearTrashChild = async ({
     ownerUserId: parent.ownerUserId,
     idempotencyKey: childKey,
     metadataOperations: plan.operations,
+    details:
+      "bulkOperationsEnd" in plan
+        ? { bulkOperationsEnd: plan.bulkOperationsEnd }
+        : undefined,
     steps: plan.steps,
     entities: plan.entities,
     storagePaths,

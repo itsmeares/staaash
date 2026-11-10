@@ -143,6 +143,34 @@ export const FolderMutationSchema = z
   })
   .openapi("FolderMutation");
 
+export const FolderOperationSchema = z
+  .object({
+    operationId: z.string(),
+    status: z.enum([
+      "queued",
+      "running",
+      "succeeded",
+      "failed",
+      "recovery_required",
+    ]),
+    totalCount: z.number().int().openapi({
+      description: "Files and folders in the tree, the folder itself included.",
+    }),
+    doneCount: z.number().int().openapi({
+      description: "Items whose change is committed so far.",
+    }),
+    response: FolderMutationSchema.optional(),
+    error: z
+      .object({
+        status: z.number().int(),
+        code: z.string(),
+        message: z.string(),
+        mutationKind: z.string().optional(),
+      })
+      .optional(),
+  })
+  .openapi("FolderOperation");
+
 const BatchMoveItemSchema = z.object({
   id: z.string(),
   kind: z.enum(["file", "folder"]),

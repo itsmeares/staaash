@@ -15,10 +15,12 @@ import path from "node:path";
 import type { Prisma } from "./client";
 import {
   abortStorageMutation,
+  applyStorageMutationBulkMetadata,
   beginStorageMutationFinalization,
   claimStorageMutation,
   claimStorageMutationFinalization,
   commitStorageMutationMetadata,
+  committedChangeFeedEntities,
   completeStorageMutation,
   findStorageMutation,
   markStorageMutationStepApplied,
@@ -1185,6 +1187,7 @@ const messageOf = (error: unknown) =>
 export type StorageMutationExecutionBoundary =
   | "filesystem_step_applied"
   | "forward_steps_applied"
+  | "metadata_chunk_applied"
   | "metadata_committed"
   | "finalization_started"
   | "cleanup_steps_applied"
@@ -1335,9 +1338,13 @@ const rollBackAndAbort = async ({
   error: unknown;
 }) => {
   // A commit can succeed even when its acknowledgement is lost. Never undo
-  // bytes that committed metadata already points at.
+  // bytes that committed metadata, or any committed bulk chunk, points at.
   const current = await findStorageMutation(mutation.id);
-  if (current?.metadataCommittedAt || current?.status !== "running") {
+  if (
+    current?.metadataCommittedAt ||
+    current?.metadataOperationsApplied ||
+    current?.status !== "running"
+  ) {
     return false;
   }
   await undoForwardSteps(mutation, filesRoot, () =>
@@ -1409,6 +1416,14 @@ const executeStorageMutationPhases = async <T>({
     afterFilesystemStep,
   });
   await hook("forward_steps_applied");
+  await applyStorageMutationBulkMetadata({
+    mutationId: mutation.id,
+    ownerUserId: mutation.ownerUserId,
+    intentJson: mutation.intentJson,
+    leaseOwner,
+    leaseToken,
+    afterChunk: () => hook("metadata_chunk_applied"),
+  });
   const result = await commitStorageMutationMetadata({
     mutationId: mutation.id,
     ownerUserId: mutation.ownerUserId,
@@ -1416,6 +1431,7 @@ const executeStorageMutationPhases = async <T>({
     leaseToken,
     callback: commitMetadata,
     resultJson,
+    changeFeedEntities: committedChangeFeedEntities(mutation.intentJson),
   });
   await hook("metadata_committed");
   await beginStorageMutationFinalization({

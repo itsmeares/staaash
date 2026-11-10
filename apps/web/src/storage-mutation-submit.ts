@@ -70,3 +70,61 @@ export const submitStorageMutationPost = async ({
  */
 export const forgetStorageMutationKey = (logicalAction: string) =>
   storageMutationKeys.delete(logicalAction);
+
+type StorageOperation = {
+  operationId: string;
+  status: string;
+  totalCount: number;
+  doneCount: number;
+};
+
+export const isStorageOperation = (value: unknown): value is StorageOperation =>
+  Boolean(
+    value &&
+    typeof value === "object" &&
+    typeof (value as { operationId?: unknown }).operationId === "string" &&
+    typeof (value as { status?: unknown }).status === "string",
+  );
+
+const OPERATION_POLL_MS = 1_000;
+const OPERATION_MAX_MISSED_POLLS = 30;
+
+/**
+ * Polls a background storage change until it leaves queued and running.
+ * The server keeps going if this page closes, so a dropped poll is not a
+ * failure; only a run of them, or a change the server no longer knows, is.
+ */
+export const followStorageOperation = async <T extends StorageOperation>(
+  started: T,
+  statusUrl: string,
+  onProgress?: (operation: T) => void,
+) => {
+  let operation = started;
+  let missed = 0;
+  while (operation.status === "queued" || operation.status === "running") {
+    onProgress?.(operation);
+    await new Promise((resolve) => setTimeout(resolve, OPERATION_POLL_MS));
+    const poll = await fetch(statusUrl, {
+      headers: { Accept: "application/json" },
+    }).catch(() => null);
+    const value: unknown = poll?.ok
+      ? await poll.json().catch(() => null)
+      : null;
+    if (isStorageOperation(value)) {
+      operation = value as T;
+      missed = 0;
+    } else if (poll?.status === 404 || ++missed >= OPERATION_MAX_MISSED_POLLS) {
+      throw new Error("Staaash lost track of it. Refresh to see where it is.");
+    }
+  }
+  return operation;
+};
+
+/** "12 of 200 items", once the server knows how many there are. */
+export const storageOperationProgress = ({
+  doneCount,
+  totalCount,
+}: StorageOperation) =>
+  totalCount > 0
+    ? `${doneCount.toLocaleString("en")} of ${totalCount.toLocaleString("en")} ${totalCount === 1 ? "item" : "items"}`
+    : undefined;

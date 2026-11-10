@@ -59,11 +59,20 @@ const join = (parent: string | undefined, name: string) =>
 export const readStorageItemSnapshot = async (
   tx: Prisma.TransactionClient,
   mutationId: string,
+  only: ReadonlySet<string> | null = null,
 ): Promise<StorageItemSnapshot> => {
-  const entities = await tx.storageMutationEntity.findMany({
-    where: { mutationId, entityType: { in: ["file", "folder"] } },
-    select: { entityType: true, entityId: true },
-  });
+  const entities = only
+    ? [...only].flatMap((key) => {
+        const entityType = key.slice(0, key.indexOf(":"));
+        const entityId = key.slice(entityType.length + 1);
+        return entityType === "file" || entityType === "folder"
+          ? [{ entityType, entityId }]
+          : [];
+      })
+    : await tx.storageMutationEntity.findMany({
+        where: { mutationId, entityType: { in: ["file", "folder"] } },
+        select: { entityType: true, entityId: true },
+      });
   const ids = (type: string) =>
     entities.filter((e) => e.entityType === type).map((e) => e.entityId);
   const [files, folders] = await Promise.all([
@@ -169,9 +178,15 @@ export const appendStorageChanges = async (
     mutationId,
     ownerUserId,
     before,
-  }: { mutationId: string; ownerUserId: string; before: StorageItemSnapshot },
+    only = null,
+  }: {
+    mutationId: string;
+    ownerUserId: string;
+    before: StorageItemSnapshot;
+    only?: ReadonlySet<string> | null;
+  },
 ) => {
-  const after = await readStorageItemSnapshot(tx, mutationId);
+  const after = await readStorageItemSnapshot(tx, mutationId, only);
   const kinds = new Map<string, StorageChangeKind>();
   for (const key of new Set([...before.keys(), ...after.keys()])) {
     const kind = kindOf(before.get(key), after.get(key));
