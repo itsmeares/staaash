@@ -152,7 +152,7 @@ async function waitForMove(operationId: string | null, first: unknown) {
 export async function submitMove(
   items: BatchMoveItem[],
   destinationFolderId: string,
-): Promise<BatchMoveResponse> {
+) {
   const response = await fetch("/api/files/move", {
     method: "POST",
     headers: {
@@ -170,7 +170,9 @@ export async function submitMove(
     value,
   );
   if (done.status === "recovery_required" || !done.response) {
-    throw new Error(done.error ?? "This move could not finish.");
+    throw new Error(done.error ?? "This move could not finish.", {
+      cause: done,
+    });
   }
-  return done.response;
+  return { ...done.response, operationId: done.operationId };
 }

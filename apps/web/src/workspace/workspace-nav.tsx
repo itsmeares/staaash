@@ -27,6 +27,7 @@ import { toastManager } from "@staaash/ui/components/toast";
 import type { ShellPin } from "./app-sidebar";
 import { dropTargetProps, type DraggedItems } from "./drag-items";
 import { submitMove } from "./files/files-move";
+import { showMoveFailure } from "./files/move-notifications";
 import { moveWithUndo } from "./trash-moves";
 
 export type WorkspaceNavItem = {
@@ -120,23 +121,30 @@ function useDropActions() {
           result.results.some((r) => r.id === item.id && r.status === "moved"),
         );
         void refresh();
+        if (result.failedCount > 0) {
+          showMoveFailure(`${result.failedCount} could not be moved.`, result);
+        }
         if (moved.length === 0) return;
         toastManager.add({
           title: `Moved ${itemsLabel(moved.length)} to ${folder.name}`,
           actionProps: {
             children: "Undo",
-            onClick: () => void submitMove(moved, from).then(refresh),
+            onClick: () =>
+              void submitMove(moved, from)
+                .then(refresh)
+                .catch((caught: unknown) =>
+                  showMoveFailure(
+                    caught instanceof Error
+                      ? caught
+                      : "Items could not be moved back.",
+                  ),
+                ),
           },
         });
       } catch (caught) {
-        toastManager.add({
-          title:
-            caught instanceof Error
-              ? caught.message
-              : "Items could not be moved.",
-          type: "error",
-          timeout: 0,
-        });
+        showMoveFailure(
+          caught instanceof Error ? caught : "Items could not be moved.",
+        );
       }
     },
   };

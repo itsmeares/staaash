@@ -36,7 +36,7 @@ describe("submitMove", () => {
     const result = submitMove([{ id: "a", kind: "file" }], "folder");
     await vi.advanceTimersByTimeAsync(2_000);
 
-    await expect(result).resolves.toEqual(moved);
+    await expect(result).resolves.toEqual({ ...moved, operationId: "op" });
     expect(fetch).toHaveBeenLastCalledWith(
       "/api/files/move/op",
       expect.anything(),
@@ -62,8 +62,11 @@ describe("submitMove", () => {
         }),
       ),
     );
-    await expect(submitMove([{ id: "a", kind: "file" }], "f")).rejects.toThrow(
-      "Check the files.",
-    );
+    await expect(
+      submitMove([{ id: "a", kind: "file" }], "f"),
+    ).rejects.toMatchObject({
+      message: "Check the files.",
+      cause: { operationId: "op", status: "recovery_required" },
+    });
   });
 });
