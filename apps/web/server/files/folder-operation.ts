@@ -1,11 +1,8 @@
-import { createHash } from "node:crypto";
-
 import { getPrisma } from "@staaash/db/client";
 import { storageMutationRejectionFromResult } from "@staaash/db/storage-mutations";
 
 import type {
   FolderMutationResult,
-  FolderOperationError,
   FolderOperationResponse,
 } from "@/server/files/types";
 
@@ -36,65 +33,6 @@ export const countFolderTreeItems = async (
   return Number(row?.items ?? 0);
 };
 
-type Task = {
-  ownerUserId: string;
-  totalCount: number;
-  result?: FolderMutationResult;
-  error?: FolderOperationError;
-};
-
-// Changes this server is planning or running. The journal row takes over
-// once it exists, so a restart only loses changes that had not begun.
-const tasks = new Map<string, Task>();
-const SETTLED_TASK_MS = 15 * 60_000;
-
-/** The same request from the same account always names the same change. */
-export const folderOperationId = ({
-  ownerUserId,
-  kind,
-  folderId,
-  idempotencyKey,
-}: {
-  ownerUserId: string;
-  kind: string;
-  folderId: string;
-  idempotencyKey: string;
-}) => {
-  const hex = createHash("sha256")
-    .update(`folder-operation:${ownerUserId}:${kind}:${folderId}`)
-    .update(`\0${idempotencyKey}`)
-    .digest("hex");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
-};
-
-const operationError = (error: unknown): FolderOperationError => {
-  const known = error as {
-    status?: unknown;
-    code?: unknown;
-    message?: unknown;
-    details?: { mutationKind?: unknown };
-  } | null;
-  if (
-    error instanceof Error &&
-    typeof known?.status === "number" &&
-    typeof known.code === "string"
-  ) {
-    const mutationKind = known.details?.mutationKind;
-    return {
-      status: known.status,
-      code: known.code,
-      message: error.message,
-      ...(typeof mutationKind === "string" ? { mutationKind } : {}),
-    };
-  }
-  console.error("[files] Background folder change failed.", error);
-  return {
-    status: 500,
-    code: "INTERNAL_ERROR",
-    message: "Unexpected server error.",
-  };
-};
-
 const readResponse = (resultJson: unknown) => {
   const response = (resultJson as { response?: unknown } | null)?.response;
   return response && typeof response === "object"
@@ -118,25 +56,9 @@ type OperationBase = Pick<
   "operationId" | "totalCount" | "doneCount"
 >;
 
-// A replayed request finishes without a journal row of its own.
-const taskOperation = (
-  base: OperationBase,
-  task: Task,
-): FolderOperationResponse => {
-  if (task.error) return { ...base, status: "failed", error: task.error };
-  if (!task.result) return { ...base, status: "queued" };
-  return {
-    ...base,
-    status: "succeeded",
-    doneCount: base.totalCount,
-    response: task.result,
-  };
-};
-
 const mutationOperation = (
   base: OperationBase,
   mutation: OperationMutation,
-  task: Task | undefined,
 ): FolderOperationResponse => {
   switch (mutation.status) {
     case "preparing":
@@ -147,16 +69,21 @@ const mutationOperation = (
         ...base,
         status: "succeeded",
         doneCount: base.totalCount,
-        response: task?.result ?? readResponse(mutation.resultJson),
+        response: readResponse(mutation.resultJson),
       };
-    case "aborted":
+    case "aborted": {
+      const rejection = storageMutationRejectionFromResult(mutation.resultJson);
       return {
         ...base,
         status: "failed",
-        error: operationError(
-          storageMutationRejectionFromResult(mutation.resultJson),
-        ),
+        error: {
+          status: rejection.status,
+          code: rejection.code,
+          message: rejection.message,
+          mutationKind: mutation.kind,
+        },
       };
+    }
     case "recovery_required":
       return {
         ...base,
@@ -184,7 +111,6 @@ export const readFolderOperation = async (
   operationId: string,
   ownerUserId: string,
 ): Promise<FolderOperationResponse | null> => {
-  const task = tasks.get(operationId);
   const mutation = await getPrisma().storageMutation.findUnique({
     where: { id: operationId },
     select: {
@@ -195,48 +121,29 @@ export const readFolderOperation = async (
       resultJson: true,
     },
   });
-  if ((mutation ?? task)?.ownerUserId !== ownerUserId) return null;
-  const totalCount = task?.totalCount ?? (await countJournalItems(operationId));
+  if (!mutation || mutation.ownerUserId !== ownerUserId) return null;
+  const totalCount = await countJournalItems(operationId);
   const base = { operationId, totalCount, doneCount: 0 };
-  return mutation
-    ? mutationOperation(base, mutation, task)
-    : taskOperation(base, task!);
+  return mutationOperation(base, mutation);
 };
 
-/**
- * Starts a folder change in the background and answers with its state. A
- * retry of the same request follows the change already under way.
- */
+/** Accepts a background change only once worker recovery can finish it. */
 export const startFolderOperation = async ({
-  operationId,
   ownerUserId,
-  totalCount,
   run,
 }: {
-  operationId: string;
   ownerUserId: string;
-  totalCount: number;
-  run: (storageMutationId: string) => Promise<FolderMutationResult>;
+  run: (
+    onPrepared: (mutationId: string) => void,
+  ) => Promise<FolderMutationResult>;
 }) => {
-  const recorded =
-    tasks.has(operationId) ||
-    (await getPrisma().storageMutation.count({ where: { id: operationId } })) >
-      0;
-  if (!recorded && !tasks.has(operationId)) {
-    const task: Task = { ownerUserId, totalCount };
-    tasks.set(operationId, task);
-    void run(operationId)
-      .then(
-        (result) => {
-          task.result = result;
-        },
-        (error: unknown) => {
-          task.error = operationError(error);
-        },
-      )
-      .finally(() => {
-        setTimeout(() => tasks.delete(operationId), SETTLED_TASK_MS).unref();
-      });
-  }
-  return (await readFolderOperation(operationId, ownerUserId))!;
+  const mutationId = await new Promise<string>((resolve, reject) => {
+    void run(resolve).then(
+      () => reject(new Error("The folder change did not prepare a journal.")),
+      reject,
+    );
+  });
+  const operation = await readFolderOperation(mutationId, ownerUserId);
+  if (!operation) throw new Error("The folder change journal is unavailable.");
+  return operation;
 };

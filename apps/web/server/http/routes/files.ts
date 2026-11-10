@@ -36,7 +36,6 @@ import { FilesError } from "@/server/files/errors";
 import {
   BACKGROUND_FOLDER_ITEMS,
   countFolderTreeItems,
-  folderOperationId,
   readFolderOperation,
   startFolderOperation,
 } from "@/server/files/folder-operation";
@@ -259,23 +258,21 @@ type FolderAccess = Parameters<
 const folderChange = async (
   c: Context<AppEnv>,
   {
-    kind,
     folderId,
     access,
     run,
   }: {
-    kind: string;
     folderId: string;
     access: FolderAccess;
     run: (
       actor: FilesActor,
-      storageMutationId?: string,
+      onPrepared?: (mutationId: string) => void,
     ) => Promise<FolderMutationResult>;
   },
 ) => {
   const actor = actorOf(c.var.session);
-  const change = async (storageMutationId?: string) => {
-    const result = await run(actor, storageMutationId);
+  const change = async (onPrepared?: (mutationId: string) => void) => {
+    const result = await run(actor, onPrepared);
     await recordFolderAccessBestEffort({ ...actor, folderId, action: access });
     return result;
   };
@@ -284,17 +281,9 @@ const folderChange = async (
     const totalCount = await countFolderTreeItems(ownerUserId, folderId);
     if (totalCount > BACKGROUND_FOLDER_ITEMS) {
       c.header("Preference-Applied", "respond-async");
-      const operationId = folderOperationId({
-        ownerUserId,
-        kind,
-        folderId,
-        idempotencyKey: c.var.idempotencyKey,
-      });
       return {
         operation: await startFolderOperation({
-          operationId,
           ownerUserId,
-          totalCount,
           run: change,
         }),
       };
@@ -852,17 +841,16 @@ export const filesRoutes = router()
     const { ifRevision } = c.req.valid("query");
     const { name } = c.req.valid("json");
     const { operation, result } = await folderChange(c, {
-      kind: "folder_rename",
       folderId,
       access: "renamed",
-      run: (actor, storageMutationId) =>
+      run: (actor, onStorageMutationPrepared) =>
         filesService.renameFolder({
           ...actor,
           ifRevision,
           folderId,
           name,
           idempotencyKey: c.var.idempotencyKey,
-          storageMutationId,
+          onStorageMutationPrepared,
         }),
     });
     return operation ? c.json(operation, 202) : c.json(result, 200);
@@ -872,17 +860,16 @@ export const filesRoutes = router()
     const { ifRevision } = c.req.valid("query");
     const { destinationFolderId } = c.req.valid("json");
     const { operation, result } = await folderChange(c, {
-      kind: "folder_move",
       folderId,
       access: "moved",
-      run: (actor, storageMutationId) =>
+      run: (actor, onStorageMutationPrepared) =>
         filesService.moveFolder({
           ...actor,
           ifRevision,
           folderId,
           destinationFolderId,
           idempotencyKey: c.var.idempotencyKey,
-          storageMutationId,
+          onStorageMutationPrepared,
         }),
     });
     return operation ? c.json(operation, 202) : c.json(result, 200);
@@ -891,16 +878,15 @@ export const filesRoutes = router()
     const { folderId } = c.req.valid("param");
     const { ifRevision } = c.req.valid("query");
     const { operation, result } = await folderChange(c, {
-      kind: "folder_trash",
       folderId,
       access: "trashed",
-      run: (actor, storageMutationId) =>
+      run: (actor, onStorageMutationPrepared) =>
         filesService.trashFolder({
           ...actor,
           ifRevision,
           folderId,
           idempotencyKey: c.var.idempotencyKey,
-          storageMutationId,
+          onStorageMutationPrepared,
         }),
     });
     return operation ? c.json(operation, 202) : c.json(result, 200);
@@ -908,15 +894,14 @@ export const filesRoutes = router()
   .openapi(restoreFolder, async (c) => {
     const { folderId } = c.req.valid("param");
     const { operation, result } = await folderChange(c, {
-      kind: "folder_restore",
       folderId,
       access: "restored",
-      run: (actor, storageMutationId) =>
+      run: (actor, onStorageMutationPrepared) =>
         filesService.restoreFolder({
           ...actor,
           folderId,
           idempotencyKey: c.var.idempotencyKey,
-          storageMutationId,
+          onStorageMutationPrepared,
         }),
     });
     return operation ? c.json(operation, 202) : c.json(result, 200);

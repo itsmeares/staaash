@@ -76,7 +76,7 @@ a fallback. The process starts the periodic scheduler and move recovery once.
 
 PostgreSQL is the durable intent authority while the filesystem is the canonical
 byte store. Prepared mutations recover forward after restart, except that a
-single user operation rejected before metadata commit (quota, overlong path, or
+single user operation rejected before any metadata commits (quota, overlong path, or
 exhausted retries) is rolled back and aborted. Ambiguous outcomes preserve every
 possible byte and fail closed until an operator investigates.
 

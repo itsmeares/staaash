@@ -10,10 +10,7 @@ import {
   submitStorageMutationPost,
 } from "@/src/storage-mutation-submit";
 import { followFolderOperation } from "@/src/workspace/folder-operation";
-import type {
-  ClearTrashOperationResponse,
-  FolderOperationResponse,
-} from "@/server/files/types";
+import type { ClearTrashOperationResponse } from "@/server/files/types";
 import { toast, toastManager } from "@staaash/ui/components/toast";
 
 type Item = { id: string; kind: "file" | "folder"; name?: string };
@@ -59,15 +56,19 @@ const keyOf = (item: Item, of: TrashAction) => `${of}:${item.kind}:${item.id}`;
 
 // A large folder answers 202 and moves in the background.
 async function moveOne(item: Item, action: TrashAction) {
-  const answer = await submitStorageMutationPost({
-    action: `/api/files/${kindPath(item)}/${item.id}/${action}`,
-    logicalAction: keyOf(item, action),
-    headers: item.kind === "folder" ? { Prefer: "respond-async" } : undefined,
-  });
-  if (!isStorageOperation(answer)) return;
+  const submit = () =>
+    submitStorageMutationPost({
+      action: `/api/files/${kindPath(item)}/${item.id}/${action}`,
+      logicalAction: keyOf(item, action),
+      headers: item.kind === "folder" ? { Prefer: "respond-async" } : undefined,
+    });
+  if (item.kind === "file") {
+    await submit();
+    return;
+  }
   const name = item.name ?? "folder";
   await followFolderOperation(
-    answer as FolderOperationResponse,
+    submit,
     action === "trash" ? `Moving ${name} to trash` : `Restoring ${name}`,
   );
 }

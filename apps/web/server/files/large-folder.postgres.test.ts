@@ -17,7 +17,7 @@ import {
   StorageMutationConflictError,
   type StorageMetadataOperation,
 } from "@staaash/db/storage-mutations";
-import { beforeAll, expect, it } from "vite-plus/test";
+import { beforeAll, expect, it, vi } from "vite-plus/test";
 
 import { recoverStorageMutations } from "../../../worker/src/handlers/storage-mutation-recovery.js";
 import { assertStorageEntityReadable } from "../storage-read-guard";
@@ -25,11 +25,33 @@ import { getStoragePath, getStorageRoot } from "../storage";
 import { startClearTrash } from "./clear-trash";
 import {
   countFolderTreeItems,
-  folderOperationId,
   readFolderOperation,
   startFolderOperation,
 } from "./folder-operation";
 import { createFilesService } from "./service";
+import { authService } from "../auth/service";
+import { SESSION_COOKIE_NAME } from "../auth/session";
+import { app } from "../http/app";
+
+const faults = vi.hoisted(() => ({
+  boundary: undefined as undefined | ((boundary: string) => Promise<void>),
+}));
+vi.mock("@staaash/db/storage-mutation-executor", async (importOriginal) => {
+  const original =
+    await importOriginal<
+      typeof import("@staaash/db/storage-mutation-executor")
+    >();
+  return {
+    ...original,
+    claimAndExecuteStorageMutation: (
+      input: Parameters<typeof original.claimAndExecuteStorageMutation>[0],
+    ) =>
+      original.claimAndExecuteStorageMutation({
+        ...input,
+        executionHook: input.executionHook ?? faults.boundary,
+      }),
+  };
+});
 
 const db = getPrisma();
 const service = createFilesService();
@@ -66,6 +88,7 @@ const createOwner = async () => {
       email: `${id}@large-folder.test`,
       storageId: id,
       passwordHash: "test-only",
+      preferences: { create: { onboardingCompletedAt: new Date() } },
     },
   });
   const root = await db.folder.create({
@@ -80,7 +103,11 @@ const FILES_PER_SUBFOLDER = 50;
 const bytes = Buffer.from("bytes that must survive");
 
 // 1,531 items: more than one chunk of journal rows.
-const seedLargeFolder = async (ownerUserId: string, rootId: string) => {
+const seedLargeFolder = async (
+  ownerUserId: string,
+  rootId: string,
+  filesPerSubfolder = FILES_PER_SUBFOLDER,
+) => {
   const checksum = createHash("sha256").update(bytes).digest("hex");
   const folder = await db.folder.create({
     data: { ownerUserId, name: "Big", parentId: rootId },
@@ -93,7 +120,7 @@ const seedLargeFolder = async (ownerUserId: string, rootId: string) => {
   }));
   await db.folder.createMany({ data: subfolders });
   const files = subfolders.flatMap((subfolder) =>
-    Array.from({ length: FILES_PER_SUBFOLDER }, (_, index) => ({
+    Array.from({ length: filesPerSubfolder }, (_, index) => ({
       id: randomUUID(),
       ownerUserId,
       folderId: subfolder.id,
@@ -330,6 +357,38 @@ it("only finishes forward once a chunk has landed, and recovery completes it", a
     assertStorageEntityReadable("folder", folder.id),
   ).rejects.toThrow();
 
+  const { sessionToken } = await authService.createSession(id, {});
+  const headers = { cookie: `${SESSION_COOKIE_NAME}=${sessionToken}` };
+  for (const folderId of [folder.id, root.id]) {
+    const response = await app.request(
+      `/api/sync/snapshot?folderId=${folderId}&limit=1&cursor=file:a`,
+      { headers },
+    );
+    expect(response.status).toBe(503);
+    expect(response.headers.get("X-Storage-Mutation-Id")).toBe(mutation.id);
+  }
+  const unrelated = await db.folder.create({
+    data: { ownerUserId: id, parentId: root.id, name: "Quiet" },
+  });
+  expect(
+    (
+      await app.request(`/api/sync/snapshot?folderId=${unrelated.id}`, {
+        headers,
+      })
+    ).status,
+  ).toBe(200);
+  const other = await createOwner();
+  const otherSession = await authService.createSession(other.id, {});
+  expect(
+    (
+      await app.request(`/api/sync/snapshot?folderId=${other.root.id}`, {
+        headers: {
+          cookie: `${SESSION_COOKIE_NAME}=${otherSession.sessionToken}`,
+        },
+      })
+    ).status,
+  ).toBe(200);
+
   // Out of attempts, a failed attempt would normally roll back and abort.
   // Here the bytes must stay where the committed rows point.
   await db.storageMutation.update({
@@ -375,6 +434,10 @@ it("only finishes forward once a chunk has landed, and recovery completes it", a
   expect(
     (await db.folder.findUniqueOrThrow({ where: { id: folder.id } })).name,
   ).toBe("Renamed");
+  expect(
+    (await app.request(`/api/sync/snapshot?folderId=${folder.id}`, { headers }))
+      .status,
+  ).toBe(200);
   await expect(assertStorageEntityReadable("file", sample.id)).resolves.toBe(
     undefined,
   );
@@ -486,32 +549,32 @@ it("runs a large folder change in the background and reports how far it got", as
   const totalCount = await countFolderTreeItems(id, folder.id);
   expect(totalCount).toBe(1 + SUBFOLDERS + SUBFOLDERS * FILES_PER_SUBFOLDER);
   const idempotencyKey = randomUUID();
-  const operationId = folderOperationId({
-    ownerUserId: id,
-    kind: "folder_trash",
-    folderId: folder.id,
-    idempotencyKey,
-  });
-
   const started = await startFolderOperation({
-    operationId,
     ownerUserId: id,
-    totalCount,
-    run: (storageMutationId) =>
+    run: (onStorageMutationPrepared) =>
       service.trashFolder({
         ...actor,
         folderId: folder.id,
         idempotencyKey,
-        storageMutationId,
+        onStorageMutationPrepared,
       }),
   });
-  expect(started).toMatchObject({ operationId, status: "queued", totalCount });
+  const { operationId } = started;
+  expect(started.totalCount).toBe(totalCount);
+  expect(["queued", "running", "succeeded"]).toContain(started.status);
+  expect(
+    await db.storageMutation.findUniqueOrThrow({ where: { id: operationId } }),
+  ).not.toMatchObject({ status: "preparing" });
   // A retry of the request follows the change already under way.
   const retried = await startFolderOperation({
-    operationId,
     ownerUserId: id,
-    totalCount,
-    run: () => Promise.reject(new Error("started twice")),
+    run: (onStorageMutationPrepared) =>
+      service.trashFolder({
+        ...actor,
+        folderId: folder.id,
+        idempotencyKey,
+        onStorageMutationPrepared,
+      }),
   });
   expect(retried.operationId).toBe(operationId);
 
@@ -531,34 +594,186 @@ it("runs a large folder change in the background and reports how far it got", as
   expect(await readFolderOperation(operationId, randomUUID())).toBeNull();
 }, 120_000);
 
-it("reports a background folder change the server refused", async () => {
+it("refuses an invalid change before accepting it in the background", async () => {
   const { id, root, actor } = await createOwner();
   const { folder } = await seedLargeFolder(id, root.id);
   await db.folder.create({
     data: { ownerUserId: id, name: "Taken", parentId: root.id },
   });
-  const operationId = folderOperationId({
-    ownerUserId: id,
-    kind: "folder_rename",
-    folderId: folder.id,
-    idempotencyKey: randomUUID(),
-  });
-  await startFolderOperation({
-    operationId,
-    ownerUserId: id,
-    totalCount: 1,
-    run: (storageMutationId) =>
-      service.renameFolder({
-        ...actor,
-        folderId: folder.id,
-        name: "Taken",
-        storageMutationId,
-      }),
-  });
-  const done = await settled(operationId, id);
-  expect(done.status).toBe("failed");
-  expect(done.error).toMatchObject({ status: 409 });
+  await expect(
+    startFolderOperation({
+      ownerUserId: id,
+      run: (onStorageMutationPrepared) =>
+        service.renameFolder({
+          ...actor,
+          folderId: folder.id,
+          name: "Taken",
+          onStorageMutationPrepared,
+        }),
+    }),
+  ).rejects.toMatchObject({ status: 409 });
+  expect(await db.storageMutation.count({ where: { ownerUserId: id } })).toBe(
+    0,
+  );
   expect(
     (await db.folder.findUniqueOrThrow({ where: { id: folder.id } })).name,
   ).toBe("Big");
+}, 120_000);
+
+it("keeps an accepted operation after the web request stops before execution", async () => {
+  const { id, root } = await createOwner();
+  let finishPlanning!: () => void;
+  const planning = new Promise<void>((resolve) => {
+    finishPlanning = resolve;
+  });
+  let accepted = false;
+  const started = startFolderOperation({
+    ownerUserId: id,
+    run: async (onPrepared) => {
+      await planning;
+      const { mutation } = await prepareLargeRename(id, root.id);
+      onPrepared(mutation.id);
+      throw new StorageMutationAbruptInterruptionError("forward_steps_applied");
+    },
+  });
+  void started.then(() => {
+    accepted = true;
+  });
+  await db.storageMutation.count({ where: { ownerUserId: id } });
+  expect(accepted).toBe(false);
+  finishPlanning();
+  const operation = await started;
+  expect(operation.status).toBe("queued");
+  expect(
+    await db.storageMutation.findUniqueOrThrow({
+      where: { id: operation.operationId },
+    }),
+  ).toMatchObject({ status: "prepared" });
+  vi.resetModules();
+  const fresh = await import("./folder-operation");
+  expect(
+    await fresh.readFolderOperation(operation.operationId, id),
+  ).toMatchObject({ status: "queued" });
+  await recoverStorageMutations({ storagePaths: storagePaths() });
+  expect(
+    await fresh.readFolderOperation(operation.operationId, id),
+  ).toMatchObject({ status: "succeeded" });
+  const file = await db.file.findFirstOrThrow({ where: { ownerUserId: id } });
+  expect(await readFile(getStoragePath(file.storageKey))).toEqual(bytes);
+}, 120_000);
+
+it("checks the full request when a background rename or move is retried", async () => {
+  const { id, root, actor } = await createOwner();
+  const { folder, files } = await seedLargeFolder(id, root.id, 70);
+  const { sessionToken } = await authService.createSession(id, {});
+  const request = (action: string, key: string, body: object) =>
+    app.request(`/api/files/folders/${folder.id}/${action}`, {
+      method: "POST",
+      headers: {
+        cookie: `${SESSION_COOKIE_NAME}=${sessionToken}`,
+        "Content-Type": "application/json",
+        Prefer: "respond-async",
+        "Idempotency-Key": key,
+      },
+      body: JSON.stringify(body),
+    });
+  const renameKey = randomUUID();
+  const first = await request("rename", renameKey, { name: "First" });
+  expect(first.status).toBe(202);
+  const rename = await first.json();
+  const changedName = await request("rename", renameKey, { name: "Second" });
+  expect(changedName.status).toBe(409);
+  expect(await changedName.json()).toMatchObject({
+    code: "STORAGE_IDEMPOTENCY_KEY_REUSED",
+  });
+  const retry = await request("rename", renameKey, { name: "First" });
+  expect(retry.status).toBe(202);
+  expect(await retry.json()).toMatchObject({ operationId: rename.operationId });
+  await settled(rename.operationId, id);
+  const completedRetry = await request("rename", renameKey, { name: "First" });
+  expect(await completedRetry.json()).toMatchObject({
+    operationId: rename.operationId,
+    status: "succeeded",
+  });
+  const destinations = await Promise.all(
+    ["Left", "Right"].map(
+      async (name) =>
+        (await service.createFolder({ ...actor, parentId: root.id, name }))
+          .folder,
+    ),
+  );
+  const moveKey = randomUUID();
+  const moved = await request("move", moveKey, {
+    destinationFolderId: destinations[0]!.id,
+  });
+  expect(moved.status).toBe(202);
+  const move = await moved.json();
+  const changedTarget = await request("move", moveKey, {
+    destinationFolderId: destinations[1]!.id,
+  });
+  expect(changedTarget.status).toBe(409);
+  expect(await changedTarget.json()).toMatchObject({
+    code: "STORAGE_IDEMPOTENCY_KEY_REUSED",
+  });
+  await settled(move.operationId, id);
+  expect(
+    await db.folder.findUniqueOrThrow({ where: { id: folder.id } }),
+  ).toMatchObject({ name: "First", parentId: destinations[0]!.id });
+  const saved = await db.file.findUniqueOrThrow({
+    where: { id: files[0]!.id },
+  });
+  expect(await readFile(getStoragePath(saved.storageKey))).toEqual(bytes);
+}, 120_000);
+
+it("refuses sync snapshots of subfolders already deleted by a commit chunk", async () => {
+  const { id, root, actor } = await createOwner();
+  const { folder, subfolders } = await seedLargeFolder(id, root.id);
+  const { sessionToken } = await authService.createSession(id, {});
+  const headers = { cookie: `${SESSION_COOKIE_NAME}=${sessionToken}` };
+  let checked = false;
+  faults.boundary = async (boundary) => {
+    if (boundary !== "metadata_chunk_applied") return;
+    checked = true;
+    const child = await db.folder.findUniqueOrThrow({
+      where: { id: subfolders[0]!.id },
+    });
+    expect(child.deletedAt).not.toBeNull();
+    expect(
+      (await db.folder.findUniqueOrThrow({ where: { id: folder.id } }))
+        .deletedAt,
+    ).toBeNull();
+    for (const folderId of [root.id, folder.id, child.id]) {
+      const response = await app.request(
+        `/api/sync/snapshot?folderId=${folderId}`,
+        { headers },
+      );
+      expect(response.status).toBe(503);
+      expect(await response.json()).toMatchObject({
+        code: "STORAGE_MUTATION_RECOVERING",
+      });
+    }
+    throw new StorageMutationAbruptInterruptionError("metadata_chunk_applied");
+  };
+  try {
+    await expect(
+      service.trashFolder({ ...actor, folderId: folder.id }),
+    ).rejects.toMatchObject({ code: "STORAGE_MUTATION_RECOVERING" });
+    expect(checked).toBe(true);
+  } finally {
+    faults.boundary = undefined;
+  }
+  const mutation = await latestMutation(id, "folder_trash");
+  await db.storageMutation.update({
+    where: { id: mutation.id },
+    data: { leaseExpiresAt: new Date(0) },
+  });
+  await recoverStorageMutations({ storagePaths: storagePaths() });
+  expect((await latestMutation(id, "folder_trash")).status).toBe("succeeded");
+  expect(
+    (
+      await app.request(`/api/sync/snapshot?folderId=${subfolders[0]!.id}`, {
+        headers,
+      })
+    ).status,
+  ).toBe(404);
 }, 120_000);

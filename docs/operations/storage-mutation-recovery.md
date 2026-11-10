@@ -36,8 +36,8 @@ incoming, backup, quarantine, staging, or canonical paths.
 
 A folder trash, restore, rename, move, or purge writes one journal entity and
 one metadata operation for every file and folder inside it. When either list
-is longer than 1,000, the journal splits the work so no transaction holds more
-than 1,000 rows:
+is longer than 1,000, the journal prepares entities and applies descendant
+metadata in chunks of at most 1,000:
 
 - **Preparation.** The first transaction takes the locks and writes the
   mutation as `preparing`. Entities and their revision checks follow a chunk
@@ -49,24 +49,27 @@ than 1,000 rows:
 - **Commit.** After the disk steps, the operations for items inside the folder
   commit a chunk per transaction. `metadataOperationsApplied` moves in the
   same transaction as each chunk, so a retry resumes where the last attempt
-  stopped. The folder's own change, and its trash entry, commit last with the
-  change feed. From the first chunk on, the mutation only goes forward: it is
+  stopped. The folder's own change and any trash-entry removal commit last
+  with the change feed. Creating a trash entry happens in the first chunk.
+  From the first chunk on, the mutation only goes forward: it is
   never rolled back or aborted, because committed rows already point at the
   moved bytes.
 - **Visibility.** Every item in the folder stays hidden behind its journal
   entity until the mutation finishes, so nobody reads a folder that is half
-  moved. Ancestor folder sizes can change between chunks.
+  moved. Sync refuses the whole snapshot while unfinished journal work affects
+  its tree. Ancestor folder sizes can change between chunks.
 - **Change feed.** It records one entry for the folder, which covers
   everything inside it, as it does for a small folder.
 
 A folder change sent with `Prefer: respond-async` whose tree holds more than
-2,000 files and folders answers `202` with a `FolderOperation`. The web server
-finishes it in the background; `GET /api/files/folders/operations/{id}`
-reports `queued` while it is planned and prepared, then `running` with the
-committed item count, then `succeeded`, `failed`, or `recovery_required`. If
-the server restarts, worker recovery finishes a prepared change, and a change
-that was still being planned never started. Without the header, or for a
-smaller tree, the request runs the change and answers `200` as before.
+2,000 files and folders answers `202` with a `FolderOperation` after its journal
+is fully prepared. Invalid requests fail before acceptance. The web server
+finishes accepted work in the background; worker recovery finishes it after a
+restart. `GET /api/files/folders/operations/{id}` reads the saved journal and
+reports `queued`, then `running` with the committed item count, then `succeeded`,
+`failed`, or `recovery_required`. A retry validates the full request before
+returning the same operation. Without the header, or for a smaller tree, the
+request runs the change and answers `200` as before.
 
 ## Pre-commit rejection
 
