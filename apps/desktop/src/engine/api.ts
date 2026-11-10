@@ -147,6 +147,16 @@ export const createApi = (
     );
   };
 
+  // The desktop never sends `Prefer: respond-async`, so the server finishes
+  // every folder change inside the request.
+  const finishedFolder = async <T extends object>(pending: Promise<T>) => {
+    const result = await pending;
+    if (!("folder" in result)) {
+      throw new Error("The server moved a folder change to the background.");
+    }
+    return result as Extract<T, { folder: unknown }>;
+  };
+
   return {
     session: () => read(client.api.auth.session.$get()),
     folders: () => read(client.api.files.folders.tree.$get()),
@@ -185,28 +195,38 @@ export const createApi = (
       ifRevision: number,
       destinationFolderId: string,
     ) =>
-      read(
-        client.api.files.folders[":folderId"].move.$post(
-          {
-            param: { folderId },
-            query: revision(ifRevision),
-            json: { destinationFolderId },
-          },
-          write(),
+      finishedFolder(
+        read(
+          client.api.files.folders[":folderId"].move.$post(
+            {
+              param: { folderId },
+              query: revision(ifRevision),
+              json: { destinationFolderId },
+            },
+            write(),
+          ),
         ),
       ),
     renameFolder: (folderId: string, ifRevision: number, name: string) =>
-      read(
-        client.api.files.folders[":folderId"].rename.$post(
-          { param: { folderId }, query: revision(ifRevision), json: { name } },
-          write(),
+      finishedFolder(
+        read(
+          client.api.files.folders[":folderId"].rename.$post(
+            {
+              param: { folderId },
+              query: revision(ifRevision),
+              json: { name },
+            },
+            write(),
+          ),
         ),
       ),
     trashFolder: (folderId: string, ifRevision: number) =>
-      read(
-        client.api.files.folders[":folderId"].trash.$post(
-          { param: { folderId }, query: revision(ifRevision) },
-          write(),
+      finishedFolder(
+        read(
+          client.api.files.folders[":folderId"].trash.$post(
+            { param: { folderId }, query: revision(ifRevision) },
+            write(),
+          ),
         ),
       ),
     keepMine: (fileId: string, ifRevision: number, conflictCopyId: string) =>
