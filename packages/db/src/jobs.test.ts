@@ -963,7 +963,7 @@ describe("background jobs", () => {
     });
   });
 
-  it("dismisses only failed jobs, and a dismissed job can still be retried", async () => {
+  it("leaves active jobs alone and lets dismissed jobs be retried", async () => {
     const now = new Date("2026-04-01T12:00:00.000Z");
     const events: MemoryEvent[] = [];
     const jobs = [
@@ -974,7 +974,7 @@ describe("background jobs", () => {
 
     await expect(
       dismissBackgroundJob({ jobId: "busy-1", actorUserId: "owner-1", client }),
-    ).rejects.toThrow("Only failed or dead jobs can be dismissed.");
+    ).resolves.toMatchObject({ status: "running", actionApplied: false });
 
     await dismissBackgroundJob({
       jobId: "dead-1",
@@ -996,6 +996,46 @@ describe("background jobs", () => {
       client,
     });
     expect(jobs[0]).toMatchObject({ status: "queued" });
+  });
+
+  it("does not dismiss twice or requeue a dismissed job from a failed-only retry", async () => {
+    const jobs = [createJob({ id: "dead-1", status: "dead" })];
+    const events: MemoryEvent[] = [];
+    const client = createClient(jobs, events);
+    await dismissBackgroundJob({
+      jobId: "dead-1",
+      actorUserId: "owner-1",
+      client,
+    });
+    await expect(
+      dismissBackgroundJob({ jobId: "dead-1", actorUserId: "owner-1", client }),
+    ).resolves.toMatchObject({ actionApplied: false });
+    await expect(
+      retryBackgroundJob({
+        jobId: "dead-1",
+        actorUserId: "owner-1",
+        client,
+        failedOnly: true,
+      }),
+    ).resolves.toMatchObject({ status: "cancelled", actionApplied: false });
+    expect(events.map((event) => event.type)).toEqual(["dismissed"]);
+  });
+
+  it("does not overwrite a worker retry between the action read and write", async () => {
+    const jobs = [createJob({ id: "race-1", status: "failed" })];
+    const events: MemoryEvent[] = [];
+    const client = createClient(jobs, events);
+    const update = client.backgroundJob.updateMany.bind(client.backgroundJob);
+    vi.spyOn(client.backgroundJob, "updateMany").mockImplementationOnce(
+      async (args) => {
+        jobs[0]!.status = "queued";
+        return update(args);
+      },
+    );
+    await expect(
+      dismissBackgroundJob({ jobId: "race-1", actorUserId: "owner-1", client }),
+    ).resolves.toMatchObject({ status: "queued", actionApplied: false });
+    expect(events).toHaveLength(0);
   });
 
   it("stales the derivative owned by a cancelled generate job", async () => {

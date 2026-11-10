@@ -709,6 +709,7 @@ const runAdminJobAction = (
   action: {
     from: BackgroundJobStatus[];
     refusal: string;
+    allowUnchanged?: boolean;
     data: (now: Date, actorUserId: string) => object;
     event: { type: string; message: string };
     after?: (
@@ -720,19 +721,28 @@ const runAdminJobAction = (
   getClient(client).$transaction(async (tx) => {
     const job = await tx.backgroundJob.findUnique({ where: { id: jobId } });
     if (!job) throw new Error(`Background job ${jobId} not found.`);
-    if (!action.from.includes(job.status)) throw new Error(action.refusal);
+    if (!action.from.includes(job.status)) {
+      if (action.allowUnchanged) return { ...job, actionApplied: false };
+      throw new Error(action.refusal);
+    }
 
-    const updated = await tx.backgroundJob.update({
-      where: { id: jobId },
+    const result = await tx.backgroundJob.updateMany({
+      where: { id: jobId, status: job.status, updatedAt: job.updatedAt },
       data: action.data(now, actorUserId),
     });
+    const updated = await tx.backgroundJob.findUnique({ where: { id: jobId } });
+    if (!updated) throw new Error(`Background job ${jobId} not found.`);
+    if (result.count === 0) {
+      if (action.allowUnchanged) return { ...updated, actionApplied: false };
+      throw new Error("This job changed. Refresh and try again.");
+    }
     await action.after?.(tx, job);
     await tx.backgroundJobEvent.create({
       data: { jobId, ...action.event, metadataJson: { actorUserId } },
     });
     await notifyBackgroundJobStateChanged(tx, jobId);
 
-    return updated;
+    return { ...updated, actionApplied: true };
   });
 
 export const cancelBackgroundJob = (input: AdminJobActionInput) =>
@@ -785,9 +795,14 @@ export const cancelBackgroundJob = (input: AdminJobActionInput) =>
     },
   });
 
-export const retryBackgroundJob = (input: AdminJobActionInput) =>
+export const retryBackgroundJob = (
+  input: AdminJobActionInput & { failedOnly?: boolean },
+) =>
   runAdminJobAction(input, {
-    from: ["failed", "dead", "cancelled"],
+    from: input.failedOnly
+      ? ["failed", "dead"]
+      : ["failed", "dead", "cancelled"],
+    allowUnchanged: input.failedOnly,
     refusal: "Only failed, dead, or cancelled jobs can be retried.",
     data: (now) => ({
       status: "queued",
@@ -812,6 +827,7 @@ export const retryBackgroundJob = (input: AdminJobActionInput) =>
 export const dismissBackgroundJob = (input: AdminJobActionInput) =>
   runAdminJobAction(input, {
     from: ["failed", "dead"],
+    allowUnchanged: true,
     refusal: "Only failed or dead jobs can be dismissed.",
     data: (now, actorUserId) => ({
       status: "cancelled",

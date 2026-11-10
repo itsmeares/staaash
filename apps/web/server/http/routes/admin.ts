@@ -13,6 +13,7 @@ import {
   enqueueAdminStagingCleanup,
   enqueueAdminTrashRetention,
   getAdminJobEvents,
+  getAdminProblemJobIds,
   getAdminJobListResponse,
   getAdminJobSummary,
   parseAdminJobFilters,
@@ -158,6 +159,10 @@ export const adminRoutes = admin
       ),
     ),
   )
+  .get("/jobs/problem-targets", async (c) => {
+    const kind = z.enum(ALL_SUPPORTED_JOB_KINDS).parse(c.req.query("kind"));
+    return c.json({ ids: await getAdminProblemJobIds(kind) });
+  })
   .get("/jobs/summary", async (c) =>
     c.json(toJsonAdminJobSummary(await getAdminJobSummary())),
   )
@@ -194,14 +199,29 @@ export const adminRoutes = admin
       c.req.param("jobId"),
       c.var.session.user.id,
     ).catch(jobFailure("Failed to dismiss job."));
-    return c.json({ message: "Job dismissed.", jobId: job.id });
+    return c.json({
+      message: job.actionApplied
+        ? "Job dismissed."
+        : "This job has already changed.",
+      jobId: job.id,
+      actionApplied: job.actionApplied,
+      status: job.status,
+    });
   })
   .post("/jobs/:jobId/retry", async (c) => {
     const job = await retryAdminJob(
       c.req.param("jobId"),
       c.var.session.user.id,
+      c.req.query("failedOnly") === "1",
     ).catch(jobFailure("Failed to retry job."));
-    return c.json({ message: "Job queued for retry.", jobId: job.id });
+    return c.json({
+      message: job.actionApplied
+        ? "Job queued for retry."
+        : "This job has already changed.",
+      jobId: job.id,
+      actionApplied: job.actionApplied,
+      status: job.status,
+    });
   })
   .get("/jobs/:jobId/events", async (c) => {
     const events = await getAdminJobEvents(c.req.param("jobId"));

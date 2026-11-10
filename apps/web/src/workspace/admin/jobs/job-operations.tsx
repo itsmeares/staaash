@@ -1,7 +1,7 @@
 import { useRefresh } from "@/lib/use-refresh";
 import { formatBytes } from "@/lib/format-bytes";
 import { AppLink } from "@/components/app-link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -51,6 +51,12 @@ import {
   ModalHeading,
 } from "./job-parts";
 import { MediaDerivativeRowActions } from "./media-derivative-row-actions";
+import {
+  describeJobFailure,
+  collectProblemJobIds,
+  applyProblemJobAction,
+  applyProblemJobActions,
+} from "./job-problems";
 import { copyText } from "@/lib/clipboard";
 
 type JsonBackgroundJob = {
@@ -103,6 +109,7 @@ type JsonJobSummary = {
 type JsonJobState = {
   summary: JsonJobSummary;
   lastRuns: Record<string, JsonBackgroundJob | null>;
+  problems: JsonBackgroundJob[];
 };
 
 type JsonJobEvent = {
@@ -547,13 +554,6 @@ async function fetchActivityJobs({
   return (await res.json()) as JsonJobListResponse;
 }
 
-function getActivityDetail(job: JsonBackgroundJob) {
-  if (job.lastError) return job.lastError;
-  if (job.fileName) return job.fileName;
-  if (job.dedupeKey) return job.dedupeKey;
-  return job.id;
-}
-
 function getPayloadFileId(job: JsonBackgroundJob | null) {
   const payload = job?.payloadJson;
   if (!payload || typeof payload !== "object") return null;
@@ -785,7 +785,7 @@ function JobDetailsModal({
       <DialogPopup className="max-h-[min(760px,calc(100dvh-3rem))] max-w-230 overflow-hidden">
         <DialogHeader className="flex-row items-start justify-between gap-4.5 border-b border-hairline pr-14 max-md:flex-col">
           <div className="min-w-0">
-            <DialogTitle>{jobName}</DialogTitle>
+            <DialogTitle>{selectedHistoryJob?.fileName ?? jobName}</DialogTitle>
             {selectedHistoryJob ? (
               <DialogDescription className="mt-1.5 md:text-meta">
                 {getJobStateLine({
@@ -867,7 +867,13 @@ function JobDetailsModal({
                   <div className="grid grid-cols-1 gap-2">
                     <ModalHeading>Error</ModalHeading>
                     <Alert variant="error">
-                      {selectedHistoryJob.lastError}
+                      {describeJobFailure(selectedHistoryJob)}
+                      <details className="mt-2">
+                        <summary>Technical details</summary>
+                        <p className="wrap-anywhere">
+                          {selectedHistoryJob.lastError}
+                        </p>
+                      </details>
                     </Alert>
                   </div>
                 ) : null}
@@ -1321,6 +1327,7 @@ function ActivityPagination({
 
 // fallow-ignore-next-line complexity
 function JobActivityPanel({
+  problemView,
   derivatives,
   timeZone,
   jobKinds,
@@ -1329,6 +1336,7 @@ function JobActivityPanel({
   onLastRunChange,
   workerRunningJobIds,
 }: {
+  problemView: { kind: string } | null;
   derivatives: JsonAdminMediaDerivativeSummary;
   timeZone: string;
   jobKinds: string[];
@@ -1343,6 +1351,13 @@ function JobActivityPanel({
   const [kindFilter, setKindFilter] = useState("all");
   const [items, setItems] = useState<JsonBackgroundJob[]>([]);
   const [activityPage, setActivityPage] = useState(1);
+  useEffect(() => {
+    if (!problemView) return;
+    setView("jobs");
+    setFilter("failed");
+    setKindFilter(problemView.kind);
+    setActivityPage(1);
+  }, [problemView]);
   const [pagination, setPagination] = useState<
     Omit<JsonJobListResponse, "items" | "nextCursor">
   >({
@@ -1645,9 +1660,13 @@ function JobActivityPanel({
                       <JobDot tone={tone} />
                       <span className="grid min-w-0 grid-cols-1 gap-1">
                         <strong className="truncate text-label font-semibold md:text-body">
-                          {formatJobKind(job.kind)}
+                          {job.fileName ??
+                            (getPayloadFileId(job)
+                              ? "File no longer available"
+                              : formatJobKind(job.kind))}
                         </strong>
                         <small className="truncate text-xs font-medium text-muted-foreground md:text-meta">
+                          {job.fileName ? `${formatJobKind(job.kind)} · ` : ""}
                           {getJobStateLine({
                             job,
                             nowMs,
@@ -1668,7 +1687,9 @@ function JobActivityPanel({
                         {job.attemptCount}/{job.maxAttempts}
                       </span>
                       <span className="truncate text-xs text-muted-foreground max-md:col-[2/4] max-md:whitespace-normal md:text-meta">
-                        {getActivityDetail(job)}
+                        {job.lastError
+                          ? describeJobFailure(job)
+                          : (job.dedupeKey ?? job.id)}
                       </span>
                     </button>
                   );
@@ -1709,48 +1730,223 @@ function JobActivityPanel({
   );
 }
 
-/** One failed job, newest first, with the error it stopped on. */
 function ProblemRow({
   job,
   nowMs,
-  onDone,
+  disabled,
+  onAction,
 }: {
   job: JsonBackgroundJob;
   nowMs: number;
-  onDone: () => void;
+  disabled: boolean;
+  onAction: (jobId: string, action: "retry" | "dismiss") => void;
 }) {
-  const [error, setError] = useState<string | null>(null);
-  // Either way the job leaves this list; Retry runs it again, Dismiss
-  // keeps it in history as cancelled.
-  const act = async (action: "retry" | "dismiss") => {
-    const message = await sendJobAction(job.id, action);
-    if (message) setError(message);
-    else onDone();
-  };
   return (
-    <div className="flex min-h-15 items-center gap-3 border-t border-border px-4 py-2.5 first:border-t-0">
-      <span
-        aria-hidden
-        className="size-2 shrink-0 rounded-full bg-destructive"
-      />
-      <span className="grid min-w-0 flex-1">
-        <span className="truncate text-body font-medium">
-          {formatJobKind(job.kind)}
-          {job.fileName ? ` · ${job.fileName}` : ""}
+    <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3">
+      <div className="grid min-w-0 flex-1 basis-48 gap-1">
+        <span className="text-body font-medium wrap-anywhere">
+          {job.fileName ??
+            (getPayloadFileId(job)
+              ? "File no longer available"
+              : formatJobKind(job.kind))}
         </span>
-        <span className="truncate text-label text-muted-foreground">
-          {error ?? job.lastError ?? "Stopped without a message"} ·{" "}
-          {formatRelativeTime(job.updatedAt, nowMs)}
+        <span className="text-label text-muted-foreground">
+          {describeJobFailure(job)}
         </span>
-      </span>
-      <Button size="sm" variant="ghost" onClick={() => void act("dismiss")}>
-        Dismiss
-      </Button>
-      <Button size="sm" variant="outline" onClick={() => void act("retry")}>
-        Retry
-      </Button>
+        <details className="text-label text-muted-foreground">
+          <summary className="cursor-pointer">
+            Details · {formatRelativeTime(job.updatedAt, nowMs)}
+          </summary>
+          <p className="wrap-anywhere">
+            {job.lastError ?? "No error recorded."}
+          </p>
+          <p className="wrap-anywhere">Job {job.id}</p>
+        </details>
+      </div>
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={disabled}
+          onClick={() => onAction(job.id, "dismiss")}
+        >
+          Dismiss
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={disabled}
+          onClick={() => onAction(job.id, "retry")}
+        >
+          Retry
+        </Button>
+      </div>
     </div>
   );
+}
+
+function ProblemGroup({
+  kind,
+  jobs,
+  count,
+  nowMs,
+  onResult,
+  onRefresh,
+  onViewAll,
+}: {
+  kind: string;
+  jobs: JsonBackgroundJob[];
+  count: number;
+  nowMs: number;
+  onResult: (message: string) => void;
+  onRefresh: () => Promise<void>;
+  onViewAll: () => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const busy = useRef(false);
+  const [errors, setErrors] = useState<{ jobId: string; error: string }[]>([]);
+  const act = async (action: "retry" | "dismiss", jobId?: string) => {
+    if (busy.current) return;
+    busy.current = true;
+    setPending(true);
+    setErrors([]);
+    try {
+      const ids = jobId ? [jobId] : await collectProblemJobIds(kind);
+      const results = jobId
+        ? [await applyProblemJobAction(jobId, action)]
+        : await applyProblemJobActions(ids, action);
+      const failures = results.flatMap((result) =>
+        result.error ? [{ jobId: result.jobId, error: result.error }] : [],
+      );
+      setErrors(failures);
+      const changed = results.filter(
+        (result) => !result.error && result.changed,
+      ).length;
+      const unchanged = results.length - failures.length - changed;
+      onResult(
+        `${formatJobKind(kind)}: ${changed} ${action === "retry" ? "queued for retry" : "dismissed"}, ${unchanged} already changed, ${failures.length} could not be completed.`,
+      );
+    } catch (error) {
+      onResult(
+        error instanceof Error
+          ? error.message
+          : "Could not load the jobs. Try again.",
+      );
+    } finally {
+      await onRefresh();
+      busy.current = false;
+      setPending(false);
+    }
+  };
+  return (
+    <div
+      className="overflow-hidden rounded-2xl border border-border bg-card"
+      aria-busy={pending}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <h3 className="m-0 text-body font-semibold">
+          {formatJobKind(kind)} · {count}
+        </h3>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={pending}
+            onClick={() => void act("dismiss")}
+          >
+            Dismiss all
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pending}
+            onClick={() => void act("retry")}
+          >
+            {pending ? "Working..." : "Retry all"}
+          </Button>
+        </div>
+      </div>
+      {errors.length ? (
+        <div className="px-4 pb-3">
+          <Alert variant="error">
+            {errors.map((entry) => (
+              <p key={entry.jobId} className="wrap-anywhere">
+                {jobs.find((job) => job.id === entry.jobId)?.fileName ??
+                  entry.jobId}
+                : {entry.error}
+              </p>
+            ))}
+          </Alert>
+        </div>
+      ) : null}
+      {jobs.map((job) => (
+        <ProblemRow
+          key={job.id}
+          job={job}
+          nowMs={nowMs}
+          disabled={pending}
+          onAction={(id, action) => void act(action, id)}
+        />
+      ))}
+      {count > jobs.length ? (
+        <div className="border-t border-border px-4 py-2">
+          <Button size="sm" variant="ghost" onClick={onViewAll}>
+            View all {count} in activity
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function getQueueSummaryLabel(summary: JsonJobSummary) {
+  const oldestDueLabel = formatDuration(summary.oldestDueQueuedAgeSeconds);
+  const onlineWorkers = summary.workers.filter(
+    (worker) => worker.status !== "stopped" && worker.status !== "stale",
+  ).length;
+  const workerNoun = onlineWorkers === 1 ? "worker" : "workers";
+  const workerLabel = `${onlineWorkers} ${workerNoun}`;
+  return [
+    `${summary.statusCounts.running} running`,
+    `${summary.statusCounts.queued} waiting`,
+    `${summary.failed + summary.dead} failed`,
+    `${workerLabel} online`,
+    summary.oldestDueQueuedAgeSeconds
+      ? `oldest waiting ${oldestDueLabel}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function getProblemGroups(countsByKind: JsonJobSummary["countsByKind"]) {
+  return Object.entries(countsByKind).flatMap(([kind, counts]) => {
+    const count = (counts.failed ?? 0) + (counts.dead ?? 0);
+    return count > 0 ? [{ kind, count }] : [];
+  });
+}
+
+function useProblemRefresh(
+  setProblems: (jobs: JsonBackgroundJob[]) => void,
+  setProblemResult: (message: string) => void,
+) {
+  const refreshVersion = useRef(0);
+  const refreshProblems = async () => {
+    const version = ++refreshVersion.current;
+    try {
+      const res = await fetch(
+        buildJobsUrl({ statuses: ["failed", "dead"], limit: 20 }),
+      );
+      if (!res.ok) throw new Error();
+      const data = (await res.json()) as JsonJobListResponse;
+      if (version === refreshVersion.current) setProblems(data.items);
+    } catch {
+      setProblemResult(
+        "Could not refresh the jobs. Reconnect or reload to check their current state.",
+      );
+    }
+  };
+  return { refreshProblems, refreshVersion };
 }
 
 type Props = {
@@ -1771,26 +1967,15 @@ export function JobOperations({
   const [summary, setSummary] = useState(initialSummary);
   const [lastRuns, setLastRuns] = useState(initialLastRuns);
   const [problems, setProblems] = useState(initialProblems);
+  const [problemResult, setProblemResult] = useState<string | null>(null);
+  const [problemView, setProblemView] = useState<{ kind: string } | null>(null);
+  const { refreshProblems, refreshVersion } = useProblemRefresh(
+    setProblems,
+    setProblemResult,
+  );
   const { now, timeZone } = useTime();
   const [nowMs, setNowMs] = useState(() => now.getTime());
   const failedCount = summary.failed + summary.dead;
-  const oldestDueLabel = formatDuration(summary.oldestDueQueuedAgeSeconds);
-  const onlineWorkers = summary.workers.filter(
-    (worker) => worker.status !== "stopped" && worker.status !== "stale",
-  ).length;
-  const workerNoun = onlineWorkers === 1 ? "worker" : "workers";
-  const workerLabel = `${onlineWorkers} ${workerNoun}`;
-  const queueSummaryLabel = [
-    `${summary.statusCounts.running} running`,
-    `${summary.statusCounts.queued} waiting`,
-    `${failedCount} failed`,
-    `${workerLabel} online`,
-    summary.oldestDueQueuedAgeSeconds
-      ? `oldest waiting ${oldestDueLabel}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
   const workerRunningJobIds = useMemo(
     () =>
       new Set(
@@ -1815,6 +2000,8 @@ export function JobOperations({
         const state = data as JsonJobState;
         setSummary(state.summary);
         setLastRuns(state.lastRuns);
+        refreshVersion.current += 1;
+        setProblems(state.problems);
       }),
     [],
   );
@@ -1836,29 +2023,37 @@ export function JobOperations({
             Schedule
           </Button>
         }
-        description={queueSummaryLabel}
+        description={getQueueSummaryLabel(summary)}
         title="Jobs"
       />
 
-      {problems.length > 0 ? (
+      {problemResult ? (
+        <p role="status" className="m-0 text-body text-muted-foreground">
+          {problemResult}
+        </p>
+      ) : null}
+      {failedCount > 0 ? (
         <section aria-label="Needs a look" className="grid gap-2.5">
           <h2 className="m-0 font-heading text-body font-semibold">
             Needs a look
           </h2>
-          <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            {problems.map((job) => (
-              <ProblemRow
-                job={job}
-                key={job.id}
-                nowMs={nowMs}
-                onDone={() =>
-                  setProblems((list) =>
-                    list.filter((entry) => entry.id !== job.id),
-                  )
-                }
-              />
-            ))}
-          </div>
+          {getProblemGroups(summary.countsByKind).map(({ kind, count }) => (
+            <ProblemGroup
+              key={kind}
+              kind={kind}
+              count={count}
+              jobs={problems.filter((job) => job.kind === kind)}
+              nowMs={nowMs}
+              onResult={setProblemResult}
+              onRefresh={refreshProblems}
+              onViewAll={() => {
+                setProblemView({ kind });
+                document
+                  .getElementById("job-activity")
+                  ?.scrollIntoView({ block: "start" });
+              }}
+            />
+          ))}
         </section>
       ) : null}
 
@@ -1885,20 +2080,23 @@ export function JobOperations({
         </div>
       </section>
 
-      <JobActivityPanel
-        derivatives={initialDerivatives}
-        timeZone={timeZone}
-        jobKinds={jobKinds}
-        liveJobs={liveJobs}
-        nowMs={nowMs}
-        onLastRunChange={(updatedKind, job) => {
-          setLastRuns((current) => ({
-            ...current,
-            [updatedKind]: job,
-          }));
-        }}
-        workerRunningJobIds={workerRunningJobIds}
-      />
+      <div id="job-activity">
+        <JobActivityPanel
+          problemView={problemView}
+          derivatives={initialDerivatives}
+          timeZone={timeZone}
+          jobKinds={jobKinds}
+          liveJobs={liveJobs}
+          nowMs={nowMs}
+          onLastRunChange={(updatedKind, job) => {
+            setLastRuns((current) => ({
+              ...current,
+              [updatedKind]: job,
+            }));
+          }}
+          workerRunningJobIds={workerRunningJobIds}
+        />
+      </div>
     </div>
   );
 }
