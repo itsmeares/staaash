@@ -1,6 +1,9 @@
 import { randomClientId } from "@/lib/client-id";
 
-const storageMutationKeys = new Map<string, string>();
+const storageMutationKeys = new Map<
+  string,
+  { key: string; operationId?: string }
+>();
 
 /** A storage change the server answered with an error. */
 export class StorageRequestError extends Error {
@@ -32,15 +35,16 @@ export const submitStorageMutationPost = async ({
   logicalAction: string;
   headers?: Record<string, string>;
 }) => {
-  const idempotencyKey =
-    storageMutationKeys.get(logicalAction) ?? randomClientId();
-  storageMutationKeys.set(logicalAction, idempotencyKey);
+  const request = storageMutationKeys.get(logicalAction) ?? {
+    key: randomClientId(),
+  };
+  storageMutationKeys.set(logicalAction, request);
   const response = await fetch(action, {
     method: "POST",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
-      "Idempotency-Key": idempotencyKey,
+      "Idempotency-Key": request.key,
       ...headers,
     },
     body: JSON.stringify(json ?? {}),
@@ -60,8 +64,13 @@ export const submitStorageMutationPost = async ({
       typeof kind === "string" ? kind : undefined,
     );
   }
-  storageMutationKeys.delete(logicalAction);
-  return (await response.json().catch(() => null)) as unknown;
+  const answer: unknown = await response.json().catch(() => null);
+  if (response.status === 202) {
+    if (isStorageOperation(answer)) request.operationId = answer.operationId;
+  } else if (storageMutationKeys.get(logicalAction) === request) {
+    storageMutationKeys.delete(logicalAction);
+  }
+  return answer;
 };
 
 /**
@@ -116,6 +125,10 @@ export const followStorageOperation = async <T extends StorageOperation>(
     } else if (poll?.status === 404 || ++missed >= OPERATION_MAX_MISSED_POLLS) {
       throw new Error("Staaash lost track of it. Refresh to see where it is.");
     }
+  }
+  for (const [action, request] of storageMutationKeys) {
+    if (request.operationId === operation.operationId)
+      storageMutationKeys.delete(action);
   }
   return operation;
 };

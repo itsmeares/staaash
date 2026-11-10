@@ -91,9 +91,8 @@ async function moveTrash(items: Item[], action: TrashAction) {
         );
       } catch (error) {
         const reason = reasonOf(error, `${item.kind}_${action}`);
-        // Only a lost answer is retried as the same request. Every other
-        // outcome is settled, so the next attempt is a new move.
-        if (reason !== "unknown") forgetStorageMutationKey(keyOf(item, action));
+        if (reason !== "unknown" && reason !== "finishing")
+          forgetStorageMutationKey(keyOf(item, action));
         failed.push({
           item,
           reason,
@@ -385,6 +384,8 @@ export async function emptyTrash(refresh: () => unknown) {
     });
   } catch (error) {
     const reason = reasonOf(error, "clear_trash");
+    if (reason !== "unknown" && reason !== "finishing")
+      forgetStorageMutationKey("empty-trash");
     toastManager.update(toastId, {
       title: "Trash could not be emptied",
       description:
@@ -399,9 +400,6 @@ export async function emptyTrash(refresh: () => unknown) {
       timeout: 0,
     });
   } finally {
-    // Emptying again is always a new request: replaying an earlier one that
-    // finished would report success and leave newer items in trash.
-    forgetStorageMutationKey("empty-trash");
     emptying = null;
     await refresh();
   }

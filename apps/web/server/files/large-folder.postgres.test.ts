@@ -777,3 +777,119 @@ it("refuses sync snapshots of subfolders already deleted by a commit chunk", asy
     ).status,
   ).toBe(404);
 }, 120_000);
+
+it("counts active members and restore membership without separate trash entries", async () => {
+  const { id, root, actor } = await createOwner();
+  const { folder } = await seedLargeFolder(id, root.id, 70);
+  const parent = (
+    await service.createFolder({ ...actor, parentId: root.id, name: "Parent" })
+  ).folder;
+  await service.moveFolder({
+    ...actor,
+    folderId: folder.id,
+    destinationFolderId: parent.id,
+  });
+  const active = (
+    await service.createFolder({
+      ...actor,
+      parentId: parent.id,
+      name: "Active",
+    })
+  ).folder;
+  const upload = await service.uploadFiles({
+    ...actor,
+    folderId: active.id,
+    items: [
+      {
+        clientKey: "separate",
+        originalName: "Separate.txt",
+        conflictStrategy: "fail",
+        file: new File([bytes], "Separate.txt"),
+      },
+    ],
+  });
+  const separateId = upload.uploadedFiles[0]!.id;
+  await service.trashFile({ ...actor, fileId: separateId });
+  await service.trashFolder({ ...actor, folderId: folder.id });
+  expect(await countFolderTreeItems(id, parent.id)).toBe(2);
+  const { sessionToken } = await authService.createSession(id, {});
+  const request = (action: string, body = {}) =>
+    app.request(`/api/files/folders/${parent.id}/${action}`, {
+      method: "POST",
+      headers: {
+        cookie: `${SESSION_COOKIE_NAME}=${sessionToken}`,
+        "Content-Type": "application/json",
+        Prefer: "respond-async",
+      },
+      body: JSON.stringify(body),
+    });
+  expect((await request("rename", { name: "Small" })).status).toBe(200);
+  const target = (
+    await service.createFolder({
+      ...actor,
+      parentId: root.id,
+      name: "Destination",
+    })
+  ).folder;
+  expect(
+    (await request("move", { destinationFolderId: target.id })).status,
+  ).toBe(200);
+  expect((await request("trash")).status).toBe(200);
+  expect(await countFolderTreeItems(id, parent.id)).toBe(2);
+  expect((await request("restore")).status).toBe(200);
+  expect(
+    (await db.folder.findUniqueOrThrow({ where: { id: folder.id } })).deletedAt,
+  ).not.toBeNull();
+  expect(
+    (await db.file.findUniqueOrThrow({ where: { id: separateId } })).deletedAt,
+  ).not.toBeNull();
+}, 120_000);
+
+it("keeps a partial restore asynchronous when the accepted request is retried", async () => {
+  const { id, root, actor } = await createOwner();
+  const { folder } = await seedLargeFolder(id, root.id, 70);
+  await service.trashFolder({ ...actor, folderId: folder.id });
+  const { sessionToken } = await authService.createSession(id, {});
+  const key = randomUUID();
+  const restore = () =>
+    app.request(`/api/files/folders/${folder.id}/restore`, {
+      method: "POST",
+      headers: {
+        cookie: `${SESSION_COOKIE_NAME}=${sessionToken}`,
+        Prefer: "respond-async",
+        "Idempotency-Key": key,
+      },
+    });
+  let interrupted!: () => void;
+  const stopped = new Promise<void>((resolve) => {
+    interrupted = resolve;
+  });
+  faults.boundary = async (boundary) => {
+    if (boundary !== "metadata_chunk_applied") return;
+    interrupted();
+    throw new StorageMutationAbruptInterruptionError("metadata_chunk_applied");
+  };
+  let operationId: string;
+  try {
+    const first = await restore();
+    expect(first.status).toBe(202);
+    operationId = (await first.json()).operationId;
+    await stopped;
+    expect(await countFolderTreeItems(id, folder.id)).toBeLessThan(2000);
+    expect(await countFolderTreeItems(id, folder.id, key)).toBe(2131);
+    const retry = await restore();
+    expect(retry.status).toBe(202);
+    expect(await retry.json()).toMatchObject({ operationId });
+  } finally {
+    faults.boundary = undefined;
+  }
+  await db.storageMutation.update({
+    where: { id: operationId! },
+    data: { leaseExpiresAt: new Date(0) },
+  });
+  await recoverStorageMutations({ storagePaths: storagePaths() });
+  expect(await readFolderOperation(operationId!, id)).toMatchObject({
+    status: "succeeded",
+    totalCount: 2131,
+  });
+}, 120_000);

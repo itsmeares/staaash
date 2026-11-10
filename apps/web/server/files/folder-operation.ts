@@ -14,21 +14,41 @@ import type {
  */
 export const BACKGROUND_FOLDER_ITEMS = 2_000;
 
-/** Files and folders in the tree, the folder itself included. */
+/** Members the change touches, including the folder itself. */
 export const countFolderTreeItems = async (
   ownerUserId: string,
   folderId: string,
+  idempotencyKey?: string,
 ) => {
+  const prisma = getPrisma();
+  if (idempotencyKey) {
+    const prior = await prisma.storageMutation.findFirst({
+      where: { ownerUserId, idempotencyKey },
+      select: { id: true },
+    });
+    if (prior) return countJournalItems(prior.id);
+  }
   const [row] = await getPrisma().$queryRaw<Array<{ items: bigint }>>`
-    WITH RECURSIVE tree AS (
-      SELECT id FROM "Folder" WHERE id = ${folderId} AND "ownerUserId" = ${ownerUserId}
+    WITH RECURSIVE root AS (
+      SELECT id, "deletedAt", "trashEntryId" FROM "Folder"
+      WHERE id = ${folderId} AND "ownerUserId" = ${ownerUserId}
+    ), tree AS (
+      SELECT id FROM root
       UNION
       SELECT child.id FROM "Folder" child JOIN tree ON child."parentId" = tree.id
+      CROSS JOIN root
       WHERE child."ownerUserId" = ${ownerUserId}
+        AND ((root."deletedAt" IS NULL AND child."deletedAt" IS NULL)
+          OR (root."deletedAt" IS NOT NULL
+            AND child."trashEntryId" IS NOT DISTINCT FROM root."trashEntryId"))
     )
     SELECT (SELECT count(*) FROM tree)
-      + (SELECT count(*) FROM "File" WHERE "ownerUserId" = ${ownerUserId}
-          AND "folderId" IN (SELECT id FROM tree)) AS items
+      + (SELECT count(*) FROM "File" file CROSS JOIN root
+          WHERE file."ownerUserId" = ${ownerUserId}
+            AND file."folderId" IN (SELECT id FROM tree)
+            AND ((root."deletedAt" IS NULL AND file."deletedAt" IS NULL)
+              OR (root."deletedAt" IS NOT NULL
+                AND file."trashEntryId" IS NOT DISTINCT FROM root."trashEntryId"))) AS items
   `;
   return Number(row?.items ?? 0);
 };
@@ -42,7 +62,13 @@ const readResponse = (resultJson: unknown) => {
 
 const countJournalItems = (mutationId: string) =>
   getPrisma().storageMutationEntity.count({
-    where: { mutationId, entityType: { in: ["file", "folder"] } },
+    where: {
+      mutationId,
+      entityType: { in: ["file", "folder"] },
+      postRevision: {
+        gt: getPrisma().storageMutationEntity.fields.preRevision,
+      },
+    },
   });
 
 type OperationMutation = {

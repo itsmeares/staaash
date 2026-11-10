@@ -278,7 +278,11 @@ const folderChange = async (
   };
   if (/\brespond-async\b/i.test(c.req.header("prefer") ?? "")) {
     const ownerUserId = actor.actorUserId;
-    const totalCount = await countFolderTreeItems(ownerUserId, folderId);
+    const totalCount = await countFolderTreeItems(
+      ownerUserId,
+      folderId,
+      c.var.idempotencyKey,
+    );
     if (totalCount > BACKGROUND_FOLDER_ITEMS) {
       c.header("Preference-Applied", "respond-async");
       return {
