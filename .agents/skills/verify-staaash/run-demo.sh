@@ -247,6 +247,36 @@ wait_for_app() {
   die "the app did not become ready; see $EVIDENCE_DIR/compose.log"
 }
 
+wait_for_worker() {
+  local attempt identity hostname started_at status
+  for attempt in $(seq 1 "$STAAASH_VERIFY_READY_ATTEMPTS"); do
+    identity="$(docker inspect --format '{{.State.Status}} {{.Config.Hostname}} {{.State.StartedAt}}' \
+      "${STAAASH_VERIFY_PROJECT}_worker")"
+    read -r status hostname started_at <<<"$identity"
+    if [[ "$status" != running ]]; then
+      capture_logs
+      die "worker is $status; see $EVIDENCE_DIR/compose.log"
+    fi
+    if compose exec -T db psql -U postgres -d staaash -At -v ON_ERROR_STOP=1 \
+      -v hostname="$hostname" -v started_at="$started_at" \
+      >"$EVIDENCE_DIR/worker-registration.txt" 2>"$EVIDENCE_DIR/worker-registration.log" <<'SQL'
+SELECT EXISTS (
+  SELECT 1 FROM "WorkerInstance"
+  WHERE hostname = :'hostname' AND "startedAt" >= :'started_at'::timestamptz
+    AND "stoppedAt" IS NULL AND status <> 'stopped'
+);
+SQL
+    then
+      if [[ "$(<"$EVIDENCE_DIR/worker-registration.txt")" == t ]]; then
+        return
+      fi
+    fi
+    sleep 1
+  done
+  capture_logs
+  die "worker did not register; see $EVIDENCE_DIR/compose.log"
+}
+
 launch() {
   need docker
   need curl
@@ -308,6 +338,7 @@ launch() {
   load_run "$STATE_DIR/run.env"
   write_run_info
   wait_for_app
+  wait_for_worker
 
   trap - EXIT INT TERM
   printf 'verify-staaash: project=%s\n' "$STAAASH_VERIFY_PROJECT" >&2
@@ -395,6 +426,7 @@ doctor() {
       die "doctor found the wrong container for $service: $actual_name"
   done
 
+  wait_for_worker
   local web_ports
   web_ports="$(docker port "${STAAASH_VERIFY_PROJECT}_web" 2113/tcp)"
   printf '%s\n' "$web_ports" >"$EVIDENCE_DIR/doctor-web-port.txt"

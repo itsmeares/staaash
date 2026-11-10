@@ -82,6 +82,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/ci/resolve-stable.mjs
+      - name: Check production startup order
+        if: matrix.suite == 'integration'
+        run: node --test scripts/ci/production-startup.test.mjs
       - name: Run native suite
         run: node scripts/ci/stack.mjs
       - name: Save test evidence

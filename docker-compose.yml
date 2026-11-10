@@ -24,6 +24,18 @@ services:
     ports:
       - "2113:2113"
 
+    healthcheck:
+      # The server listens only after migrations succeed. Readiness also needs the worker.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:2113/api/health/live', { signal: AbortSignal.timeout(4000) }).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 10s
+
     restart: always
 
   worker:
@@ -44,6 +56,8 @@ services:
 
     depends_on:
       db:
+        condition: service_healthy
+      staaash:
         condition: service_healthy
 
     restart: always

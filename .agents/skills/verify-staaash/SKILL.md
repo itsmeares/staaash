@@ -28,9 +28,9 @@ RUN_ENV="$(.agents/skills/verify-staaash/run-demo.sh launch)"
 ```
 
 `launch` builds the image, starts PostgreSQL, runs the web migration command,
-starts the worker, and waits for the live endpoint and the usable first-run
-page. An empty instance reports `503` readiness until its owner exists. After
-setup, `doctor` requires the ready endpoint to return `200`. Launch binds the
+waits for the web liveness health check before starting the worker, and
+checks the usable first-run page and worker database registration. An empty
+instance reports `503` readiness until its owner exists. After setup, `doctor` requires the ready endpoint to return `200`. Launch binds the
 web port to `127.0.0.1` by default and prints a localhost URL. Docker chooses
 the host port and the helper records it with `docker port`.
 
@@ -74,8 +74,8 @@ Run `doctor` before driving the app and again after the drive:
 ```
 
 It checks the exact Compose project, the three containers, the image tag, the
-published ports requested by the run, both health endpoints, and the auth
-session. It rejects wildcard bindings such as `0.0.0.0` and `::`. Before setup,
+published ports requested by the run, both health endpoints, worker database
+registration from the current container start, and the auth session. It rejects wildcard bindings such as `0.0.0.0` and `::`. Before setup,
 it checks that the first-run page is present. After `drive` it checks the fake
 owner session from a scratch cookie file. It writes the check results to the
 evidence directory.
