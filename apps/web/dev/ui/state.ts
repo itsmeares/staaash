@@ -60,6 +60,7 @@ export function sampleJob(
     kind,
     status,
     payloadJson: {},
+    fileName: null,
     dedupeKey: null,
     runAt: timestamp,
     lockedAt: null,

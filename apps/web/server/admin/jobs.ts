@@ -86,19 +86,29 @@ const normalizeAdminJobPage = (page?: string | null) => {
   return Number.isFinite(parsed) ? Math.max(parsed, 1) : 1;
 };
 
-export const getAdminJobList = async (
-  filters: AdminBackgroundJobListFilters = {},
-) => listAdminBackgroundJobs(filters);
-
 export const getAdminJobSummary = async () => getQueueOperationalSummary();
 
 export const getAdminJobStateSnapshot = async () => {
-  const [lastRuns, summary] = await Promise.all([
+  const [lastRuns, summary, problems] = await Promise.all([
     getLastRunPerKind(),
     getAdminJobSummary(),
+    getAdminJobListResponse(
+      parseAdminJobFilters({ status: "failed,dead", limit: "20" }),
+    ),
   ]);
 
-  return { lastRuns, summary };
+  const entries = Object.entries(lastRuns);
+  const named = await addJobFileNames(
+    entries.flatMap(([, job]) => (job ? [toJsonAdminJob(job)] : [])),
+  );
+  const byId = new Map(named.map((job) => [job.id, job]));
+  return {
+    lastRuns: Object.fromEntries(
+      entries.map(([kind, job]) => [kind, job ? byId.get(job.id)! : null]),
+    ),
+    summary,
+    problems: problems.items,
+  };
 };
 
 export const getAdminJobEvents = async (jobId: string) =>
@@ -107,8 +117,11 @@ export const getAdminJobEvents = async (jobId: string) =>
 export const cancelAdminJob = async (jobId: string, actorUserId: string) =>
   cancelBackgroundJob({ jobId, actorUserId });
 
-export const retryAdminJob = async (jobId: string, actorUserId: string) =>
-  retryBackgroundJob({ jobId, actorUserId });
+export const retryAdminJob = async (
+  jobId: string,
+  actorUserId: string,
+  failedOnly = false,
+) => retryBackgroundJob({ jobId, actorUserId, failedOnly });
 
 export const dismissAdminJob = async (jobId: string, actorUserId: string) =>
   dismissBackgroundJob({ jobId, actorUserId });
@@ -147,7 +160,7 @@ const selectRepresentativeAdminJob = (
   jobs.find((job) => job.status === "queued") ??
   null;
 
-export const getLastRunPerKind = async () => {
+const getLastRunPerKind = async () => {
   const now = new Date();
   const results = await Promise.all(
     ALL_SUPPORTED_JOB_KINDS.map(async (kind) => {
@@ -162,12 +175,12 @@ export const getLastRunPerKind = async () => {
 
 const toJsonAdminJobListResponse = (
   response: AdminBackgroundJobListResult,
-): JsonAdminJobListResponse => ({
+) => ({
   ...response,
   items: response.items.map(toJsonAdminJob),
 });
 
-export const toJsonAdminJob = (item: BackgroundJobRecord) => ({
+const toJsonAdminJob = (item: BackgroundJobRecord) => ({
   ...item,
   payloadJson: item.payloadJson as Record<string, unknown> | null,
   runAt: item.runAt.toISOString(),
@@ -198,39 +211,51 @@ export const toJsonAdminJobStateSnapshot = (
   snapshot: Awaited<ReturnType<typeof getAdminJobStateSnapshot>>,
 ) => ({
   summary: toJsonAdminJobSummary(snapshot.summary),
-  lastRuns: Object.fromEntries(
-    Object.entries(snapshot.lastRuns).map(([kind, job]) => [
-      kind,
-      job ? toJsonAdminJob(job) : null,
-    ]),
-  ),
+  problems: snapshot.problems,
+  lastRuns: snapshot.lastRuns,
 });
 
 /** The job list as JSON, with the file name on each preview job. */
 export const getAdminJobListResponse = async (
   filters: ReturnType<typeof parseAdminJobFilters>,
 ) => {
-  const response = toJsonAdminJobListResponse(await getAdminJobList(filters));
-  const fileIdOf = (job: (typeof response.items)[number]) =>
+  const response = toJsonAdminJobListResponse(
+    await listAdminBackgroundJobs(filters),
+  );
+  return { ...response, items: await addJobFileNames(response.items) };
+};
+
+const addJobFileNames = async <
+  T extends JsonAdminJobListResponse["items"][number],
+>(
+  items: T[],
+) => {
+  const fileIdOf = (job: (typeof items)[number]) =>
     job.kind === MEDIA_DERIVATIVE_GENERATE_JOB_KIND
       ? (job.payloadJson as { fileId?: string } | null)?.fileId
       : undefined;
-  const fileIds = response.items
-    .map(fileIdOf)
-    .filter((id): id is string => Boolean(id));
-  if (fileIds.length === 0) return response;
+  const fileIds = items.map(fileIdOf).filter((id): id is string => Boolean(id));
+  if (fileIds.length === 0)
+    return items.map((job) => ({ ...job, fileName: null }));
 
   const files = await getPrisma().file.findMany({
     where: { id: { in: fileIds } },
     select: { id: true, originalName: true },
   });
   const names = new Map(files.map((file) => [file.id, file.originalName]));
-  return {
-    ...response,
-    items: response.items.map((job) => {
-      if (job.kind !== MEDIA_DERIVATIVE_GENERATE_JOB_KIND) return job;
-      const fileId = fileIdOf(job);
-      return { ...job, fileName: fileId ? (names.get(fileId) ?? null) : null };
-    }),
-  };
+  return items.map((job) => {
+    if (job.kind !== MEDIA_DERIVATIVE_GENERATE_JOB_KIND)
+      return { ...job, fileName: null };
+    const fileId = fileIdOf(job);
+    return { ...job, fileName: fileId ? (names.get(fileId) ?? null) : null };
+  });
+};
+
+export const getAdminProblemJobIds = async (kind: string) => {
+  const jobs = await getPrisma().backgroundJob.findMany({
+    where: { kind, status: { in: ["failed", "dead"] } },
+    select: { id: true },
+    orderBy: { id: "asc" },
+  });
+  return jobs.map((job) => job.id);
 };

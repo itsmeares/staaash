@@ -11,11 +11,8 @@ import { accountNote, getInitials, roleLabel } from "@/lib/user";
 import type { FirstRunKind } from "@/components/public/first-run";
 import { toDevice } from "@/lib/user-agent";
 import {
-  getAdminJobList,
-  getAdminJobSummary,
-  getLastRunPerKind,
-  toJsonAdminJob,
-  toJsonAdminJobSummary,
+  getAdminJobStateSnapshot,
+  toJsonAdminJobStateSnapshot,
 } from "@/server/admin/jobs";
 import {
   getAdminMediaDerivativeSummary,
@@ -633,24 +630,17 @@ const adminViews = admin
     );
   })
   .get("/jobs", async (c) => {
-    const [lastRunPerKind, queueSummary, mediaDerivatives, problems] =
-      await Promise.all([
-        getLastRunPerKind(),
-        getAdminJobSummary(),
-        getAdminMediaDerivativeSummary(),
-        getAdminJobList({ status: ["failed", "dead"], limit: 20 }),
-      ]);
+    const [snapshot, mediaDerivatives] = await Promise.all([
+      getAdminJobStateSnapshot(),
+      getAdminMediaDerivativeSummary(),
+    ]);
+    const state = toJsonAdminJobStateSnapshot(snapshot);
     return c.json(
       plain({
-        initialLastRuns: Object.fromEntries(
-          Object.entries(lastRunPerKind).map(([kind, job]) => [
-            kind,
-            job ? toJsonAdminJob(job) : null,
-          ]),
-        ),
-        initialProblems: problems.items.map(toJsonAdminJob),
+        initialLastRuns: state.lastRuns,
+        initialProblems: state.problems,
         initialDerivatives: toJsonAdminMediaDerivativeSummary(mediaDerivatives),
-        initialSummary: toJsonAdminJobSummary(queueSummary),
+        initialSummary: state.summary,
         jobKinds: [...ALL_SUPPORTED_JOB_KINDS],
       }),
     );

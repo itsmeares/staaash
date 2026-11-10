@@ -127,6 +127,18 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
       statusCounts: jobsView(state).initialSummary.statusCounts,
     });
   });
+  app.get("/api/admin/jobs/problem-targets", (c) => {
+    const kind = z.enum(jobKinds).parse(c.req.query("kind"));
+    return c.json({
+      ids: c.var.state.jobs
+        .filter(
+          (job) =>
+            job.kind === kind &&
+            (job.status === "failed" || job.status === "dead"),
+        )
+        .map((job) => job.id),
+    });
+  });
   app.get("/api/admin/jobs/:id/events", (c) =>
     c.json({
       items: [
@@ -159,13 +171,29 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
     const job = state.jobs.find((j) => j.id === c.req.param("id"));
     if (!job) throw new PreviewError(404, "Job not found.");
     const action = c.req.param("action");
-    if (action === "dismiss") state.jobs = state.jobs.filter((j) => j !== job);
+    const actionApplied =
+      (action !== "dismiss" && c.req.query("failedOnly") !== "1") ||
+      job.status === "failed" ||
+      job.status === "dead";
+    if (!actionApplied)
+      return c.json({
+        message: "This job has already changed.",
+        jobId: job.id,
+        actionApplied: false,
+        status: job.status,
+      });
+    if (action === "dismiss") job.status = "cancelled";
     else if (action === "cancel") job.status = "cancelled";
     else if (action === "retry") {
       job.status = "succeeded";
       job.lastError = null;
     } else throw new PreviewError(404, "Unknown job action.");
-    return c.json({ message: "Sample job updated.", jobId: job.id });
+    return c.json({
+      message: "Sample job updated.",
+      jobId: job.id,
+      actionApplied: true,
+      status: job.status,
+    });
   });
   app.get("/api/admin/live", (c) =>
     streamSSE(c, async (stream) => {
@@ -188,6 +216,7 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
               event: "state",
               data: JSON.stringify({
                 lastRuns: data.initialLastRuns,
+                problems: data.initialProblems,
                 summary: data.initialSummary,
               }),
             });
