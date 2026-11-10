@@ -2,10 +2,14 @@ import { useCallback, useRef, useState } from "react";
 
 import { confirmAction } from "@/components/confirm-dialog";
 import {
+  followStorageOperation,
   forgetStorageMutationKey,
+  isStorageOperation,
   StorageRequestError,
+  storageOperationProgress,
   submitStorageMutationPost,
 } from "@/src/storage-mutation-submit";
+import { followFolderOperation } from "@/src/workspace/folder-operation";
 import type { ClearTrashOperationResponse } from "@/server/files/types";
 import { toast, toastManager } from "@staaash/ui/components/toast";
 
@@ -48,21 +52,37 @@ const reasonOf = (error: unknown, kind: string): FailureReason => {
   return error.status < 500 ? "refused" : "unknown";
 };
 
+const keyOf = (item: Item, of: TrashAction) => `${of}:${item.kind}:${item.id}`;
+
+// A large folder answers 202 and moves in the background.
+async function moveOne(item: Item, action: TrashAction) {
+  const submit = () =>
+    submitStorageMutationPost({
+      action: `/api/files/${kindPath(item)}/${item.id}/${action}`,
+      logicalAction: keyOf(item, action),
+      headers: item.kind === "folder" ? { Prefer: "respond-async" } : undefined,
+    });
+  if (item.kind === "file") {
+    await submit();
+    return;
+  }
+  const name = item.name ?? "folder";
+  await followFolderOperation(
+    submit,
+    action === "trash" ? `Moving ${name} to trash` : `Restoring ${name}`,
+  );
+}
+
 /** Moves items into or out of trash, and says which did not and why. */
 async function moveTrash(items: Item[], action: TrashAction) {
   const moved = new Set<Item>();
   const failed: Failure[] = [];
-  const keyOf = (item: Item, of: TrashAction) =>
-    `${of}:${item.kind}:${item.id}`;
   let next = 0;
   const work = async () => {
     while (next < items.length) {
       const item = items[next++]!;
       try {
-        await submitStorageMutationPost({
-          action: `/api/files/${kindPath(item)}/${item.id}/${action}`,
-          logicalAction: keyOf(item, action),
-        });
+        await moveOne(item, action);
         moved.add(item);
         // The item changed state, so an older attempt to move it the other
         // way must not replay as done.
@@ -71,9 +91,8 @@ async function moveTrash(items: Item[], action: TrashAction) {
         );
       } catch (error) {
         const reason = reasonOf(error, `${item.kind}_${action}`);
-        // Only a lost answer is retried as the same request. Every other
-        // outcome is settled, so the next attempt is a new move.
-        if (reason !== "unknown") forgetStorageMutationKey(keyOf(item, action));
+        if (reason !== "unknown" && reason !== "finishing")
+          forgetStorageMutationKey(keyOf(item, action));
         failed.push({
           item,
           reason,
@@ -305,28 +324,6 @@ const EMPTY_TRASH_CONFIRM = {
   destructive: true,
 };
 
-const isClearTrashOperation = (
-  value: unknown,
-): value is ClearTrashOperationResponse =>
-  Boolean(
-    value &&
-    typeof value === "object" &&
-    typeof (value as { operationId?: unknown }).operationId === "string" &&
-    typeof (value as { status?: unknown }).status === "string",
-  );
-
-const EMPTY_TRASH_POLL_MS = 1_000;
-const EMPTY_TRASH_MAX_MISSED_POLLS = 30;
-
-/** "12 of 200 items", once the server knows how many there are. */
-const emptyTrashProgress = ({
-  doneCount,
-  totalCount,
-}: ClearTrashOperationResponse) =>
-  totalCount > 0
-    ? `${doneCount} of ${totalCount} ${totalCount === 1 ? "item" : "items"}`
-    : undefined;
-
 /**
  * Starts Empty trash in the background and follows it until it settles.
  * The worker keeps going if this page closes; the trash shows what is left.
@@ -339,33 +336,14 @@ async function runEmptyTrash(
     logicalAction: "empty-trash",
     headers: { Prefer: "respond-async" },
   });
-  if (!isClearTrashOperation(started)) {
+  if (!isStorageOperation(started)) {
     throw new Error("Staaash lost track of it. Refresh to see what is left.");
   }
-  let operation = started;
-  // The run goes on in the worker, so a dropped poll is not a failure; only
-  // a run of them in a row, or a run the server no longer knows, ends it.
-  let missed = 0;
-  while (operation.status === "queued" || operation.status === "running") {
-    onProgress(operation);
-    await new Promise((resolve) => setTimeout(resolve, EMPTY_TRASH_POLL_MS));
-    const poll = await fetch(
-      `/api/files/trash/clear/${encodeURIComponent(operation.operationId)}`,
-      { headers: { Accept: "application/json" } },
-    ).catch(() => null);
-    const value: unknown = poll?.ok
-      ? await poll.json().catch(() => null)
-      : null;
-    if (isClearTrashOperation(value)) {
-      operation = value;
-      missed = 0;
-    } else if (
-      poll?.status === 404 ||
-      ++missed >= EMPTY_TRASH_MAX_MISSED_POLLS
-    ) {
-      throw new Error("Staaash lost track of it. Refresh to see what is left.");
-    }
-  }
+  const operation = await followStorageOperation(
+    started as ClearTrashOperationResponse,
+    `/api/files/trash/clear/${encodeURIComponent(started.operationId)}`,
+    onProgress,
+  );
   if (operation.status === "recovery_required") {
     throw new StorageRequestError(
       operation.error ?? "Empty trash could not finish.",
@@ -393,7 +371,7 @@ export async function emptyTrash(refresh: () => unknown) {
   });
   emptying = runEmptyTrash((operation) =>
     toastManager.update(toastId, {
-      description: emptyTrashProgress(operation),
+      description: storageOperationProgress(operation),
     }),
   );
   try {
@@ -406,6 +384,8 @@ export async function emptyTrash(refresh: () => unknown) {
     });
   } catch (error) {
     const reason = reasonOf(error, "clear_trash");
+    if (reason !== "unknown" && reason !== "finishing")
+      forgetStorageMutationKey("empty-trash");
     toastManager.update(toastId, {
       title: "Trash could not be emptied",
       description:
@@ -420,9 +400,6 @@ export async function emptyTrash(refresh: () => unknown) {
       timeout: 0,
     });
   } finally {
-    // Emptying again is always a new request: replaying an earlier one that
-    // finished would report success and leave newer items in trash.
-    forgetStorageMutationKey("empty-trash");
     emptying = null;
     await refresh();
   }

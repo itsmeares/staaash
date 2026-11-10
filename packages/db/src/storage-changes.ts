@@ -1,4 +1,5 @@
 import { Prisma } from "./client";
+import { StorageMutationConflictError } from "./storage-mutation-conflict";
 
 export const STORAGE_CHANGES_CHANNEL = "storage_changes";
 export const STORAGE_CHANGE_RETENTION_DAYS = 90;
@@ -59,11 +60,20 @@ const join = (parent: string | undefined, name: string) =>
 export const readStorageItemSnapshot = async (
   tx: Prisma.TransactionClient,
   mutationId: string,
+  only: ReadonlySet<string> | null = null,
 ): Promise<StorageItemSnapshot> => {
-  const entities = await tx.storageMutationEntity.findMany({
-    where: { mutationId, entityType: { in: ["file", "folder"] } },
-    select: { entityType: true, entityId: true },
-  });
+  const entities = only
+    ? [...only].flatMap((key) => {
+        const entityType = key.slice(0, key.indexOf(":"));
+        const entityId = key.slice(entityType.length + 1);
+        return entityType === "file" || entityType === "folder"
+          ? [{ entityType, entityId }]
+          : [];
+      })
+    : await tx.storageMutationEntity.findMany({
+        where: { mutationId, entityType: { in: ["file", "folder"] } },
+        select: { entityType: true, entityId: true },
+      });
   const ids = (type: string) =>
     entities.filter((e) => e.entityType === type).map((e) => e.entityId);
   const [files, folders] = await Promise.all([
@@ -169,9 +179,15 @@ export const appendStorageChanges = async (
     mutationId,
     ownerUserId,
     before,
-  }: { mutationId: string; ownerUserId: string; before: StorageItemSnapshot },
+    only = null,
+  }: {
+    mutationId: string;
+    ownerUserId: string;
+    before: StorageItemSnapshot;
+    only?: ReadonlySet<string> | null;
+  },
 ) => {
-  const after = await readStorageItemSnapshot(tx, mutationId);
+  const after = await readStorageItemSnapshot(tx, mutationId, only);
   const kinds = new Map<string, StorageChangeKind>();
   for (const key of new Set([...before.keys(), ...after.keys()])) {
     const kind = kindOf(before.get(key), after.get(key));
@@ -346,11 +362,53 @@ export const readStorageSnapshotPage = async (
 ) => {
   const root = await tx.folder.findFirst({
     where: folderId
-      ? { id: folderId, ownerUserId, deletedAt: null }
+      ? { id: folderId, ownerUserId }
       : { ownerUserId, isFilesRoot: true },
-    select: { id: true },
+    select: { id: true, deletedAt: true },
   });
   if (!root) return null;
+  const [blocking] = await tx.$queryRaw<
+    { id: string; kind: string; status: string }[]
+  >`
+    WITH RECURSIVE tree AS (
+      SELECT id FROM "Folder" WHERE id = ${root.id}
+      UNION
+      SELECT child.id FROM "Folder" child JOIN tree ON child."parentId" = tree.id
+      WHERE child."ownerUserId" = ${ownerUserId}
+    )
+    SELECT mutation.id, mutation.kind, mutation.status FROM "StorageMutation" mutation
+    WHERE mutation.status IN ('prepared', 'running', 'retrying', 'metadata_committed', 'finalizing', 'recovery_required')
+      AND (
+        (mutation."ownerUserId" = ${ownerUserId} AND EXISTS (
+          SELECT 1 FROM "StorageMutationEntity" entity
+          WHERE entity."mutationId" = mutation.id AND (
+            (entity."entityType" = 'folder' AND entity."entityId" IN (SELECT id FROM tree))
+            OR (entity."entityType" = 'file' AND EXISTS (
+              SELECT 1 FROM "File" file WHERE file.id = entity."entityId"
+                AND file."folderId" IN (SELECT id FROM tree)
+            ))
+          )
+        )) OR (mutation.kind = 'legacy_recovery' AND (
+          mutation."ownerUserId" = ${ownerUserId} OR EXISTS (
+            SELECT 1 FROM "StorageMutationResource" resource
+            WHERE resource."mutationId" = mutation.id
+              AND resource."resourceKey" = 'storage:global-recovery'
+              AND resource."releasedAt" IS NULL
+          )
+        ))
+      )
+    LIMIT 1
+  `;
+  if (blocking) {
+    throw new StorageMutationConflictError(
+      blocking.status === "recovery_required"
+        ? "STORAGE_RECOVERY_REQUIRED"
+        : "STORAGE_MUTATION_RECOVERING",
+      blocking.id,
+      blocking.kind,
+    );
+  }
+  if (root.deletedAt) return null;
   const rootPath = (await readFolderPaths(tx, [root.id])).get(root.id) ?? "";
   // "folder" sorts after "file", so DESC puts folders first.
   const rows = await tx.$queryRaw<StorageSnapshotItem[]>`

@@ -1,5 +1,6 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { getPrisma } from "@staaash/db/client";
+import type { Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { scheduleDerivativeGenerate } from "@staaash/db/media-derivatives";
 import {
@@ -32,12 +33,19 @@ import {
 import { getPrivatePreviewStatus } from "@/server/files/derivative-status";
 import { downloadPrivateFile } from "@/server/files/download";
 import { FilesError } from "@/server/files/errors";
+import {
+  BACKGROUND_FOLDER_ITEMS,
+  countFolderTreeItems,
+  readFolderOperation,
+  startFolderOperation,
+} from "@/server/files/folder-operation";
 import { toBatchMoveOperationResponse } from "@/server/files/move-operation";
 import { filesService } from "@/server/files/service";
-import type { FilesActor } from "@/server/files/types";
+import type { FilesActor, FolderMutationResult } from "@/server/files/types";
 import { getAccessiblePrivateFile } from "@/server/files/viewer";
 import {
   actorOf,
+  type AppEnv,
   errorResponses,
   httpError,
   requireUser,
@@ -51,6 +59,7 @@ import {
   FileMutationSchema,
   FileSchema,
   FolderMutationSchema,
+  FolderOperationSchema,
   json,
   jsonBody,
 } from "@/server/http/schemas";
@@ -144,6 +153,13 @@ const fileBodyRoute = <const Action extends string, Body extends z.ZodType>(
     responses: { 200: json(FileMutationSchema, "Done."), ...errorResponses },
   });
 
+// Folder changes take Prefer: respond-async; a large tree then answers 202.
+const folderResponses = {
+  200: json(FolderMutationSchema, "Done."),
+  202: json(FolderOperationSchema, "Started in the background."),
+  ...errorResponses,
+};
+
 const folderRoute = <const Action extends string>(
   action: Action,
   summary: string,
@@ -155,7 +171,7 @@ const folderRoute = <const Action extends string>(
     summary,
     middleware: mutation,
     request: { params: FolderParams },
-    responses: { 200: json(FolderMutationSchema, "Done."), ...errorResponses },
+    responses: folderResponses,
   });
 
 const folderBodyRoute = <const Action extends string, Body extends z.ZodType>(
@@ -174,7 +190,7 @@ const folderBodyRoute = <const Action extends string, Body extends z.ZodType>(
       query: RevisionQuery,
       body: jsonBody(body),
     },
-    responses: { 200: json(FolderMutationSchema, "Done."), ...errorResponses },
+    responses: folderResponses,
   });
 
 const renameFile = fileBodyRoute("rename", "Rename a file.", NameBody);
@@ -211,12 +227,74 @@ const trashFolder = createRoute({
   summary: "Move a folder and everything in it to the trash.",
   middleware: mutation,
   request: { params: FolderParams, query: RevisionQuery },
-  responses: { 200: json(FolderMutationSchema, "Done."), ...errorResponses },
+  responses: folderResponses,
 });
 const restoreFolder = folderRoute(
   "restore",
   "Restore a folder from the trash.",
 );
+
+const folderOperationStatus = createRoute({
+  method: "get",
+  path: "/api/files/folders/operations/{operationId}",
+  tags: ["Folders"],
+  summary: "One folder change running in the background.",
+  middleware: user,
+  request: { params: z.object({ operationId: z.string() }) },
+  responses: {
+    200: json(FolderOperationSchema, "The change."),
+    ...errorResponses,
+  },
+});
+
+type FolderAccess = Parameters<
+  typeof recordFolderAccessBestEffort
+>[0]["action"];
+
+/**
+ * Runs a folder change in the request. With Prefer: respond-async and a large
+ * tree, it starts the change in the background and returns its operation.
+ */
+const folderChange = async (
+  c: Context<AppEnv>,
+  {
+    folderId,
+    access,
+    run,
+  }: {
+    folderId: string;
+    access: FolderAccess;
+    run: (
+      actor: FilesActor,
+      onPrepared?: (mutationId: string) => void,
+    ) => Promise<FolderMutationResult>;
+  },
+) => {
+  const actor = actorOf(c.var.session);
+  const change = async (onPrepared?: (mutationId: string) => void) => {
+    const result = await run(actor, onPrepared);
+    await recordFolderAccessBestEffort({ ...actor, folderId, action: access });
+    return result;
+  };
+  if (/\brespond-async\b/i.test(c.req.header("prefer") ?? "")) {
+    const ownerUserId = actor.actorUserId;
+    const totalCount = await countFolderTreeItems(
+      ownerUserId,
+      folderId,
+      c.var.idempotencyKey,
+    );
+    if (totalCount > BACKGROUND_FOLDER_ITEMS) {
+      c.header("Preference-Applied", "respond-async");
+      return {
+        operation: await startFolderOperation({
+          ownerUserId,
+          run: change,
+        }),
+      };
+    }
+  }
+  return { result: await change() };
+};
 
 const favoriteFile = createRoute({
   method: "post",
@@ -763,65 +841,86 @@ export const filesRoutes = router()
     ),
   )
   .openapi(renameFolder, async (c) => {
-    const actor = actorOf(c.var.session);
     const { folderId } = c.req.valid("param");
-    const result = await filesService.renameFolder({
-      ...actor,
-      ifRevision: c.req.valid("query").ifRevision,
+    const { ifRevision } = c.req.valid("query");
+    const { name } = c.req.valid("json");
+    const { operation, result } = await folderChange(c, {
       folderId,
-      name: c.req.valid("json").name,
-      idempotencyKey: c.var.idempotencyKey,
+      access: "renamed",
+      run: (actor, onStorageMutationPrepared) =>
+        filesService.renameFolder({
+          ...actor,
+          ifRevision,
+          folderId,
+          name,
+          idempotencyKey: c.var.idempotencyKey,
+          onStorageMutationPrepared,
+        }),
     });
-    await recordFolderAccessBestEffort({
-      ...actor,
-      folderId,
-      action: "renamed",
-    });
-    return c.json(result, 200);
+    return operation ? c.json(operation, 202) : c.json(result, 200);
   })
   .openapi(moveFolder, async (c) => {
-    const actor = actorOf(c.var.session);
     const { folderId } = c.req.valid("param");
-    const result = await filesService.moveFolder({
-      ...actor,
-      ifRevision: c.req.valid("query").ifRevision,
+    const { ifRevision } = c.req.valid("query");
+    const { destinationFolderId } = c.req.valid("json");
+    const { operation, result } = await folderChange(c, {
       folderId,
-      destinationFolderId: c.req.valid("json").destinationFolderId,
-      idempotencyKey: c.var.idempotencyKey,
+      access: "moved",
+      run: (actor, onStorageMutationPrepared) =>
+        filesService.moveFolder({
+          ...actor,
+          ifRevision,
+          folderId,
+          destinationFolderId,
+          idempotencyKey: c.var.idempotencyKey,
+          onStorageMutationPrepared,
+        }),
     });
-    await recordFolderAccessBestEffort({ ...actor, folderId, action: "moved" });
-    return c.json(result, 200);
+    return operation ? c.json(operation, 202) : c.json(result, 200);
   })
   .openapi(trashFolder, async (c) => {
-    const actor = actorOf(c.var.session);
     const { folderId } = c.req.valid("param");
-    const result = await filesService.trashFolder({
-      ...actor,
-      ifRevision: c.req.valid("query").ifRevision,
+    const { ifRevision } = c.req.valid("query");
+    const { operation, result } = await folderChange(c, {
       folderId,
-      idempotencyKey: c.var.idempotencyKey,
+      access: "trashed",
+      run: (actor, onStorageMutationPrepared) =>
+        filesService.trashFolder({
+          ...actor,
+          ifRevision,
+          folderId,
+          idempotencyKey: c.var.idempotencyKey,
+          onStorageMutationPrepared,
+        }),
     });
-    await recordFolderAccessBestEffort({
-      ...actor,
-      folderId,
-      action: "trashed",
-    });
-    return c.json(result, 200);
+    return operation ? c.json(operation, 202) : c.json(result, 200);
   })
   .openapi(restoreFolder, async (c) => {
-    const actor = actorOf(c.var.session);
     const { folderId } = c.req.valid("param");
-    const result = await filesService.restoreFolder({
-      ...actor,
+    const { operation, result } = await folderChange(c, {
       folderId,
-      idempotencyKey: c.var.idempotencyKey,
+      access: "restored",
+      run: (actor, onStorageMutationPrepared) =>
+        filesService.restoreFolder({
+          ...actor,
+          folderId,
+          idempotencyKey: c.var.idempotencyKey,
+          onStorageMutationPrepared,
+        }),
     });
-    await recordFolderAccessBestEffort({
-      ...actor,
-      folderId,
-      action: "restored",
-    });
-    return c.json(result, 200);
+    return operation ? c.json(operation, 202) : c.json(result, 200);
+  })
+  .openapi(folderOperationStatus, async (c) => {
+    const { operationId } = c.req.valid("param");
+    const operation = await readFolderOperation(
+      operationId,
+      c.var.session.user.id,
+    );
+    if (!operation) {
+      throw httpError(404, "OPERATION_NOT_FOUND", "Operation not found.");
+    }
+    c.header("cache-control", "no-store");
+    return c.json(operation, 200);
   })
   .openapi(favoriteFile, async (c) =>
     c.json(

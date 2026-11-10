@@ -147,6 +147,8 @@ type CreateFilesServiceOptions = {
 
 type DurableRequest = {
   idempotencyKey?: string | null;
+  /** A background request is accepted only after its journal is prepared. */
+  onStorageMutationPrepared?: (mutationId: string) => void;
   storageMutationParentId?: string | null;
   storageMutationParentLeaseOwner?: string | null;
   storageMutationParentLeaseToken?: bigint | null;
@@ -853,12 +855,14 @@ export const createFilesService = ({
     entityType,
     entityId,
     requestHashPayload,
+    onPrepared,
   }: FilesActor & {
     idempotencyKey?: string | null;
     kind: StorageMutationKind;
     entityType: "file" | "folder";
     entityId: string;
     requestHashPayload: unknown;
+    onPrepared?: (mutationId: string) => void;
   }) => {
     if (repo || !idempotencyKey) return null;
     const prior = await getPrisma().storageMutation.findUnique({
@@ -875,6 +879,7 @@ export const createFilesService = ({
       actorRole,
       actorUserId,
     });
+    if (prior.status !== "preparing") onPrepared?.(prior.id);
     assertDirectMutationReplayComplete(prior);
     return prior;
   };
@@ -1460,7 +1465,7 @@ export const createFilesService = ({
         },
       });
     }
-    for (const update of folderUpdates) {
+    const folderUpdate = (update: FolderTreeUpdate) =>
       operations.push({
         action: "update",
         entityType: "folder",
@@ -1468,6 +1473,11 @@ export const createFilesService = ({
         preRevision: update.folder.storageRevision ?? 0,
         data: toMetadataJson(update.data),
       });
+    const rootUpdate = folderUpdates.find(
+      (update) => update.folder.id === rootFolder.id,
+    );
+    for (const update of folderUpdates) {
+      if (update !== rootUpdate) folderUpdate(update);
     }
     for (const update of fileUpdates) {
       operations.push({
@@ -1478,13 +1488,20 @@ export const createFilesService = ({
         data: toMetadataJson(update.data),
       });
     }
+    // Everything above sits inside the root folder, whose own change comes
+    // last; a large tree commits it in chunks before that.
+    const bulkOperationsEnd = operations.length;
+    if (rootUpdate) folderUpdate(rootUpdate);
     if (deleteTrashEntryId) {
       operations.push({
         action: "delete_trash_entry",
         entityId: deleteTrashEntryId,
       });
     }
-    return operations;
+    return {
+      operations,
+      bulkOperationsEnd: rootUpdate ? bulkOperationsEnd : undefined,
+    };
   };
 
   // Each fallback is one short branch; splitting them hides the order.
@@ -1581,8 +1598,10 @@ export const createFilesService = ({
     requestHashPayload,
     resultJson,
     guardEntities = [],
+    onPrepared,
   }: {
     kind: StorageMutationKind;
+    onPrepared?: (mutationId: string) => void;
     rootFolder: FolderSummary;
     fromStorageKey: string;
     toStorageKey: string;
@@ -1606,20 +1625,22 @@ export const createFilesService = ({
       expectedTreeManifestDigest,
       stepsOverride,
     });
+    const { operations, bulkOperationsEnd } = buildDurableFolderOperations({
+      rootFolder,
+      folderUpdates,
+      fileUpdates,
+      trashEntry,
+      deleteTrashEntryId,
+    });
     await runDurableStorageMutation({
       kind,
+      onPrepared,
       ownerUserId: rootFolder.ownerUserId,
       idempotencyKey,
       parentId,
       requestHashPayload,
       resultJson,
-      metadataOperations: buildDurableFolderOperations({
-        rootFolder,
-        folderUpdates,
-        fileUpdates,
-        trashEntry,
-        deleteTrashEntryId,
-      }),
+      metadataOperations: operations,
       steps: buildDurableFolderSteps({
         fromStorageKey,
         toStorageKey,
@@ -1631,7 +1652,11 @@ export const createFilesService = ({
         ...fileUpdates.map(durableTreeFileEntity),
         ...guardEntities,
       ],
-      details: { entityType: "folder", entityId: rootFolder.id },
+      details: {
+        entityType: "folder",
+        entityId: rootFolder.id,
+        bulkOperationsEnd,
+      },
     });
     return (await resolveRepo()).findFolderById(rootFolder.id);
   };
@@ -2314,6 +2339,12 @@ export const createFilesService = ({
       deletedFolderCount: 1 + descendants.length,
       deletedFileCount: files.length,
     };
+    const operations = buildFolderPurgeOperations({
+      currentFolder,
+      descendants,
+      files,
+      derivatives,
+    });
     await runDurableStorageMutation({
       kind: "folder_purge",
       ownerUserId: currentFolder.ownerUserId,
@@ -2323,12 +2354,9 @@ export const createFilesService = ({
         currentFolder,
         parentId,
       ),
-      metadataOperations: buildFolderPurgeOperations({
-        currentFolder,
-        descendants,
-        files,
-        derivatives,
-      }),
+      metadataOperations: operations,
+      // The root folder and its trash entry go last.
+      details: { bulkOperationsEnd: operations.length - 2 },
       steps,
       entities: buildFolderPurgeEntities({
         currentFolder,
@@ -3303,6 +3331,7 @@ export const createFilesService = ({
       folderId,
       name,
       idempotencyKey,
+      onStorageMutationPrepared,
     }: RenameFolderInput): Promise<FolderMutationResult> {
       if (!repo) await assertStorageProtocolReady();
       const normalizedName = normalizeFolderName(name);
@@ -3319,6 +3348,7 @@ export const createFilesService = ({
         entityType: "folder",
         entityId: folderId,
         requestHashPayload,
+        onPrepared: onStorageMutationPrepared,
       });
       if (replay) return replayFolderMutation(replay, folderId);
       const folder = await getActiveOwnedFolder({
@@ -3412,6 +3442,7 @@ export const createFilesService = ({
         );
         const durableFolder = await durablyUpdateFolderTree({
           kind: "folder_rename",
+          onPrepared: onStorageMutationPrepared,
           idempotencyKey,
           requestHashPayload,
           resultJson: serializeFolderMutationResult({
@@ -3607,6 +3638,7 @@ export const createFilesService = ({
       destinationFolderId,
       idempotencyKey,
       storageMutationParentId,
+      onStorageMutationPrepared,
     }: MoveFolderInput): Promise<FolderMutationResult> {
       if (!repo) await assertStorageProtocolReady();
       const requestHashPayload = storageMutationParentId
@@ -3628,6 +3660,7 @@ export const createFilesService = ({
         entityType: "folder",
         entityId: folderId,
         requestHashPayload,
+        onPrepared: onStorageMutationPrepared,
       });
       if (replay) return replayFolderMutation(replay, folderId);
       const folder = await getActiveOwnedFolder({
@@ -3744,6 +3777,7 @@ export const createFilesService = ({
         );
         const durableFolder = await durablyUpdateFolderTree({
           kind: "folder_move",
+          onPrepared: onStorageMutationPrepared,
           idempotencyKey,
           parentId: storageMutationParentId,
           requestHashPayload,
@@ -3869,6 +3903,7 @@ export const createFilesService = ({
       ifRevision,
       folderId,
       idempotencyKey,
+      onStorageMutationPrepared,
     }: FolderLookupInput): Promise<FolderMutationResult> {
       if (!repo) await assertStorageProtocolReady();
       const requestHashPayload = { kind: "folder_trash", folderId };
@@ -3880,6 +3915,7 @@ export const createFilesService = ({
         entityType: "folder",
         entityId: folderId,
         requestHashPayload,
+        onPrepared: onStorageMutationPrepared,
       });
       if (replay) return replayFolderMutation(replay, folderId);
       const folder = await getActiveOwnedFolder({
@@ -3956,6 +3992,7 @@ export const createFilesService = ({
           });
         const durableFolder = await durablyUpdateFolderTree({
           kind: "folder_trash",
+          onPrepared: onStorageMutationPrepared,
           idempotencyKey,
           requestHashPayload,
           resultJson: serializeFolderMutationResult({
@@ -4079,6 +4116,7 @@ export const createFilesService = ({
       actorUserId,
       folderId,
       idempotencyKey,
+      onStorageMutationPrepared,
     }: FolderLookupInput): Promise<FolderMutationResult> {
       if (!repo) await assertStorageProtocolReady();
       const requestHashPayload = { kind: "folder_restore", folderId };
@@ -4090,6 +4128,7 @@ export const createFilesService = ({
         entityType: "folder",
         entityId: folderId,
         requestHashPayload,
+        onPrepared: onStorageMutationPrepared,
       });
       if (replay) return replayFolderMutation(replay, folderId);
       const folder = await getOwnedFolder({
@@ -4255,6 +4294,7 @@ export const createFilesService = ({
         }
         const durableFolder = await durablyUpdateFolderTree({
           kind: "folder_restore",
+          onPrepared: onStorageMutationPrepared,
           idempotencyKey,
           requestHashPayload,
           resultJson: serializeFolderMutationResult({

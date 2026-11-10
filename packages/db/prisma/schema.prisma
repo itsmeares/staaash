@@ -558,6 +558,8 @@ model StorageMutation {
   nextAttemptAt        DateTime?
   lastError            String?
   metadataCommittedAt  DateTime?
+  /// Bulk metadata operations committed ahead of the final metadata commit.
+  metadataOperationsApplied Int                  @default(0)
   completedAt          DateTime?
   recoveryRequiredAt   DateTime?
   reservedBytes        BigInt?

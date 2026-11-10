@@ -132,6 +132,26 @@ export type FolderMutationResult = {
   restoredTo?: FolderRestoreLocation;
 };
 
+export type FolderOperationError = {
+  status: number;
+  code: string;
+  message: string;
+  /** The journal change that holds the folder, when one does. */
+  mutationKind?: string;
+};
+
+/** A folder change running in the background. */
+export type FolderOperationResponse = {
+  operationId: string;
+  status: "queued" | "running" | "succeeded" | "failed" | "recovery_required";
+  /** Files and folders in the tree, the folder itself included. */
+  totalCount: number;
+  /** Items whose change is committed so far. */
+  doneCount: number;
+  response?: FolderMutationResult;
+  error?: FolderOperationError;
+};
+
 export type FileMutationResult = {
   file?: FileSummary;
   deletedFileId?: string;

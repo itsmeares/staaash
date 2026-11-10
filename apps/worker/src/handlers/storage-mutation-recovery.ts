@@ -2,6 +2,7 @@ import os from "node:os";
 
 import {
   applyStorageMutationIntentMetadata,
+  discardStalePreparingStorageMutations,
   listRecoverableStorageMutations,
   requireStorageMutationRecovery,
   retryStorageMutation,
@@ -179,6 +180,7 @@ export const recoverStorageMutations = async ({
   excludeKinds?: string[];
 }) => {
   const workerConcurrency = Math.max(1, Math.floor(concurrency));
+  await discardStalePreparingStorageMutations();
   const mutations = await listRecoverableStorageMutations({
     // ponytail: bounded candidate window; paginate if queue depth exceeds this scan.
     take: Math.max(take, workerConcurrency * 4),

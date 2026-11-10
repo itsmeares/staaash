@@ -628,6 +628,63 @@
           "updatedAt"
         ]
       },
+      "FolderOperation": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "recovery_required"
+            ]
+          },
+          "totalCount": {
+            "type": "integer",
+            "description": "Files and folders in the tree, the folder itself included."
+          },
+          "doneCount": {
+            "type": "integer",
+            "description": "Items whose change is committed so far."
+          },
+          "response": {
+            "$ref": "#/components/schemas/FolderMutation"
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "integer"
+              },
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "mutationKind": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "status",
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "operationId",
+          "status",
+          "totalCount",
+          "doneCount"
+        ]
+      },
       "Favorite": {
         "type": "object",
         "properties": {
@@ -2915,6 +2972,16 @@
               }
             }
           },
+          "202": {
+            "description": "Started in the background.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderOperation"
+                }
+              }
+            }
+          },
           "400": {
             "description": "The request is invalid.",
             "content": {
@@ -3040,6 +3107,16 @@
               }
             }
           },
+          "202": {
+            "description": "Started in the background.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderOperation"
+                }
+              }
+            }
+          },
           "400": {
             "description": "The request is invalid.",
             "content": {
@@ -3144,6 +3221,16 @@
               }
             }
           },
+          "202": {
+            "description": "Started in the background.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderOperation"
+                }
+              }
+            }
+          },
           "400": {
             "description": "The request is invalid.",
             "content": {
@@ -3230,6 +3317,106 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FolderMutation"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Started in the background.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderOperation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found or inaccessible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Busy or recovering. Retry after the Retry-After delay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/files/folders/operations/{operationId}": {
+      "get": {
+        "tags": [
+          "Folders"
+        ],
+        "summary": "One folder change running in the background.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "operationId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The change.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderOperation"
                 }
               }
             }

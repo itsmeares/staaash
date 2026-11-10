@@ -85,6 +85,7 @@ export type DurableStorageMutationInput = {
   details?: Record<string, unknown>;
   uploadSessionId?: string | null;
   mutationId?: string;
+  onPrepared?: (mutationId: string) => void;
   requestHashPayload?: unknown;
   resultJson?: Prisma.InputJsonValue;
   parentId?: string | null;
@@ -352,7 +353,10 @@ export const runDurableStorageMutation = async (
   input: DurableStorageMutationInput,
 ) => {
   const replay = await replayExistingIdempotentMutation(input);
-  if (replay) return replay;
+  if (replay) {
+    input.onPrepared?.(replay.id);
+    return replay;
+  }
   assertStorageKeysFit(plannedStorageKeys(input));
   await assertStorageMutationMayStart();
   const plan = buildDurableMutationPlan(input);
@@ -381,6 +385,7 @@ export const runDurableStorageMutation = async (
     },
     { signal: input.signal, ownerUserId: input.ownerUserId },
   );
+  if (mutation.status !== "preparing") input.onPrepared?.(mutation.id);
   if (!replayed) {
     return executePreparedMutation({
       mutation,
