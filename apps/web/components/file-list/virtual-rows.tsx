@@ -1,4 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useMediaQuery } from "@/src/workspace/use-media-query";
 import {
   useEffect,
   useLayoutEffect,
@@ -28,8 +29,9 @@ const rowHeight = (
   columns: number,
   grid: boolean,
   tiles: boolean,
+  mobile: boolean,
 ) => {
-  if (!grid) return width < 768 ? 57 : 45;
+  if (!grid) return mobile ? 56 : 44;
   const cardWidth = (width - (columns - 1) * GAP) / columns;
   return tiles ? cardWidth + GAP : cardWidth * 0.75 + 76;
 };
@@ -57,6 +59,7 @@ function VirtualRows<T extends { id: string }>({
   const [scroller, setScroller] = useState<HTMLElement | null>(null);
   const [offset, setOffset] = useState(0);
   const [width, setWidth] = useState(800);
+  const mobile = useMediaQuery("(width < 48rem)");
   const columns = columnsFor(width, grid, tiles);
   // Leading cells (a new-folder row, files still uploading) come first, and
   // are mounted only near the screen like items, however many there are.
@@ -66,7 +69,7 @@ function VirtualRows<T extends { id: string }>({
     count: Math.ceil(cells / columns),
     getScrollElement: () => scroller,
     estimateSize: () =>
-      rowHeight(width, columns, grid, tiles) + (grid ? GAP : 1),
+      rowHeight(width, columns, grid, tiles, mobile) + (grid ? GAP : 1),
     overscan: 6,
     scrollMargin: offset,
   });
@@ -90,7 +93,10 @@ function VirtualRows<T extends { id: string }>({
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => virtualizer.measure(), [virtualizer, width, grid, tiles]);
+  useEffect(
+    () => virtualizer.measure(),
+    [virtualizer, width, grid, tiles, mobile],
+  );
 
   const rows = virtualizer.getVirtualItems();
   const lastCell = Math.min(cells, ((rows.at(-1)?.index ?? -1) + 1) * columns);
