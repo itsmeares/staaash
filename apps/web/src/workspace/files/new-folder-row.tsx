@@ -86,7 +86,7 @@ export function NewFolderRow({
 
   if (view === "grid") {
     return (
-      <div className="grid min-w-0 gap-1.5 rounded-xl border border-primary/45 bg-primary/9 p-1.5">
+      <div className="grid min-w-0 grid-cols-1 gap-1.5 rounded-xl border border-primary/45 bg-primary/9 p-1.5">
         <div className="grid aspect-4/3 place-items-center rounded-lg bg-hover text-muted-foreground">
           <Folder aria-hidden className="size-10" strokeWidth={1.4} />
         </div>
