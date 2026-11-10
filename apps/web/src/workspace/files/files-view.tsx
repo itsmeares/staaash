@@ -1530,6 +1530,16 @@ export function FilesView({
     event.preventDefault();
     event.stopPropagation();
     positionDragPreview(event.clientX, event.clientY);
+    if (
+      draggedItemsRef.current.some(
+        (item) => item.kind === "folder" && item.id === destinationFolderId,
+      )
+    ) {
+      event.dataTransfer.dropEffect = "none";
+      setDropTargetId(null);
+      setDragTip("");
+      return;
+    }
     event.dataTransfer.dropEffect = "move";
     setDropTargetId(destinationFolderId);
     setDragTip(
@@ -1561,7 +1571,10 @@ export function FilesView({
     setDropTargetId(null);
     if (
       items.length === 0 ||
-      destinationFolderId === listing.currentFolder.id
+      destinationFolderId === listing.currentFolder.id ||
+      items.some(
+        (item) => item.kind === "folder" && item.id === destinationFolderId,
+      )
     ) {
       return;
     }
