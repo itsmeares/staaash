@@ -66,7 +66,12 @@ export const submitStorageMutationPost = async ({
   }
   const answer: unknown = await response.json().catch(() => null);
   if (response.status === 202) {
-    if (isStorageOperation(answer)) request.operationId = answer.operationId;
+    if (!isStorageOperation(answer)) {
+      throw new Error(
+        "Staaash couldn't confirm this change. Try again to check its progress.",
+      );
+    }
+    request.operationId = answer.operationId;
   } else if (storageMutationKeys.get(logicalAction) === request) {
     storageMutationKeys.delete(logicalAction);
   }
@@ -87,13 +92,25 @@ type StorageOperation = {
   doneCount: number;
 };
 
-export const isStorageOperation = (value: unknown): value is StorageOperation =>
-  Boolean(
-    value &&
-    typeof value === "object" &&
-    typeof (value as { operationId?: unknown }).operationId === "string" &&
-    typeof (value as { status?: unknown }).status === "string",
+export const isStorageOperation = (
+  value: unknown,
+): value is StorageOperation => {
+  if (!value || typeof value !== "object") return false;
+  const operation = value as Partial<StorageOperation>;
+  return (
+    typeof operation.operationId === "string" &&
+    operation.operationId.length > 0 &&
+    ["queued", "running", "succeeded", "failed", "recovery_required"].includes(
+      operation.status ?? "",
+    ) &&
+    typeof operation.totalCount === "number" &&
+    Number.isInteger(operation.totalCount) &&
+    operation.totalCount >= 0 &&
+    typeof operation.doneCount === "number" &&
+    Number.isInteger(operation.doneCount) &&
+    operation.doneCount >= 0
   );
+};
 
 const OPERATION_POLL_MS = 1_000;
 const OPERATION_MAX_MISSED_POLLS = 30;

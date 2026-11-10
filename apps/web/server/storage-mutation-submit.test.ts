@@ -113,3 +113,46 @@ it("Empty trash keeps the accepted key after lost polls and frees it after compl
   await next;
   expect(keys[2]).not.toBe(keys[0]);
 });
+
+it.each([
+  { name: "unreadable JSON", body: "{" },
+  {
+    name: "a missing operation ID",
+    body: JSON.stringify({ status: "queued", totalCount: 2001, doneCount: 0 }),
+  },
+  {
+    name: "an empty operation ID",
+    body: JSON.stringify({ ...queued, operationId: "" }),
+  },
+  {
+    name: "an unknown status",
+    body: JSON.stringify({ ...queued, status: "unrecognized" }),
+  },
+  {
+    name: "missing progress counts",
+    body: JSON.stringify({ operationId: "accepted", status: "queued" }),
+  },
+  {
+    name: "invalid progress counts",
+    body: JSON.stringify({ ...queued, doneCount: -1 }),
+  },
+])("rejects 202 with $name and keeps the key for retry", async ({ body }) => {
+  const keys: string[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (_url: string, init?: RequestInit) => {
+      keys.push(new Headers(init?.headers).get("Idempotency-Key")!);
+      return keys.length === 1
+        ? new Response(body, { status: 202 })
+        : Response.json(queued, { status: 202 });
+    }),
+  );
+  const { followFolderOperation } =
+    await import("@/src/workspace/folder-operation");
+  await expect(
+    followFolderOperation(submit, "Moving folder to trash"),
+  ).rejects.toThrow("couldn't confirm this change");
+  await expect(submit()).resolves.toMatchObject({ operationId: "accepted" });
+  expect(keys).toHaveLength(2);
+  expect(keys[1]).toBe(keys[0]);
+});
