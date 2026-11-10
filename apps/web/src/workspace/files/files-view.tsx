@@ -111,6 +111,7 @@ import {
   reconcileCutItems,
 } from "./files-move";
 import { ShareDialog } from "./share-dialog";
+import { showMoveFailure } from "./move-notifications";
 import { FolderColorPicker } from "@/components/file-list/folder-color-picker";
 import { NewFolderRow, NewFolderSheet } from "./new-folder-row";
 import { isLeavingForTrash, useMoveToTrash } from "../trash-moves";
@@ -374,20 +375,22 @@ export function FilesView({
     });
   }, [listing]);
 
-  // A failed move shows one toast; Retry clears the mark so a second
-  // failure shows again.
+  // Retry creates a new durable move; request failures reuse the client ID.
   const toastedMoves = useRef(new Set<string>());
   useEffect(() => {
     for (const operation of moveOperations.values()) {
       if (operation.retrying) {
-        toastedMoves.current.delete(operation.clientId);
+        toastedMoves.current.delete(`${operation.clientId}:failed`);
         continue;
       }
       if (!isFailedMove(operation)) continue;
-      if (toastedMoves.current.has(operation.clientId)) continue;
-      toastedMoves.current.add(operation.clientId);
+      const failureKey = `${operation.operationId ?? operation.clientId}:${operation.status}`;
+      if (toastedMoves.current.has(failureKey)) continue;
+      toastedMoves.current.add(failureKey);
       const retryItems = retryableMoveItems(operation);
-      toast.error(operation.error ?? "Some items could not be moved.", {
+      showMoveFailure(operation.error ?? "Some items could not be moved.", {
+        operationId: operation.operationId,
+        status: operation.status,
         retry:
           retryItems.length > 0
             ? () => void retryFailedMove(operation.clientId)

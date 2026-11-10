@@ -323,7 +323,11 @@ export function AnchoredToastProvider({
 
 export { Toast as ToastPrimitive };
 
-type ToastOptions = { description?: React.ReactNode };
+type ToastOptions = {
+  description?: React.ReactNode;
+  id?: string;
+  onClose?: () => void;
+};
 
 /** Shorthand for the common toast types on the shared toast manager. */
 export const toast = {

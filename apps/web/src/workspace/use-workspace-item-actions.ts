@@ -7,6 +7,7 @@ import { toast, toastManager } from "@staaash/ui/components/toast";
 import { startValidatedDownload } from "@/lib/transfers/download";
 
 import { submitMove } from "./files/files-move";
+import { showMoveFailure } from "./files/move-notifications";
 import { chooseMoveDestination } from "./move-dialog";
 import type { SelectionBarAction } from "./selection-bar";
 import { useTransferContext } from "./transfer-context";
@@ -93,7 +94,7 @@ export function useWorkspaceItemActions(redirectTo: string) {
       );
       void refresh();
       if (result.failedCount > 0) {
-        toast.error(`${result.failedCount} could not be moved.`);
+        showMoveFailure(`${result.failedCount} could not be moved.`, result);
       }
       if (moved.length === 0) return;
       const what = moved.length === 1 ? "1 item" : `${moved.length} items`;
@@ -105,7 +106,12 @@ export function useWorkspaceItemActions(redirectTo: string) {
         },
       });
     } catch (caught) {
-      fail(caught, "Items could not be moved.", () => void move(items));
+      showMoveFailure(
+        caught instanceof Error ? caught : "Items could not be moved.",
+        {
+          retry: () => void move(items),
+        },
+      );
     }
   };
 
@@ -130,7 +136,9 @@ export function useWorkspaceItemActions(redirectTo: string) {
         );
       }
     } catch (caught) {
-      fail(caught, "Items could not be moved back.");
+      showMoveFailure(
+        caught instanceof Error ? caught : "Items could not be moved back.",
+      );
     }
     void refresh();
   };
