@@ -313,6 +313,8 @@ describe("release policy", () => {
     (releaseTag) => {
       const composeSource = [
         "services:",
+        "  migrate:",
+        "    image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}",
         "  web:",
         "    image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}",
         "  worker:",
@@ -328,7 +330,7 @@ describe("release policy", () => {
       });
       const environment = renderReleaseEnv({ source: envSource, releaseTag });
 
-      expect(compose.match(new RegExp(releaseTag, "gu"))).toHaveLength(2);
+      expect(compose.match(new RegExp(releaseTag, "gu"))).toHaveLength(3);
       expect(compose).toContain(
         `ghcr.io/scratch/staaash:\${STAAASH_VERSION:-${releaseTag}}`,
       );
@@ -358,7 +360,7 @@ describe("release policy", () => {
       releaseTag,
     });
 
-    expect(compose.match(/v1\.2\.3/gu)).toHaveLength(2);
+    expect(compose.match(/v1\.2\.3/gu)).toHaveLength(3);
     expect(compose).not.toContain("${STAAASH_VERSION:-latest}");
     expect(compose).not.toContain("@sha256:");
     expect(environment).toContain(`STAAASH_VERSION=${releaseTag}`);
@@ -369,13 +371,13 @@ describe("release policy", () => {
     const immutableReference = `${tagReference}@${DIGEST_A}`;
     expect(
       findResolvedReleaseImageErrors({
-        images: [tagReference, tagReference],
+        images: [tagReference, tagReference, tagReference],
         expectedReference: tagReference,
       }),
     ).toEqual([]);
     expect(
       findResolvedReleaseImageErrors({
-        images: [immutableReference, immutableReference],
+        images: [immutableReference, immutableReference, immutableReference],
         expectedReference: immutableReference,
       }),
     ).toEqual([]);
@@ -388,7 +390,7 @@ describe("release policy", () => {
         imageRepository: IMAGE_REPOSITORY,
         releaseTag: "v1.2.3",
       }),
-    ).toThrow("Expected 2 Staaash image fallbacks");
+    ).toThrow("Expected 3 Staaash image fallbacks");
     expect(() =>
       renderReleaseEnv({
         source: "STAAASH_VERSION=v1.2.2\n",

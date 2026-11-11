@@ -1,9 +1,20 @@
 name: staaash
 
 services:
+  migrate:
+    image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}
+    command: prisma migrate deploy
+    environment:
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD}@db:5432/${DB_DATABASE_NAME:-staaash}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
   staaash:
     container_name: staaash_server
     image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}
+    command: node dist/server/main.mjs
 
     environment:
       NODE_ENV: production
@@ -20,21 +31,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
     ports:
       - "2113:2113"
-
-    healthcheck:
-      # The server listens only after migrations succeed. Readiness also needs the worker.
-      test:
-        - CMD
-        - node
-        - -e
-        - "fetch('http://127.0.0.1:2113/api/health/live', { signal: AbortSignal.timeout(4000) }).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
-      interval: 5s
-      timeout: 5s
-      retries: 36
-      start_period: 10s
 
     restart: always
 
@@ -57,8 +58,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      staaash:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
     restart: always
 

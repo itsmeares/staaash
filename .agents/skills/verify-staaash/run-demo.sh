@@ -426,6 +426,11 @@ doctor() {
       die "doctor found the wrong container for $service: $actual_name"
   done
 
+  actual_name="$(docker inspect --format '{{.Name}} {{.Config.Image}} {{.State.Status}} {{index .Config.Labels "com.docker.compose.project"}} {{.State.ExitCode}}' \
+    "${STAAASH_VERIFY_PROJECT}_migrate" 2>/dev/null || true)"
+  [[ "$actual_name" == "/${STAAASH_VERIFY_PROJECT}_migrate $STAAASH_VERIFY_IMAGE exited $STAAASH_VERIFY_PROJECT 0" ]] ||
+    die "doctor found an unsuccessful migration job: $actual_name"
+
   wait_for_worker
   local web_ports
   web_ports="$(docker port "${STAAASH_VERIFY_PROJECT}_web" 2113/tcp)"

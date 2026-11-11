@@ -9,10 +9,10 @@ import { test } from "node:test";
 const image = process.env.STAAASH_TEST_IMAGE;
 
 test(
-  "production startup waits for migrations and blocks a failed web startup",
+  "production startup waits for long migrations and blocks migration failures",
   {
     skip: !image,
-    timeout: 240_000,
+    timeout: 480_000,
   },
   (t) => {
     const project = `staaash-startup-${randomBytes(6).toString("hex")}`;
@@ -22,16 +22,19 @@ test(
     const override = path.join(scratch, "override.json");
     const config = {
       services: {
+        migrate: {
+          container_name: `${project}-migrate`,
+          image,
+          command: ["sh", "-c", "sleep 200; prisma migrate deploy"],
+          restart: "no",
+          cpus: 0.5,
+          mem_limit: "1g",
+        },
         staaash: {
           container_name: `${project}-web`,
           image,
           ports: [],
           volumes: ["startup-files:/data/files"],
-          command: [
-            "sh",
-            "-c",
-            "sleep 10; prisma migrate deploy && node dist/server/main.mjs",
-          ],
           restart: "no",
           cpus: 0.5,
           mem_limit: "1g",
@@ -75,13 +78,14 @@ test(
             protocol: "tcp",
           },
         ];
-      original.volumes = [
-        {
-          type: "volume",
-          source: name === "db" ? "startup-db" : "startup-files",
-          target: name === "db" ? "/var/lib/postgresql" : "/data/files",
-        },
-      ];
+      if (name !== "migrate")
+        original.volumes = [
+          {
+            type: "volume",
+            source: name === "db" ? "startup-db" : "startup-files",
+            target: name === "db" ? "/var/lib/postgresql" : "/data/files",
+          },
+        ];
     }
     isolated.volumes = config.volumes;
     isolated.networks = { default: {} };
@@ -93,7 +97,7 @@ test(
         ["compose", "-p", project, "-f", override, ...args],
         {
           encoding: "utf8",
-          timeout: 180_000,
+          timeout: 360_000,
           stdio: ["ignore", "pipe", "pipe"],
         },
       );
@@ -118,14 +122,24 @@ test(
     compose("up", "-d");
     const worker = inspect("worker");
     const web = inspect("web");
-    const healthy = web.State.Health.Log.find((entry) => entry.ExitCode === 0);
-    assert.ok(healthy, "web must pass liveness before worker startup");
-    assert.ok(Date.parse(worker.State.StartedAt) >= Date.parse(healthy.End));
+    const migration = inspect("migrate");
+    assert.equal(migration.State.Status, "exited");
+    assert.equal(migration.State.ExitCode, 0);
+    for (const service of [web, worker]) {
+      assert.ok(
+        Date.parse(service.State.StartedAt) >=
+          Date.parse(migration.State.FinishedAt),
+      );
+    }
     assert.equal(worker.RestartCount, 0);
     assert.equal(worker.State.Status, "running");
     writeFileSync(
       path.join(evidence, "startup.json"),
-      JSON.stringify({ web: web.State, worker: worker.State }),
+      JSON.stringify({
+        migration: migration.State,
+        web: web.State,
+        worker: worker.State,
+      }),
     );
     writeFileSync(
       path.join(evidence, "fresh.log"),
@@ -133,14 +147,15 @@ test(
     );
 
     compose("down", "--volumes", "--remove-orphans");
-    isolated.services.staaash.command = [
+    isolated.services.migrate.command = [
       "sh",
       "-c",
-      "DATABASE_URL=postgresql://postgres:wrong@db:5432/staaash prisma migrate deploy && node dist/server/main.mjs",
+      "DATABASE_URL=postgresql://postgres:wrong@db:5432/staaash prisma migrate deploy",
     ];
     saveConfig();
     assert.throws(() => compose("up", "-d"));
-    assert.match(compose("logs", "--no-color", "staaash"), /P1000/);
+    assert.match(compose("logs", "--no-color", "migrate"), /P1000/);
+    assert.equal(inspect("web").State.Status, "created");
     assert.equal(
       inspect("worker").State.Status,
       "created",

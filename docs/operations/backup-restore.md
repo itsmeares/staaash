@@ -26,24 +26,24 @@ This guide applies only to compatible installations in the supported Postgres 18
    mutations. A `recovery_required` mutation must not be resolved or have its
    artifacts removed for the backup.
 
-3. Stop the worker and then PostgreSQL:
+3. Stop the worker and the migration job, then PostgreSQL:
 
    ```console
-   docker compose stop worker
+   docker compose stop worker migrate
    docker compose stop db
    ```
 
-4. Confirm that all three services are stopped:
+4. Confirm that all services are stopped:
 
    ```console
    docker compose ps --status running
    ```
 
    The command must show no running services. Do not begin the copy while
-   `staaash`, `worker`, or `db` is running. Raw PostgreSQL data-directory copies
+   `staaash`, `worker`, `migrate`, or `db` is running. Raw PostgreSQL data-directory copies
    must not be taken while PostgreSQL is running.
 
-5. While all three services remain stopped, copy both configured host data
+5. While all services remain stopped, copy both configured host data
    locations into the same backup set:
    - `UPLOAD_LOCATION` (default: `./library`)
    - `DB_DATA_LOCATION` (default: `./postgres`)
