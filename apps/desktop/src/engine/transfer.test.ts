@@ -348,25 +348,20 @@ describe("uploadFile", () => {
       const swapped = (await statLocal(dir, "notes.txt"))!;
       expect(swapped.mtimeMs).toBe(scanned.mtimeMs);
       expect(swapped.ino).not.toBe(scanned.ino);
+      const startUpload = vi.fn();
       const uploadChunk = vi.fn();
       await expect(
         uploadFile({
           ...input,
           mtimeMs: scanned.mtimeMs,
           ino: scanned.ino,
-          api: {
-            startUpload: async () => ({
-              id: "session",
-              chunkSizeBytes: chunk,
-              completedChunks: [],
-              receivedBytes: 0,
-            }),
-            uploadChunk,
-          } as never,
+          api: { startUpload, uploadChunk } as never,
           store: { pendingUpload: () => null, putUpload: () => {} } as never,
           replace: null,
         }),
       ).rejects.toThrow("The file changed while it was uploading.");
+      // No server session holds space for a file that cannot be sent.
+      expect(startUpload).not.toHaveBeenCalled();
       expect(uploadChunk).not.toHaveBeenCalled();
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -386,6 +381,7 @@ describe("uploadFile", () => {
           await symlink(outside, input.file);
           const target = (await statLocal(dir, "outside"))!;
           const uploadSmall = vi.fn();
+          const startUpload = vi.fn();
           const uploadChunk = vi.fn();
           await expect(
             uploadFile({
@@ -393,16 +389,7 @@ describe("uploadFile", () => {
               // The link's target matches in everything a disk without ids can show.
               mtimeMs: target.mtimeMs,
               ino: UNKNOWN_INO,
-              api: {
-                uploadSmall,
-                uploadChunk,
-                startUpload: async () => ({
-                  id: "session",
-                  chunkSizeBytes: SMALL_UPLOAD_BYTES,
-                  completedChunks: [],
-                  receivedBytes: 0,
-                }),
-              } as never,
+              api: { uploadSmall, startUpload, uploadChunk } as never,
               store: {
                 pendingUpload: () => null,
                 putUpload: () => {},
@@ -411,6 +398,7 @@ describe("uploadFile", () => {
             }),
           ).rejects.toMatchObject({ code: "ELOOP" });
           expect(uploadSmall).not.toHaveBeenCalled();
+          expect(startUpload).not.toHaveBeenCalled();
           expect(uploadChunk).not.toHaveBeenCalled();
         } finally {
           await rm(dir, { recursive: true, force: true });

@@ -208,35 +208,10 @@ export const moveIntoPlace = async (temp: string, target: string) => {
 };
 
 /**
- * Sends a file through a resumable upload session. A session survives an app
- * restart: the store remembers it, and only the missing chunks are sent.
- * The file is read once, in order, and hashed on the way; the server checks
- * that checksum before it keeps the file. Returns the committed file.
+ * The upload session for this file: the saved one when it still fits, or a
+ * new one the store remembers across restarts.
  */
-// Resume, restart and chunk send share one session.
-// fallow-ignore-next-line complexity
-const sendFile = async (
-  input: {
-    api: Api;
-    store: Store;
-    pairId: string;
-    rel: string;
-    file: string;
-    folderId: string;
-    name: string;
-    size: number;
-    mtimeMs: number;
-    /** The file id the scan saw, so a file swapped in since is never sent. */
-    ino: string;
-    /** The server file this upload replaces, as the plan last saw it. */
-    replace: { id: string; rev: number } | null;
-    throttle: Throttle;
-    meter: UploadMeter;
-    onBytes: (bytes: number) => void;
-    signal: AbortSignal;
-  },
-  completed: (bytes: number) => void,
-) => {
+const sessionFor = async (input: UploadInput) => {
   const { api, store } = input;
   // A session commits to the folder, name and replace choice it was started
   // with, so it is only reused for exactly that.
@@ -286,12 +261,61 @@ const sendFile = async (
       target,
     });
   }
+  return session;
+};
+
+/**
+ * Sends a file through a resumable upload session. A session survives an app
+ * restart: the store remembers it, and only the missing chunks are sent.
+ * The file is read once, in order, and hashed on the way; the server checks
+ * that checksum before it keeps the file. Returns the committed file.
+ */
+const sendFile = async (
+  input: {
+    api: Api;
+    store: Store;
+    pairId: string;
+    rel: string;
+    file: string;
+    folderId: string;
+    name: string;
+    size: number;
+    mtimeMs: number;
+    /** The file id the scan saw, so a file swapped in since is never sent. */
+    ino: string;
+    /** The server file this upload replaces, as the plan last saw it. */
+    replace: { id: string; rev: number } | null;
+    throttle: Throttle;
+    meter: UploadMeter;
+    onBytes: (bytes: number) => void;
+    signal: AbortSignal;
+  },
+  completed: (bytes: number) => void,
+) => {
+  // Opened and checked first, so a file that cannot be sent never holds a
+  // server session.
+  const handle = await openScanned(input);
+  try {
+    return await sendOpened(input, handle, completed);
+  } finally {
+    await handle.close();
+  }
+};
+
+// Resume, restart and chunk send share one session.
+// fallow-ignore-next-line complexity
+const sendOpened = async (
+  input: UploadInput,
+  handle: FileHandle,
+  completed: (bytes: number) => void,
+) => {
+  const { api, store } = input;
+  const session = await sessionFor(input);
   const chunkSize = session.chunkSizeBytes ?? input.size;
   const done = new Set(session.completedChunks.map((chunk) => chunk.startByte));
   input.onBytes(session.receivedBytes);
   completed(session.receivedBytes);
   const hash = createHash("sha256");
-  const handle = await openScanned(input);
   // A failed chunk stops the rest, even those waiting on the speed limit.
   // Sent chunks stay, so a retry sends only what is missing.
   const stop = new AbortController();
@@ -337,7 +361,6 @@ const sendFile = async (
   } finally {
     // Nothing still sending outlives the call, so a retry never overlaps it.
     await Promise.all(sending);
-    await handle.close();
   }
   if (failure) throw (failure as { error: unknown }).error;
   const checksum = hash.digest("hex");
