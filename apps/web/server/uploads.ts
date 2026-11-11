@@ -14,6 +14,7 @@ import {
 } from "@staaash/db/storage-mutation-executor";
 
 import { getSystemSettings } from "@/server/settings";
+import { uploadSizeLimitError } from "@/server/uploads/admission";
 import {
   maxFilesystemComponentBytes,
   normalizeFileName,
@@ -60,14 +61,12 @@ type UploadErrorCode =
   | "CHECKSUM_MISMATCH"
   | "INVALID_UPLOAD_MANIFEST"
   | "UPLOAD_FILE_COUNT_MISMATCH"
-  | "UPLOAD_SIZE_LIMIT_EXCEEDED"
   | "UPLOAD_TIMEOUT_EXCEEDED";
 
 const uploadErrorStatuses: Record<UploadErrorCode, number> = {
   CHECKSUM_MISMATCH: 400,
   INVALID_UPLOAD_MANIFEST: 400,
   UPLOAD_FILE_COUNT_MISMATCH: 400,
-  UPLOAD_SIZE_LIMIT_EXCEEDED: 413,
   UPLOAD_TIMEOUT_EXCEEDED: 408,
 };
 
@@ -77,8 +76,6 @@ const uploadErrorMessages: Record<UploadErrorCode, string> = {
   INVALID_UPLOAD_MANIFEST: "The upload manifest is invalid.",
   UPLOAD_FILE_COUNT_MISMATCH:
     "The upload manifest does not match the submitted file count.",
-  UPLOAD_SIZE_LIMIT_EXCEEDED:
-    "The uploaded file exceeds the configured maximum size.",
   UPLOAD_TIMEOUT_EXCEEDED: "The upload exceeded the configured time budget.",
 };
 
@@ -93,21 +90,6 @@ class UploadError extends Error {
     this.status = uploadErrorStatuses[code];
   }
 }
-
-let _uploadPolicy: {
-  maxUploadBytes: number;
-  timeoutMinutes: number;
-} | null = null;
-
-const getUploadPolicy = async () => {
-  if (_uploadPolicy) return _uploadPolicy;
-  const s = await getSystemSettings();
-  _uploadPolicy = {
-    maxUploadBytes: Number(s.maxUploadBytes),
-    timeoutMinutes: s.uploadTimeoutMinutes,
-  };
-  return _uploadPolicy;
-};
 
 const uploadManifestSchema = z
   .array(
@@ -130,34 +112,9 @@ const uploadManifestSchema = z
   )
   .nonempty();
 
-const getUploadTimeoutBudgetMs = async () => {
-  const policy = await getUploadPolicy();
-  return policy.timeoutMinutes * 60 * 1000;
-};
-
-export const createUploadDeadline = async (startTime = Date.now()) =>
-  startTime + (await getUploadTimeoutBudgetMs());
-
-const getRemainingUploadBudgetMs = async (
-  deadline: Date | number | null | undefined,
-) => {
-  if (deadline === null || deadline === undefined) {
-    return getUploadTimeoutBudgetMs();
-  }
-
-  const deadlineMs = deadline instanceof Date ? deadline.getTime() : deadline;
-  return Math.max(0, deadlineMs - Date.now());
-};
-
-const isUploadSizeAllowed = async (sizeBytes: number) => {
-  const policy = await getUploadPolicy();
-  return sizeBytes <= policy.maxUploadBytes;
-};
-
-export const assertUploadSizeAllowed = async (sizeBytes: number) => {
-  if (!(await isUploadSizeAllowed(sizeBytes))) {
-    throw new UploadError("UPLOAD_SIZE_LIMIT_EXCEEDED");
-  }
+export const createUploadDeadline = async (startTime = Date.now()) => {
+  const settings = await getSystemSettings();
+  return startTime + settings.uploadTimeoutMinutes * 60 * 1000;
 };
 
 export const parseUploadManifest = (
@@ -214,8 +171,15 @@ export const stageUpload = async (
   const tmpPath = getTmpUploadPath(uploadId);
   const hash = createHash("sha256");
   let sizeBytes = 0;
-  const policy = await getUploadPolicy();
-  const remainingBudgetMs = await getRemainingUploadBudgetMs(deadline);
+  const settings = await getSystemSettings();
+  const remainingBudgetMs =
+    deadline == null
+      ? settings.uploadTimeoutMinutes * 60 * 1000
+      : Math.max(
+          0,
+          (deadline instanceof Date ? deadline.getTime() : deadline) -
+            Date.now(),
+        );
 
   await ensureTmpRoot();
 
@@ -238,9 +202,10 @@ export const stageUpload = async (
 
     sizeBytes += buffer.length;
 
-    if (sizeBytes > policy.maxUploadBytes) {
-      input.destroy(new UploadError("UPLOAD_SIZE_LIMIT_EXCEEDED"));
-      output.destroy(new UploadError("UPLOAD_SIZE_LIMIT_EXCEEDED"));
+    if (BigInt(sizeBytes) > settings.maxUploadBytes) {
+      const error = uploadSizeLimitError(settings.maxUploadBytes);
+      input.destroy(error);
+      output.destroy(error);
       return;
     }
 

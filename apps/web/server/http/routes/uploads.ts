@@ -9,7 +9,6 @@ import {
   router,
 } from "@/server/http/core";
 import { json, jsonBody } from "@/server/http/schemas";
-import { assertUploadSizeAllowed } from "@/server/uploads";
 import {
   requireStorageProtocol,
   writeUploadChunk,
@@ -164,7 +163,6 @@ export const uploadRoutes = router()
     await assertStorageProtocolReady();
     const body = c.req.valid("json");
     normalizeFileName(body.originalName);
-    await assertUploadSizeAllowed(body.totalSizeBytes);
     const session = await createResumableSession({
       ownerUserId: c.var.session.user.id,
       ...body,

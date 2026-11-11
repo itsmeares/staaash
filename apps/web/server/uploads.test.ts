@@ -1,16 +1,93 @@
-import { readdir, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
+import { readdir, rm } from "node:fs/promises";
 import path from "node:path";
 
-import { describe, expect, it, vi } from "vite-plus/test";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
-  assertUploadSizeAllowed,
   buildSafeRenamedFileName,
+  createUploadDeadline,
   parseUploadManifest,
   stageUpload,
 } from "@/server/uploads";
 import { getStorageRoot } from "@/server/storage";
+import * as settings from "@/server/settings";
+
+beforeEach(() => vi.restoreAllMocks());
+
+const stageBytes = (size: number) =>
+  stageUpload({
+    clientKey: "size-check",
+    originalName: "file.bin",
+    conflictStrategy: "fail",
+    file: new File([new Uint8Array(size)], "file.bin"),
+  });
+
+describe("saved upload settings", () => {
+  it("applies increases and decreases to the next direct upload", async () => {
+    const defaults = await settings.getSystemSettings();
+    const read = vi.spyOn(settings, "getSystemSettings");
+    read.mockResolvedValue({ ...defaults, maxUploadBytes: 10n });
+    const first = await stageBytes(10);
+    await rm(first.tmpPath);
+
+    read.mockResolvedValue({ ...defaults, maxUploadBytes: 20n });
+    const larger = await stageBytes(15);
+    await rm(larger.tmpPath);
+
+    read.mockResolvedValue({ ...defaults, maxUploadBytes: 10n });
+    const before = await readdir(path.join(getStorageRoot(), "tmp"));
+    await expect(stageBytes(15)).rejects.toMatchObject({
+      code: "UPLOAD_SIZE_LIMIT_EXCEEDED",
+      status: 413,
+      message: "This file exceeds the server's 10 B upload limit.",
+      details: { maxUploadBytes: "10" },
+    });
+    expect(await readdir(path.join(getStorageRoot(), "tmp"))).toEqual(before);
+  });
+
+  it("keeps a direct upload's size limit while its stream is in progress", async () => {
+    const defaults = await settings.getSystemSettings();
+    const read = vi
+      .spyOn(settings, "getSystemSettings")
+      .mockResolvedValue({ ...defaults, maxUploadBytes: 10n });
+    const file = new File([new Uint8Array(8)], "file.bin");
+    const stream = file.stream.bind(file);
+    vi.spyOn(file, "stream").mockImplementation(() => {
+      read.mockResolvedValue({ ...defaults, maxUploadBytes: 5n });
+      return stream();
+    });
+    const staged = await stageUpload({
+      clientKey: "in-progress",
+      originalName: file.name,
+      conflictStrategy: "fail",
+      file,
+    });
+    expect(staged.sizeBytes).toBe(8);
+    await rm(staged.tmpPath);
+    await expect(stageBytes(8)).rejects.toMatchObject({
+      code: "UPLOAD_SIZE_LIMIT_EXCEEDED",
+      details: { maxUploadBytes: "5" },
+    });
+  });
+
+  it("uses the saved timeout for each new deadline", async () => {
+    const defaults = await settings.getSystemSettings();
+    const read = vi.spyOn(settings, "getSystemSettings");
+    for (const minutes of [60, 120, 30]) {
+      read.mockResolvedValue({ ...defaults, uploadTimeoutMinutes: minutes });
+      expect(await createUploadDeadline(1_000)).toBe(1_000 + minutes * 60_000);
+    }
+  });
+
+  it("stops new uploads and deadlines when settings cannot be read", async () => {
+    const first = await stageBytes(1);
+    await rm(first.tmpPath);
+    const failure = new Error("Settings unavailable");
+    vi.spyOn(settings, "getSystemSettings").mockRejectedValue(failure);
+    await expect(stageBytes(1)).rejects.toBe(failure);
+    await expect(createUploadDeadline()).rejects.toBe(failure);
+  });
+});
 
 describe("upload guardrails", () => {
   it("rejects a NUL name before reading or staging upload bytes", async () => {
@@ -53,12 +130,6 @@ describe("upload guardrails", () => {
     expect(item("2024-08-09T10:11:12.345Z")).toEqual(
       new Date("2024-08-09T10:11:12.345Z"),
     );
-  });
-
-  it("rejects oversized uploads", async () => {
-    await expect(
-      assertUploadSizeAllowed(Number.MAX_SAFE_INTEGER),
-    ).rejects.toThrow("configured maximum size");
   });
 
   it("generates keep-both filenames with numeric suffixes", () => {

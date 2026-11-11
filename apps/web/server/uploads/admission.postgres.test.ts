@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import {
   access,
@@ -28,6 +28,8 @@ import {
 } from "vite-plus/test";
 
 import { getRequestSession } from "@/server/auth/guards";
+import { toSettingsValues } from "@/server/admin/settings-schema";
+import { createUploadDeadline } from "@/server/uploads";
 import { app } from "@/server/http/app";
 import { FilesError, ResumableCompletionError } from "@/server/files/errors";
 import {
@@ -419,6 +421,110 @@ afterAll(async () => {
 });
 
 describe("UPL-01 PostgreSQL admission control", () => {
+  it.each(["owner", "member"] as const)(
+    "applies saved limits without restarting and keeps admitted uploads finishable for %s",
+    async (role) => {
+      const owner = await createUser();
+      await db.user.update({
+        where: { id: owner.id },
+        data: { isOwner: true },
+      });
+      const uploader = role === "owner" ? owner : await createUser();
+      const folder = await filesRepo.ensureFilesRoot(uploader.id);
+      const authenticate = (id: string, isOwner: boolean) =>
+        vi.mocked(getRequestSession).mockResolvedValue({
+          user: { id, role: isOwner ? "owner" : "member", isOwner },
+        } as Awaited<ReturnType<typeof getRequestSession>>);
+      const headers = { "content-type": "application/json" };
+      const save = async (
+        maxUploadBytes: string,
+        uploadTimeoutMinutes: string,
+      ) => {
+        authenticate(owner.id, true);
+        const current = await db.systemSettings.findUniqueOrThrow({
+          where: { id: "singleton" },
+        });
+        const response = await app.request("/api/admin/settings", {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({
+            ...toSettingsValues(current),
+            maxUploadBytes,
+            uploadTimeoutMinutes,
+            updateCheckEnabled: "",
+          }),
+        });
+        expect(response.status).toBe(200);
+        await expect(response.json()).resolves.toMatchObject({ success: true });
+      };
+      const start = (totalSizeBytes: number, originalName: string) => {
+        authenticate(uploader.id, role === "owner");
+        return app.request("/api/uploads/sessions", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            folderId: folder.id,
+            originalName,
+            mimeType: "application/octet-stream",
+            totalSizeBytes,
+          }),
+        });
+      };
+
+      await save("10", "60");
+      expect((await start(8, "first.bin")).status).toBe(201);
+      expect(await createUploadDeadline(0)).toBe(60 * 60_000);
+      await save("20", "120");
+      const larger = await start(15, "larger.bin");
+      expect(larger.status).toBe(201);
+      const session = (await larger.json()) as { id: string };
+      expect(await createUploadDeadline(0)).toBe(120 * 60_000);
+
+      await save("10", "30");
+      const refused = await start(15, "refused.bin");
+      expect(refused.status).toBe(413);
+      await expect(refused.json()).resolves.toEqual({
+        code: "UPLOAD_SIZE_LIMIT_EXCEEDED",
+        error: "This file exceeds the server's 10 B upload limit.",
+        details: { maxUploadBytes: "10" },
+      });
+      expect((await start(10, "boundary.bin")).status).toBe(201);
+      expect(await createUploadDeadline(0)).toBe(30 * 60_000);
+
+      const bytes = Buffer.alloc(15, 42);
+      const chunk = await app.request(`/api/uploads/sessions/${session.id}`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/octet-stream",
+          "content-range": "bytes 0-14/15",
+          "content-length": "15",
+        },
+        body: bytes,
+      });
+      expect(chunk.status).toBe(200);
+      const completed = await app.request(
+        `/api/uploads/sessions/${session.id}/complete`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            expectedChecksum: createHash("sha256").update(bytes).digest("hex"),
+          }),
+        },
+      );
+      expect(completed.status).toBe(201);
+      const file = await db.file.findFirstOrThrow({
+        where: { ownerUserId: uploader.id, originalName: "larger.bin" },
+      });
+      expect(await readFile(getStoragePath(file.storageKey))).toEqual(bytes);
+      expect(
+        await db.uploadSession.count({
+          where: { originalName: "refused.bin" },
+        }),
+      ).toBe(0);
+    },
+  );
+
   it("refuses a PostgreSQL target without a generated isolated database", () => {
     expect(() =>
       assertIsolatedPostgresTestTarget({

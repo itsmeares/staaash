@@ -293,12 +293,19 @@ export const assertPhysicalHeadroom = async (
   }
 };
 
+export const uploadSizeLimitError = (maxUploadBytes: bigint) =>
+  new UploadAdmissionError(
+    "UPLOAD_SIZE_LIMIT_EXCEEDED",
+    { maxUploadBytes: maxUploadBytes.toString() },
+    `This file exceeds the server's ${formatBytes(maxUploadBytes)} upload limit.`,
+  );
+
 const assertUploadSizeAllowed = (
   settings: LockedSettings,
   requestedBytes: bigint,
 ) => {
   if (requestedBytes > settings.maxUploadBytes) {
-    throw new UploadAdmissionError("UPLOAD_SIZE_LIMIT_EXCEEDED");
+    throw uploadSizeLimitError(settings.maxUploadBytes);
   }
 };
 
