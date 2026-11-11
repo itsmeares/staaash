@@ -1,10 +1,18 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import { createHash } from "node:crypto";
-import { mkdtemp, open, rename, rm, utimes, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  open,
+  rename,
+  rm,
+  symlink,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { statLocal } from "./local";
+import { statLocal, UNKNOWN_INO } from "./local";
 import {
   pool,
   SMALL_UPLOAD_BYTES,
@@ -364,6 +372,52 @@ describe("uploadFile", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  // Making links on Windows needs extra rights, and it has no flag to refuse them.
+  it.skipIf(process.platform === "win32")(
+    "sends nothing through a link swapped in on a disk with no file ids",
+    async () => {
+      for (const size of [5, SMALL_UPLOAD_BYTES + 1024]) {
+        const { dir, input } = await base(size);
+        try {
+          const outside = path.join(dir, "outside");
+          await writeFile(outside, Buffer.alloc(size, 9));
+          await rm(input.file);
+          await symlink(outside, input.file);
+          const target = (await statLocal(dir, "outside"))!;
+          const uploadSmall = vi.fn();
+          const uploadChunk = vi.fn();
+          await expect(
+            uploadFile({
+              ...input,
+              // The link's target matches in everything a disk without ids can show.
+              mtimeMs: target.mtimeMs,
+              ino: UNKNOWN_INO,
+              api: {
+                uploadSmall,
+                uploadChunk,
+                startUpload: async () => ({
+                  id: "session",
+                  chunkSizeBytes: SMALL_UPLOAD_BYTES,
+                  completedChunks: [],
+                  receivedBytes: 0,
+                }),
+              } as never,
+              store: {
+                pendingUpload: () => null,
+                putUpload: () => {},
+              } as never,
+              replace: null,
+            }),
+          ).rejects.toMatchObject({ code: "ELOOP" });
+          expect(uploadSmall).not.toHaveBeenCalled();
+          expect(uploadChunk).not.toHaveBeenCalled();
+        } finally {
+          await rm(dir, { recursive: true, force: true });
+        }
+      }
+    },
+  );
 
   it("sends a big file's chunks a few at a time with the checksum of what it sent", async () => {
     const chunk = 1024 * 1024;

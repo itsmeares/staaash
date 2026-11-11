@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createWriteStream } from "node:fs";
+import { constants, createWriteStream } from "node:fs";
 import {
   type FileHandle,
   open,
@@ -291,7 +291,7 @@ const sendFile = async (
   input.onBytes(session.receivedBytes);
   completed(session.receivedBytes);
   const hash = createHash("sha256");
-  const handle = await open(input.file, "r");
+  const handle = await openScanned(input);
   // A failed chunk stops the rest, even those waiting on the speed limit.
   // Sent chunks stay, so a retry sends only what is missing.
   const stop = new AbortController();
@@ -303,7 +303,6 @@ const sendFile = async (
     stop.abort();
   };
   try {
-    await assertUnchanged(handle, input);
     // One reader in file order, so a hard disk reads without seeking between
     // chunks. Chunks the server already has are read only for the checksum.
     for (let start = 0; start < input.size && !failure; start += chunkSize) {
@@ -353,6 +352,23 @@ const sendFile = async (
 
 type UploadInput = Parameters<typeof sendFile>[0];
 
+// Where the platform can, a link swapped in for the file is not followed, so
+// it is refused even on a disk that gives no file ids. Windows has no such
+// flag, and its disks either give ids or cannot hold links.
+const READ_NO_LINK = constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0);
+
+/** Opens the file the scan saw, before any of its bytes are read. */
+const openScanned = async (input: UploadInput) => {
+  const handle = await open(input.file, READ_NO_LINK);
+  try {
+    await assertUnchanged(handle, input);
+  } catch (error) {
+    await handle.close();
+    throw error;
+  }
+  return handle;
+};
+
 /**
  * The opened file must be the one the scan saw, not one swapped in since,
  * such as a link to a file outside the folder. The checksum is taken from the
@@ -392,10 +408,9 @@ const sendSmall = async (
     await api.cancelUpload(pending.sessionId).catch(() => {});
     store.deleteUpload(input.pairId, input.rel);
   }
-  const handle = await open(input.file, "r");
+  const handle = await openScanned(input);
   let body: Buffer;
   try {
-    await assertUnchanged(handle, input);
     body = await handle.readFile();
     await assertUnchanged(handle, input);
   } finally {
