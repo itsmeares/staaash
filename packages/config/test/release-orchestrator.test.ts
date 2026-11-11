@@ -906,10 +906,10 @@ describe("exact release resolution", () => {
           "mac-universal.dmg",
           "x86_64.AppImage",
           "arm64.AppImage",
-          "linux-amd64.deb",
-          "linux-arm64.deb",
-          "linux-x86_64.rpm",
-          "linux-aarch64.rpm",
+          "amd64.deb",
+          "arm64.deb",
+          "x86_64.rpm",
+          "aarch64.rpm",
         ].map(
           (suffix) =>
             `https://github.com/itsmeares/staaash/releases/download/${tag}/Staaash-Desktop-${tag.slice(1)}-${suffix}`,

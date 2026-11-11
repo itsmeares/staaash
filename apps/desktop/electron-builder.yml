@@ -46,6 +46,7 @@ nsis:
   perMachine: false
 linux:
   target: [AppImage, deb, rpm]
+  artifactName: Staaash-Desktop-${version}-${arch}.${ext}
   extraFiles:
     - from: resources/com.staaash.desktop.metainfo.xml
       to: usr/share/metainfo/com.staaash.desktop.appdata.xml
@@ -54,8 +55,6 @@ linux:
   syncDesktopName: true
   maintainer: Staaash <itsmeares@users.noreply.github.com>
   synopsis: Sync files with your Staaash drive
-appImage:
-  artifactName: Staaash-Desktop-${version}-${arch}.${ext}
 toolsets:
   # The static runtime needs no libfuse2, which new distributions dropped.
   appimage: "1.0.3"
