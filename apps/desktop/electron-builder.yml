@@ -41,6 +41,8 @@ win:
     - target: nsis
       arch: [x64, arm64]
 nsis:
+  # Pinned so a later appId change keeps upgrading existing installs in place.
+  guid: 2b25d318-9f3c-5dad-88c2-c1e20f4c59e4
   buildUniversalInstaller: false
   oneClick: true
   perMachine: false
