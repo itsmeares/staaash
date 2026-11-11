@@ -226,6 +226,8 @@ const sendFile = async (
     name: string;
     size: number;
     mtimeMs: number;
+    /** The file id the scan saw, so a file swapped in since is never sent. */
+    ino: string;
     /** The server file this upload replaces, as the plan last saw it. */
     replace: { id: string; rev: number } | null;
     throttle: Throttle;
@@ -301,6 +303,7 @@ const sendFile = async (
     stop.abort();
   };
   try {
+    await assertUnchanged(handle, input);
     // One reader in file order, so a hard disk reads without seeking between
     // chunks. Chunks the server already has are read only for the checksum.
     for (let start = 0; start < input.size && !failure; start += chunkSize) {
@@ -324,7 +327,8 @@ const sendFile = async (
           input.size,
           progress(input, completed),
         )
-        .then(() => input.onBytes(length), fail)
+        .then(() => input.onBytes(length))
+        .catch(fail)
         .finally(() => sending.delete(send));
       sending.add(send);
     }
@@ -350,12 +354,18 @@ const sendFile = async (
 type UploadInput = Parameters<typeof sendFile>[0];
 
 /**
- * The checksum is taken from the bytes as they were read, so a file written
- * to meanwhile would reach the server torn. It goes again on the next pass.
+ * The opened file must be the one the scan saw, not one swapped in since,
+ * such as a link to a file outside the folder. The checksum is taken from the
+ * bytes as they were read, so a file written to meanwhile would reach the
+ * server torn. Either way it goes again on the next pass.
  */
 const assertUnchanged = async (handle: FileHandle, input: UploadInput) => {
   const stats = await handle.stat({ bigint: true });
-  if (Number(stats.size) !== input.size || mtimeMsOf(stats) !== input.mtimeMs) {
+  if (
+    String(stats.ino) !== input.ino ||
+    Number(stats.size) !== input.size ||
+    mtimeMsOf(stats) !== input.mtimeMs
+  ) {
     throw new ApiError(0, "The file changed while it was uploading.");
   }
 };
@@ -385,6 +395,7 @@ const sendSmall = async (
   const handle = await open(input.file, "r");
   let body: Buffer;
   try {
+    await assertUnchanged(handle, input);
     body = await handle.readFile();
     await assertUnchanged(handle, input);
   } finally {

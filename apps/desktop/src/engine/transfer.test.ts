@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 import { createHash } from "node:crypto";
-import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, open, rename, rm, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -46,7 +46,7 @@ it("excludes resumed bytes and repeated retry bytes from remaining upload work",
     const file = path.join(dir, "demo");
     const size = SMALL_UPLOAD_BYTES + 4;
     await writeFile(file, Buffer.alloc(size));
-    const { mtimeMs } = (await statLocal(dir, "demo"))!;
+    const { mtimeMs, ino } = (await statLocal(dir, "demo"))!;
     const meter = new UploadMeter(() => {});
     const api = {
       uploadStatus: async () => ({
@@ -91,6 +91,7 @@ it("excludes resumed bytes and repeated retry bytes from remaining upload work",
       name: "demo",
       size,
       mtimeMs,
+      ino,
       replace: null,
       throttle: new Throttle(null),
       meter,
@@ -182,7 +183,7 @@ describe("uploadFile", () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), "staaash-upload-"));
     const file = path.join(dir, "notes.txt");
     await writeFile(file, Buffer.alloc(size, 7));
-    const { mtimeMs } = (await statLocal(dir, "notes.txt"))!;
+    const { mtimeMs, ino } = (await statLocal(dir, "notes.txt"))!;
     return {
       dir,
       input: {
@@ -193,6 +194,7 @@ describe("uploadFile", () => {
         name: "notes.txt",
         size,
         mtimeMs,
+        ino,
         throttle: new Throttle(null),
         meter: new UploadMeter(() => {}),
         onBytes: () => {},
@@ -318,6 +320,46 @@ describe("uploadFile", () => {
         }),
       ).rejects.toThrow("The file changed while it was uploading.");
       expect(completeUpload).not.toHaveBeenCalled();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("sends nothing from a file swapped in since the scan", async () => {
+    const chunk = 1024 * 1024;
+    const { dir, input } = await base(SMALL_UPLOAD_BYTES + 8 * chunk);
+    try {
+      // Another file with the same size and time takes its place.
+      const when = new Date(1_700_000_000_000);
+      await utimes(input.file, when, when);
+      const scanned = (await statLocal(dir, "notes.txt"))!;
+      const other = path.join(dir, "other");
+      await writeFile(other, Buffer.alloc(input.size, 9));
+      await utimes(other, when, when);
+      await rename(other, input.file);
+      const swapped = (await statLocal(dir, "notes.txt"))!;
+      expect(swapped.mtimeMs).toBe(scanned.mtimeMs);
+      expect(swapped.ino).not.toBe(scanned.ino);
+      const uploadChunk = vi.fn();
+      await expect(
+        uploadFile({
+          ...input,
+          mtimeMs: scanned.mtimeMs,
+          ino: scanned.ino,
+          api: {
+            startUpload: async () => ({
+              id: "session",
+              chunkSizeBytes: chunk,
+              completedChunks: [],
+              receivedBytes: 0,
+            }),
+            uploadChunk,
+          } as never,
+          store: { pendingUpload: () => null, putUpload: () => {} } as never,
+          replace: null,
+        }),
+      ).rejects.toThrow("The file changed while it was uploading.");
+      expect(uploadChunk).not.toHaveBeenCalled();
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

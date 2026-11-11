@@ -519,6 +519,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         name: baseName(rel),
         size: local.size,
         mtimeMs: local.mtimeMs,
+        ino: local.ino,
         replace: action.replace
           ? { id: action.replace.remoteId, rev: action.replace.rev }
           : null,
@@ -553,6 +554,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         name: copyName,
         size: local.size,
         mtimeMs: local.mtimeMs,
+        ino: local.ino,
         replace: null,
         throttle: ctx.uploads,
         meter: ctx.uploadMeter,
