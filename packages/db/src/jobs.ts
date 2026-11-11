@@ -104,12 +104,6 @@ type BackgroundJobStatusGroup = {
   _count: { status: number };
 };
 
-type BackgroundJobKindStatusGroup = {
-  kind: string;
-  status: BackgroundJobStatus;
-  _count: { status: number };
-};
-
 type BackgroundJobClient = {
   backgroundJob: {
     findFirst(args: object): Promise<BackgroundJobRecord | null>;
@@ -125,9 +119,7 @@ type BackgroundJobClient = {
     create(args: object): Promise<BackgroundJobEventRecord>;
     findMany(args: object): Promise<BackgroundJobEventRecord[]>;
   };
-  mediaDerivative: {
-    updateMany(args: object): Promise<{ count: number }>;
-  };
+  $executeRaw: Prisma.TransactionClient["$executeRaw"];
   zipArchive: {
     updateMany(args: object): Promise<{ count: number }>;
   };
@@ -167,6 +159,74 @@ const truncateJobError = (value: string) =>
   value.length > MAX_STORED_ERROR_LENGTH
     ? `${value.slice(0, MAX_STORED_ERROR_LENGTH)}…`
     : value;
+
+// A stopped job can leave a publication journal in charge of the output.
+const unownedDerivativeGeneration = Prisma.sql`
+  derivative.status IN ('queued', 'processing')
+  AND NOT EXISTS (
+    SELECT 1 FROM "BackgroundJob" job
+    WHERE job.kind = ${MEDIA_DERIVATIVE_GENERATE_JOB_KIND}
+      AND job.status IN ('queued', 'running')
+      AND (
+        job.id = derivative."generationJobId"
+        OR job."dedupeKey" = ${MEDIA_DERIVATIVE_GENERATE_JOB_KIND + ":"}
+          || derivative."fileId" || ':' || derivative.kind || ':' || derivative.profile
+        OR (job."payloadJson"->>'fileId' = derivative."fileId"
+          AND COALESCE(job."payloadJson"->>'kind', 'preview') = derivative.kind)
+      )
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM "StorageMutation" mutation
+    WHERE mutation."idempotencyKey" = 'derivative-publish:' || derivative."generationJobId"
+      AND mutation.status NOT IN ('succeeded', 'aborted')
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM "StorageMutationEntity" entity
+    JOIN "StorageMutation" mutation ON mutation.id = entity."mutationId"
+    WHERE entity."entityType" = 'derivative' AND entity."entityId" = derivative.id
+      AND mutation.status NOT IN ('succeeded', 'aborted')
+  )
+`;
+
+const staleDerivativeData = (now: Date) => Prisma.sql`
+  status = 'stale', error = NULL, "storageKey" = NULL, "sizeBytes" = NULL, "updatedAt" = ${now}
+`;
+
+const settleJobDerivatives = async (
+  client: BackgroundJobClient,
+  job: BackgroundJobRecord,
+  now: Date,
+  error: string | null = null,
+) => {
+  if (job.kind !== MEDIA_DERIVATIVE_GENERATE_JOB_KIND) return;
+  const data =
+    error === null
+      ? staleDerivativeData(now)
+      : Prisma.sql`status = 'failed', error = ${truncateJobError(error)}, "updatedAt" = ${now}`;
+  await client.$executeRaw`
+    UPDATE "MediaDerivative" derivative SET ${data}
+    WHERE derivative."generationJobId" = ${job.id} AND ${unownedDerivativeGeneration}
+  `;
+};
+
+// Match the scanned version if a newer attempt changes the row while the UPDATE waits.
+export const recoverOrphanedDerivativeGenerations = async (now = new Date()) =>
+  getPrisma().$executeRaw`
+    WITH orphan AS MATERIALIZED (
+      SELECT derivative.id, derivative."generationJobId", derivative."updatedAt",
+        derivative.status, derivative."storageRevision"
+      FROM "MediaDerivative" derivative
+      WHERE ${unownedDerivativeGeneration}
+        AND derivative."updatedAt" < ${new Date(now.getTime() - BACKGROUND_JOB_LEASE_MS)}
+    )
+    UPDATE "MediaDerivative" derivative SET ${staleDerivativeData(now)}
+    FROM orphan
+    WHERE derivative.id = orphan.id
+      AND derivative."generationJobId" IS NOT DISTINCT FROM orphan."generationJobId"
+      AND derivative."updatedAt" = orphan."updatedAt"
+      AND derivative.status = orphan.status
+      AND derivative."storageRevision" = orphan."storageRevision"
+  `;
 
 const buildActiveStatusFilter = (now: Date) => ({
   OR: [
@@ -570,7 +630,7 @@ export const markBackgroundJobSucceeded = async ({
   return activeClient.backgroundJob.findUnique({ where: { id: jobId } });
 };
 
-export const markBackgroundJobTerminal = async ({
+const markBackgroundJobTerminalInTransaction = async ({
   jobId,
   errorMessage,
   errorCode = null,
@@ -615,10 +675,22 @@ export const markBackgroundJobTerminal = async ({
       metadataJson: { errorCode, terminal: true },
     },
   });
+  const updated = await activeClient.backgroundJob.findUnique({
+    where: { id: jobId },
+  });
+  if (updated)
+    await settleJobDerivatives(activeClient, updated, now, errorMessage);
   await notifyBackgroundJobStateChanged(activeClient, jobId);
 
-  return activeClient.backgroundJob.findUnique({ where: { id: jobId } });
+  return updated;
 };
+
+export const markBackgroundJobTerminal = (
+  input: Parameters<typeof markBackgroundJobTerminalInTransaction>[0],
+) =>
+  getClient(input.client).$transaction((tx) =>
+    markBackgroundJobTerminalInTransaction({ ...input, client: tx }),
+  );
 
 export const markBackgroundJobFailed = async ({
   jobId,
@@ -651,7 +723,7 @@ export const markBackgroundJobFailed = async ({
     }
 
     if (!retryable) {
-      return markBackgroundJobTerminal({
+      return markBackgroundJobTerminalInTransaction({
         jobId,
         errorMessage,
         errorCode,
@@ -663,8 +735,14 @@ export const markBackgroundJobFailed = async ({
 
     const shouldDeadLetter = job.attemptCount >= job.maxAttempts;
     const nextRunAt = new Date(now.getTime() + retryDelayMs(job.attemptCount));
-    const updated = await tx.backgroundJob.update({
-      where: { id: jobId },
+    // Lease renewals also change updatedAt, so guard the attempt instead.
+    const result = await tx.backgroundJob.updateMany({
+      where: {
+        id: jobId,
+        status: job.status,
+        lockedBy: job.lockedBy,
+        attemptCount: job.attemptCount,
+      },
       data: {
         status: shouldDeadLetter ? "dead" : "queued",
         runAt: shouldDeadLetter ? job.runAt : nextRunAt,
@@ -676,6 +754,12 @@ export const markBackgroundJobFailed = async ({
         errorCode,
       },
     });
+
+    if (result.count !== 1)
+      throw new Error(`Background job ${jobId} changed while failing.`);
+    const updated = await tx.backgroundJob.findUnique({ where: { id: jobId } });
+    if (shouldDeadLetter && updated)
+      await settleJobDerivatives(tx, updated, now, errorMessage);
 
     await tx.backgroundJobEvent.create({
       data: {
@@ -782,16 +866,7 @@ export const cancelBackgroundJob = (input: AdminJobActionInput) =>
         });
         return;
       }
-      if (job.kind !== MEDIA_DERIVATIVE_GENERATE_JOB_KIND) return;
-      // Same states as DERIVATIVE_STATUS_*; media-derivatives.ts imports this
-      // module, so the constants cannot be imported here.
-      await tx.mediaDerivative.updateMany({
-        where: {
-          generationJobId: job.id,
-          status: { in: ["queued", "processing"] },
-        },
-        data: { status: "stale", storageKey: null, sizeBytes: null },
-      });
+      await settleJobDerivatives(tx, job, input.now ?? new Date());
     },
   });
 
@@ -835,6 +910,7 @@ export const dismissBackgroundJob = (input: AdminJobActionInput) =>
       cancelledByUserId: actorUserId,
     }),
     event: { type: "dismissed", message: "Dismissed by admin." },
+    after: (tx, job) => settleJobDerivatives(tx, job, input.now ?? new Date()),
   });
 
 export const scheduleZipArchiveGenerate = async ({

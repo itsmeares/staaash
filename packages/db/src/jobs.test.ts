@@ -385,22 +385,20 @@ const createClient = (
     },
   };
 
-  const mediaDerivative = {
-    updateMany: vi.fn(async (_args: object) => ({ count: 0 })),
-  };
+  const executeRaw = vi.fn(async () => 0);
 
   return {
     backgroundJob,
     backgroundJobEvent,
     workerInstance,
-    mediaDerivative,
+    $executeRaw: executeRaw,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async $transaction<T>(callback: (tx: any) => Promise<T>) {
       return callback({
         backgroundJob,
         backgroundJobEvent,
         workerInstance,
-        mediaDerivative,
+        $executeRaw: executeRaw,
       });
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1038,36 +1036,104 @@ describe("background jobs", () => {
     expect(events).toHaveLength(0);
   });
 
-  it("stales the derivative owned by a cancelled generate job", async () => {
+  it("does not overwrite cancellation when a worker records a failure", async () => {
+    const jobs = [
+      createJob({ id: "race-1", status: "running", lockedBy: "worker-1" }),
+    ];
+    const events: MemoryEvent[] = [];
+    const client = createClient(jobs, events);
+    const update = client.backgroundJob.updateMany.bind(client.backgroundJob);
+    vi.spyOn(client.backgroundJob, "updateMany").mockImplementationOnce(
+      async (args) => {
+        jobs[0]!.status = "cancelled";
+        return update(args);
+      },
+    );
+    await expect(
+      markBackgroundJobFailed({
+        jobId: "race-1",
+        workerId: "worker-1",
+        errorMessage: "Stopped",
+        client,
+      }),
+    ).rejects.toThrow("changed while failing");
+    expect(jobs[0]?.status).toBe("cancelled");
+    expect(events).toHaveLength(0);
+  });
+
+  it.each([1, 5])(
+    "records attempt %i failing even if its lease renews after the read",
+    async (attemptCount) => {
+      const jobs = [
+        createJob({
+          id: "heartbeat-race",
+          status: "running",
+          lockedBy: "worker-1",
+          attemptCount,
+          maxAttempts: 5,
+        }),
+      ];
+      const client = createClient(jobs);
+      const update = client.backgroundJob.updateMany.bind(client.backgroundJob);
+      vi.spyOn(client.backgroundJob, "updateMany").mockImplementationOnce(
+        async (args) => {
+          const now = new Date(jobs[0]!.updatedAt.getTime() + 1);
+          await renewBackgroundJobLease({
+            jobId: "heartbeat-race",
+            workerId: "worker-1",
+            now,
+            client,
+          });
+          jobs[0]!.updatedAt = now;
+          return update(args);
+        },
+      );
+      await expect(
+        markBackgroundJobFailed({
+          jobId: "heartbeat-race",
+          workerId: "worker-1",
+          errorMessage: "Source blocked",
+          client,
+        }),
+      ).resolves.toMatchObject({
+        status: attemptCount === 5 ? "dead" : "queued",
+        lastError: "Source blocked",
+      });
+    },
+  );
+
+  it("does not overwrite a newer attempt owned by the same worker", async () => {
     const jobs = [
       createJob({
-        id: "generate-1",
-        kind: "media.derivative.generate",
+        id: "attempt-race",
         status: "running",
+        lockedBy: "worker-1",
+        attemptCount: 1,
       }),
-      createJob({ id: "other-1", status: "queued" }),
     ];
-    const client = createClient(jobs);
-
-    await cancelBackgroundJob({
-      jobId: "other-1",
-      actorUserId: "owner-1",
-      client,
-    });
-    expect(client.mediaDerivative.updateMany).not.toHaveBeenCalled();
-
-    await cancelBackgroundJob({
-      jobId: "generate-1",
-      actorUserId: "owner-1",
-      client,
-    });
-    expect(client.mediaDerivative.updateMany).toHaveBeenCalledWith({
-      where: {
-        generationJobId: "generate-1",
-        status: { in: ["queued", "processing"] },
+    const events: MemoryEvent[] = [];
+    const client = createClient(jobs, events);
+    const update = client.backgroundJob.updateMany.bind(client.backgroundJob);
+    vi.spyOn(client.backgroundJob, "updateMany").mockImplementationOnce(
+      async (args) => {
+        jobs[0]!.attemptCount = 2;
+        return update(args);
       },
-      data: { status: "stale", storageKey: null, sizeBytes: null },
+    );
+    await expect(
+      markBackgroundJobFailed({
+        jobId: "attempt-race",
+        workerId: "worker-1",
+        errorMessage: "Old failure",
+        client,
+      }),
+    ).rejects.toThrow("changed while failing");
+    expect(jobs[0]).toMatchObject({
+      status: "running",
+      attemptCount: 2,
+      lastError: null,
     });
+    expect(events).toHaveLength(0);
   });
 
   it("records events and summarizes queue operations", async () => {
