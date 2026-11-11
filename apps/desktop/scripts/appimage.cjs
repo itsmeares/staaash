@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const { execFileSync } = require("node:child_process");
+const { execFileSync, spawnSync } = require("node:child_process");
 const { mkdir, open, writeFile } = require("node:fs/promises");
 const { createRequire } = require("node:module");
 const { basename, join } = require("node:path");
@@ -35,6 +35,15 @@ exports.afterPack = async ({ appOutDir, targets }) => {
 
 exports.artifactBuildCompleted = async (event) => {
   if (!event.file.endsWith(".AppImage")) return;
+  for (const [tool, pkg] of [
+    ["objdump", "binutils"],
+    ["zsyncmake", "zsync"],
+  ]) {
+    assert(
+      !spawnSync(tool, ["-V"]).error,
+      `${tool} is required to build the AppImage. Install the ${pkg} package.`,
+    );
+  }
   const { file, updateInfo, packager } = event;
   const arch = basename(file).match(/-(x86_64|arm64)\.AppImage$/u)?.[1];
   assert(arch, "Unsupported AppImage architecture");

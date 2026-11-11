@@ -55,6 +55,13 @@ linux:
   syncDesktopName: true
   maintainer: Staaash <itsmeares@users.noreply.github.com>
   synopsis: Sync files with your Staaash drive
+# The AppImage reads the file from extraFiles. DEB and RPM need it under /usr.
+deb:
+  fpm:
+    - resources/com.staaash.desktop.metainfo.xml=/usr/share/metainfo/com.staaash.desktop.metainfo.xml
+rpm:
+  fpm:
+    - resources/com.staaash.desktop.metainfo.xml=/usr/share/metainfo/com.staaash.desktop.metainfo.xml
 toolsets:
   # The static runtime needs no libfuse2, which new distributions dropped.
   appimage: "1.0.3"
