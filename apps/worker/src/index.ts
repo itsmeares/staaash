@@ -4,6 +4,7 @@ import { mkdir } from "node:fs/promises";
 import {
   markWorkerInstanceStopped,
   registerWorkerInstance,
+  recoverOrphanedDerivativeGenerations,
 } from "@staaash/db/jobs";
 import { pruneSucceededStorageMutationResults } from "@staaash/db/storage-mutations";
 import { verifyCommittedStorageUsage } from "@staaash/db/reconciliation";
@@ -111,6 +112,7 @@ const main = async () => {
     });
   }
 
+  await recoverOrphanedDerivativeGenerations();
   await schedulePeriodicJobs(new Date(), { runMissingImmediately: true });
   await runMaintenanceSafely();
 

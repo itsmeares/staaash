@@ -1,12 +1,14 @@
 // Generated-artifact cleanup handlers intentionally share journaled purge flow.
 // fallow-ignore-file code-duplication
 import { getPrisma } from "@staaash/db/client";
-import type { BackgroundJobRecord } from "@staaash/db/jobs";
+import {
+  recoverOrphanedDerivativeGenerations,
+  type BackgroundJobRecord,
+} from "@staaash/db/jobs";
 import {
   DERIVATIVE_STATUS_PROCESSING,
   DERIVATIVE_STATUS_QUEUED,
   DERIVATIVE_STATUS_READY,
-  markDerivativeStale,
 } from "@staaash/db/media-derivatives";
 
 import type { WorkerStoragePaths } from "../storage-maintenance.js";
@@ -245,6 +247,7 @@ export const handleMediaDerivativeCleanup = async (
 ): Promise<void> => {
   const prisma = getPrisma() as unknown as PrismaClient;
   const now = new Date();
+  await recoverOrphanedDerivativeGenerations(now);
 
   const rawSettings = await prisma.systemSettings.findUnique({
     where: { id: "singleton" },

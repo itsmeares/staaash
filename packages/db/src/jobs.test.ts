@@ -385,22 +385,20 @@ const createClient = (
     },
   };
 
-  const mediaDerivative = {
-    updateMany: vi.fn(async (_args: object) => ({ count: 0 })),
-  };
+  const executeRaw = vi.fn(async () => 0);
 
   return {
     backgroundJob,
     backgroundJobEvent,
     workerInstance,
-    mediaDerivative,
+    $executeRaw: executeRaw,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async $transaction<T>(callback: (tx: any) => Promise<T>) {
       return callback({
         backgroundJob,
         backgroundJobEvent,
         workerInstance,
-        mediaDerivative,
+        $executeRaw: executeRaw,
       });
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1038,36 +1036,29 @@ describe("background jobs", () => {
     expect(events).toHaveLength(0);
   });
 
-  it("stales the derivative owned by a cancelled generate job", async () => {
+  it("does not overwrite cancellation when a worker records a failure", async () => {
     const jobs = [
-      createJob({
-        id: "generate-1",
-        kind: "media.derivative.generate",
-        status: "running",
-      }),
-      createJob({ id: "other-1", status: "queued" }),
+      createJob({ id: "race-1", status: "running", lockedBy: "worker-1" }),
     ];
-    const client = createClient(jobs);
-
-    await cancelBackgroundJob({
-      jobId: "other-1",
-      actorUserId: "owner-1",
-      client,
-    });
-    expect(client.mediaDerivative.updateMany).not.toHaveBeenCalled();
-
-    await cancelBackgroundJob({
-      jobId: "generate-1",
-      actorUserId: "owner-1",
-      client,
-    });
-    expect(client.mediaDerivative.updateMany).toHaveBeenCalledWith({
-      where: {
-        generationJobId: "generate-1",
-        status: { in: ["queued", "processing"] },
+    const events: MemoryEvent[] = [];
+    const client = createClient(jobs, events);
+    const update = client.backgroundJob.updateMany.bind(client.backgroundJob);
+    vi.spyOn(client.backgroundJob, "updateMany").mockImplementationOnce(
+      async (args) => {
+        jobs[0]!.status = "cancelled";
+        return update(args);
       },
-      data: { status: "stale", storageKey: null, sizeBytes: null },
-    });
+    );
+    await expect(
+      markBackgroundJobFailed({
+        jobId: "race-1",
+        workerId: "worker-1",
+        errorMessage: "Stopped",
+        client,
+      }),
+    ).rejects.toThrow("changed while failing");
+    expect(jobs[0]?.status).toBe("cancelled");
+    expect(events).toHaveLength(0);
   });
 
   it("records events and summarizes queue operations", async () => {
