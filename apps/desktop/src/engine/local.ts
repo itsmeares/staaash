@@ -37,7 +37,7 @@ export type LocalScan = {
  * The value a plain lstat gives as `mtimeMs`, which bigint stats truncate.
  * Saved times must keep matching, or every file reads as changed.
  */
-const mtimeMsOf = ({ mtimeNs }: BigIntStats) =>
+export const mtimeMsOf = ({ mtimeNs }: BigIntStats) =>
   Number(mtimeNs / 1_000_000_000n) * 1000 +
   Number(mtimeNs % 1_000_000_000n) / 1e6;
 

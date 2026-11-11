@@ -30,7 +30,6 @@ export type PendingUpload = {
   pairId: string;
   rel: string;
   sessionId: string;
-  checksum: string;
   size: number;
   mtimeMs: number;
   /** The folder, name and replace choice the session was started with. */
@@ -65,8 +64,7 @@ const SCHEMA = `
   ${baseTable("base")}
   CREATE TABLE IF NOT EXISTS upload (
     pairId TEXT NOT NULL, rel TEXT NOT NULL, sessionId TEXT NOT NULL,
-    checksum TEXT NOT NULL, size INTEGER NOT NULL, mtimeMs REAL NOT NULL,
-    target TEXT NOT NULL,
+    size INTEGER NOT NULL, mtimeMs REAL NOT NULL, target TEXT NOT NULL,
     PRIMARY KEY (pairId, rel)
   );
   CREATE TABLE IF NOT EXISTS conflict (
@@ -86,6 +84,17 @@ export class Store {
     this.db = new DatabaseSync(file);
     this.db.exec(SCHEMA);
     this.upgradeFileIds();
+    this.upgradeUploads();
+  }
+
+  /** Uploads used to hash the file before sending; the checksum now comes at the end. */
+  private upgradeUploads() {
+    const old = this.db
+      .prepare(
+        "SELECT 1 FROM pragma_table_info('upload') WHERE name = 'checksum'",
+      )
+      .get();
+    if (old) this.db.exec("ALTER TABLE upload DROP COLUMN checksum");
   }
 
   /**
@@ -310,14 +319,13 @@ export class Store {
     this.db
       .prepare(
         `INSERT OR REPLACE INTO upload
-          (pairId, rel, sessionId, checksum, size, mtimeMs, target)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          (pairId, rel, sessionId, size, mtimeMs, target)
+          VALUES (?, ?, ?, ?, ?, ?)`,
       )
       .run(
         upload.pairId,
         upload.rel,
         upload.sessionId,
-        upload.checksum,
         upload.size,
         upload.mtimeMs,
         upload.target,

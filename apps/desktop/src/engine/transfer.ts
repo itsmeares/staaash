@@ -1,6 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createWriteStream } from "node:fs";
-import { open, readFile, rename, rm, statfs, utimes } from "node:fs/promises";
+import {
+  type FileHandle,
+  open,
+  rename,
+  rm,
+  statfs,
+  utimes,
+} from "node:fs/promises";
 import path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -10,6 +17,7 @@ import { UploadRateTracker } from "@/lib/transfers/upload-progress";
 
 import type { Api } from "./api";
 import { ApiError } from "./api";
+import { mtimeMsOf } from "./local";
 import { TEMP_PREFIX } from "./names";
 import type { PendingUpload, Store } from "./store";
 
@@ -202,7 +210,8 @@ export const moveIntoPlace = async (temp: string, target: string) => {
 /**
  * Sends a file through a resumable upload session. A session survives an app
  * restart: the store remembers it, and only the missing chunks are sent.
- * Returns the committed file as the server describes it.
+ * The file is read once, in order, and hashed on the way; the server checks
+ * that checksum before it keeps the file. Returns the committed file.
  */
 // Resume, restart and chunk send share one session.
 // fallow-ignore-next-line complexity
@@ -215,7 +224,6 @@ const sendFile = async (
     file: string;
     folderId: string;
     name: string;
-    checksum: string;
     size: number;
     mtimeMs: number;
     /** The server file this upload replaces, as the plan last saw it. */
@@ -241,8 +249,7 @@ const sendFile = async (
   );
   if (
     pending &&
-    (pending.checksum !== input.checksum ||
-      pending.size !== input.size ||
+    (pending.size !== input.size ||
       pending.mtimeMs !== input.mtimeMs ||
       pending.target !== target)
   ) {
@@ -265,7 +272,6 @@ const sendFile = async (
       folderId: input.folderId,
       name: input.name,
       size: input.size,
-      checksum: input.checksum,
       modifiedAt: input.mtimeMs,
       replace: input.replace !== null,
     });
@@ -273,7 +279,6 @@ const sendFile = async (
       pairId: input.pairId,
       rel: input.rel,
       sessionId: session.id,
-      checksum: input.checksum,
       size: input.size,
       mtimeMs: input.mtimeMs,
       target,
@@ -283,51 +288,77 @@ const sendFile = async (
   const done = new Set(session.completedChunks.map((chunk) => chunk.startByte));
   input.onBytes(session.receivedBytes);
   completed(session.receivedBytes);
-  const starts: number[] = [];
-  for (let start = 0; start < input.size; start += chunkSize) {
-    if (!done.has(start)) starts.push(start);
-  }
+  const hash = createHash("sha256");
   const handle = await open(input.file, "r");
   // A failed chunk stops the rest, even those waiting on the speed limit.
   // Sent chunks stay, so a retry sends only what is missing.
   const stop = new AbortController();
   const signal = AbortSignal.any([input.signal, stop.signal]);
+  const sending = new Set<Promise<void>>();
+  let failure: { error: unknown } | null = null;
+  const fail = (error: unknown) => {
+    failure ??= { error };
+    stop.abort();
+  };
   try {
-    await pool(
-      [{ items: starts, size: CHUNKS_AT_ONCE }],
-      async (start) => {
-        signal.throwIfAborted();
-        const length = Math.min(chunkSize, input.size - start);
-        const buffer = Buffer.alloc(length);
-        const { bytesRead } = await handle.read(buffer, 0, length, start);
-        if (bytesRead !== length) {
-          throw new ApiError(0, "The file changed while it was uploading.");
-        }
-        await input.throttle.take(length, signal);
-        await api.uploadChunk(
+    // One reader in file order, so a hard disk reads without seeking between
+    // chunks. Chunks the server already has are read only for the checksum.
+    for (let start = 0; start < input.size && !failure; start += chunkSize) {
+      signal.throwIfAborted();
+      const length = Math.min(chunkSize, input.size - start);
+      const buffer = Buffer.alloc(length);
+      const { bytesRead } = await handle.read(buffer, 0, length, start);
+      if (bytesRead !== length) {
+        throw new ApiError(0, "The file changed while it was uploading.");
+      }
+      hash.update(buffer);
+      if (done.has(start)) continue;
+      while (sending.size >= CHUNKS_AT_ONCE) await Promise.race(sending);
+      if (failure) break;
+      await input.throttle.take(length, signal);
+      const send: Promise<void> = api
+        .uploadChunk(
           session.id,
           start,
           buffer,
           input.size,
           progress(input, completed),
-        );
-        input.onBytes(length);
-      },
-      () => stop.abort(),
-    );
+        )
+        .then(() => input.onBytes(length), fail)
+        .finally(() => sending.delete(send));
+      sending.add(send);
+    }
+    if (!failure) await assertUnchanged(handle, input);
+  } catch (error) {
+    fail(error);
   } finally {
+    // Nothing still sending outlives the call, so a retry never overlaps it.
+    await Promise.all(sending);
     await handle.close();
   }
+  if (failure) throw (failure as { error: unknown }).error;
+  const checksum = hash.digest("hex");
   const file = (await api.completeUpload(
     session.id,
-    input.checksum,
+    checksum,
     input.replace,
   )) as unknown as UploadedFile;
   store.deleteUpload(input.pairId, input.rel);
-  return file;
+  return { file, checksum };
 };
 
 type UploadInput = Parameters<typeof sendFile>[0];
+
+/**
+ * The checksum is taken from the bytes as they were read, so a file written
+ * to meanwhile would reach the server torn. It goes again on the next pass.
+ */
+const assertUnchanged = async (handle: FileHandle, input: UploadInput) => {
+  const stats = await handle.stat({ bigint: true });
+  if (Number(stats.size) !== input.size || mtimeMsOf(stats) !== input.mtimeMs) {
+    throw new ApiError(0, "The file changed while it was uploading.");
+  }
+};
 
 /** Counts sent bytes once, even when a retry sends them again. */
 const progress = (input: UploadInput, completed: (bytes: number) => void) => {
@@ -351,10 +382,15 @@ const sendSmall = async (
     await api.cancelUpload(pending.sessionId).catch(() => {});
     store.deleteUpload(input.pairId, input.rel);
   }
-  const body = await readFile(input.file);
-  if (body.length !== input.size) {
-    throw new ApiError(0, "The file changed while it was uploading.");
+  const handle = await open(input.file, "r");
+  let body: Buffer;
+  try {
+    body = await handle.readFile();
+    await assertUnchanged(handle, input);
+  } finally {
+    await handle.close();
   }
+  const checksum = createHash("sha256").update(body).digest("hex");
   input.signal.throwIfAborted();
   await input.throttle.take(body.length, input.signal);
   const sent = progress(input, completed);
@@ -368,7 +404,7 @@ const sendSmall = async (
     {
       folderId: input.folderId,
       name: input.name,
-      checksum: input.checksum,
+      checksum,
       modifiedAt: input.mtimeMs,
       replace: input.replace,
     },
@@ -379,9 +415,10 @@ const sendSmall = async (
     },
   );
   show(body.length);
-  return file as unknown as UploadedFile;
+  return { file: file as unknown as UploadedFile, checksum };
 };
 
+/** Sends a file and answers the committed file with the checksum it was sent with. */
 export const uploadFile = async (input: UploadInput) => {
   const upload = input.meter.start(input.size);
   try {

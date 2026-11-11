@@ -25,7 +25,6 @@ it("keeps the server's upload limit message and exact byte details", async () =>
         folderId: "folder",
         name: "large.bin",
         size: 15_032_385_536,
-        checksum: "a".repeat(64),
         modifiedAt: 0,
         replace: false,
       }),
