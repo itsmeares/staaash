@@ -1,4 +1,4 @@
-appId: com.staaash.desktop
+appId: org.staaash.desktop
 productName: Staaash
 copyright: Staaash contributors
 directories:
@@ -50,8 +50,8 @@ linux:
   target: [AppImage, deb, rpm]
   artifactName: Staaash-Desktop-${version}-${arch}.${ext}
   extraFiles:
-    - from: resources/com.staaash.desktop.metainfo.xml
-      to: usr/share/metainfo/com.staaash.desktop.appdata.xml
+    - from: resources/org.staaash.desktop.metainfo.xml
+      to: usr/share/metainfo/org.staaash.desktop.appdata.xml
   category: Network
   executableName: staaash
   syncDesktopName: true
@@ -60,10 +60,10 @@ linux:
 # The AppImage reads the file from extraFiles. DEB and RPM need it under /usr.
 deb:
   fpm:
-    - resources/com.staaash.desktop.metainfo.xml=/usr/share/metainfo/com.staaash.desktop.metainfo.xml
+    - resources/org.staaash.desktop.metainfo.xml=/usr/share/metainfo/org.staaash.desktop.metainfo.xml
 rpm:
   fpm:
-    - resources/com.staaash.desktop.metainfo.xml=/usr/share/metainfo/com.staaash.desktop.metainfo.xml
+    - resources/org.staaash.desktop.metainfo.xml=/usr/share/metainfo/org.staaash.desktop.metainfo.xml
 toolsets:
   # The static runtime needs no libfuse2, which new distributions dropped.
   appimage: "1.0.3"

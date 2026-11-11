@@ -613,7 +613,7 @@ app.on("before-quit", (event) => {
 // Startup: each step depends on what is saved, so each is a branch.
 // fallow-ignore-next-line complexity
 void app.whenReady().then(async () => {
-  app.setAppUserModelId("com.staaash.desktop");
+  app.setAppUserModelId("org.staaash.desktop");
   app.dock?.hide();
   token = loadToken();
   registerIpc();

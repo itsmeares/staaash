@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>com.staaash.desktop</id>
+  <id>org.staaash.desktop</id>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>AGPL-3.0-only</project_license>
   <name>Staaash</name>
-  <developer id="com.staaash">
+  <developer id="org.staaash">
     <name>Staaash contributors</name>
   </developer>
   <summary>Sync files with your Staaash drive</summary>
