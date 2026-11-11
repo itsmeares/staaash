@@ -110,7 +110,8 @@ export const dropTargetProps = (
   onDragOver: (event: DragEvent) => {
     if (!isItemDrag(event)) return;
     event.preventDefault();
-    if (folderId && !canMoveToFolder(getDraggedItems(), folderId)) {
+    const dragged = getDraggedItems();
+    if (folderId && dragged && !canMoveToFolder(dragged, folderId)) {
       event.dataTransfer.dropEffect = "none";
       setDragTip("");
       return;

@@ -48,6 +48,32 @@ it("rejects a pin while hovering without reading the protected transfer data", (
   expect(tip.textContent).toBe("");
 });
 
+it("accepts a valid pin drop without a local drag selection", () => {
+  const dragged = { items: [file], from: "root" };
+  const event = eventFor(dragged);
+  const onDrop = vi.fn();
+  const handlers = dropTargetProps("Move to Photos", onDrop, "photos");
+  handlers.onDragOver(event as unknown as DragEvent);
+  expect(event.dataTransfer.getData).not.toHaveBeenCalled();
+  expect(event.dataTransfer.dropEffect).toBe("move");
+  expect(tip.textContent).toBe("Move to Photos");
+  handlers.onDrop(event as unknown as DragEvent);
+  expect(onDrop).toHaveBeenCalledWith(dragged);
+});
+
+it("rejects a self-drop from another window after reading its payload", () => {
+  const dragged = { items: [file, folder], from: "root" };
+  const event = eventFor(dragged);
+  const onDrop = vi.fn();
+  const handlers = dropTargetProps("Move to Photos", onDrop, "photos");
+  handlers.onDragOver(event as unknown as DragEvent);
+  expect(event.dataTransfer.dropEffect).toBe("move");
+  handlers.onDrop(event as unknown as DragEvent);
+  expect(onDrop).not.toHaveBeenCalled();
+  expect(getDraggedItems()).toBeNull();
+  expect(tip.textContent).toBe("");
+});
+
 it.each([
   { items: [folder], from: "root" },
   { items: [file, folder], from: "root" },
