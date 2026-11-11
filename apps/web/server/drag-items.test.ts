@@ -101,3 +101,25 @@ it("accepts a valid drop payload and clears the active selection", () => {
   expect(onDrop).toHaveBeenCalledWith(dragged);
   expect(getDraggedItems()).toBeNull();
 });
+
+it.each(["photos", undefined])(
+  "ignores malformed drop data for destination %s",
+  (folderId) => {
+    const onDrop = vi.fn();
+    const handlers = dropTargetProps("Move", onDrop, folderId);
+    for (const payload of [
+      "not json",
+      JSON.stringify({ items: [null], from: "root" }),
+      JSON.stringify({ items: [file, null], from: "root" }),
+      JSON.stringify({ items: [{ id: 7, kind: "file" }], from: "root" }),
+      JSON.stringify({ items: [file], from: null }),
+    ]) {
+      const event = eventFor({ items: [file], from: "root" });
+      event.dataTransfer.getData.mockReturnValue(payload);
+      expect(() =>
+        handlers.onDrop(event as unknown as DragEvent),
+      ).not.toThrow();
+      expect(onDrop).not.toHaveBeenCalled();
+    }
+  },
+);
