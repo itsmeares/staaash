@@ -26,6 +26,7 @@
     "apps/desktop/scripts/tray-icons.cjs",
     // The desktop packager loads its hooks from the YAML configuration.
     "apps/desktop/scripts/appimage.cjs",
+    // The Linux installer workflow runs this with the packaged executable.
     "apps/desktop/scripts/check-linux.cjs",
     ".agents/skills/verify-staaash/drive-folder.mjs",
   ],

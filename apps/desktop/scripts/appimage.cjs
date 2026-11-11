@@ -8,10 +8,18 @@ const builderRequire = createRequire(require.resolve("electron-builder"));
 const { appendBlockmap } = builderRequire(
   "app-builder-lib/out/targets/differentialUpdateInfoBuilder",
 );
+const nativeRebuildSettings = new WeakMap();
 
 // The watcher ships Node-API prebuilts; rebuilding raises Linux's glibc requirement.
 exports.beforePack = ({ electronPlatformName, packager }) => {
-  if (electronPlatformName === "linux") packager.config.npmRebuild = false;
+  const { config } = packager;
+  if (!nativeRebuildSettings.has(config)) {
+    nativeRebuildSettings.set(config, config.npmRebuild);
+  }
+  config.npmRebuild =
+    electronPlatformName === "linux"
+      ? false
+      : nativeRebuildSettings.get(config);
 };
 
 exports.afterPack = async ({ appOutDir, targets }) => {

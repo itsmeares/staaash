@@ -138,14 +138,19 @@ for (const problem of [
   });
 }
 
-test("leaves other installers and native rebuilds alone", async () => {
+test("leaves other installers alone", async () => {
   await artifactBuildCompleted({ file: "Staaash.exe" });
-  for (const electronPlatformName of ["linux", "win32", "darwin"]) {
-    const packager = { config: {} };
-    beforePack({ electronPlatformName, packager });
-    assert.equal(
-      packager.config.npmRebuild,
-      electronPlatformName === "linux" ? false : undefined,
-    );
-  }
 });
+
+for (const npmRebuild of [undefined, true, false]) {
+  test(`preserves npmRebuild=${npmRebuild} across Linux and later platforms`, () => {
+    const packager = { config: { npmRebuild } };
+    for (const electronPlatformName of ["linux", "linux", "win32", "darwin"]) {
+      beforePack({ electronPlatformName, packager });
+      assert.equal(
+        packager.config.npmRebuild,
+        electronPlatformName === "linux" ? false : npmRebuild,
+      );
+    }
+  });
+}
