@@ -1,3 +1,4 @@
+import { blockedLabel } from "./storage-recovery";
 import { RefreshCw } from "lucide-react";
 
 import {
@@ -11,7 +12,6 @@ import { ViewToggle } from "@/components/view-toggle";
 
 import {
   WORKSPACE_ITEM_FILTERS,
-  blockedLabel,
   type WorkspaceItemFilterType,
 } from "./workspace-item-helpers";
 
@@ -22,6 +22,7 @@ type ListedItem = {
   mimeType?: string;
   locationLabel: string;
   storageMutationStatus?: string;
+  storageMutationId?: string;
   color?: string | null;
 };
 
@@ -33,7 +34,7 @@ export const toWorkspaceListItem = <T extends ListedItem>(item: T) => ({
   mimeType: item.mimeType,
   color: item.color,
   thumbnailUrl: thumbnailUrlFor(item),
-  blocked: blockedLabel(item.storageMutationStatus),
+  blocked: blockedLabel(item.storageMutationStatus, item.storageMutationId),
   sub: item.locationLabel,
   data: item,
 });

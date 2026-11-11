@@ -41,7 +41,7 @@ export type FileListItem = {
   previewUrls?: string[];
   thumbnailUrl?: string | null;
   /** Why the item cannot be used right now, such as a storage operation. */
-  blocked?: string | null;
+  blocked?: ReactNode;
   /** Shown faded: cut items, items in trash. */
   dimmed?: boolean;
   /** Small marks after the name: shared, favorite. */
@@ -603,7 +603,7 @@ export function FileList<T extends FileListItem>({
                 {item.flags}
               </span>
             )}
-            {(item.blocked || sub) && !tiles ? (
+            {(item.blocked || sub) && (!tiles || item.blocked) ? (
               <span className="truncate px-1 text-label text-muted-foreground">
                 {item.blocked ?? sub}
               </span>
@@ -690,7 +690,7 @@ export function FileList<T extends FileListItem>({
             )}
             role="gridcell"
           >
-            {coarse ? null : quickActions?.(item)}
+            {coarse || disabled ? null : quickActions?.(item)}
             {moreActions}
           </span>
         </div>

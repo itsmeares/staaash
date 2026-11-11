@@ -2979,7 +2979,10 @@ export const listBlockingStorageMutationsForEntities = async ({
   return [...direct, ...(await listLegacyBlockingMutations(owners))];
 };
 
-export const getStorageMutationHealth = async (now = new Date()) => {
+export const getStorageMutationHealth = async (
+  now = new Date(),
+  mutationId?: string,
+) => {
   const [grouped, oldest, active] = await Promise.all([
     getPrisma().storageMutation.groupBy({
       by: ["status"],
@@ -2998,7 +3001,7 @@ export const getStorageMutationHealth = async (now = new Date()) => {
       },
     }),
     getPrisma().storageMutation.findMany({
-      where: { status: { notIn: ["succeeded", "aborted"] } },
+      where: { id: mutationId, status: { notIn: ["succeeded", "aborted"] } },
       orderBy: { createdAt: "asc" },
       take: 25,
       select: {

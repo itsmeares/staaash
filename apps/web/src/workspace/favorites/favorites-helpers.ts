@@ -24,6 +24,7 @@ export type FavoriteClientItem = {
   quickAccessPinnedAt: string | null;
   sizeBytes?: number;
   storageMutationStatus?: string;
+  storageMutationId?: string;
 };
 
 export type FavoriteFilterType = WorkspaceItemFilterType;

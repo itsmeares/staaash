@@ -1,3 +1,6 @@
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { shellQuery } from "@/src/queries";
+import { StorageRecoveryHelp } from "../storage-recovery";
 import { Link, useRouter } from "@tanstack/react-router";
 import { Loader2, RefreshCw } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
@@ -26,9 +29,8 @@ const getStorageUnavailableCopy = ({
 }) => {
   if (recoveryRequired) {
     return {
-      heading: "A move could not finish",
-      message:
-        "Every file is kept safe. Refresh to check again, or go back to Files.",
+      heading: "Storage needs a check",
+      message: "Staaash stopped this change to avoid risking your files.",
     };
   }
   if (elapsedMs >= LONG_WAIT_MS) {
@@ -51,10 +53,13 @@ const getStorageUnavailableCopy = ({
 
 export function StorageUnavailableView({
   recoveryRequired,
+  mutationId,
 }: {
   recoveryRequired: boolean;
+  mutationId?: string;
 }) {
   const router = useRouter();
+  const { info } = useSuspenseQuery(shellQuery).data;
   const [isRefreshing, startTransition] = useTransition();
   const [elapsedMs, setElapsedMs] = useState(0);
   const copy = getStorageUnavailableCopy({ recoveryRequired, elapsedMs });
@@ -102,7 +107,16 @@ export function StorageUnavailableView({
           <h1 className="m-0 font-heading text-headline font-semibold">
             {copy.heading}
           </h1>
-          <p className="m-0 text-body text-muted-foreground">{copy.message}</p>
+          {recoveryRequired ? (
+            <StorageRecoveryHelp
+              mutationId={mutationId}
+              canAdmin={info.canAdmin}
+            />
+          ) : (
+            <p className="m-0 text-body text-muted-foreground">
+              {copy.message}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap justify-center gap-2">

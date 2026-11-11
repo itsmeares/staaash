@@ -58,7 +58,9 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
   app.get("/api/views/admin/overview", (c) =>
     c.json(adminOverview(c.var.state)),
   );
-  app.get("/api/views/admin/storage", (c) => c.json(adminStorage(c.var.state)));
+  app.get("/api/views/admin/storage", (c) =>
+    c.json(adminStorage(c.var.state, c.req.query("mutationId"))),
+  );
   app.get("/api/views/admin/users", (c) =>
     c.json(adminUsers(c.var.state, c.var.site)),
   );
@@ -97,7 +99,6 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
   app.post("/api/admin/storage/mutations/:id/retry", (c) => {
     if (c.req.param("id") !== "sample-move")
       throw new PreviewError(404, "Sample mutation not found.");
-    c.var.state.recovering = false;
     return c.json({ ok: true });
   });
   app.get("/api/admin/jobs", (c) => {

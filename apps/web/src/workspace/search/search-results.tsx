@@ -1,3 +1,4 @@
+import { blockedLabel } from "../storage-recovery";
 import { useNavigate } from "@tanstack/react-router";
 import { FolderOpen } from "lucide-react";
 import { useState, type ReactNode } from "react";
@@ -58,12 +59,10 @@ export function SearchResults({
     filterType,
   );
   const folders = visible.filter((item) => item.kind === "folder");
-  const files = visible.filter(
-    (item) => item.kind === "file" && !item.storageMutationStatus,
-  );
+  const files = visible.filter((item) => item.kind === "file");
 
   const { selection, selectedItems, targetsFor } = useItemSelection({
-    items: files,
+    items: files.filter((item) => !item.storageMutationStatus),
     coarse: isCoarsePointer,
     onOpen: actions.open,
   });
@@ -102,28 +101,48 @@ export function SearchResults({
 
       {folders.length > 0 ? (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-2">
-          {folders.map((folder) => (
-            <DashboardItemContextMenu
-              groups={liveItemMenu(actions, folder, [folder])}
-              key={folder.id}
-            >
-              <button
-                className="flex min-w-0 cursor-pointer items-center gap-3 rounded-xl border border-border px-3 py-2.5 text-left outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
-                type="button"
-                onClick={() => void navigate({ href: folder.href })}
+          {folders.map((folder) =>
+            folder.storageMutationStatus ? (
+              <div
+                key={folder.id}
+                className="flex min-w-0 items-center gap-3 rounded-xl border border-border px-3 py-2.5"
               >
                 <ItemIcon item={folder} />
-                <span className="grid min-w-0">
+                <div className="grid min-w-0">
                   <span className="truncate text-body font-medium">
                     <Highlight query={query} text={folder.name} />
                   </span>
-                  <span className="truncate text-label text-muted-foreground">
-                    {folder.locationLabel}
+                  <span className="text-label text-muted-foreground">
+                    {blockedLabel(
+                      folder.storageMutationStatus,
+                      folder.storageMutationId,
+                    )}
                   </span>
-                </span>
-              </button>
-            </DashboardItemContextMenu>
-          ))}
+                </div>
+              </div>
+            ) : (
+              <DashboardItemContextMenu
+                groups={liveItemMenu(actions, folder, [folder])}
+                key={folder.id}
+              >
+                <button
+                  className="flex min-w-0 cursor-pointer items-center gap-3 rounded-xl border border-border px-3 py-2.5 text-left outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+                  type="button"
+                  onClick={() => void navigate({ href: folder.href })}
+                >
+                  <ItemIcon item={folder} />
+                  <span className="grid min-w-0">
+                    <span className="truncate text-body font-medium">
+                      <Highlight query={query} text={folder.name} />
+                    </span>
+                    <span className="truncate text-label text-muted-foreground">
+                      {folder.locationLabel}
+                    </span>
+                  </span>
+                </button>
+              </DashboardItemContextMenu>
+            ),
+          )}
         </div>
       ) : null}
 

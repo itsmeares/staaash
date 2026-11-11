@@ -23,6 +23,7 @@ export type TrashClientItem = {
   restoreTargetLabel: string;
   sizeBytes?: number;
   storageMutationStatus?: string;
+  storageMutationId?: string;
 };
 
 export type TrashSortKey = "name" | "path" | "size" | "deletedAt" | "left";
@@ -66,6 +67,7 @@ export function toTrashClientItem(
       locationLabel: item.originalPathLabel,
       restoreTargetLabel: item.restoreLocation.pathLabel,
       storageMutationStatus: item.folder.storageMutation?.status,
+      storageMutationId: item.folder.storageMutation?.id,
     };
   }
 
@@ -79,6 +81,7 @@ export function toTrashClientItem(
     restoreTargetLabel: item.restoreLocation.pathLabel,
     sizeBytes: item.file.sizeBytes,
     storageMutationStatus: item.file.storageMutation?.status,
+    storageMutationId: item.file.storageMutation?.id,
   };
 }
 

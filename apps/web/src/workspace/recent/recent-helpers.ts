@@ -28,6 +28,7 @@ export type RecentClientItem = {
   parentId?: string | null;
   sizeBytes?: number;
   storageMutationStatus?: string;
+  storageMutationId?: string;
   /** When it was added, or last used in activity lists. */
   at: string;
   lastAction?: RecentAction | null;

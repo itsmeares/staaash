@@ -23,6 +23,7 @@ export const Route = createFileRoute("/_workspace/files/storage-unavailable")({
   component: () => (
     <StorageUnavailableView
       recoveryRequired={Route.useLoaderData().recoveryRequired}
+      mutationId={Route.useLoaderData().mutationId}
     />
   ),
 });

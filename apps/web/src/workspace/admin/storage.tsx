@@ -1,29 +1,22 @@
+import { MutationRow } from "./storage-mutation-row";
 import { AppLink } from "@/components/app-link";
 import type { ReactNode } from "react";
 
 import { AdminAvatar } from "@/src/workspace/admin/admin-avatar";
 import { PageHeader } from "@/components/page-header";
 import { SettingsCard } from "@/components/settings-layout";
-import { Badge } from "@staaash/ui/components/badge";
 import { Button } from "@staaash/ui/components/button";
 import { formatBytes } from "@/lib/format-bytes";
 import { getInitials } from "@/lib/user";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { useState } from "react";
 
-import { api, read } from "@/lib/api";
 import { useRefresh } from "@/lib/use-refresh";
-import { adminStorageQuery } from "@/src/queries";
-import { toast } from "@staaash/ui/components/toast";
+import { adminStorageQuery, shellQuery } from "@/src/queries";
 
 import { DiskBar } from "./disk-bar";
 
 const plural = (count: number, word: string) =>
   `${count} ${word}${count === 1 ? "" : "s"}`;
-
-/** "file_move" reads as "File move". */
-const words = (value: string) =>
-  value.charAt(0).toUpperCase() + value.slice(1).replaceAll("_", " ");
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -37,88 +30,62 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 const rowClass =
   "flex min-h-15 items-center gap-3 border-t border-border px-4 py-2.5 first:border-t-0";
 
-type Mutation = Awaited<
-  ReturnType<typeof adminStorageQuery.queryFn & {}>
->["mutations"][number];
-
-/** Asks the journal to try an unfinished change again now. */
-function RetryButton({ mutationId }: { mutationId: string }) {
+export function AdminStoragePage({ mutationId }: { mutationId?: string }) {
+  const { summary, mutations, disk } = useSuspenseQuery(
+    adminStorageQuery(mutationId),
+  ).data;
+  const { info } = useSuspenseQuery(shellQuery).data;
   const refresh = useRefresh();
-  const [pending, setPending] = useState(false);
-  return (
-    <Button
-      disabled={pending}
-      onClick={async () => {
-        setPending(true);
-        try {
-          await read(
-            api.api.admin.storage.mutations[":mutationId"].retry.$post({
-              param: { mutationId },
-            }),
-          );
-          await refresh();
-        } catch (error) {
-          toast.error(error instanceof Error ? error.message : "Retry failed.");
-        } finally {
-          setPending(false);
-        }
-      }}
-      size="sm"
-      variant="outline"
-    >
-      Retry now
-    </Button>
-  );
-}
-
-/** One unfinished change; the journal finishes most on its own. */
-function MutationRow({
-  mutation,
-  owner,
-}: {
-  mutation: Mutation;
-  owner: string;
-}) {
-  return (
-    <div className={rowClass}>
-      <span className="grid min-w-0 flex-1">
-        <span className="truncate text-body font-medium">
-          {words(mutation.kind)} · {owner}
-        </span>
-        <span className="truncate text-label text-muted-foreground">
-          {(mutation.status === "recovery_required" && mutation.lastError) ||
-            mutation.safePathLabels.join(", ") ||
-            mutation.id}
-        </span>
-      </span>
-      <Badge
-        variant={mutation.status === "recovery_required" ? "error" : "warning"}
-      >
-        {words(mutation.status)}
-      </Badge>
-      {mutation.canRetryNow ? (
-        <RetryButton mutationId={mutation.id} />
-      ) : (
-        <span className="text-label text-muted-foreground">
-          {mutation.status === "recovery_required"
-            ? "Files kept, needs a look"
-            : "Finishing on its own"}
-        </span>
-      )}
-    </div>
-  );
-}
-
-export function AdminStoragePage() {
-  const { summary, mutations, disk } = useSuspenseQuery(adminStorageQuery).data;
   const largest = BigInt(summary.rows[0]?.retainedBytes ?? 0);
   const nameOf = new Map(
     summary.rows.map((row) => [row.userId, row.displayName ?? row.email]),
   );
 
+  const changes = (
+    <Group title={mutationId ? "Selected change" : "Unfinished changes"}>
+      <SettingsCard>
+        {mutations.length === 0 ? (
+          <p className="m-0 px-4 py-3.5 text-body text-muted-foreground">
+            {mutationId
+              ? "This change is no longer unfinished, or could not be found. Refresh Files to check whether the item is available."
+              : "Nothing unfinished"}
+          </p>
+        ) : (
+          mutations.map((mutation) => (
+            <MutationRow
+              key={mutation.id}
+              mutation={mutation}
+              isOwner={info.isOwner}
+              owner={nameOf.get(mutation.ownerUserId) ?? mutation.ownerUserId}
+            />
+          ))
+        )}
+      </SettingsCard>
+    </Group>
+  );
+
   return (
     <div className="grid w-full max-w-3xl content-start gap-6">
-      <PageHeader title="Storage" />
+      <PageHeader
+        title="Storage"
+        actions={
+          <div className="flex flex-wrap gap-2">
+            {mutationId ? (
+              <Button
+                variant="link"
+                size="sm"
+                render={<AppLink href="/admin/storage" />}
+              >
+                Show all unfinished changes
+              </Button>
+            ) : null}
+            <Button variant="outline" size="sm" onClick={() => void refresh()}>
+              Refresh
+            </Button>
+          </div>
+        }
+      />
+      {mutationId ? changes : null}
 
       {disk ? (
         <SettingsCard>
@@ -173,23 +140,7 @@ export function AdminStoragePage() {
         </SettingsCard>
       </Group>
 
-      <Group title="Unfinished changes">
-        <SettingsCard>
-          {mutations.length === 0 ? (
-            <p className="m-0 px-4 py-3.5 text-body text-muted-foreground">
-              Nothing unfinished
-            </p>
-          ) : (
-            mutations.map((mutation) => (
-              <MutationRow
-                key={mutation.id}
-                mutation={mutation}
-                owner={nameOf.get(mutation.ownerUserId) ?? mutation.ownerUserId}
-              />
-            ))
-          )}
-        </SettingsCard>
-      </Group>
+      {mutationId ? null : changes}
     </div>
   );
 }

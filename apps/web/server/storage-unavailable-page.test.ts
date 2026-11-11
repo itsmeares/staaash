@@ -2,10 +2,15 @@ import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
 
+vi.mock("@/src/queries", () => ({ shellQuery: {} }));
+vi.mock("@tanstack/react-query", () => ({
+  useSuspenseQuery: () => ({ data: { info: { canAdmin: true } } }),
+}));
+
 vi.mock("@tanstack/react-router", () => ({
   Link: ({ children, to }: { children?: ReactNode; to: string }) =>
     createElement("a", { href: to }, children),
-  useRouter: () => ({ invalidate: vi.fn() }),
+  useRouter: () => ({ invalidate: vi.fn(), navigate: vi.fn() }),
 }));
 
 import {
@@ -32,12 +37,18 @@ describe("private storage unavailable page", () => {
     expect(markup).not.toContain('aria-busy="true"');
   });
 
-  it("stops the spinner when the move needs recovery", () => {
+  it("explains manual recovery without a spinner", () => {
     const markup = renderToStaticMarkup(
-      createElement(StorageUnavailableView, { recoveryRequired: true }),
+      createElement(StorageUnavailableView, {
+        recoveryRequired: true,
+        mutationId: "recovery-1",
+      }),
     );
 
-    expect(markup).toContain("A move could not finish");
+    expect(markup).toContain("Storage needs a check");
+    expect(markup).toContain("An administrator needs to review it.");
+    expect(markup).toContain("/admin/storage?mutationId=recovery-1");
+    expect(markup).not.toContain("Every file is kept safe");
     expect(markup).not.toContain("data-storage-unavailable-spinner");
   });
 });

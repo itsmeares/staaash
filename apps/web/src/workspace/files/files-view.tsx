@@ -1,3 +1,4 @@
+import { blockedLabel } from "../storage-recovery";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useRefresh } from "@/lib/use-refresh";
 import {
@@ -1696,11 +1697,7 @@ export function FilesView({
       ? shareLookup.sharesByFolderId[id]
       : shareLookup.sharesByFileId[id]) ?? null;
   const mutationLabel = (data: FolderSummary | FileSummary) =>
-    data.storageMutation
-      ? data.storageMutation.status === "recovery_required"
-        ? "Recovery required"
-        : "Finishing storage operation"
-      : null;
+    blockedLabel(data.storageMutation?.status, data.storageMutation?.id);
   const flags = (kind: "folder" | "file", id: string) => {
     const shared = shareFor(kind, id)?.status === "active";
     return shared ? (

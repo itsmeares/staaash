@@ -365,7 +365,7 @@ describe("preview follow-up regressions", () => {
     ).toBe(200);
   });
 
-  it("shows recovery as unhealthy until the sample mutation is retried", async () => {
+  it("keeps recovery unhealthy after an ineligible retry", async () => {
     const client = browser();
     await client.scenario("busy");
     const expected = {
@@ -378,11 +378,7 @@ describe("preview follow-up regressions", () => {
       summary: { health: expected },
     });
     await client.post("/api/admin/storage/mutations/sample-move/retry");
-    expect(await client.read("/api/admin/health")).toMatchObject({
-      ok: true,
-      checks: { storageMutations: { status: "healthy" } },
-      operational: { status: "healthy" },
-    });
+    expect(await client.read("/api/admin/health")).toMatchObject(expected);
   });
 
   for (const action of ["constructor", "__proto__", "hasOwnProperty"])
@@ -1412,7 +1408,7 @@ describe("database-free sample drive", () => {
       (await client.request("/api/views/viewer/owner-unknown")).status,
     ).toBe(404);
   });
-  it("shows recovery screens and lets the admin retry the sample mutation", async () => {
+  it("keeps recovery blocked until the sample state is reset", async () => {
     const client = browser();
     await client.scenario("busy");
     const files = await client.request("/api/views/files/owner-photos");
@@ -1430,6 +1426,17 @@ describe("database-free sample drive", () => {
       (await client.post("/api/admin/storage/mutations/sample-move/retry"))
         .status,
     ).toBe(200);
+    expect((await client.request("/api/views/files/owner-photos")).status).toBe(
+      503,
+    );
+    const storage = await client.read<{
+      mutations: { canRetryNow: boolean }[];
+    }>("/api/views/admin/storage?mutationId=sample-move");
+    expect(storage.mutations[0]?.canRetryNow).toBe(false);
+    expect(
+      await client.read("/api/views/admin/storage?mutationId=missing"),
+    ).toMatchObject({ mutations: [] });
+    await client.scenario("owner");
     expect((await client.request("/api/views/files/owner-photos")).status).toBe(
       200,
     );

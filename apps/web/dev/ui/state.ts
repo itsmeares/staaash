@@ -364,6 +364,18 @@ function seedDrive(state: State, user: User) {
     favorite: false,
     pinned: false,
   });
+  if (state.recovering) {
+    for (const suffix of ["photos", "coast", "trashed"]) {
+      const item = [...state.folders, ...state.files].find(
+        (item) => item.id === `${user.id}-${suffix}`,
+      )!;
+      item.storageMutation = {
+        id: "sample-move",
+        kind: "folder_move",
+        status: "recovery_required",
+      };
+    }
+  }
   seedShares(state, user);
 }
 function seedPhotos(state: State, user: User) {
@@ -571,6 +583,8 @@ export function recentItem(
     name: item.name,
     deletedAt: item.deletedAt,
     isFavorite: item.favorite,
+    storageMutationStatus: item.storageMutation?.status,
+    storageMutationId: item.storageMutation?.id,
     at: item.updatedAt,
     lastAction: item.deletedAt ? ("trashed" as const) : ("opened" as const),
   };
