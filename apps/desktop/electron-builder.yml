@@ -16,6 +16,9 @@ extraResources:
 asarUnpack:
   - "**/node_modules/@parcel/watcher*/**"
 artifactName: Staaash-Desktop-${version}-${os}-${arch}.${ext}
+beforePack: ./scripts/appimage.cjs
+afterPack: ./scripts/appimage.cjs
+artifactBuildCompleted: ./scripts/appimage.cjs
 publish:
   provider: github
   owner: itsmeares
@@ -38,16 +41,29 @@ win:
     - target: nsis
       arch: [x64, arm64]
 nsis:
+  # Pinned so a later appId change keeps upgrading existing installs in place.
+  guid: 2b25d318-9f3c-5dad-88c2-c1e20f4c59e4
   buildUniversalInstaller: false
   oneClick: true
   perMachine: false
 linux:
   target: [AppImage, deb, rpm]
+  artifactName: Staaash-Desktop-${version}-${arch}.${ext}
+  extraFiles:
+    - from: resources/com.staaash.desktop.metainfo.xml
+      to: usr/share/metainfo/com.staaash.desktop.appdata.xml
   category: Network
   executableName: staaash
   syncDesktopName: true
   maintainer: Staaash <itsmeares@users.noreply.github.com>
   synopsis: Sync files with your Staaash drive
+# The AppImage reads the file from extraFiles. DEB and RPM need it under /usr.
+deb:
+  fpm:
+    - resources/com.staaash.desktop.metainfo.xml=/usr/share/metainfo/com.staaash.desktop.metainfo.xml
+rpm:
+  fpm:
+    - resources/com.staaash.desktop.metainfo.xml=/usr/share/metainfo/com.staaash.desktop.metainfo.xml
 toolsets:
   # The static runtime needs no libfuse2, which new distributions dropped.
   appimage: "1.0.3"

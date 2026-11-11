@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.staaash.desktop</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-only</project_license>
+  <name>Staaash</name>
+  <developer id="com.staaash">
+    <name>Staaash contributors</name>
+  </developer>
+  <summary>Sync files with your Staaash drive</summary>
+  <description>
+    <p>Keep local folders in sync with your self-hosted Staaash drive. Choose
+    which folders to sync, follow transfers, and pause syncing when you need to.</p>
+  </description>
+  <launchable type="desktop-id">staaash.desktop</launchable>
+  <url type="homepage">https://github.com/itsmeares/staaash</url>
+  <url type="bugtracker">https://github.com/itsmeares/staaash/issues</url>
+  <provides>
+    <binary>staaash</binary>
+  </provides>
+  <categories>
+    <category>Network</category>
+    <category>FileTransfer</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+</component>

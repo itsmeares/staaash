@@ -65,9 +65,13 @@ jobs:
         shell: bash
         run: pnpm install --frozen-lockfile ${{ matrix.cpu }}
 
-      - name: Install RPM tools
+      - name: Install Linux packaging tools
         if: runner.os == 'Linux' && hashFiles('apps/desktop/package.json') != ''
-        run: sudo apt-get update && sudo apt-get install -y rpm
+        run: sudo apt-get update && sudo apt-get install -y rpm binutils appstream desktop-file-utils zsync=0.6.2-5build1
+
+      - name: Check AppImage finalization
+        if: runner.os == 'Linux' && hashFiles('apps/desktop/scripts/appimage.test.cjs') != ''
+        run: node --test apps/desktop/scripts/appimage.test.cjs
 
       - name: Build the app
         if: hashFiles('apps/desktop/package.json') != ''
@@ -77,6 +81,19 @@ jobs:
         if: hashFiles('apps/desktop/package.json') != ''
         working-directory: apps/desktop
         run: pnpm exec electron-builder ${{ matrix.build }} --publish never
+
+      - name: Check Linux catalog metadata
+        if: runner.os == 'Linux' && hashFiles('apps/desktop/resources/com.staaash.desktop.metainfo.xml') != ''
+        working-directory: apps/desktop
+        run: appstreamcli validate-tree --no-net release/linux*-unpacked
+
+      - name: Check packaged Linux file watching
+        if: runner.os == 'Linux' && hashFiles('apps/desktop/scripts/check-linux.cjs') != ''
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          app=(release/linux*-unpacked/staaash)
+          ELECTRON_RUN_AS_NODE=1 "${app[0]}" scripts/check-linux.cjs
 
       - name: Keep installers for testing
         if: inputs.release_tag == '' && hashFiles('apps/desktop/package.json') != ''
