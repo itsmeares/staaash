@@ -1061,6 +1061,81 @@ describe("background jobs", () => {
     expect(events).toHaveLength(0);
   });
 
+  it.each([1, 5])(
+    "records attempt %i failing even if its lease renews after the read",
+    async (attemptCount) => {
+      const jobs = [
+        createJob({
+          id: "heartbeat-race",
+          status: "running",
+          lockedBy: "worker-1",
+          attemptCount,
+          maxAttempts: 5,
+        }),
+      ];
+      const client = createClient(jobs);
+      const update = client.backgroundJob.updateMany.bind(client.backgroundJob);
+      vi.spyOn(client.backgroundJob, "updateMany").mockImplementationOnce(
+        async (args) => {
+          const now = new Date(jobs[0]!.updatedAt.getTime() + 1);
+          await renewBackgroundJobLease({
+            jobId: "heartbeat-race",
+            workerId: "worker-1",
+            now,
+            client,
+          });
+          jobs[0]!.updatedAt = now;
+          return update(args);
+        },
+      );
+      await expect(
+        markBackgroundJobFailed({
+          jobId: "heartbeat-race",
+          workerId: "worker-1",
+          errorMessage: "Source blocked",
+          client,
+        }),
+      ).resolves.toMatchObject({
+        status: attemptCount === 5 ? "dead" : "queued",
+        lastError: "Source blocked",
+      });
+    },
+  );
+
+  it("does not overwrite a newer attempt owned by the same worker", async () => {
+    const jobs = [
+      createJob({
+        id: "attempt-race",
+        status: "running",
+        lockedBy: "worker-1",
+        attemptCount: 1,
+      }),
+    ];
+    const events: MemoryEvent[] = [];
+    const client = createClient(jobs, events);
+    const update = client.backgroundJob.updateMany.bind(client.backgroundJob);
+    vi.spyOn(client.backgroundJob, "updateMany").mockImplementationOnce(
+      async (args) => {
+        jobs[0]!.attemptCount = 2;
+        return update(args);
+      },
+    );
+    await expect(
+      markBackgroundJobFailed({
+        jobId: "attempt-race",
+        workerId: "worker-1",
+        errorMessage: "Old failure",
+        client,
+      }),
+    ).rejects.toThrow("changed while failing");
+    expect(jobs[0]).toMatchObject({
+      status: "running",
+      attemptCount: 2,
+      lastError: null,
+    });
+    expect(events).toHaveLength(0);
+  });
+
   it("records events and summarizes queue operations", async () => {
     const events: MemoryEvent[] = [];
     const workers: MemoryWorker[] = [

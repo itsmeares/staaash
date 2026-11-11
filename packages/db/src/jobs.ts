@@ -735,12 +735,13 @@ export const markBackgroundJobFailed = async ({
 
     const shouldDeadLetter = job.attemptCount >= job.maxAttempts;
     const nextRunAt = new Date(now.getTime() + retryDelayMs(job.attemptCount));
+    // Lease renewals also change updatedAt, so guard the attempt instead.
     const result = await tx.backgroundJob.updateMany({
       where: {
         id: jobId,
         status: job.status,
         lockedBy: job.lockedBy,
-        updatedAt: job.updatedAt,
+        attemptCount: job.attemptCount,
       },
       data: {
         status: shouldDeadLetter ? "dead" : "queued",
