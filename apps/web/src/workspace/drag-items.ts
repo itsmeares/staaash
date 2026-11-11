@@ -9,6 +9,23 @@ export const INTERNAL_ITEM_DRAG_TYPE = "application/x-staaash-items";
 
 export type DraggedItems = { items: BatchMoveItem[]; from: string };
 
+// Browsers hide the transfer payload during dragover, so keep it until dragend.
+let activeDrag: DraggedItems | null = null;
+
+export const getDraggedItems = () => activeDrag;
+export const setDraggedItems = (dragged: DraggedItems | null) => {
+  activeDrag = dragged;
+};
+
+export const canMoveToFolder = (
+  dragged: DraggedItems | null,
+  folderId: string,
+) =>
+  dragged !== null &&
+  dragged.items.length > 0 &&
+  dragged.from !== folderId &&
+  !dragged.items.some((item) => item.kind === "folder" && item.id === folderId);
+
 const isItemDrag = (event: DragEvent) =>
   event.dataTransfer.types.includes(INTERNAL_ITEM_DRAG_TYPE);
 
@@ -88,10 +105,16 @@ export const setDragTip = (text: string) => {
 export const dropTargetProps = (
   label: string,
   onDrop: (dragged: DraggedItems) => void,
+  folderId?: string,
 ) => ({
   onDragOver: (event: DragEvent) => {
     if (!isItemDrag(event)) return;
     event.preventDefault();
+    if (folderId && !canMoveToFolder(getDraggedItems(), folderId)) {
+      event.dataTransfer.dropEffect = "none";
+      setDragTip("");
+      return;
+    }
     event.dataTransfer.dropEffect = "move";
     setDragTip(label);
   },
@@ -101,6 +124,12 @@ export const dropTargetProps = (
     event.preventDefault();
     setDragTip("");
     const dragged = readDraggedItems(event);
-    if (dragged && dragged.items.length > 0) onDrop(dragged);
+    setDraggedItems(null);
+    if (
+      dragged &&
+      dragged.items.length > 0 &&
+      (!folderId || canMoveToFolder(dragged, folderId))
+    )
+      onDrop(dragged);
   },
 });

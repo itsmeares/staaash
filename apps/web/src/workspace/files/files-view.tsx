@@ -89,6 +89,9 @@ import { chooseMoveDestination } from "../move-dialog";
 import {
   INTERNAL_ITEM_DRAG_TYPE,
   createDragPreview,
+  canMoveToFolder,
+  getDraggedItems,
+  setDraggedItems,
   setDragTip,
   type DraggedItems,
 } from "../drag-items";
@@ -431,7 +434,6 @@ export function FilesView({
   const dragCounterRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
-  const draggedItemsRef = useRef<BatchMoveItem[]>([]);
   const storageMutationKeysRef = useRef(new Map<string, string>());
   const dragPreviewRef = useRef<ReturnType<typeof createDragPreview> | null>(
     null,
@@ -470,7 +472,10 @@ export function FilesView({
   }, []);
 
   useEffect(() => {
-    return () => dragPreviewRef.current?.remove();
+    return () => {
+      setDraggedItems(null);
+      dragPreviewRef.current?.remove();
+    };
   }, []);
 
   // Auto-open file picker when navigated here via Upload button from another route.
@@ -1382,7 +1387,7 @@ export function FilesView({
   }, []);
 
   const isInternalItemDrag = (event: React.DragEvent) =>
-    draggedItemsRef.current.length > 0 ||
+    getDraggedItems() !== null ||
     event.dataTransfer.types.includes(INTERNAL_ITEM_DRAG_TYPE);
 
   const positionDragPreview = (clientX: number, clientY: number) =>
@@ -1427,7 +1432,7 @@ export function FilesView({
   const handleDrop = (e: React.DragEvent) => {
     if (isInternalItemDrag(e)) {
       e.preventDefault();
-      draggedItemsRef.current = [];
+      setDraggedItems(null);
       clearDragPreview();
       setDropTargetId(null);
       return;
@@ -1482,10 +1487,10 @@ export function FilesView({
     event: React.DragEvent<HTMLDivElement>,
   ) => {
     const items = getInteractionItems(id, kind);
-    draggedItemsRef.current = items;
     if (!selection.getSelected().has(id)) selection.selectOnly(id);
     event.dataTransfer.effectAllowed = "move";
     const dragged: DraggedItems = { items, from: listing.currentFolder.id };
+    setDraggedItems(dragged);
     event.dataTransfer.setData(
       INTERNAL_ITEM_DRAG_TYPE,
       JSON.stringify(dragged),
@@ -1520,7 +1525,7 @@ export function FilesView({
   };
 
   const handleItemDragEnd = () => {
-    draggedItemsRef.current = [];
+    setDraggedItems(null);
     clearDragPreview();
     setDropTargetId(null);
   };
@@ -1533,11 +1538,7 @@ export function FilesView({
     event.preventDefault();
     event.stopPropagation();
     positionDragPreview(event.clientX, event.clientY);
-    if (
-      draggedItemsRef.current.some(
-        (item) => item.kind === "folder" && item.id === destinationFolderId,
-      )
-    ) {
+    if (!canMoveToFolder(getDraggedItems(), destinationFolderId)) {
       event.dataTransfer.dropEffect = "none";
       setDropTargetId(null);
       setDragTip("");
@@ -1545,11 +1546,7 @@ export function FilesView({
     }
     event.dataTransfer.dropEffect = "move";
     setDropTargetId(destinationFolderId);
-    setDragTip(
-      destinationFolderId === listing.currentFolder.id
-        ? ""
-        : `Move to ${folderNameIn(destinationFolderId)}`,
-    );
+    setDragTip(`Move to ${folderNameIn(destinationFolderId)}`);
   };
 
   const handleMoveDragLeave = (
@@ -1568,20 +1565,14 @@ export function FilesView({
     if (!isInternalItemDrag(event)) return;
     event.preventDefault();
     event.stopPropagation();
-    const items = draggedItemsRef.current;
-    draggedItemsRef.current = [];
+    const dragged = getDraggedItems();
+    setDraggedItems(null);
     clearDragPreview();
     setDropTargetId(null);
-    if (
-      items.length === 0 ||
-      destinationFolderId === listing.currentFolder.id ||
-      items.some(
-        (item) => item.kind === "folder" && item.id === destinationFolderId,
-      )
-    ) {
+    if (!dragged || !canMoveToFolder(dragged, destinationFolderId)) {
       return;
     }
-    void startMove(items, {
+    void startMove(dragged.items, {
       id: destinationFolderId,
       name: folderNameIn(destinationFolderId),
     });

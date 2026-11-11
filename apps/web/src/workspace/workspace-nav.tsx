@@ -109,12 +109,10 @@ const itemsLabel = (count: number) =>
 /** Items dropped on Trash go there at once, with Undo. */
 function useDropActions() {
   const refresh = useRefresh();
-  const pathname = useLocation({ select: (location) => location.pathname });
   return {
     trash: ({ items }: DraggedItems) =>
       moveWithUndo(items, "trash", () => void refresh()),
     moveTo: async ({ items, from }: DraggedItems, folder: ShellPin) => {
-      if (folder.id === from) return;
       try {
         const result = await submitMove(items, folder.id);
         const moved = items.filter((item) =>
@@ -248,6 +246,7 @@ export function SidebarPins({ pins }: { pins: ShellPin[] }) {
               ? dropTargetProps(
                   `Move to ${pin.name}`,
                   (dragged) => void drop.moveTo(dragged, pin),
+                  pin.id,
                 )
               : {})}
             aria-current={pathname === pin.href ? "page" : undefined}
