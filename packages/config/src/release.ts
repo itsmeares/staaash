@@ -384,9 +384,9 @@ export const renderReleaseCompose = ({
 }) => {
   requireReleaseTag(releaseTag);
   const count = countMatches(source, RELEASE_IMAGE_FALLBACK_PATTERN);
-  if (count !== 2) {
+  if (count !== 3) {
     throw new Error(
-      `Expected 2 Staaash image fallbacks in Compose source; found ${count}.`,
+      `Expected 3 Staaash image fallbacks in Compose source; found ${count}.`,
     );
   }
 
@@ -424,8 +424,8 @@ export const findResolvedReleaseImageErrors = ({
   images: string[];
   expectedReference: string;
 }): string[] => {
-  if (images.length !== 2) {
-    return [`resolved ${images.length} Staaash images; expected 2`];
+  if (images.length !== 3) {
+    return [`resolved ${images.length} Staaash images; expected 3`];
   }
   return images.every((image) => image === expectedReference)
     ? []

@@ -1,4 +1,10 @@
 services:
+  migrate:
+    container_name: ${STAAASH_VERIFY_PROJECT}_migrate
+    image: ${STAAASH_VERIFY_IMAGE}
+    cpus: "${STAAASH_VERIFY_WEB_CPUS:-1.0}"
+    mem_limit: ${STAAASH_VERIFY_WEB_MEMORY:-1g}
+
   staaash:
     container_name: ${STAAASH_VERIFY_PROJECT}_web
     image: ${STAAASH_VERIFY_IMAGE}

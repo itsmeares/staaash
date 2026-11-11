@@ -1,9 +1,20 @@
 name: staaash
 
 services:
+  migrate:
+    image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}
+    command: prisma migrate deploy
+    environment:
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD}@db:5432/${DB_DATABASE_NAME:-staaash}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
   staaash:
     container_name: staaash_server
     image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}
+    command: node dist/server/main.mjs
 
     environment:
       NODE_ENV: production
@@ -20,6 +31,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
     ports:
       - "2113:2113"
@@ -45,6 +58,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
     restart: always
 
