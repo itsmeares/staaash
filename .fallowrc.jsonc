@@ -24,6 +24,9 @@
     "apps/desktop/src/engine/index.ts",
     "apps/desktop/src/renderer/main.tsx",
     "apps/desktop/scripts/tray-icons.cjs",
+    // The desktop packager loads its hooks from the YAML configuration.
+    "apps/desktop/scripts/appimage.cjs",
+    "apps/desktop/scripts/check-linux.cjs",
     ".agents/skills/verify-staaash/drive-folder.mjs",
   ],
   "dynamicallyLoaded": [
@@ -37,6 +40,8 @@
     "!.agents/**",
   ],
   "ignoreDependencies": ["@staaash/config"],
+  // Installed by the Linux installer workflow.
+  "ignoreBinaries": ["zsyncmake"],
   // packages/ui components are a vendored component kit: its full API is kept even when
   // the app uses only part of it, and its internals follow upstream.
   "ignoreExports": [
