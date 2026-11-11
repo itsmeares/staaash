@@ -275,6 +275,21 @@ it("stops an unchanged failed plan and retries it in the next pass", async () =>
   expect(r.ctx.resolved).toHaveBeenCalledWith("a.txt");
 });
 
+it("shows the server's upload limit in the file issue and clears it after retry", async () => {
+  const r = await rig(["a.txt"]);
+  const message = "This file exceeds the server's 10.0 GB upload limit.";
+  r.failures.set("a.txt", [
+    new ApiError(413, message, "UPLOAD_SIZE_LIMIT_EXCEEDED"),
+  ]);
+  const first = await syncPair(r.ctx);
+  expect(first.issues).toEqual([
+    expect.objectContaining({ rel: "a.txt", kind: "error", message }),
+  ]);
+  expect(r.ctx.resolved).not.toHaveBeenCalled();
+  expect((await syncPair(r.ctx)).issues).toEqual([]);
+  expect(r.ctx.resolved).toHaveBeenCalledWith("a.txt");
+});
+
 it("keeps another file's latest failure after one file recovers", async () => {
   const r = await rig(["a.txt", "b.txt", "c.txt"]);
   r.failures.set("a.txt", [new ApiError(500, "Server error")]);

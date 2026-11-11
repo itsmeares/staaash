@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { app } from "@/server/http/app";
 import { StorageTransactionUnavailableError } from "@staaash/db/storage-transactions";
-import { UploadAdmissionError } from "./admission";
+import { UploadAdmissionError, uploadSizeLimitError } from "./admission";
 
 const mocks = vi.hoisted(() => ({
   getRequestSession: vi.fn(),
@@ -19,10 +19,6 @@ vi.mock("@/server/durable-storage-mutation", async (importOriginal) => ({
   >()),
   assertStorageProtocolReady: vi.fn(),
   StorageProtocolNotReadyError: class extends Error {},
-}));
-vi.mock("@/server/uploads", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/server/uploads")>()),
-  assertUploadSizeAllowed: vi.fn(),
 }));
 vi.mock("@/server/uploads/session-service", async (importOriginal) => ({
   ...(await importOriginal<
@@ -51,6 +47,20 @@ describe("resumable session admission responses", () => {
     mocks.getRequestSession.mockResolvedValue({
       user: { id: "owner-1", role: "member" },
     });
+  });
+
+  it("reports the configured limit without rounding its byte value", async () => {
+    const maxUploadBytes = 9_007_199_254_740_993n;
+    const error = uploadSizeLimitError(maxUploadBytes);
+    mocks.createResumableSession.mockRejectedValue(error);
+    const response = await app.request(request());
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toEqual({
+      error: error.message,
+      code: "UPLOAD_SIZE_LIMIT_EXCEEDED",
+      details: { maxUploadBytes: "9007199254740993" },
+    });
+    expect(error.message).toContain("8192 TB upload limit");
   });
 
   it("supplies retry timing for busy admission and preserves its details", async () => {

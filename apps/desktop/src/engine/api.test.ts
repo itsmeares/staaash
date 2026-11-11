@@ -2,7 +2,46 @@ import { createServer } from "node:http";
 import { once } from "node:events";
 import { expect, it } from "vite-plus/test";
 
-import { createApi } from "./api";
+import { ApiError, createApi } from "./api";
+
+it("keeps the server's upload limit message and exact byte details", async () => {
+  const refusal = {
+    code: "UPLOAD_SIZE_LIMIT_EXCEEDED",
+    error: "This file exceeds the server's 10.0 GB upload limit.",
+    details: { maxUploadBytes: "10737418240" },
+  };
+  const server = createServer((_request, response) => {
+    response.writeHead(413, { "content-type": "application/json" });
+    response.end(JSON.stringify(refusal));
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  try {
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("No port");
+    const api = createApi(`http://127.0.0.1:${address.port}`, "fake-token");
+    await expect(
+      api.startUpload({
+        folderId: "folder",
+        name: "large.bin",
+        size: 15_032_385_536,
+        checksum: "a".repeat(64),
+        modifiedAt: 0,
+        replace: false,
+      }),
+    ).rejects.toMatchObject({
+      constructor: ApiError,
+      status: 413,
+      code: refusal.code,
+      message: refusal.error,
+      body: refusal,
+    });
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
 
 it("replays the complete upload body after a retry and reports bytes sent", async () => {
   const received: Buffer[] = [];
