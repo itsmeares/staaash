@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   getFilesListing: vi.fn(),
   resolvePublicShare: vi.fn(),
   getPublicShareFilePreview: vi.fn(),
+  getAdminStorageSummary: vi.fn(),
+  getStorageMutationHealth: vi.fn(),
 }));
 
 vi.mock("@/server/auth/service", () => ({
@@ -43,6 +45,14 @@ vi.mock("@/server/sharing/service", async (importOriginal) => ({
 }));
 vi.mock("@/server/sharing/public-file-preview", () => ({
   getPublicShareFilePreview: mocks.getPublicShareFilePreview,
+}));
+
+vi.mock("@/server/admin/storage", () => ({
+  getAdminStorageSummary: mocks.getAdminStorageSummary,
+}));
+vi.mock("@staaash/db/storage-mutations", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/storage-mutations")>()),
+  getStorageMutationHealth: mocks.getStorageMutationHealth,
 }));
 
 import { createApp } from "@/server/http/core";
@@ -191,7 +201,11 @@ describe("view routes", () => {
       mocks.getFilesListing.mockRejectedValueOnce(storageBusy());
       await expect(
         (await get("/api/views/storage-unavailable/folder-1")).json(),
-      ).resolves.toEqual({ available: false, recoveryRequired: false });
+      ).resolves.toEqual({
+        available: false,
+        recoveryRequired: false,
+        mutationId: "mutation-1",
+      });
 
       mocks.getFilesListing.mockResolvedValueOnce({
         currentFolder: { isFilesRoot: false },
@@ -199,6 +213,65 @@ describe("view routes", () => {
       await expect(
         (await get("/api/views/storage-unavailable/folder-1")).json(),
       ).resolves.toEqual({ available: true, isFilesRoot: false });
+    });
+  });
+
+  describe("admin recovery details", () => {
+    it.each(["owner", "admin"])(
+      "lets an %s select an operation",
+      async (role) => {
+        mocks.getRequestSession.mockResolvedValue({
+          id: "s1",
+          user: user({ role, isOwner: role === "owner" }),
+        });
+        mocks.getAdminStorageSummary.mockResolvedValue({
+          rows: [],
+          retainedBytes: 0n,
+        });
+        mocks.getStorageMutationHealth.mockResolvedValue({
+          active: [
+            {
+              id: "operation-26",
+              lastError: "Both rename source and target exist.",
+            },
+          ],
+        });
+        const response = await get(
+          "/api/views/admin/storage?mutationId=operation-26",
+        );
+        expect(response.status).toBe(200);
+        expect(mocks.getStorageMutationHealth).toHaveBeenCalledWith(
+          expect.any(Date),
+          "operation-26",
+        );
+        await expect(response.json()).resolves.toMatchObject({
+          mutations: [{ id: "operation-26" }],
+        });
+      },
+    );
+
+    it("refuses members before reading recovery details", async () => {
+      mocks.getRequestSession.mockResolvedValue({ id: "s1", user: user() });
+      expect(
+        (await get("/api/views/admin/storage?mutationId=private-operation"))
+          .status,
+      ).toBe(403);
+      expect(mocks.getStorageMutationHealth).not.toHaveBeenCalled();
+    });
+
+    it("returns an empty selection for an operation that is no longer active", async () => {
+      mocks.getRequestSession.mockResolvedValue({
+        id: "s1",
+        user: user({ role: "owner", isOwner: true }),
+      });
+      mocks.getAdminStorageSummary.mockResolvedValue({
+        rows: [],
+        retainedBytes: 0n,
+      });
+      mocks.getStorageMutationHealth.mockResolvedValue({ active: [] });
+      await expect(
+        (await get("/api/views/admin/storage?mutationId=completed")).json(),
+      ).resolves.toMatchObject({ mutations: [] });
     });
   });
 

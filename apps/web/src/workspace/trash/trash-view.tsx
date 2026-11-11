@@ -1,3 +1,4 @@
+import { blockedLabel } from "../storage-recovery";
 import { useRefresh } from "@/lib/use-refresh";
 import { useContinuousList } from "@/components/file-list/use-continuous-list";
 import { useListFind } from "@/components/file-list/use-list-find";
@@ -27,7 +28,6 @@ import { SelectionBar } from "../selection-bar";
 import { useCoarsePointer } from "../use-coarse-pointer";
 import {
   WORKSPACE_ITEM_FILTERS,
-  blockedLabel,
   filterWorkspaceItems,
   sizeColumn,
   type WorkspaceItemFilterType,
@@ -139,7 +139,7 @@ export function TrashView({
     kind: item.kind,
     name: item.name,
     mimeType: item.mimeType,
-    blocked: blockedLabel(item.storageMutationStatus),
+    blocked: blockedLabel(item.storageMutationStatus, item.storageMutationId),
     sub: `From ${item.locationLabel} · ${formatRelativeTime(item.deletedAt, now, timeZone)}`,
     data: item,
   });

@@ -89,6 +89,7 @@ export const toWorkspaceListFields = (item: RetrievalItem) => ({
   locationLabel: getWorkspaceLocationLabel(item),
   name: item.name,
   storageMutationStatus: item.storageMutation?.status,
+  storageMutationId: item.storageMutation?.id,
   ...(item.kind === "file"
     ? {
         folderId: item.folderId,
@@ -158,11 +159,3 @@ export const sizeColumn = <
   render: (item) =>
     item.kind === "folder" ? "" : formatWorkspaceFileSize(item.data.sizeBytes),
 });
-
-/** Why a row can't be used right now, while a storage change is in flight. */
-export const blockedLabel = (status?: string) =>
-  status
-    ? status === "recovery_required"
-      ? "Recovery required"
-      : "Finishing storage operation"
-    : null;

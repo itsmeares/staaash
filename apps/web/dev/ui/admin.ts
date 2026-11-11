@@ -164,8 +164,9 @@ function mutationHealth(
     active: [
       {
         ...mutation,
-        lastError: "Sample move needs recovery.",
-        canRetryNow: true,
+        lastError:
+          "Both rename source and target exist. Staaash cannot confirm which copy matches the saved change.",
+        canRetryNow: false,
         safePathLabels: ["Files / Photos"],
       },
     ],
@@ -251,10 +252,12 @@ export function adminOverview(state: State) {
     disk,
   } satisfies InferResponseType<typeof api.api.views.admin.overview.$get, 200>;
 }
-export function adminStorage(state: State) {
+export function adminStorage(state: State, mutationId?: string) {
   return {
     summary: storageSummary(state),
-    mutations: healthView(state).storageMutations.active,
+    mutations: healthView(state).storageMutations.active.filter(
+      (mutation) => !mutationId || mutation.id === mutationId,
+    ),
     disk,
   } satisfies InferResponseType<typeof api.api.views.admin.storage.$get, 200>;
 }

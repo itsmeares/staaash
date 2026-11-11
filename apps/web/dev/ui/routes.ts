@@ -76,7 +76,11 @@ export function mountViews(app: Hono<PreviewEnv>) {
   app.get("/api/views/storage-unavailable/:id", (c) =>
     c.json(
       c.var.state.recovering
-        ? { available: false, recoveryRequired: true }
+        ? {
+            available: false,
+            recoveryRequired: true,
+            mutationId: "sample-move",
+          }
         : {
             available: true,
             isFilesRoot: folderOf(c.var.state, c.req.param("id")).isFilesRoot,

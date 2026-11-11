@@ -375,6 +375,7 @@ const userViews = user
       return c.json({
         available: false as const,
         recoveryRequired: error.code === "STORAGE_RECOVERY_REQUIRED",
+        mutationId: error.mutationId,
       });
     }
   })
@@ -562,14 +563,22 @@ const adminViews = admin
     ]);
     return c.json(plain({ summary, disk }));
   })
-  .get("/storage", async (c) => {
-    const [summary, mutations, disk] = await Promise.all([
-      getAdminStorageSummary(),
-      getStorageMutationHealth(),
-      getInstanceDiskInfo(),
-    ]);
-    return c.json(plain({ summary, mutations: mutations.active, disk }));
-  })
+  .get(
+    "/storage",
+    validator("query", (value) =>
+      z
+        .object({ mutationId: z.string().min(1).max(128).optional() })
+        .parse(value),
+    ),
+    async (c) => {
+      const [summary, mutations, disk] = await Promise.all([
+        getAdminStorageSummary(),
+        getStorageMutationHealth(new Date(), c.req.valid("query").mutationId),
+        getInstanceDiskInfo(),
+      ]);
+      return c.json(plain({ summary, mutations: mutations.active, disk }));
+    },
+  )
   .get("/users", async (c) => {
     const { session } = c.var;
     const users = await authService.listUsers(session.user.id);

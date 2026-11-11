@@ -8,7 +8,7 @@ export const unavailableHtml = `<!doctype html>
   <body>
     <main>
       <h1>Storage operation finishing</h1>
-      <p>This shared item is unavailable until storage recovery finishes.</p>
+      <p>This shared item is unavailable while storage needs attention. Try again later. If it stays unavailable, contact the person who shared it.</p>
     </main>
 </body>
 </html>`;

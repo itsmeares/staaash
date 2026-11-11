@@ -110,10 +110,12 @@ export const adminOverviewQuery = queryOptions({
   queryFn: () => read(admin.overview.$get()),
 });
 
-export const adminStorageQuery = queryOptions({
-  queryKey: ["admin", "storage"],
-  queryFn: () => read(admin.storage.$get()),
-});
+export const adminStorageQuery = (mutationId?: string) =>
+  queryOptions({
+    queryKey: ["admin", "storage", mutationId],
+    queryFn: () => read(admin.storage.$get({ query: { mutationId } })),
+    staleTime: 0,
+  });
 
 export const adminUsersQuery = queryOptions({
   queryKey: ["admin", "users"],
