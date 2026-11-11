@@ -43,6 +43,38 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
+it("keeps an upload saved by an older app, so it can still resume", () => {
+  const db = new DatabaseSync(file);
+  db.exec(`CREATE TABLE upload (
+    pairId TEXT NOT NULL, rel TEXT NOT NULL, sessionId TEXT NOT NULL,
+    checksum TEXT NOT NULL, size INTEGER NOT NULL, mtimeMs REAL NOT NULL,
+    target TEXT NOT NULL,
+    PRIMARY KEY (pairId, rel)
+  )`);
+  db.exec("INSERT INTO upload VALUES ('p', 'a', 's', 'c', 3, 1000.5, 't')");
+  db.close();
+
+  const store = new Store(file);
+  store.putUpload({
+    pairId: "p",
+    rel: "b",
+    sessionId: "s2",
+    size: 4,
+    mtimeMs: 1,
+    target: "t",
+  });
+  expect(store.pendingUpload("p", "a")).toEqual({
+    pairId: "p",
+    rel: "a",
+    sessionId: "s",
+    size: 3,
+    mtimeMs: 1000.5,
+    target: "t",
+  });
+  store.close();
+  new Store(file).close();
+});
+
 describe("file ids in the store", () => {
   it("keeps ids of any size exactly, across a restart and a move", () => {
     const ids = [

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import {
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -319,16 +320,19 @@ it("does not resolve an upload that is still being written", async () => {
   expect(r.ctx.resolved).not.toHaveBeenCalled();
 });
 
-it("keeps an unreadable file's issue without resolving it", async () => {
-  const r = await rig(["a.txt"]);
-  vi.spyOn(local, "hashFile").mockRejectedValue(
-    Object.assign(new Error("Locked"), { code: "EACCES", syscall: "open" }),
-  );
-  expect((await syncPair(r.ctx)).issues).toEqual([
-    expect.objectContaining({ rel: "a.txt", kind: "error" }),
-  ]);
-  expect(r.ctx.resolved).not.toHaveBeenCalled();
-});
+// Root and Windows can read a file whose mode bits forbid it.
+it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+  "keeps an unreadable file's issue without resolving it",
+  async () => {
+    const r = await rig(["a.txt"]);
+    await chmod(path.join(r.directory, "a.txt"), 0o000);
+    expect((await syncPair(r.ctx)).issues).toEqual([
+      expect.objectContaining({ rel: "a.txt", kind: "error" }),
+    ]);
+    expect(r.start).not.toHaveBeenCalled();
+    expect(r.ctx.resolved).not.toHaveBeenCalled();
+  },
+);
 
 it("does not resolve an upload when saving sync history fails", async () => {
   const r = await rig(["a.txt"]);
@@ -442,7 +446,6 @@ it("stops promptly when paused with a large queue", async () => {
     })),
     excluded: [],
   });
-  vi.spyOn(local, "hashFile").mockResolvedValue("0".repeat(64));
   // Paused as soon as the queue is planned.
   let paused = false;
   const started = performance.now();

@@ -1,8 +1,18 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import {
+  mkdtemp,
+  open,
+  rename,
+  rm,
+  symlink,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { statLocal, UNKNOWN_INO } from "./local";
 import {
   pool,
   SMALL_UPLOAD_BYTES,
@@ -44,6 +54,7 @@ it("excludes resumed bytes and repeated retry bytes from remaining upload work",
     const file = path.join(dir, "demo");
     const size = SMALL_UPLOAD_BYTES + 4;
     await writeFile(file, Buffer.alloc(size));
+    const { mtimeMs, ino } = (await statLocal(dir, "demo"))!;
     const meter = new UploadMeter(() => {});
     const api = {
       uploadStatus: async () => ({
@@ -67,14 +78,13 @@ it("excludes resumed bytes and repeated retry bytes from remaining upload work",
         onBytes(2, 4);
         expect(meter.remaining).toBe(0);
       },
-      completeUpload: async () => ({}),
+      completeUpload: vi.fn(async () => ({})),
     };
     const store = {
       pendingUpload: () => ({
         sessionId: "session",
-        checksum: "hash",
         size,
-        mtimeMs: 1,
+        mtimeMs,
         target: JSON.stringify(["folder", "demo", false]),
       }),
       deleteUpload: () => {},
@@ -87,9 +97,9 @@ it("excludes resumed bytes and repeated retry bytes from remaining upload work",
       file,
       folderId: "folder",
       name: "demo",
-      checksum: "hash",
       size,
-      mtimeMs: 1,
+      mtimeMs,
+      ino,
       replace: null,
       throttle: new Throttle(null),
       meter,
@@ -97,10 +107,19 @@ it("excludes resumed bytes and repeated retry bytes from remaining upload work",
       signal: new AbortController().signal,
     });
     expect(meter.speed).toBeNull();
+    // The resumed chunk is not sent again, but it is part of the checksum.
+    expect(api.completeUpload).toHaveBeenCalledWith(
+      "session",
+      sha256(Buffer.alloc(size)),
+      null,
+    );
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+const sha256 = (bytes: Buffer) =>
+  createHash("sha256").update(bytes).digest("hex");
 
 describe("pool", () => {
   it("reports the first error, stops queued items, and waits for running ones", async () => {
@@ -172,6 +191,7 @@ describe("uploadFile", () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), "staaash-upload-"));
     const file = path.join(dir, "notes.txt");
     await writeFile(file, Buffer.alloc(size, 7));
+    const { mtimeMs, ino } = (await statLocal(dir, "notes.txt"))!;
     return {
       dir,
       input: {
@@ -180,9 +200,9 @@ describe("uploadFile", () => {
         file,
         folderId: "folder",
         name: "notes.txt",
-        checksum: "hash",
         size,
-        mtimeMs: 1,
+        mtimeMs,
+        ino,
         throttle: new Throttle(null),
         meter: new UploadMeter(() => {}),
         onBytes: () => {},
@@ -219,13 +239,14 @@ describe("uploadFile", () => {
         } as never,
         replace: { id: "file-1", rev: 3 },
       });
-      expect(result).toEqual({ id: "remote" });
+      const checksum = sha256(Buffer.alloc(5, 7));
+      expect(result).toEqual({ file: { id: "remote" }, checksum });
       expect(uploadSmall).toHaveBeenCalledWith(
         {
           folderId: "folder",
           name: "notes.txt",
-          checksum: "hash",
-          modifiedAt: 1,
+          checksum,
+          modifiedAt: input.mtimeMs,
           replace: { id: "file-1", rev: 3 },
         },
         Buffer.alloc(5, 7),
@@ -277,7 +298,116 @@ describe("uploadFile", () => {
     }
   });
 
-  it("sends a big file's chunks a few at a time", async () => {
+  it("does not finish an upload when the file changes while it is read", async () => {
+    const chunk = 1024 * 1024;
+    const { dir, input } = await base(SMALL_UPLOAD_BYTES + 8 * chunk);
+    try {
+      const completeUpload = vi.fn();
+      const api = {
+        startUpload: async () => ({
+          id: "session",
+          chunkSizeBytes: chunk,
+          completedChunks: [],
+          receivedBytes: 0,
+        }),
+        uploadChunk: async (_id: string, start: number) => {
+          // Same size, one new byte: only the time shows the edit.
+          if (start !== 0) return;
+          const edit = await open(input.file, "r+");
+          await edit.write(Buffer.from([9]), 0, 1, input.size - 1);
+          await edit.close();
+        },
+        completeUpload,
+      };
+      await expect(
+        uploadFile({
+          ...input,
+          api: api as never,
+          store: { pendingUpload: () => null, putUpload: () => {} } as never,
+          replace: null,
+        }),
+      ).rejects.toThrow("The file changed while it was uploading.");
+      expect(completeUpload).not.toHaveBeenCalled();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("sends nothing from a file swapped in since the scan", async () => {
+    const chunk = 1024 * 1024;
+    const { dir, input } = await base(SMALL_UPLOAD_BYTES + 8 * chunk);
+    try {
+      // Another file with the same size and time takes its place.
+      const when = new Date(1_700_000_000_000);
+      await utimes(input.file, when, when);
+      const scanned = (await statLocal(dir, "notes.txt"))!;
+      const other = path.join(dir, "other");
+      await writeFile(other, Buffer.alloc(input.size, 9));
+      await utimes(other, when, when);
+      await rename(other, input.file);
+      const swapped = (await statLocal(dir, "notes.txt"))!;
+      expect(swapped.mtimeMs).toBe(scanned.mtimeMs);
+      expect(swapped.ino).not.toBe(scanned.ino);
+      const startUpload = vi.fn();
+      const uploadChunk = vi.fn();
+      await expect(
+        uploadFile({
+          ...input,
+          mtimeMs: scanned.mtimeMs,
+          ino: scanned.ino,
+          api: { startUpload, uploadChunk } as never,
+          store: { pendingUpload: () => null, putUpload: () => {} } as never,
+          replace: null,
+        }),
+      ).rejects.toThrow("The file changed while it was uploading.");
+      // No server session holds space for a file that cannot be sent.
+      expect(startUpload).not.toHaveBeenCalled();
+      expect(uploadChunk).not.toHaveBeenCalled();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  // Making links on Windows needs extra rights, and it has no flag to refuse them.
+  it.skipIf(process.platform === "win32")(
+    "sends nothing through a link swapped in on a disk with no file ids",
+    async () => {
+      for (const size of [5, SMALL_UPLOAD_BYTES + 1024]) {
+        const { dir, input } = await base(size);
+        try {
+          const outside = path.join(dir, "outside");
+          await writeFile(outside, Buffer.alloc(size, 9));
+          await rm(input.file);
+          await symlink(outside, input.file);
+          const target = (await statLocal(dir, "outside"))!;
+          const uploadSmall = vi.fn();
+          const startUpload = vi.fn();
+          const uploadChunk = vi.fn();
+          await expect(
+            uploadFile({
+              ...input,
+              // The link's target matches in everything a disk without ids can show.
+              mtimeMs: target.mtimeMs,
+              ino: UNKNOWN_INO,
+              api: { uploadSmall, startUpload, uploadChunk } as never,
+              store: {
+                pendingUpload: () => null,
+                putUpload: () => {},
+              } as never,
+              replace: null,
+            }),
+          ).rejects.toMatchObject({ code: "ELOOP" });
+          expect(uploadSmall).not.toHaveBeenCalled();
+          expect(startUpload).not.toHaveBeenCalled();
+          expect(uploadChunk).not.toHaveBeenCalled();
+        } finally {
+          await rm(dir, { recursive: true, force: true });
+        }
+      }
+    },
+  );
+
+  it("sends a big file's chunks a few at a time with the checksum of what it sent", async () => {
     const chunk = 1024 * 1024;
     const { dir, input } = await base(SMALL_UPLOAD_BYTES + 8 * chunk);
     try {
@@ -294,13 +424,19 @@ describe("uploadFile", () => {
         uploadChunk: async (_id: string, start: number) => {
           running += 1;
           most = Math.max(most, running);
-          await new Promise((resolve) => setTimeout(resolve, 2));
+          // Held until three are in flight, so a slow disk read in a busy
+          // test run cannot hide the limit.
+          const total = input.size / chunk;
+          for (let tries = 0; tries < 400; tries += 1) {
+            if (running >= 3 || sent.length + running >= total) break;
+            await new Promise((resolve) => setTimeout(resolve, 5));
+          }
           sent.push(start);
           running -= 1;
         },
-        completeUpload: async () => ({ id: "remote" }),
+        completeUpload: vi.fn(async () => ({ id: "remote" })),
       };
-      await uploadFile({
+      const result = await uploadFile({
         ...input,
         api: api as never,
         store: {
@@ -312,6 +448,13 @@ describe("uploadFile", () => {
       });
       expect(most).toBe(3);
       expect(sent).toHaveLength(input.size / chunk);
+      const checksum = sha256(Buffer.alloc(input.size, 7));
+      expect(api.completeUpload).toHaveBeenCalledWith(
+        "session",
+        checksum,
+        null,
+      );
+      expect(result).toEqual({ file: { id: "remote" }, checksum });
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

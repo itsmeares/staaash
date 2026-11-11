@@ -497,7 +497,6 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       if (Date.now() - local.mtimeMs < SETTLE_MS) return;
       const parentId = remoteIdAt(parentRel(rel));
       if (!parentId) return;
-      const checksum = await checksumOf(local);
       const now = await statLocal(pair.localPath, rel);
       if (!now || !sameStat(now, local)) return;
       const activity: Activity = {
@@ -510,7 +509,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         at: Date.now(),
       };
       const finish = track(activity);
-      const file = await uploadFile({
+      const { file, checksum } = await uploadFile({
         api,
         store,
         pairId: pair.id,
@@ -518,9 +517,9 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         file: full,
         folderId: parentId,
         name: baseName(rel),
-        checksum,
         size: local.size,
         mtimeMs: local.mtimeMs,
+        ino: local.ino,
         replace: action.replace
           ? { id: action.replace.remoteId, rev: action.replace.rev }
           : null,
@@ -540,13 +539,12 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     "keep-mine": async (action, rel, full) => {
       const { local, remote } = action;
       if (Date.now() - local.mtimeMs < SETTLE_MS) return;
-      const checksum = await checksumOf(local);
       const parentId = remote.parentId ?? remoteIdAt(parentRel(rel));
       if (!parentId) return;
       const copyName = baseName(
         conflictCopyName(rel, ctx.deviceName, new Date(), () => false),
       );
-      const copy = await uploadFile({
+      const { file: copy, checksum } = await uploadFile({
         api,
         store,
         pairId: pair.id,
@@ -554,9 +552,9 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         file: full,
         folderId: parentId,
         name: copyName,
-        checksum,
         size: local.size,
         mtimeMs: local.mtimeMs,
+        ino: local.ino,
         replace: null,
         throttle: ctx.uploads,
         meter: ctx.uploadMeter,

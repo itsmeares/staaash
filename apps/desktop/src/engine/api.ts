@@ -240,7 +240,6 @@ export const createApi = (
       folderId: string;
       name: string;
       size: number;
-      checksum: string;
       modifiedAt: number;
       replace: boolean;
     }) =>
@@ -253,7 +252,6 @@ export const createApi = (
               mimeType: "application/octet-stream",
               totalSizeBytes: input.size,
               conflictStrategy: input.replace ? "replace" : "fail",
-              expectedChecksum: input.checksum,
               clientModifiedAt: new Date(input.modifiedAt).toISOString(),
             },
           },
