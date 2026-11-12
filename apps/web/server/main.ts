@@ -53,6 +53,7 @@ const withClient = async () => {
       const id = c.req.param("id");
       const metadata = await getSharePageMetadata({
         token,
+        signal: c.req.raw.signal,
         baseUrl: getShareBaseUrl(c.req.raw.headers),
         folderId: kind === "folder" ? id : undefined,
         fileId: kind === "file" ? id : undefined,

@@ -4,11 +4,12 @@ import { createHash, randomBytes } from "node:crypto";
 
 import type { ShareTargetType } from "@staaash/db/client";
 import {
-  DERIVATIVE_KIND_POSTER,
+  DERIVATIVE_KIND_THUMBNAIL,
+  canHaveThumbnail,
   scheduleDerivativeGenerate,
   touchDerivativeShared,
   findReadyDerivative,
-  DERIVATIVE_PROFILE_SOCIAL_JPEG,
+  DERIVATIVE_PROFILE_THUMB,
   DERIVATIVE_KIND_PREVIEW,
   DERIVATIVE_PROFILE_1080P,
   isDerivativeKindEnabled,
@@ -208,33 +209,24 @@ type MediaPreviewSettings = {
   mediaPreviewThresholdBytes: bigint;
 };
 
-// The poster is the link picture chat apps show, so it follows the
-// thumbnails switch; only the smaller video copy follows the share trigger.
+// The thumbnail is the link card picture, so a single shared file gets it
+// queued right away. Folder cards show no file picture.
 const sharedDerivativesFor = (
   file: StoredFile,
   settings: MediaPreviewSettings,
-) =>
-  file.viewerKind !== "video"
-    ? []
-    : [
-        ...(isDerivativeKindEnabled(settings, DERIVATIVE_KIND_POSTER)
-          ? [
-              {
-                kind: DERIVATIVE_KIND_POSTER,
-                profile: DERIVATIVE_PROFILE_SOCIAL_JPEG,
-              },
-            ]
-          : []),
-        ...(shouldGenerateMediaPreview(settings, "share") &&
-        BigInt(file.sizeBytes) >= settings.mediaPreviewThresholdBytes
-          ? [
-              {
-                kind: DERIVATIVE_KIND_PREVIEW,
-                profile: DERIVATIVE_PROFILE_1080P,
-              },
-            ]
-          : []),
-      ];
+  targetType: ShareTargetType,
+) => [
+  ...(targetType === "file" &&
+  isDerivativeKindEnabled(settings, DERIVATIVE_KIND_THUMBNAIL) &&
+  canHaveThumbnail(file.mimeType, file.name)
+    ? [{ kind: DERIVATIVE_KIND_THUMBNAIL, profile: DERIVATIVE_PROFILE_THUMB }]
+    : []),
+  ...(file.viewerKind === "video" &&
+  shouldGenerateMediaPreview(settings, "share") &&
+  BigInt(file.sizeBytes) >= settings.mediaPreviewThresholdBytes
+    ? [{ kind: DERIVATIVE_KIND_PREVIEW, profile: DERIVATIVE_PROFILE_1080P }]
+    : []),
+];
 
 const ensureSharedDerivative = async ({
   fileId,
@@ -243,8 +235,8 @@ const ensureSharedDerivative = async ({
   now,
 }: {
   fileId: string;
-  kind: "preview" | "poster";
-  profile: "preview-1080p" | "social-jpeg";
+  kind: "preview" | "thumbnail";
+  profile: "preview-1080p" | "thumb-480";
   now: Date;
 }) => {
   const existing = await findReadyDerivative(fileId, kind, profile);
@@ -296,7 +288,7 @@ const schedulePreviewsForShare = async ({
 
   await Promise.all(
     sharedFiles.flatMap((f) =>
-      sharedDerivativesFor(f, settings).map((derivative) =>
+      sharedDerivativesFor(f, settings, targetType).map((derivative) =>
         ensureSharedDerivative({ fileId: f.id, ...derivative, now }),
       ),
     ),
@@ -1022,7 +1014,7 @@ export const createSharingService = ({
         revokedAt: null,
       });
 
-      void schedulePreviewsForShare({
+      const scheduling = schedulePreviewsForShare({
         targetType,
         file,
         folderId: folderId ?? null,
@@ -1033,6 +1025,7 @@ export const createSharingService = ({
       }).catch((err: unknown) => {
         console.error("[sharing] Failed to schedule preview generation.", err);
       });
+      if (targetType === "file") await scheduling;
 
       return {
         share: savedShare,

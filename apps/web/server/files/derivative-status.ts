@@ -4,10 +4,19 @@ import {
   buildDerivativeDedupeKey,
   DERIVATIVE_KIND_PREVIEW,
   DERIVATIVE_PROFILE_1080P,
+  DERIVATIVE_KIND_THUMBNAIL,
+  DERIVATIVE_PROFILE_THUMB,
 } from "@staaash/db/media-derivatives";
 
 /** The caller must authorize access to the private file before reading its job state. */
-export async function getPrivatePreviewStatus(fileId: string) {
+export async function getPrivatePreviewStatus(
+  fileId: string,
+  kind: "preview" | "thumbnail" = DERIVATIVE_KIND_PREVIEW,
+) {
+  const profile =
+    kind === DERIVATIVE_KIND_THUMBNAIL
+      ? DERIVATIVE_PROFILE_THUMB
+      : DERIVATIVE_PROFILE_1080P;
   const db = getPrisma();
   // Read one snapshot: a job can finish between the two status queries.
   const [job, derivative] = await db.$transaction(
@@ -15,11 +24,7 @@ export async function getPrivatePreviewStatus(fileId: string) {
       db.backgroundJob.findFirst({
         where: {
           kind: MEDIA_DERIVATIVE_GENERATE_JOB_KIND,
-          dedupeKey: buildDerivativeDedupeKey(
-            fileId,
-            DERIVATIVE_KIND_PREVIEW,
-            DERIVATIVE_PROFILE_1080P,
-          ),
+          dedupeKey: buildDerivativeDedupeKey(fileId, kind, profile),
         },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         select: { id: true, status: true },
@@ -28,8 +33,8 @@ export async function getPrivatePreviewStatus(fileId: string) {
         where: {
           fileId_kind_profile: {
             fileId,
-            kind: DERIVATIVE_KIND_PREVIEW,
-            profile: DERIVATIVE_PROFILE_1080P,
+            kind,
+            profile,
           },
         },
         select: { status: true, generatedAt: true, generationJobId: true },

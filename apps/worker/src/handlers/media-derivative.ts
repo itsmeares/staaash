@@ -5,11 +5,9 @@ import { getPrisma } from "@staaash/db/client";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import { StorageAdmissionCancelledError } from "@staaash/db/storage-transactions";
 import {
-  DERIVATIVE_KIND_POSTER,
   DERIVATIVE_KIND_PREVIEW,
   DERIVATIVE_KIND_THUMBNAIL,
   DERIVATIVE_PROFILE_1080P,
-  DERIVATIVE_PROFILE_SOCIAL_JPEG,
   DERIVATIVE_PROFILE_THUMB,
   DERIVATIVE_STATUS_FAILED,
   DERIVATIVE_STATUS_PROCESSING,
@@ -32,7 +30,6 @@ import { safeResolveStoragePath } from "../storage-maintenance.js";
 import {
   getFfmpegHealth,
   isStreamCopyCompatible,
-  runFfmpegPoster,
   runFfmpegStreamCopy,
   runFfmpegThumbnail,
   runFfmpegTranscode,
@@ -127,6 +124,8 @@ export const handleMediaDerivativeGenerate = async (
   }
 
   const payload = parsePayload(job.payloadJson);
+  // Releases before link cards used thumbnails queued share posters.
+  if (payload.kind === "poster") return;
   const prisma = getPrisma() as unknown as PrismaClient;
 
   const rawSettings = await prisma.systemSettings.findUnique({
@@ -144,9 +143,7 @@ export const handleMediaDerivativeGenerate = async (
   const isThumbnail = payload.kind === DERIVATIVE_KIND_THUMBNAIL;
   const kind = isThumbnail
     ? DERIVATIVE_KIND_THUMBNAIL
-    : payload.kind === DERIVATIVE_KIND_POSTER
-      ? DERIVATIVE_KIND_POSTER
-      : DERIVATIVE_KIND_PREVIEW;
+    : DERIVATIVE_KIND_PREVIEW;
   if (!isDerivativeKindEnabled(settings, kind)) {
     return;
   }
@@ -177,11 +174,7 @@ export const handleMediaDerivativeGenerate = async (
 
   const profile = isThumbnail
     ? DERIVATIVE_PROFILE_THUMB
-    : kind === DERIVATIVE_KIND_POSTER
-      ? DERIVATIVE_PROFILE_SOCIAL_JPEG
-      : DERIVATIVE_PROFILE_1080P;
-  // Posters and thumbnails are single JPEG frames.
-  const isPoster = kind !== DERIVATIVE_KIND_PREVIEW;
+    : DERIVATIVE_PROFILE_1080P;
 
   if (
     kind === DERIVATIVE_KIND_PREVIEW &&
@@ -235,7 +228,7 @@ export const handleMediaDerivativeGenerate = async (
   const tmpDir = path.resolve(storagePaths.tmpRoot, "derivatives");
   const tmpPath = path.resolve(
     tmpDir,
-    `${derivative.id}.${isPoster ? "jpg" : "mp4"}.tmp`,
+    `${derivative.id}.${isThumbnail ? "jpg" : "mp4"}.tmp`,
   );
 
   await mkdir(tmpDir, { recursive: true });
@@ -290,17 +283,11 @@ export const handleMediaDerivativeGenerate = async (
       return;
     }
     await context?.updateProgress({
-      stage: isThumbnail
-        ? "capturing-thumbnail"
-        : isPoster
-          ? "capturing-poster"
-          : "encoding",
+      stage: isThumbnail ? "capturing-thumbnail" : "encoding",
       fileId: file.id,
     });
     if (isThumbnail) {
       await runFfmpegThumbnail(inputPath, tmpPath, isVideo, controller.signal);
-    } else if (isPoster) {
-      await runFfmpegPoster(inputPath, tmpPath, controller.signal);
     } else if (isStreamCopyCompatible(probe, settings.mediaPreviewMaxHeight)) {
       await runFfmpegStreamCopy(inputPath, tmpPath, controller.signal);
     } else {
@@ -337,11 +324,11 @@ export const handleMediaDerivativeGenerate = async (
   const visualStream = outputProbe.streams.find(
     (s) => s.codec_type === "video",
   );
-  const audioStream = isPoster
+  const audioStream = isThumbnail
     ? null
     : outputProbe.streams.find((s) => s.codec_type === "audio");
   const durationSeconds =
-    !isPoster && outputProbe.format.duration
+    !isThumbnail && outputProbe.format.duration
       ? parseFloat(outputProbe.format.duration)
       : null;
 
@@ -377,12 +364,12 @@ export const handleMediaDerivativeGenerate = async (
   const generatedAt = job.createdAt;
   const readyData = {
     storageKey,
-    mimeType: isPoster ? "image/jpeg" : "video/mp4",
+    mimeType: isThumbnail ? "image/jpeg" : "video/mp4",
     sizeBytes: String(outputStats.size),
     width: visualStream?.width ?? null,
     height: visualStream?.height ?? null,
     durationSeconds: Number.isFinite(durationSeconds) ? durationSeconds : null,
-    videoCodec: isPoster ? null : (visualStream?.codec_name ?? null),
+    videoCodec: isThumbnail ? null : (visualStream?.codec_name ?? null),
     audioCodec: audioStream?.codec_name ?? null,
     generatedAt: generatedAt.toISOString(),
     status: "ready",

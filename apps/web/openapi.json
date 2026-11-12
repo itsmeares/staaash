@@ -6970,6 +6970,35 @@
         }
       }
     },
+    "/s/{token}/thumbnail": {
+      "get": {
+        "tags": [
+          "Public links"
+        ],
+        "summary": "A shared file's ready JPEG thumbnail, used as its link card picture.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "token",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The bytes."
+          },
+          "307": {
+            "description": "Go to the content."
+          },
+          "404": {
+            "description": "Unavailable."
+          }
+        }
+      }
+    },
     "/s/{token}/content": {
       "get": {
         "tags": [
@@ -7136,7 +7165,7 @@
         "tags": [
           "Public links"
         ],
-        "summary": "A shared video's poster image.",
+        "summary": "Same as /s/{token}/thumbnail. Link cards from older versions use it.",
         "parameters": [
           {
             "schema": {
@@ -7165,7 +7194,7 @@
         "tags": [
           "Public links"
         ],
-        "summary": "The poster image of a video in a shared folder.",
+        "summary": "Same as /s/{token}/files/{fileId}/thumbnail. Link cards from older versions use it.",
         "parameters": [
           {
             "schema": {

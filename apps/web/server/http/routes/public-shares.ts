@@ -21,9 +21,7 @@ import {
 import {
   createArchiveResponse,
   createFileDownloadResponse,
-  createPosterErrorResponse,
   createPublicShareContentRouteResponse,
-  createSharePosterResponse,
   createShareErrorResponse,
   createShareThumbnailResponse,
 } from "@/server/sharing/public-responses";
@@ -82,12 +80,12 @@ const archive = bytes(
 const poster = bytes(
   "/s/{token}/poster",
   TokenParams,
-  "A shared video's poster image.",
+  "Same as /s/{token}/thumbnail. Link cards from older versions use it.",
 );
 const nestedPoster = bytes(
   "/s/{token}/files/{fileId}/poster",
   FileParams,
-  "The poster image of a video in a shared folder.",
+  "Same as /s/{token}/files/{fileId}/thumbnail. Link cards from older versions use it.",
 );
 const preview = bytes(
   "/s/{token}/preview",
@@ -105,6 +103,11 @@ const thumbnail = bytes(
   "A ready thumbnail of a file in a shared folder.",
 );
 
+const rootThumbnail = bytes(
+  "/s/{token}/thumbnail",
+  TokenParams,
+  "A shared file's ready JPEG thumbnail, used as its link card picture.",
+);
 const unlock = createRoute({
   method: "post",
   path: "/s/{token}/unlock",
@@ -143,7 +146,7 @@ const notPreviewable = () =>
     headers: { "content-type": "text/plain; charset=utf-8" },
   });
 
-/** Posters and thumbnails hide why they are missing. */
+/** Thumbnails hide why they are missing. */
 const imageError = (error: unknown) => {
   if (error instanceof StorageEntityUnavailableError) {
     return Response.json(
@@ -156,10 +159,19 @@ const imageError = (error: unknown) => {
   }
   if (error instanceof MediaContentError)
     return createMediaErrorResponse(error);
-  return createPosterErrorResponse();
+  return createMediaErrorResponse(
+    new MediaContentError(404, "Thumbnail is unavailable."),
+  );
 };
 
 const routes = router()
+  .openapi(rootThumbnail, (c) =>
+    createShareThumbnailResponse({
+      request: c.req.raw,
+      ...c.req.valid("param"),
+      shareAccessCookieValue: accessCookie(c),
+    }).catch(imageError),
+  )
   .openapi(content, (c) =>
     createPublicShareContentRouteResponse({
       request: c.req.raw,
@@ -202,14 +214,14 @@ const routes = router()
     ),
   )
   .openapi(poster, (c) =>
-    createSharePosterResponse({
+    createShareThumbnailResponse({
       request: c.req.raw,
       token: c.req.valid("param").token,
       shareAccessCookieValue: accessCookie(c),
     }).catch(imageError),
   )
   .openapi(nestedPoster, (c) =>
-    createSharePosterResponse({
+    createShareThumbnailResponse({
       request: c.req.raw,
       ...c.req.valid("param"),
       shareAccessCookieValue: accessCookie(c),
