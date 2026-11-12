@@ -533,4 +533,32 @@ describe("share metadata", () => {
     expect(metadata.openGraph.videos).toBeUndefined();
     expect(metadata.openGraph.images).toBeUndefined();
   });
+
+  it.each([
+    ["single-file", undefined],
+    ["folder", "nested-file"],
+  ])(
+    "hides a %s link's details if a password is added during the picture wait",
+    async (_kind, fileId) => {
+      const first = fileId ? makeFolderResolution() : makeFileResolution();
+      mocks.resolvePublicShareContext
+        .mockResolvedValueOnce(first)
+        .mockResolvedValueOnce({
+          ...first,
+          share: makeShare({ hasPassword: true }),
+        });
+      mocks.getSharedNestedFileContent.mockResolvedValue({
+        file: makeFile({ id: "nested-file" }),
+      });
+
+      const metadata = await getSharePageMetadata({
+        baseUrl: "https://files.example",
+        token: "token",
+        fileId,
+      });
+
+      expect(metadata.title).toBe("Ares Cloud share");
+      expect((metadata.openGraph as OpenGraphForTest).images).toBeUndefined();
+    },
+  );
 });

@@ -19,6 +19,11 @@ const mocks = vi.hoisted(() => ({
   getStoragePath: vi.fn(),
   getSharedFileContent: vi.fn(),
   assertStorageEntityReadable: vi.fn(),
+  queueCardPicture: vi.fn(),
+}));
+
+vi.mock("@/server/sharing/chat-media", () => ({
+  queueCardPicture: mocks.queueCardPicture,
 }));
 
 class TestStorageEntityUnavailableError extends Error {
@@ -155,6 +160,7 @@ describe("public share thumbnail route", () => {
 
     expect(response.status).toBe(404);
     expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(mocks.queueCardPicture).toHaveBeenCalledWith("file-1");
   });
 
   it("refuses a locked share before reading its thumbnail", async () => {

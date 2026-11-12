@@ -342,6 +342,19 @@ export const getSharePageMetadata = async ({
       },
     });
 
+  // The card can wait seconds for its picture; a password or revocation
+  // added meanwhile must still hide the file's name and size.
+  const stillShared = async (metadata: Metadata) =>
+    shouldExposeShareDetails(
+      await sharingService.resolvePublicShareContext({
+        token,
+        shareAccessCookieValue,
+        baseUrl,
+      }),
+    )
+      ? metadata
+      : fallbackMetadata();
+
   try {
     const resolution = await sharingService.resolvePublicShareContext({
       token,
@@ -365,22 +378,26 @@ export const getSharePageMetadata = async ({
         shareAccessCookieValue,
       });
 
-      return await buildFileMetadata(
-        file,
-        buildFileSharePath(token, file.id),
-        baseUrl,
-        instanceName,
-        signal,
+      return await stillShared(
+        await buildFileMetadata(
+          file,
+          buildFileSharePath(token, file.id),
+          baseUrl,
+          instanceName,
+          signal,
+        ),
       );
     }
 
     if (resolution.kind === "file") {
-      return await buildFileMetadata(
-        resolution.file,
-        buildRootSharePath(token),
-        baseUrl,
-        instanceName,
-        signal,
+      return await stillShared(
+        await buildFileMetadata(
+          resolution.file,
+          buildRootSharePath(token),
+          baseUrl,
+          instanceName,
+          signal,
+        ),
       );
     }
 

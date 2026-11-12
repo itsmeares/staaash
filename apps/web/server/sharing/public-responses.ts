@@ -4,6 +4,7 @@ import type { Readable } from "node:stream";
 import {
   DERIVATIVE_KIND_THUMBNAIL,
   DERIVATIVE_PROFILE_THUMB,
+  canHaveThumbnail,
   findReadyDerivative,
 } from "@staaash/db/media-derivatives";
 
@@ -18,6 +19,7 @@ import {
   createPublicShareContentResponse,
 } from "@/server/media/public-share-content-response";
 import { sharingService } from "@/server/sharing/service";
+import { queueCardPicture } from "@/server/sharing/chat-media";
 import { createRangeResponseFromPath } from "@/server/downloads/range-response";
 import { prismaFilesRepository } from "@/server/files/repository";
 import { ShareError, isShareError } from "@/server/sharing/errors";
@@ -91,8 +93,8 @@ export const createShareErrorResponse = (error: unknown) => {
 };
 
 /**
- * A ready thumbnail of a shared file. It is also the link card picture, which
- * the share page queues when it is missing.
+ * A ready thumbnail of a shared file, also used as its link card picture. A
+ * missing one is queued, so a later request finds it.
  */
 export const createShareThumbnailResponse = async ({
   request,
@@ -121,8 +123,12 @@ export const createShareThumbnailResponse = async ({
     DERIVATIVE_KIND_THUMBNAIL,
     DERIVATIVE_PROFILE_THUMB,
   );
-  if (!derivative)
+  if (!derivative) {
+    // Cards already posted in chats ask for the picture directly.
+    if (canHaveThumbnail(file.mimeType, file.name))
+      await queueCardPicture(file.id).catch(() => {});
     throw new MediaContentError(404, "Thumbnail is unavailable.");
+  }
   return createPublicReadyDerivativeContentResponse({
     request,
     derivative,

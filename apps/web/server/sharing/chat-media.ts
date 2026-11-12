@@ -28,6 +28,29 @@ const findReadyPicture = async (fileId: string) => {
   return { type: "image/jpeg", width, height };
 };
 
+const isPending = (status: string) => ["queued", "processing"].includes(status);
+
+/**
+ * Queues a missing card picture unless one is on its way, generation failed,
+ * or thumbnails are off. Returns whether a picture is on its way.
+ */
+export const queueCardPicture = async (fileId: string) => {
+  const { status } = await getPrivatePreviewStatus(fileId, "thumbnail");
+  if (isPending(status)) return true;
+  if (
+    status === "failed" ||
+    !isDerivativeKindEnabled(await getSystemSettings(), "thumbnail")
+  )
+    return false;
+  await scheduleDerivativeGenerate({
+    fileId,
+    kind: DERIVATIVE_KIND_THUMBNAIL,
+    profile: DERIVATIVE_PROFILE_THUMB,
+    reason: "first-view",
+  });
+  return true;
+};
+
 /**
  * The thumbnail a chat card shows. Chat apps fetch a pasted link within
  * seconds and keep the first card, so a missing thumbnail is queued here and
@@ -43,29 +66,17 @@ export const getCardPicture = async (
   )
     return null;
   const ready = await findReadyPicture(file.id);
-  if (ready) return ready;
-
-  let { status } = await getPrivatePreviewStatus(file.id, "thumbnail");
-  if (!["queued", "processing", "failed"].includes(status)) {
-    if (!isDerivativeKindEnabled(await getSystemSettings(), "thumbnail"))
-      return null;
-    await scheduleDerivativeGenerate({
-      fileId: file.id,
-      kind: DERIVATIVE_KIND_THUMBNAIL,
-      profile: DERIVATIVE_PROFILE_THUMB,
-      reason: "first-view",
-    });
-    status = "queued";
-  }
+  if (ready || !(await queueCardPicture(file.id))) return ready;
 
   const deadline = Date.now() + PICTURE_WAIT_MS;
-  while (["queued", "processing"].includes(status) && Date.now() < deadline) {
+  while (Date.now() < deadline) {
     await setTimeout(Math.min(500, deadline - Date.now()), undefined, {
       signal,
     });
     const picture = await findReadyPicture(file.id);
     if (picture) return picture;
-    ({ status } = await getPrivatePreviewStatus(file.id, "thumbnail"));
+    const { status } = await getPrivatePreviewStatus(file.id, "thumbnail");
+    if (!isPending(status)) return null;
   }
   return null;
 };
