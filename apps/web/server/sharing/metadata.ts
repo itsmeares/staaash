@@ -378,15 +378,20 @@ export const getSharePageMetadata = async ({
         shareAccessCookieValue,
       });
 
-      return await stillShared(
-        await buildFileMetadata(
-          file,
-          buildFileSharePath(token, file.id),
-          baseUrl,
-          instanceName,
-          signal,
-        ),
+      const metadata = await buildFileMetadata(
+        file,
+        buildFileSharePath(token, file.id),
+        baseUrl,
+        instanceName,
+        signal,
       );
+      // Throws if the file left the shared folder during the wait.
+      await sharingService.getSharedNestedFileContent({
+        token,
+        fileId,
+        shareAccessCookieValue,
+      });
+      return await stillShared(metadata);
     }
 
     if (resolution.kind === "file") {

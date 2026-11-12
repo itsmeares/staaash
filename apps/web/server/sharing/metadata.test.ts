@@ -561,4 +561,19 @@ describe("share metadata", () => {
       expect((metadata.openGraph as OpenGraphForTest).images).toBeUndefined();
     },
   );
+
+  it("hides a nested file that leaves the shared folder during the picture wait", async () => {
+    mocks.resolvePublicShareContext.mockResolvedValue(makeFolderResolution());
+    mocks.getSharedNestedFileContent
+      .mockResolvedValueOnce({ file: makeFile({ id: "nested-file" }) })
+      .mockRejectedValueOnce(new Error("File is no longer shared."));
+
+    const metadata = await getSharePageMetadata({
+      baseUrl: "https://files.example",
+      token: "token",
+      fileId: "nested-file",
+    });
+
+    expect(metadata.title).toBe("Ares Cloud share");
+  });
 });
