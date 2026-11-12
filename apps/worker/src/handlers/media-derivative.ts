@@ -116,6 +116,11 @@ export const handleMediaDerivativeGenerate = async (
   storagePaths: WorkerStoragePaths,
   context?: JobContext,
 ): Promise<void> => {
+  // Releases before link cards used thumbnails queued share posters. They
+  // finish without FFmpeg too, so they never sit failing in the queue.
+  const payload = parsePayload(job.payloadJson);
+  if (payload.kind === "poster") return;
+
   const health = getFfmpegHealth();
   if (!health.available) {
     throw new Error(
@@ -123,9 +128,6 @@ export const handleMediaDerivativeGenerate = async (
     );
   }
 
-  const payload = parsePayload(job.payloadJson);
-  // Releases before link cards used thumbnails queued share posters.
-  if (payload.kind === "poster") return;
   const prisma = getPrisma() as unknown as PrismaClient;
 
   const rawSettings = await prisma.systemSettings.findUnique({

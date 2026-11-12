@@ -69,6 +69,11 @@ describe("card video", () => {
     });
   });
 
+  it("offers a ready web copy even when its size is unknown", async () => {
+    mocks.video.mockResolvedValue({ ...copy, width: null, height: null });
+    expect(await getCardVideo(file)).toEqual({ type: "video/mp4" });
+  });
+
   it("never offers a large original without a ready web copy", async () => {
     mocks.video.mockResolvedValue(null);
     expect(await getCardVideo(file)).toBeNull();

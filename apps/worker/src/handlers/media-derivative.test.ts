@@ -273,6 +273,7 @@ describe("media derivative handler", () => {
   });
 
   it("finishes a poster job queued by an older release without making a file", async () => {
+    mocks.getFfmpegHealth.mockReturnValue({ available: false });
     const posterJob = createJob();
     posterJob.payloadJson = {
       fileId: "file-1",

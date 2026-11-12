@@ -92,11 +92,12 @@ export const getCardVideo = async (file: FileSummary) => {
   const height = copy?.height ?? 0;
   if (
     copy?.storageKey &&
-    normalizeMimeType(copy.mimeType ?? "") === "video/mp4" &&
-    width > 0 &&
-    height > 0
+    normalizeMimeType(copy.mimeType ?? "") === "video/mp4"
   )
-    return { type: "video/mp4", width, height };
+    return {
+      type: "video/mp4",
+      ...(width > 0 && height > 0 ? { width, height } : {}),
+    };
 
   const type = normalizeMimeType(file.mimeType);
   const { mediaPreviewThresholdBytes } = await getSystemSettings();
