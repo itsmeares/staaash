@@ -25,7 +25,7 @@ describe("ffmpeg helpers", () => {
     vi.resetModules();
   });
 
-  it("retries poster capture at the start when the 1s frame fails", async () => {
+  it("retries a video thumbnail at the start when the 1s frame fails", async () => {
     const spawnMock = vi
       .fn()
       .mockReturnValueOnce(createProcess(1))
@@ -37,11 +37,11 @@ describe("ffmpeg helpers", () => {
     }));
     vi.resetModules();
 
-    const { runFfmpegPoster } = await import("./ffmpeg.js");
+    const { runFfmpegThumbnail } = await import("./ffmpeg.js");
 
-    await expect(runFfmpegPoster("input.mp4", "poster.jpg")).resolves.toBe(
-      undefined,
-    );
+    await expect(
+      runFfmpegThumbnail("input.mp4", "thumb.jpg", true),
+    ).resolves.toBe(undefined);
 
     expect(spawnMock).toHaveBeenCalledTimes(2);
     expect(spawnMock.mock.calls[0]?.[1]).toEqual(
@@ -161,9 +161,9 @@ describe("media child process lifetime", () => {
 
   it("bounds a stuck frame capture without retrying the same input", async () => {
     vi.useFakeTimers();
-    const { proc, spawn, runFfmpegPoster } = await stalledProcess();
+    const { proc, spawn, runFfmpegThumbnail } = await stalledProcess();
     const result = expect(
-      runFfmpegPoster("source.mp4", "poster.jpg"),
+      runFfmpegThumbnail("source.mp4", "thumb.jpg", true),
     ).rejects.toMatchObject({ name: "TimeoutError" });
     await vi.advanceTimersByTimeAsync(120000);
     expect(proc.kill).toHaveBeenCalledWith("SIGTERM");

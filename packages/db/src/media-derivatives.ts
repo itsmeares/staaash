@@ -8,10 +8,8 @@ import {
 } from "./jobs";
 
 export const DERIVATIVE_KIND_PREVIEW = "preview" as const;
-export const DERIVATIVE_KIND_POSTER = "poster" as const;
 export const DERIVATIVE_KIND_THUMBNAIL = "thumbnail" as const;
 export const DERIVATIVE_PROFILE_1080P = "preview-1080p" as const;
-export const DERIVATIVE_PROFILE_SOCIAL_JPEG = "social-jpeg" as const;
 export const DERIVATIVE_PROFILE_THUMB = "thumb-480" as const;
 
 export const DERIVATIVE_STATUS_QUEUED = "queued" as const;
@@ -22,11 +20,9 @@ export const DERIVATIVE_STATUS_STALE = "stale" as const;
 
 export type DerivativeKind =
   | typeof DERIVATIVE_KIND_PREVIEW
-  | typeof DERIVATIVE_KIND_POSTER
   | typeof DERIVATIVE_KIND_THUMBNAIL;
 export type DerivativeProfile =
   | typeof DERIVATIVE_PROFILE_1080P
-  | typeof DERIVATIVE_PROFILE_SOCIAL_JPEG
   | typeof DERIVATIVE_PROFILE_THUMB;
 
 export type DerivativeStatus =
@@ -37,7 +33,7 @@ export type DerivativeStatus =
   | typeof DERIVATIVE_STATUS_STALE;
 
 /**
- * Thumbnails and posters are small stills on their own switch; only smaller
+ * Thumbnails are small stills on their own switch; only smaller
  * video copies (`preview`) follow the heavier video switch.
  */
 export const isDerivativeKindEnabled = (
@@ -106,11 +102,7 @@ export const buildDerivativeStorageKey = (
   profile: DerivativeProfile,
 ): string => {
   const fileName =
-    profile === DERIVATIVE_PROFILE_SOCIAL_JPEG
-      ? "social-poster.jpg"
-      : profile === DERIVATIVE_PROFILE_THUMB
-        ? "thumb-480.jpg"
-        : `${profile}.mp4`;
+    profile === DERIVATIVE_PROFILE_THUMB ? "thumb-480.jpg" : `${profile}.mp4`;
   return `derivatives/${ownerUserId}/${fileId}/${fileName}`;
 };
 
@@ -160,17 +152,6 @@ export const findReadyDerivative = async (
   client?: DerivativeClient,
 ): Promise<MediaDerivativeRecord | null> =>
   findDerivative(fileId, kind, profile, client, DERIVATIVE_STATUS_READY);
-
-export const findReadyPosterDerivative = async (
-  fileId: string,
-  client?: DerivativeClient,
-): Promise<MediaDerivativeRecord | null> =>
-  findReadyDerivative(
-    fileId,
-    DERIVATIVE_KIND_POSTER,
-    DERIVATIVE_PROFILE_SOCIAL_JPEG,
-    client,
-  );
 
 export const findDerivative = async (
   fileId: string,

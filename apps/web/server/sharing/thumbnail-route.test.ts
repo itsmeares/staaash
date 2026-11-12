@@ -14,11 +14,16 @@ import {
 
 const mocks = vi.hoisted(() => ({
   cookieGet: vi.fn(),
-  findReadyPosterDerivative: vi.fn(),
+  findReadyDerivative: vi.fn(),
   getSharedNestedFileContent: vi.fn(),
   getStoragePath: vi.fn(),
   getSharedFileContent: vi.fn(),
   assertStorageEntityReadable: vi.fn(),
+  queueCardPicture: vi.fn(),
+}));
+
+vi.mock("@/server/sharing/chat-media", () => ({
+  queueCardPicture: mocks.queueCardPicture,
 }));
 
 class TestStorageEntityUnavailableError extends Error {
@@ -42,8 +47,9 @@ vi.mock("@/server/storage-read-guard", () => ({
     ),
 }));
 
-vi.mock("@staaash/db/media-derivatives", () => ({
-  findReadyPosterDerivative: mocks.findReadyPosterDerivative,
+vi.mock("@staaash/db/media-derivatives", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/media-derivatives")>()),
+  findReadyDerivative: mocks.findReadyDerivative,
 }));
 
 vi.mock("@/server/storage", () => ({
@@ -80,25 +86,25 @@ const makeResolution = (overrides: object = {}) => ({
   ...overrides,
 });
 
-describe("public share poster route", () => {
+describe("public share thumbnail route", () => {
   let tempDir = "";
-  let posterPath = "";
+  let thumbPath = "";
 
   beforeAll(async () => {
-    tempDir = await mkdtemp(path.join(os.tmpdir(), "staaash-poster-route-"));
-    posterPath = path.join(tempDir, "poster.jpg");
-    await writeFile(posterPath, "poster-bytes", "utf8");
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "staaash-thumbnail-route-"));
+    thumbPath = path.join(tempDir, "thumb.jpg");
+    await writeFile(thumbPath, "thumb-bytes", "utf8");
   });
 
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.cookieGet.mockReturnValue(null);
-    mocks.getStoragePath.mockReturnValue(posterPath);
+    mocks.getStoragePath.mockReturnValue(thumbPath);
     mocks.getSharedFileContent.mockResolvedValue(makeResolution());
-    mocks.findReadyPosterDerivative.mockResolvedValue({
-      storageKey: "derivatives/user-1/file-1/social-poster.jpg",
+    mocks.findReadyDerivative.mockResolvedValue({
+      storageKey: "derivatives/user-1/file-1/thumb-480.jpg",
       mimeType: "image/jpeg",
-      sizeBytes: 12n,
+      sizeBytes: 11n,
     });
   });
 
@@ -106,30 +112,33 @@ describe("public share poster route", () => {
     await rm(tempDir, { recursive: true, force: true });
   });
 
-  it("returns a ready poster for active public video shares", async () => {
-    const { app } = await import("@/server/http/app");
+  it.each(["thumbnail", "poster"])(
+    "returns the ready thumbnail from /s/token/%s",
+    async (action) => {
+      const { app } = await import("@/server/http/app");
 
-    const response = await app.request(
-      new Request("http://localhost/s/token/poster"),
-    );
+      const response = await app.request(
+        new Request(`http://localhost/s/token/${action}`),
+      );
 
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("image/jpeg");
-    expect(response.headers.get("content-length")).toBe("12");
-    expect(response.headers.get("content-disposition")).toMatch(/^inline;/u);
-    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
-    expect(response.headers.get("content-security-policy")).toBe(
-      "sandbox; default-src 'none'; form-action 'none'; base-uri 'none'",
-    );
-    expect(await response.text()).toBe("poster-bytes");
-  });
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toBe("image/jpeg");
+      expect(response.headers.get("content-length")).toBe("11");
+      expect(response.headers.get("content-disposition")).toMatch(/^inline;/u);
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+      expect(response.headers.get("content-security-policy")).toBe(
+        "sandbox; default-src 'none'; form-action 'none'; base-uri 'none'",
+      );
+      expect(await response.text()).toBe("thumb-bytes");
+    },
+  );
 
-  it("returns a ready poster for nested files in folder shares", async () => {
+  it("returns the ready thumbnail for nested files in folder shares", async () => {
     const { app } = await import("@/server/http/app");
     mocks.getSharedNestedFileContent.mockResolvedValue(makeResolution());
 
     const response = await app.request(
-      new Request("http://localhost/s/token/files/file-1/poster"),
+      new Request("http://localhost/s/token/files/file-1/thumbnail"),
     );
 
     expect(response.status).toBe(200);
@@ -141,31 +150,32 @@ describe("public share poster route", () => {
     });
   });
 
-  it("returns 404 when the poster is not ready", async () => {
+  it("returns an uncached 404 when the thumbnail is not ready", async () => {
     const { app } = await import("@/server/http/app");
-    mocks.findReadyPosterDerivative.mockResolvedValue(null);
+    mocks.findReadyDerivative.mockResolvedValue(null);
 
     const response = await app.request(
-      new Request("http://localhost/s/token/poster"),
+      new Request("http://localhost/s/token/thumbnail"),
     );
 
     expect(response.status).toBe(404);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(mocks.queueCardPicture).toHaveBeenCalledWith("file-1");
   });
 
-  it("returns 404 for passworded shares", async () => {
+  it("refuses a locked share before reading its thumbnail", async () => {
     const { app } = await import("@/server/http/app");
-    mocks.getSharedFileContent.mockResolvedValue(
-      makeResolution({
-        hasPassword: true,
-      }),
+    const { ShareError } = await import("@/server/sharing/errors");
+    mocks.getSharedFileContent.mockRejectedValue(
+      new ShareError("SHARE_PASSWORD_REQUIRED"),
     );
 
     const response = await app.request(
-      new Request("http://localhost/s/token/poster"),
+      new Request("http://localhost/s/token/thumbnail"),
     );
 
     expect(response.status).toBe(404);
-    expect(mocks.findReadyPosterDerivative).not.toHaveBeenCalled();
+    expect(mocks.findReadyDerivative).not.toHaveBeenCalled();
   });
 
   it("returns fail-closed recovery state for a blocked source file", async () => {
@@ -175,11 +185,11 @@ describe("public share poster route", () => {
     );
 
     const response = await app.request(
-      new Request("http://localhost/s/token/poster"),
+      new Request("http://localhost/s/token/thumbnail"),
     );
 
     expect(response.status).toBe(503);
     expect(response.headers.get("X-Storage-Mutation-Id")).toBe("mutation-1");
-    expect(mocks.findReadyPosterDerivative).not.toHaveBeenCalled();
+    expect(mocks.findReadyDerivative).not.toHaveBeenCalled();
   });
 });

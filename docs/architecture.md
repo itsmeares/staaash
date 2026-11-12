@@ -32,7 +32,8 @@ This is intentionally a small, explicit architecture. The repo is trying to make
   its existing separate limit
 
 All three job slots use the default database queue. The small-media slot accepts
-thumbnail and poster jobs, including existing queued jobs and retries. Full video
+thumbnail jobs, including existing queued jobs and retries, and finishes poster
+jobs left by older releases without generating anything. Full video
 previews and unknown payload kinds stay in the general slot. Payload validation
 rejects unsupported media kinds before starting a handler. Media decoders, filters
 and encoders use one thread each. Probes have a one-minute limit and individual
@@ -85,11 +86,15 @@ possible byte and fail closed until an operator investigates.
 - active originals use `files/<storageId>/<logical hierarchy>`
 - newly trashed roots use isolated readable paths below `.trash/<storageId>/`
 - generated derivatives and archives stay below `derivatives/` and `archives/`
-- thumbnails and share posters follow the Thumbnails setting and are queued
-  after upload or when a private list asks for a missing one; smaller video
-  copies follow their own setting and its upload, first-play and share triggers
-- thumbnails and share posters stay until their file is purged; only smaller
-  video copies expire after the unused-copy retention days
+- thumbnails supply file lists and link-card pictures, follow the Thumbnails
+  setting, and are queued after upload, when a single file is shared, or when a
+  private list or a share page finds one missing; smaller video copies follow
+  their own setting and its upload, first-play and share triggers
+- thumbnails and posters from older releases stay until their file is purged;
+  only smaller video copies expire after the unused-copy retention days
+- a link card offers a video only with a ready picture and either a ready web
+  copy or an MP4 or WebM original below the web-copy threshold, so chat apps
+  are never pointed at a large original
 - resumable uploads reserve bounded database capacity before staging, then
   verify checksum and transfer the reservation to committed metadata atomically
 - share links bind to files or folders by stable IDs

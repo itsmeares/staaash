@@ -5,15 +5,31 @@ import type { PublicShareResolution, ShareLinkSummary } from "./types";
 
 const mocks = vi.hoisted(() => ({
   findReadyDerivative: vi.fn(),
-  findReadyPosterDerivative: vi.fn(),
+  findReadyThumbnail: vi.fn(),
   getSetupState: vi.fn(),
   getSharedNestedFileContent: vi.fn(),
   resolvePublicShareContext: vi.fn(),
 }));
 
-vi.mock("@staaash/db/media-derivatives", () => ({
-  findReadyDerivative: mocks.findReadyDerivative,
-  findReadyPosterDerivative: mocks.findReadyPosterDerivative,
+vi.mock("@staaash/db/media-derivatives", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/media-derivatives")>()),
+  findReadyDerivative: (fileId: string, kind?: string) =>
+    kind === "thumbnail"
+      ? mocks.findReadyThumbnail(fileId)
+      : mocks.findReadyDerivative(fileId),
+  scheduleDerivativeGenerate: vi.fn(),
+}));
+vi.mock("@/server/files/derivative-status", () => ({
+  getPrivatePreviewStatus: vi.fn(async () => ({
+    status: "none",
+    generatedAt: null,
+  })),
+}));
+vi.mock("@/server/settings", () => ({
+  getSystemSettings: vi.fn(async () => ({
+    mediaThumbnailsEnabled: false,
+    mediaPreviewThresholdBytes: 350_000_000n,
+  })),
 }));
 
 vi.mock("@/server/auth/service", () => ({
@@ -174,7 +190,15 @@ describe("share metadata", () => {
     vi.clearAllMocks();
     mocks.getSetupState.mockResolvedValue({ instanceName: "Ares Cloud" });
     mocks.findReadyDerivative.mockResolvedValue(null);
-    mocks.findReadyPosterDerivative.mockResolvedValue(null);
+    mocks.findReadyThumbnail.mockResolvedValue({
+      id: "thumbnail",
+      storageRevision: 0,
+      storageKey: "thumb.jpg",
+      mimeType: "image/jpeg",
+      sizeBytes: 12n,
+      width: 480,
+      height: 270,
+    });
   });
 
   it("emits absolute Open Graph and Twitter image URLs for image shares", () => {
@@ -185,6 +209,8 @@ describe("share metadata", () => {
         kind: "file",
         pagePath: "/s/token",
         contentPath: "/s/token/content",
+        imagePath: "/s/token/thumbnail",
+        imageMetadata: { type: "image/jpeg", width: 480, height: 270 },
         file: makeFile(),
         videoEmbedMetadata: null,
       },
@@ -195,13 +221,16 @@ describe("share metadata", () => {
 
     expect(openGraph.images).toEqual([
       {
-        url: "https://files.example/s/token/content",
+        url: "https://files.example/s/token/thumbnail",
         alt: "photo.png",
+        type: "image/jpeg",
+        width: 480,
+        height: 270,
       },
     ]);
     expect(twitter).toMatchObject({
       card: "summary_large_image",
-      images: ["https://files.example/s/token/content"],
+      images: ["https://files.example/s/token/thumbnail"],
     });
   });
 
@@ -213,6 +242,8 @@ describe("share metadata", () => {
         kind: "file",
         pagePath: "/s/token",
         contentPath: "/s/token/content",
+        imagePath: "/s/token/thumbnail",
+        imageMetadata: { type: "image/jpeg", width: 480, height: 270 },
         file: makeFile({
           name: "clip.mkv",
           mimeType: "video/x-matroska",
@@ -239,7 +270,7 @@ describe("share metadata", () => {
     ]);
   });
 
-  it("emits Open Graph video with fallback dimensions for broadly playable original videos", () => {
+  it("does not invent a player or dimensions when no video was selected", () => {
     const metadata = buildShareMetadata({
       baseUrl: "https://files.example",
       instanceName: "Ares Cloud",
@@ -247,6 +278,8 @@ describe("share metadata", () => {
         kind: "file",
         pagePath: "/s/token",
         contentPath: "/s/token/content",
+        imagePath: "/s/token/thumbnail",
+        imageMetadata: { type: "image/jpeg", width: 480, height: 270 },
         file: makeFile({
           name: "clip.mp4",
           mimeType: "video/mp4",
@@ -258,14 +291,8 @@ describe("share metadata", () => {
 
     const openGraph = metadata.openGraph as OpenGraphForTest;
 
-    expect(openGraph.videos).toEqual([
-      {
-        url: "https://files.example/s/token/content",
-        type: "video/mp4",
-        width: 1280,
-        height: 720,
-      },
-    ]);
+    expect(openGraph.videos).toBeUndefined();
+    expect(openGraph.type).toBe("website");
   });
 
   it("uses ready derivative dimensions for resolved video shares", async () => {
@@ -279,6 +306,9 @@ describe("share metadata", () => {
       }),
     );
     mocks.findReadyDerivative.mockResolvedValue({
+      id: "web-copy",
+      storageRevision: 2,
+      sizeBytes: 1_000_000_000n,
       storageKey: "derivatives/user-1/file-1/preview-1080p.mp4",
       mimeType: "video/mp4",
       width: 1440,
@@ -302,7 +332,7 @@ describe("share metadata", () => {
     ]);
   });
 
-  it("emits poster image metadata for resolved video shares", async () => {
+  it("reuses the uploaded JPEG thumbnail for resolved video shares", async () => {
     mocks.resolvePublicShareContext.mockResolvedValue(
       makeFileResolution({
         file: makeFile({
@@ -312,8 +342,11 @@ describe("share metadata", () => {
         }),
       }),
     );
-    mocks.findReadyPosterDerivative.mockResolvedValue({
-      storageKey: "derivatives/user-1/file-1/social-poster.jpg",
+    mocks.findReadyThumbnail.mockResolvedValue({
+      id: "thumbnail",
+      storageRevision: 0,
+      sizeBytes: 12n,
+      storageKey: "derivatives/user-1/file-1/thumb-480.jpg",
       mimeType: "image/jpeg",
       width: 1280,
       height: 720,
@@ -329,7 +362,7 @@ describe("share metadata", () => {
 
     expect(openGraph.images).toEqual([
       {
-        url: "https://files.example/s/token/poster",
+        url: "https://files.example/s/token/thumbnail",
         alt: "clip.mp4",
         type: "image/jpeg",
         width: 1280,
@@ -338,7 +371,7 @@ describe("share metadata", () => {
     ]);
     expect(twitter).toMatchObject({
       card: "summary_large_image",
-      images: ["https://files.example/s/token/poster"],
+      images: ["https://files.example/s/token/thumbnail"],
     });
   });
 
@@ -350,6 +383,8 @@ describe("share metadata", () => {
         kind: "file",
         pagePath: "/s/token",
         contentPath: "/s/token/content",
+        imagePath: "/s/token/thumbnail",
+        imageMetadata: { type: "image/jpeg", width: 480, height: 270 },
         file: makeFile({
           name: "clip.mkv",
           mimeType: "video/x-matroska",
@@ -436,7 +471,109 @@ describe("share metadata", () => {
 
     expect(metadata.title).toBe("nested-photo.jpg - Ares Cloud");
     expect(openGraph.images?.[0]?.url).toBe(
-      "https://files.example/s/folder-token/files/nested-file/content",
+      "https://files.example/s/folder-token/files/nested-file/thumbnail",
     );
+  });
+  it("uses a picture-only card while a large video's web copy is missing", async () => {
+    mocks.resolvePublicShareContext.mockResolvedValue(
+      makeFileResolution({
+        file: makeFile({
+          viewerKind: "video",
+          mimeType: "video/mp4",
+          sizeBytes: 8_000_000_000,
+          storageRevision: 1,
+        }),
+      }),
+    );
+    const metadata = await getSharePageMetadata({
+      baseUrl: "https://files.example",
+      token: "token",
+    });
+    expect(metadata.openGraph.images?.[0]?.url).toContain("/thumbnail");
+    expect(metadata.openGraph.videos).toBeUndefined();
+  });
+
+  it("omits unknown dimensions when a small original is selected", async () => {
+    mocks.resolvePublicShareContext.mockResolvedValue(
+      makeFileResolution({
+        file: makeFile({
+          viewerKind: "video",
+          mimeType: "video/mp4",
+          storageRevision: 4,
+        }),
+      }),
+    );
+    const metadata = await getSharePageMetadata({
+      baseUrl: "https://files.example",
+      token: "token",
+    });
+    expect(metadata.openGraph.videos).toEqual([
+      {
+        url: "https://files.example/s/token/content",
+        type: "video/mp4",
+      },
+    ]);
+  });
+
+  it("does not advertise a video player without a ready picture", async () => {
+    mocks.findReadyThumbnail.mockResolvedValue(null);
+    mocks.resolvePublicShareContext.mockResolvedValue(
+      makeFileResolution({
+        file: makeFile({
+          viewerKind: "video",
+          mimeType: "video/mp4",
+          storageRevision: 4,
+        }),
+      }),
+    );
+    const metadata = await getSharePageMetadata({
+      baseUrl: "https://files.example",
+      token: "token",
+    });
+    expect(metadata.openGraph.videos).toBeUndefined();
+    expect(metadata.openGraph.images).toBeUndefined();
+  });
+
+  it.each([
+    ["single-file", undefined],
+    ["folder", "nested-file"],
+  ])(
+    "hides a %s link's details if a password is added during the picture wait",
+    async (_kind, fileId) => {
+      const first = fileId ? makeFolderResolution() : makeFileResolution();
+      mocks.resolvePublicShareContext
+        .mockResolvedValueOnce(first)
+        .mockResolvedValueOnce({
+          ...first,
+          share: makeShare({ hasPassword: true }),
+        });
+      mocks.getSharedNestedFileContent.mockResolvedValue({
+        file: makeFile({ id: "nested-file" }),
+      });
+
+      const metadata = await getSharePageMetadata({
+        baseUrl: "https://files.example",
+        token: "token",
+        fileId,
+      });
+
+      expect(metadata.title).toBe("Ares Cloud share");
+      expect((metadata.openGraph as OpenGraphForTest).images).toBeUndefined();
+    },
+  );
+
+  it("hides a nested file that leaves the shared folder during the picture wait", async () => {
+    mocks.resolvePublicShareContext.mockResolvedValue(makeFolderResolution());
+    mocks.getSharedNestedFileContent
+      .mockResolvedValueOnce({ file: makeFile({ id: "nested-file" }) })
+      .mockRejectedValueOnce(new Error("File is no longer shared."));
+
+    const metadata = await getSharePageMetadata({
+      baseUrl: "https://files.example",
+      token: "token",
+      fileId: "nested-file",
+    });
+
+    expect(metadata.title).toBe("Ares Cloud share");
   });
 });

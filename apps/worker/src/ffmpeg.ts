@@ -244,52 +244,6 @@ export const runFfmpegTranscode = (
     signal,
   );
 
-const runFfmpegPosterFrame = (
-  inputPath: string,
-  outputPath: string,
-  seekSeconds: number,
-  signal?: AbortSignal,
-): Promise<void> =>
-  runFfmpegProcess(
-    [
-      "-y",
-      "-ss",
-      String(seekSeconds),
-      "-i",
-      inputPath,
-      "-frames:v",
-      "1",
-      "-threads",
-      "1",
-      "-vf",
-      "scale=min(1280\\,iw):-2",
-      "-q:v",
-      "2",
-      "-f",
-      "image2",
-      outputPath,
-    ],
-    signal,
-    FRAME_TIMEOUT_MS,
-  );
-
-export const runFfmpegPoster = async (
-  inputPath: string,
-  outputPath: string,
-  signal?: AbortSignal,
-): Promise<void> => {
-  try {
-    await runFfmpegPosterFrame(inputPath, outputPath, 1, signal);
-  } catch (error) {
-    if (
-      signal?.aborted ||
-      (error instanceof Error && error.name === "TimeoutError")
-    )
-      throw error;
-    await runFfmpegPosterFrame(inputPath, outputPath, 0, signal);
-  }
-};
-
 const runFfmpegThumbnailFrame = (
   inputPath: string,
   outputPath: string,

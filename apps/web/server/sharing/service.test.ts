@@ -1181,7 +1181,7 @@ describe("sharing service", () => {
     ).rejects.toMatchObject({ code: "SHARE_NOT_FOUND" });
   });
 
-  it("schedules a social poster for small shared videos below preview threshold", async () => {
+  it("queues the existing JPEG thumbnail when a small video is shared", async () => {
     const sharingRepo = createFakeSharingRepository();
     const videoFilesRepo = {
       ...fakeFilesRepo,
@@ -1207,8 +1207,8 @@ describe("sharing service", () => {
     await waitForAssertion(() => {
       expect(derivativeMocks.scheduleDerivativeGenerate).toHaveBeenCalledWith({
         fileId: smallVideoFile.id,
-        kind: "poster",
-        profile: "social-jpeg",
+        kind: "thumbnail",
+        profile: "thumb-480",
         reason: "share-created",
         now: fixedNow,
       });
@@ -1221,8 +1221,8 @@ describe("sharing service", () => {
     );
     expect(derivativeMocks.touchDerivativeShared).toHaveBeenCalledWith(
       smallVideoFile.id,
-      "poster",
-      "social-jpeg",
+      "thumbnail",
+      "thumb-480",
       fixedNow,
     );
   });
@@ -1262,7 +1262,10 @@ describe("sharing service", () => {
 
     await waitForAssertion(() => {
       expect(derivativeMocks.scheduleDerivativeGenerate).toHaveBeenCalledWith(
-        expect.objectContaining({ fileId: smallVideoFile.id, kind: "poster" }),
+        expect.objectContaining({
+          fileId: smallVideoFile.id,
+          kind: "thumbnail",
+        }),
       );
     });
     expect(derivativeMocks.scheduleDerivativeGenerate).not.toHaveBeenCalledWith(
@@ -1287,7 +1290,44 @@ describe("sharing service", () => {
       );
     });
     expect(derivativeMocks.scheduleDerivativeGenerate).not.toHaveBeenCalledWith(
-      expect.objectContaining({ kind: "poster" }),
+      expect.objectContaining({ kind: "thumbnail" }),
+    );
+  });
+
+  it("queues no thumbnails for a shared folder's files", async () => {
+    settingsMocks.getSystemSettings.mockResolvedValueOnce({
+      shareMaxAgeDays: 14,
+      mediaThumbnailsEnabled: true,
+      mediaPreviewEnabled: true,
+      mediaPreviewGenerateOnShare: true,
+      mediaPreviewThresholdBytes: 1n,
+    });
+    const service = createSharingService({
+      repo: createFakeSharingRepository().repo,
+      filesRepo: {
+        ...fakeFilesRepo,
+        async listFilesByOwner() {
+          return [smallVideoFile];
+        },
+      } as unknown as FilesRepository,
+      now: () => fixedNow,
+    });
+
+    await service.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "folder",
+      folderId: sharedFolder.id,
+      expiresAt: addDays(7),
+    });
+
+    await waitForAssertion(() => {
+      expect(derivativeMocks.scheduleDerivativeGenerate).toHaveBeenCalledWith(
+        expect.objectContaining({ fileId: smallVideoFile.id, kind: "preview" }),
+      );
+    });
+    expect(derivativeMocks.scheduleDerivativeGenerate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "thumbnail" }),
     );
   });
 });

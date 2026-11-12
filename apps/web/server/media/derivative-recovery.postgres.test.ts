@@ -13,16 +13,9 @@ import { buildDerivativeDedupeKey } from "@staaash/db/media-derivatives";
 
 const old = new Date(Date.now() - 120_000);
 
-async function generation(
-  kind: "thumbnail" | "poster" | "preview" = "thumbnail",
-) {
+async function generation(kind: "thumbnail" | "preview" = "thumbnail") {
   const db = getPrisma();
-  const profile =
-    kind === "thumbnail"
-      ? "thumb-480"
-      : kind === "poster"
-        ? "social-jpeg"
-        : "preview-1080p";
+  const profile = kind === "thumbnail" ? "thumb-480" : "preview-1080p";
   const user = await db.user.create({
     data: {
       email: `${randomUUID()}@derivative.test`,
@@ -69,11 +62,7 @@ it.each(["terminal", "dead", "non-retryable"])(
   "settles an owned preview after %s failure",
   async (action) => {
     const { db, file, job, derivative, read } = await generation(
-      action === "terminal"
-        ? "thumbnail"
-        : action === "dead"
-          ? "poster"
-          : "preview",
+      action === "terminal" ? "thumbnail" : "preview",
     );
     const input = {
       jobId: job.id,

@@ -19,7 +19,6 @@ const mocks = vi.hoisted(() => ({
   isStreamCopyCompatible: vi.fn(),
   settleDerivativeIfOwned: vi.fn(),
   markDerivativeReady: vi.fn(),
-  runFfmpegPoster: vi.fn(),
   runFfmpegThumbnail: vi.fn(),
   runFfmpegStreamCopy: vi.fn(),
   runFfmpegTranscode: vi.fn(),
@@ -36,10 +35,8 @@ vi.mock("@staaash/db/client", () => ({
 
 vi.mock("@staaash/db/media-derivatives", async () => ({
   DERIVATIVE_KIND_PREVIEW: "preview",
-  DERIVATIVE_KIND_POSTER: "poster",
   DERIVATIVE_KIND_THUMBNAIL: "thumbnail",
   DERIVATIVE_PROFILE_1080P: "preview-1080p",
-  DERIVATIVE_PROFILE_SOCIAL_JPEG: "social-jpeg",
   DERIVATIVE_PROFILE_THUMB: "thumb-480",
   canHaveThumbnail: (await import("@staaash/config/media-types"))
     .canHaveThumbnail,
@@ -67,7 +64,6 @@ vi.mock("@staaash/db/storage-mutations", () => ({
 vi.mock("../ffmpeg.js", () => ({
   getFfmpegHealth: mocks.getFfmpegHealth,
   isStreamCopyCompatible: mocks.isStreamCopyCompatible,
-  runFfmpegPoster: mocks.runFfmpegPoster,
   runFfmpegThumbnail: mocks.runFfmpegThumbnail,
   runFfmpegStreamCopy: mocks.runFfmpegStreamCopy,
   runFfmpegTranscode: mocks.runFfmpegTranscode,
@@ -276,90 +272,8 @@ describe("media derivative handler", () => {
     );
   });
 
-  it("generates shared poster derivatives below the video preview threshold", async () => {
-    tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-media-poster-"));
-    const filesRoot = path.join(tempRoot, "files");
-    const tmpRoot = path.join(filesRoot, "tmp");
-    const sourcePath = path.join(filesRoot, "files", "owner-1", "clip.mp4");
-    await mkdir(path.dirname(sourcePath), { recursive: true });
-    await writeFile(sourcePath, "source", "utf8");
-
-    mocks.buildDerivativeStorageKey.mockReturnValue(
-      "derivatives/owner-1/file-1/social-poster.jpg",
-    );
-    mocks.upsertDerivativeQueued.mockResolvedValue({
-      id: "poster-derivative-1",
-      status: "queued",
-    });
-
-    const client = {
-      systemSettings: {
-        findUnique: vi.fn(async () => ({
-          mediaThumbnailsEnabled: true,
-          mediaPreviewEnabled: true,
-          mediaPreviewThresholdBytes: 367_001_600n,
-          mediaPreviewMaxHeight: 720,
-          mediaPreviewCrf: 22,
-        })),
-      },
-      file: {
-        findUnique: vi.fn(async () => ({
-          id: "file-1",
-          ownerUserId: "owner-1",
-          mimeType: "video/mp4",
-          sizeBytes: 10_000n,
-          storageKey: "files/owner-1/clip.mp4",
-          deletedAt: null,
-        })),
-      },
-      mediaDerivative: {
-        update: vi.fn(async () => ({
-          id: "poster-derivative-1",
-          status: "processing",
-        })),
-        findUnique: vi.fn(async () => ({
-          id: "poster-derivative-1",
-          status: "processing",
-        })),
-      },
-    };
-    mocks.getPrisma.mockReturnValue(client);
-
-    mocks.runFfprobe.mockImplementation(async (inputPath: string) => {
-      if (inputPath.endsWith("poster-derivative-1.jpg.tmp")) {
-        return {
-          streams: [
-            {
-              codec_type: "video",
-              codec_name: "mjpeg",
-              width: 1280,
-              height: 720,
-            },
-          ],
-          format: {},
-        };
-      }
-
-      return {
-        streams: [
-          {
-            codec_type: "video",
-            codec_name: "h264",
-            width: 1920,
-            height: 1080,
-          },
-        ],
-        format: { duration: "10" },
-      };
-    });
-
-    mocks.runFfmpegPoster.mockImplementation(
-      async (_inputPath: string, outputPath: string) => {
-        await mkdir(path.dirname(outputPath), { recursive: true });
-        await writeFile(outputPath, "poster", "utf8");
-      },
-    );
-
+  it("finishes a poster job queued by an older release without making a file", async () => {
+    mocks.getFfmpegHealth.mockReturnValue({ available: false });
     const posterJob = createJob();
     posterJob.payloadJson = {
       fileId: "file-1",
@@ -370,39 +284,17 @@ describe("media derivative handler", () => {
 
     await expect(
       handleMediaDerivativeGenerate(posterJob, {
-        filesRoot,
-        tmpRoot,
-        heartbeatPath: path.join(tmpRoot, "worker-heartbeat.json"),
-        pendingDeleteRoot: path.join(tmpRoot, "pending-delete"),
+        filesRoot: "/unused",
+        tmpRoot: "/unused/tmp",
+        heartbeatPath: "/unused/tmp/worker-heartbeat.json",
+        pendingDeleteRoot: "/unused/tmp/pending-delete",
         uploadStagingTtlMs: 1,
       }),
     ).resolves.toBeUndefined();
 
-    expect(mocks.runFfmpegPoster).toHaveBeenCalledWith(
-      sourcePath,
-      path.join(tmpRoot, "derivatives", "poster-derivative-1.jpg.tmp"),
-      expect.any(AbortSignal),
-    );
-    expect(mocks.runFfmpegTranscode).not.toHaveBeenCalled();
-    expect(mocks.runWorkerStorageMutation).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: "derivative_publish",
-        metadataOperations: [
-          expect.objectContaining({
-            entityId: "poster-derivative-1",
-            data: expect.objectContaining({
-              storageKey: "derivatives/owner-1/file-1/social-poster.jpg",
-              mimeType: "image/jpeg",
-              width: 1280,
-              height: 720,
-              durationSeconds: null,
-              videoCodec: null,
-              audioCodec: null,
-            }),
-          }),
-        ],
-      }),
-    );
+    expect(mocks.getPrisma).not.toHaveBeenCalled();
+    expect(mocks.upsertDerivativeQueued).not.toHaveBeenCalled();
+    expect(mocks.runWorkerStorageMutation).not.toHaveBeenCalled();
   });
 
   const thumbnailSetup = async (
