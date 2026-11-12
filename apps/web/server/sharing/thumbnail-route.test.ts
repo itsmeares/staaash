@@ -104,7 +104,7 @@ describe("public share thumbnail route", () => {
     mocks.findReadyDerivative.mockResolvedValue({
       storageKey: "derivatives/user-1/file-1/thumb-480.jpg",
       mimeType: "image/jpeg",
-      sizeBytes: 12n,
+      sizeBytes: 11n,
     });
   });
 
@@ -123,7 +123,7 @@ describe("public share thumbnail route", () => {
 
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toBe("image/jpeg");
-      expect(response.headers.get("content-length")).toBe("12");
+      expect(response.headers.get("content-length")).toBe("11");
       expect(response.headers.get("content-disposition")).toMatch(/^inline;/u);
       expect(response.headers.get("x-content-type-options")).toBe("nosniff");
       expect(response.headers.get("content-security-policy")).toBe(
