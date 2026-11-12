@@ -88,6 +88,8 @@ possible byte and fail closed until an operator investigates.
 - thumbnails and share posters follow the Thumbnails setting and are queued
   after upload or when a private list asks for a missing one; smaller video
   copies follow their own setting and its upload, first-play and share triggers
+- thumbnails and share posters stay until their file is purged; only smaller
+  video copies expire after the unused-copy retention days
 - resumable uploads reserve bounded database capacity before staging, then
   verify checksum and transfer the reservation to committed metadata atomically
 - share links bind to files or folders by stable IDs

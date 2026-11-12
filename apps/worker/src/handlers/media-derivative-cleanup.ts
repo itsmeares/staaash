@@ -6,6 +6,7 @@ import {
   type BackgroundJobRecord,
 } from "@staaash/db/jobs";
 import {
+  DERIVATIVE_KIND_PREVIEW,
   DERIVATIVE_STATUS_PROCESSING,
   DERIVATIVE_STATUS_QUEUED,
   DERIVATIVE_STATUS_READY,
@@ -264,8 +265,10 @@ export const handleMediaDerivativeCleanup = async (
   const retentionMs = retentionDays * 24 * 60 * 60 * 1000;
   const retentionCutoff = new Date(now.getTime() - retentionMs);
 
+  // Thumbnails and posters are small and stay until their file is purged.
   const candidates = await prisma.mediaDerivative.findMany({
     where: {
+      kind: DERIVATIVE_KIND_PREVIEW,
       status: DERIVATIVE_STATUS_READY,
       pinnedByAdmin: false,
       storageKey: { not: null },

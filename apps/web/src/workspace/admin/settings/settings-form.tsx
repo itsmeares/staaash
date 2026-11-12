@@ -301,8 +301,8 @@ export function SettingsForm({
           )}
           {row(
             "mediaPreviewRetentionDays",
-            "Keep unused copies for",
-            "Thumbnails and video copies nobody opened. 0 keeps them forever",
+            "Keep unused video copies for",
+            "Copies nobody played. 0 keeps them forever",
             unit("mediaPreviewRetentionDays", fixed("days")),
           )}
         </SettingsCard>
