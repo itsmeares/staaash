@@ -76,28 +76,28 @@ export const PULL_REQUEST_LABELS: Record<
 > = {
   feat: {
     name: "enhancement",
-    color: "a2eeef",
+    color: "d5ac76",
     description: "New feature or request",
   },
   perf: {
     name: "performance",
-    color: "fbca04",
+    color: "f0883e",
     description: "Makes Staaash faster or lighter",
   },
   fix: { name: "bug", color: "d73a4a", description: "Something isn't working" },
   docs: {
     name: "documentation",
-    color: "0075ca",
+    color: "4a90ff",
     description: "Improvements or additions to documentation",
   },
   deps: {
     name: "dependencies",
-    color: "0366d6",
+    color: "8250df",
     description: "Pull requests that update a dependency file",
   },
   maint: {
     name: "maintenance",
-    color: "c5def5",
+    color: "8b949e",
     description: "Release, CI, tooling and code work",
   },
 };
