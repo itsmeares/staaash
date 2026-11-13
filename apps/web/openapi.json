@@ -7450,56 +7450,6 @@
         }
       }
     },
-    "/s/{token}/storage-unavailable": {
-      "get": {
-        "tags": [
-          "Public links"
-        ],
-        "summary": "Checks again whether a shared item is readable, then sends the visitor back.",
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": true,
-            "name": "token",
-            "in": "path"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "fileId",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "folderId",
-            "in": "query"
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "required": false,
-            "name": "returnTo",
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "307": {
-            "description": "Readable again."
-          },
-          "503": {
-            "description": "Still finishing a storage change."
-          }
-        }
-      }
-    },
     "/api/search": {
       "get": {
         "tags": [

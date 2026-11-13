@@ -98,7 +98,8 @@ const releasedSpec = (major) => {
   for (const tag of git("tag", "--list", "v*", "--sort=-v:refname").split(
     "\n",
   )) {
-    if (!tag) continue;
+    // A release candidate is not a promise yet; only real releases count.
+    if (!tag || tag.includes("-")) continue;
     try {
       const spec = JSON.parse(git("show", `${tag}:${SPEC}`));
       if (spec.info?.version === major) return { tag, spec };
