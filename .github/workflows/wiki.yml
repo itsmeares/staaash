@@ -1,0 +1,67 @@
+name: Wiki
+
+# Publishes docs/guide to the GitHub wiki. A stable release publishes its own
+# tag; running it by hand publishes the latest stable release, or the given ref.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Release tag to publish
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag or branch to publish; empty publishes the latest stable release
+        required: false
+        type: string
+        default: ""
+
+concurrency:
+  group: wiki
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish the guides
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Pick the release to publish
+        id: ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ inputs.ref }}
+        run: |
+          if [ -z "$REF" ]; then
+            REF="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"
+          fi
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+          sparse-checkout: |
+            docs/guide
+            scripts/ci/guide.mjs
+          persist-credentials: false
+      - name: Check the guides
+        run: node scripts/ci/guide.mjs
+      - name: Copy the guides to the wiki
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ steps.ref.outputs.ref }}
+        run: |
+          git clone --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" "$RUNNER_TEMP/wiki"
+          rsync -a --delete --exclude .git docs/guide/ "$RUNNER_TEMP/wiki/"
+          cd "$RUNNER_TEMP/wiki"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The wiki already matches $REF."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Publish guides for $REF"
+          git push

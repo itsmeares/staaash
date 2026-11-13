@@ -161,5 +161,5 @@ of confirmed contention, the endpoint returns `503 UPLOAD_ADMISSION_BUSY` with
 repeated. Existing session reservations and recovery ownership remain intact.
 Session creation reports `503 STORAGE_TRANSACTION_UNAVAILABLE` when its
 transaction loses the database connection, without a busy retry header.
-See [transaction contention](storage-mutation-recovery.md#transaction-contention)
-and [readiness](health-checks.md).
+See [transaction contention](storage-recovery.md#transaction-contention)
+and [health checks](api.md#health-checks).

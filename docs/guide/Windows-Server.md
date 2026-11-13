@@ -27,7 +27,7 @@ It supports 64-bit Windows Server 2019 and newer, and Windows 10 and 11.
    `http://localhost:<port>/` to create the owner account.
 
 For HTTPS, put a reverse proxy in front of the web port as described in
-[reverse-proxy.md](reverse-proxy.md). With [Caddy for Windows](https://caddyserver.com/docs/install#windows),
+[[Reverse Proxy]]. With [Caddy for Windows](https://caddyserver.com/docs/install#windows),
 a `Caddyfile` next to `caddy.exe` is enough:
 
 ```caddyfile
@@ -68,7 +68,7 @@ Service. `staaash.env` holds the settings from the Docker `.env`, such as
 Run the newer installer. It keeps the folders, port, and account from the
 first install, stops the services, replaces the program folder, and starts
 them again. The web service applies database migrations when it starts, as
-the Docker image does. Back up first (below).
+the Docker image does. Back up first (below). Read the ⚠️ Upgrade notes of each release you skip, as in [[Updating]].
 
 The installer refuses to install an older version over a newer one: a newer
 version may have changed the database in ways an older one cannot read. To go
@@ -76,7 +76,7 @@ back, see [Go back to an older version](#go-back-to-an-older-version).
 
 ## Backup and restore
 
-The rules in [backup-restore.md](backup-restore.md) apply. On Windows, in an
+The rules in [[Backup and Restore]] apply. On Windows, in an
 administrator PowerShell, with the default folders:
 
 1. Stop the web service so no new change can start. `Stop-Service` returns
@@ -96,7 +96,7 @@ administrator PowerShell, with the default folders:
    $pending | & $psql $url
    ```
 
-   Leave a `recovery_required` change as it is.
+   Leave a `recovery_required` change as it is. [[Storage Check]] explains it.
 
 3. Stop the worker, then check once more, because the worker may have started
    a cleanup job:

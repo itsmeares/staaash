@@ -13,7 +13,7 @@ docker compose logs --tail 100 staaash worker db
 
 1. Run `docker compose ps`. `staaash_server`, `staaash_worker` and `staaash_postgres` should all be running.
 2. Open `http://localhost:2113` on the same computer. If that works, the problem is the network between you and the server: the server address, a firewall, or the proxy.
-3. If you changed the port in `docker-compose.yml`, use that port.
+3. If you set `STAAASH_PORT` in `.env`, use that port.
 4. Behind a reverse proxy? Open the proxy address, not the port.
 
 ## The database will not start, or Staaash keeps restarting
@@ -56,21 +56,26 @@ Unfinished uploads wait in a holding area and are cleaned up after a few hours. 
 
 ## The admin Overview shows a problem
 
-| Line | What to do |
-| --- | --- |
-| Database | Check `docker compose logs db`. |
-| Files volume | The files folder is not writable. Check that the disk is mounted and has space. |
-| Worker | Check `docker compose logs worker`, then `docker compose up -d`. |
-| Disk space | Free some space. |
+| Line          | What to do                                                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Database      | Check `docker compose logs db`.                                                                                                                        |
+| Files volume  | The files folder is not writable. Check that the disk is mounted and has space.                                                                        |
+| Worker        | Check `docker compose logs worker`, then `docker compose up -d`.                                                                                       |
+| Disk space    | Free some space.                                                                                                                                       |
 | Restore check | Files on disk do not match the database. Run it again from **Jobs** after a restore. If it still complains, keep everything as it is and ask for help. |
 
-## Unfinished changes need recovery
+## A file says "Needs a storage check"
 
-Moves, renames and deletes are written down before they happen, so a crash cannot lose a file. Open admin **Storage** and look at **Unfinished changes**.
+A move, rename or delete stopped halfway, and Staaash kept every byte instead of guessing. See [[Storage Check]].
 
-- If a change is only waiting or retrying, give the worker a minute.
-- If it stays, fix the cause (full disk, missing mount, wrong permission) and press **Retry now** on that screen.
-- If it says recovery is required, **stop**. Do not delete or move anything by hand. Keep all your files and read the [storage recovery guide](https://github.com/itsmeares/staaash/blob/main/docs/operations/storage-mutation-recovery.md).
+## Health checks for monitoring
+
+Two addresses answer without signing in, for tools like Uptime Kuma:
+
+- `/api/health/live` answers 200 while the web app runs. Docker's health check uses it.
+- `/api/health/ready` answers 200 when the database, the files folder and the worker are all fine. It answers 503 when one is not, or when a change needs a [[Storage Check]]. Its reply lists which check failed.
+
+A failed preview job or another background job does not make `ready` fail. Those show in admin **Jobs**.
 
 ## It broke after an update
 

@@ -1,10 +1,37 @@
-# Readiness and operational health
+# API
+
+`apps/web/openapi.json` describes every public route. Within a major version,
+the API only gains routes and fields: nothing is renamed or removed, and an
+older client keeps working. `GET /api/version` reports the server version and
+the oldest desktop client it supports.
+
+## Signing in
+
+Browsers use the session cookie. A request that changes something must come
+from the same address it was sent to: the server compares the `Origin` host
+with the `Host` header. The desktop app signs in through the browser and sends
+its device token as `Authorization: Bearer <token>`. Device tokens cannot use
+admin routes.
+
+## Large folder changes
+
+A folder change sent with `Prefer: respond-async` whose tree holds more than
+2,000 items answers `202` with a `FolderOperation`. Poll
+`GET /api/files/folders/operations/{id}` until it reports `succeeded`,
+`failed` or `recovery_required`. Without the header, or for a smaller tree,
+the change runs in the request and answers `200`. How the journal applies
+these changes is in [storage recovery](storage-recovery.md#large-folder-changes).
+
+## Health checks
+
+`GET /api/health/live` answers `200` while the web process runs. The Docker
+health check uses it.
 
 `GET /api/health/ready` answers whether the web instance may receive traffic.
 Its `ok`, `checks` and `failures` fields describe readiness; HTTP status is 200
-when ready and 503 otherwise. Database, writable storage, settings, storage
-protocol/recovery and reconciliation checks retain their existing gates. A stale
-worker heartbeat still blocks readiness.
+when ready and 503 otherwise. The database, writable storage, settings, storage
+recovery and reconciliation checks each block readiness, and so does a stale
+worker heartbeat.
 
 Failed, dead or stale background jobs are operational incidents, not proof that
 this web instance cannot serve files. A corrupt video's failed preview therefore

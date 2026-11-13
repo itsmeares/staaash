@@ -209,7 +209,7 @@ const downloads = ({
   ];
   if (hasWindowsServer)
     lines.push(
-      `| 🪟 Windows | [Installer x64](${base}/Staaash-Server-${version}-win-x64.exe) · [Windows guide](https://github.com/${repository}/blob/${tag}/docs/operations/windows.md) |`,
+      `| 🪟 Windows | [Installer x64](${base}/Staaash-Server-${version}-win-x64.exe) · [Windows guide](https://github.com/${repository}/wiki/Windows-Server) |`,
     );
   if (hasDesktop)
     lines.push(

@@ -1,20 +1,31 @@
 **[[Home]]**
 
 **Set up**
+
 - [[Installation]]
 - [[Configuration]]
 - [[Reverse Proxy]]
-
-**Look after it**
-- [[Backup and Restore]]
-- [[Updating]]
-- [[Troubleshooting]]
+- [[Windows Server]]
 
 **Use it**
-- [[FAQ]]
+
+- [[Using the Drive]]
 - [[Sharing Files]]
 - [[Desktop App]]
+- [[Your Account]]
+
+**Look after it**
+
+- [[Updating]]
+- [[Backup and Restore]]
+- [[Storage Check]]
+- [[Troubleshooting]]
 
 **Run it for others**
+
 - [[Admin Guide]]
 - [[User Management]]
+
+**Help**
+
+- [[FAQ]]

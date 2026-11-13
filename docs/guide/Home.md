@@ -24,21 +24,32 @@ It is free and open source.
 
 A computer or server with Docker. That can be Linux, or Windows with Docker Desktop. Staaash runs on Intel/AMD and ARM.
 
+On 64-bit Windows you can also skip Docker. See [[Windows Server]].
+
 ## Where to begin
 
 **New here**
+
 1. [[Installation]]. Be running in about ten minutes.
 2. [[Backup and Restore]]. Do this on day one.
-3. [[Sharing Files]] and [[Desktop App]]. The two things most people do next.
+3. [[Using the Drive]]. Upload, find and get things back.
+4. [[Sharing Files]] and [[Desktop App]]. The two things most people do next.
 
 **Already running it**
+
 - [[Updating]]
 - [[Configuration]]
 - [[Reverse Proxy]]. Reach your drive from outside the house, with HTTPS.
+- [[Storage Check]]. When a file says it needs a check.
 - [[Troubleshooting]]
 - [[FAQ]]
 
+**Your own settings**
+
+- [[Your Account]]
+
 **Running it for other people**
+
 - [[User Management]]
 - [[Admin Guide]]
 
@@ -46,12 +57,12 @@ A computer or server with Docker. That can be Linux, or Windows with Docker Desk
 
 Four parts work together. You only need this if something breaks.
 
-| Part | What it does |
-| --- | --- |
-| Web app | The pages you click on. |
-| Worker | A helper in the background. It makes previews and cleans up. |
-| Database (PostgreSQL) | Remembers names, folders, people and share links. |
-| Storage folder | Holds the real files on your disk. |
+| Part                  | What it does                                                 |
+| --------------------- | ------------------------------------------------------------ |
+| Web app               | The pages you click on.                                      |
+| Worker                | A helper in the background. It makes previews and cleans up. |
+| Database (PostgreSQL) | Remembers names, folders, people and share links.            |
+| Storage folder        | Holds the real files on your disk.                           |
 
 The database and the storage folder go together. Always back up both.
 

@@ -39,16 +39,16 @@ Jobs are tasks the worker does in the background. The top shows how many are run
 
 The **Schedule** list shows each kind of job and when it last ran:
 
-| Job | What it does | Run by hand? |
-| --- | --- | --- |
-| Clean temporary uploads | Removes leftovers of unfinished uploads. | Yes |
-| Empty trash | Permanently deletes files that stayed in trash too long. | Yes |
-| Check for updates | Looks for a new Staaash release. | Yes |
-| Restore check | Compares files on disk with the database. Run it after a restore. | Yes |
-| Create preview files | Makes video preview files. | Automatic only |
-| Clean preview files | Removes old preview files. | Automatic only |
-| Create zip files | Builds zip downloads of folders. | Automatic only |
-| Clean zip files | Removes old zip files. | Automatic only |
+| Job                     | What it does                                                      | Run by hand?   |
+| ----------------------- | ----------------------------------------------------------------- | -------------- |
+| Clean temporary uploads | Removes leftovers of unfinished uploads.                          | Yes            |
+| Empty trash             | Permanently deletes files that stayed in trash too long.          | Yes            |
+| Check for updates       | Looks for a new Staaash release.                                  | Yes            |
+| Restore check           | Compares files on disk with the database. Run it after a restore. | Yes            |
+| Create preview files    | Makes video preview files.                                        | Automatic only |
+| Clean preview files     | Removes old preview files.                                        | Automatic only |
+| Create zip files        | Builds zip downloads of folders.                                  | Automatic only |
+| Clean zip files         | Removes old zip files.                                            | Automatic only |
 
 The **Activity** list under it shows each run, with filters for Active, Failed and Done.
 

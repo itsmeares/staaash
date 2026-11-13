@@ -5,7 +5,7 @@ Each Staaash release is built for one exact version of the app. To update, you p
 ## Before you update
 
 1. Make a backup of the files and the database. Follow [[Backup and Restore]]. Do not skip this step.
-2. Read the notes of the new release on the [releases page](https://github.com/itsmeares/staaash/releases). They say what changed and if anything needs your attention.
+2. Read the notes of the new release on the [releases page](https://github.com/itsmeares/staaash/releases), or in the app's update notice. Read **⚠️ Upgrade notes** closely. It says when the release changes the database, the compose file or `example.env`. If you skip releases, read the upgrade notes of each one.
 3. Check that the admin Overview shows no problems. See [[Admin Guide]].
 
 Staaash shows a notice in the app when a new version exists. Admins can also press **Check now** on the Overview screen.
@@ -19,7 +19,7 @@ Staaash shows a notice in the app when a new version exists. Admins can also pre
    STAAASH_VERSION=vX.Y.Z
    ```
 
-3. Download the new `docker-compose.yml` from the release **Assets** and replace your old one. Keep your `.env` file.
+3. Download the new `docker-compose.yml` from the release **Assets** and replace your old one. If you use HTTPS from [[Reverse Proxy]], replace `compose.https.yml` and `Caddyfile` too. Keep your `.env` file.
 4. Pull the new images and restart:
 
    ```console
@@ -28,6 +28,8 @@ Staaash shows a notice in the app when a new version exists. Admins can also pre
    ```
 
 Staaash updates its own database when it starts. Give it a minute.
+
+On the Windows server installer, run the newer installer instead. See [[Windows Server]].
 
 ## Check that it worked
 
