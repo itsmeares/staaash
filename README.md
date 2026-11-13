@@ -62,7 +62,7 @@ curl -L https://github.com/itsmeares/staaash/releases/latest/download/example.en
 docker compose up -d
 ```
 
-Open **http://localhost:2113** and create your account. On a server, use its address instead of `localhost`.
+Open **http://localhost:2113** and create your account right away. Until you do, anyone who can reach port 2113 can take the owner account. On a server, use its address instead of `localhost`.
 
 </details>
 
