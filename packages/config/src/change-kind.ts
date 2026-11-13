@@ -20,7 +20,7 @@ const INTERNAL_AREAS = new Set([
   "tooling",
   "verify",
 ]);
-const TITLE = /^(\w+)(?:\(([^)]*)\))?!?:\s*(.+?)\s*(?:\(#\d+\))?$/u;
+const TITLE = /^(\w+)(?:\(([^)]*)\))?!?:\s*(\S.*?)\s*(?:\(#\d+\))?$/u;
 const TYPES = new Set([
   "feat",
   "fix",

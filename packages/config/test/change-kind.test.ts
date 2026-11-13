@@ -28,5 +28,6 @@ describe("pull request labels", () => {
     expect(hasChangeType("chore: tidy")).toBe(true);
     expect(hasChangeType("Add changelog entry for version 1.2.1")).toBe(false);
     expect(hasChangeType("wip: something")).toBe(false);
+    expect(hasChangeType("feat:   ")).toBe(false);
   });
 });
