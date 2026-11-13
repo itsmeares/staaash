@@ -2142,7 +2142,8 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     ).resolves.toEqual({ status: "succeeded" });
   });
 
-  it("preserves an unexpected member added to a captured trash tree", async () => {
+  // A folder trash whose tree gained a file after the plan was fingerprinted.
+  const prepareTrashOfChangedTree = async () => {
     const user = await createUser();
     const sourceKey = `files/${user.storageId}/captured`;
     const targetKey = `.trash/${user.storageId}/folders/captured`;
@@ -2175,22 +2176,108 @@ describe("STO-02 durable PostgreSQL protocol", () => {
         },
       ],
     });
+    return {
+      mutation: prepared.mutation,
+      unexpected: path.join(source, "unexpected.bin"),
+      target: path.join(storageRoot(), ...targetKey.split("/")),
+    };
+  };
 
-    await expect(execute(prepared.mutation)).rejects.toBeInstanceOf(
+  it("refuses a trash whose tree gained a file before it started, and leaves the folder usable", async () => {
+    const { mutation, unexpected, target } = await prepareTrashOfChangedTree();
+
+    await expect(execute(mutation)).rejects.toMatchObject({
+      code: "STORAGE_ITEM_CHANGED",
+      status: 409,
+    });
+    await expect(readFile(unexpected, "utf8")).resolves.toBe("private");
+    await expect(access(target)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(
+      db.storageMutation.findUniqueOrThrow({
+        where: { id: mutation.id },
+        select: { status: true, recoveryRequiredAt: true },
+      }),
+    ).resolves.toEqual({ status: "aborted", recoveryRequiredAt: null });
+    await expect(
+      db.storageMutationResource.count({
+        where: { mutationId: mutation.id, releasedAt: null },
+      }),
+    ).resolves.toBe(0);
+  });
+
+  it("still fails closed when a changed tree is found after an interrupted attempt", async () => {
+    const { mutation, unexpected } = await prepareTrashOfChangedTree();
+    // An earlier attempt may have moved something, so the mismatch is real doubt.
+    await db.storageMutation.update({
+      where: { id: mutation.id },
+      data: { attemptCount: 1 },
+    });
+
+    await expect(execute(mutation)).rejects.toBeInstanceOf(
       StorageMutationAmbiguityError,
     );
+    await expect(readFile(unexpected, "utf8")).resolves.toBe("private");
     await expect(
-      (await import("node:fs/promises")).readFile(
-        path.join(source, "unexpected.bin"),
-        "utf8",
-      ),
-    ).resolves.toBe("private");
+      db.storageMutation.findUniqueOrThrow({
+        where: { id: mutation.id },
+        select: { status: true },
+      }),
+    ).resolves.toEqual({ status: "recovery_required" });
+  });
+
+  it("moves a file back when the last attempt fails after the rename but before it is recorded", async () => {
+    const user = await createUser();
+    const sourceKey = `files/${user.storageId}/unrecorded.bin`;
+    const targetKey = `files/${user.storageId}/moved/unrecorded.bin`;
+    const source = path.join(storageRoot(), ...sourceKey.split("/"));
+    const target = path.join(storageRoot(), ...targetKey.split("/"));
+    const bytes = Buffer.from("unrecorded move");
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(source, bytes);
+    const prepared = await prepareStorageMutation({
+      kind: "file_move",
+      ownerUserId: user.id,
+      idempotencyKey: randomUUID(),
+      requestHash: randomUUID(),
+      intentJson: intent([]) as unknown as Prisma.InputJsonValue,
+      steps: [
+        {
+          action: "rename",
+          sourceKey,
+          targetKey,
+          expectedNodeType: "file",
+          expectedSizeBytes: BigInt(bytes.length),
+          expectedChecksum: createHash("sha256").update(bytes).digest("hex"),
+        },
+      ],
+    });
+    await db.storageMutation.update({
+      where: { id: prepared.mutation.id },
+      data: { attemptCount: STORAGE_MUTATION_MAX_PRECOMMIT_ATTEMPTS - 1 },
+    });
+
+    await expect(
+      claimAndExecuteStorageMutation({
+        mutationId: prepared.mutation.id,
+        filesRoot: storageRoot(),
+        leaseOwner: `test:${randomUUID()}`,
+        commitMetadata: (tx) =>
+          applyStorageMutationIntentMetadata(tx, prepared.mutation.intentJson),
+        executionHook: async (boundary) => {
+          if (boundary === "filesystem_step_applied") {
+            throw new Error("The step could not be recorded.");
+          }
+        },
+      }),
+    ).rejects.toMatchObject({ code: "STORAGE_MUTATION_ABORTED" });
+    await expect(readFile(source)).resolves.toEqual(bytes);
+    await expect(access(target)).rejects.toMatchObject({ code: "ENOENT" });
     await expect(
       db.storageMutation.findUniqueOrThrow({
         where: { id: prepared.mutation.id },
         select: { status: true },
       }),
-    ).resolves.toEqual({ status: "recovery_required" });
+    ).resolves.toEqual({ status: "aborted" });
   });
 
   it("preserves bytes added after trash when purge validates the stored manifest", async () => {
@@ -2359,14 +2446,14 @@ describe("STO-02 durable PostgreSQL protocol", () => {
         `${editedKey}-moved`,
         editedDigest,
       );
-      await expect(execute(refused.mutation)).rejects.toBeInstanceOf(
-        StorageMutationAmbiguityError,
-      );
+      await expect(execute(refused.mutation)).rejects.toMatchObject({
+        code: "STORAGE_ITEM_CHANGED",
+      });
       await expect(
         readFile(path.join(edited, "known.bin"), "utf8"),
       ).resolves.toBe("KNOWN");
       await expect(statusOf(refused.mutation.id)).resolves.toEqual({
-        status: "recovery_required",
+        status: "aborted",
       });
     });
 

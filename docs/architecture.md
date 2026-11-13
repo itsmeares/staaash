@@ -73,8 +73,9 @@ needs atomic rename within the volume and working file and directory `fsync`.
 
 PostgreSQL holds the intent, and the filesystem holds the bytes. Prepared
 mutations recover forward after a restart, except that a single user operation
-rejected before any metadata commits (quota, overlong path, or exhausted
-retries) is rolled back and aborted. How the journal works is in
+rejected before any metadata commits (quota, overlong path, an item that
+changed before the first step, or exhausted retries) is rolled back and
+aborted. How the journal works is in
 [storage recovery](storage-recovery.md).
 
 ## Rules

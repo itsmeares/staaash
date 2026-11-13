@@ -83,11 +83,18 @@ instead of retrying when, before metadata commit:
 - the commit-time quota check fails (`413 USER_STORAGE_QUOTA_EXCEEDED`);
 - the filesystem reports `ENAMETOOLONG` (`400 STORAGE_PATH_TOO_LONG`);
 - a transient failure persists for 11 attempts, about half an hour of backoff
-  (`503 STORAGE_MUTATION_ABORTED`).
+  (`503 STORAGE_MUTATION_ABORTED`);
+- on the first attempt, before any step is applied, a rename source no longer
+  matches the fingerprint taken when the operation was planned
+  (`409 STORAGE_ITEM_CHANGED`). The plan is fingerprinted before its locks are
+  held, so an upload that finishes in between changes the tree. Nothing has
+  moved, so the caller can try again. The same mismatch on a later attempt
+  still becomes `recovery_required`.
 
-The executor reverses applied forward steps newest first, with the same
-fingerprint checks as forward renames, then releases the mutation's resources
-and frees its idempotency key. If the undo finds anything unexpected, the
+The executor reverses forward steps newest first, with the same fingerprint
+checks as forward renames, then releases the mutation's resources and frees
+its idempotency key. A rename that landed on disk before it was recorded as
+applied is reversed too. If the undo finds anything unexpected, the
 mutation becomes `recovery_required` as before. Batch children, purges, and
 worker artifact publishes never abort. Neither does a large folder change once
 any of its metadata chunks has committed (see
