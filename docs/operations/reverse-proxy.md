@@ -38,8 +38,8 @@ Staaash's own port on this machine only, so traffic from the network goes
 through Caddy. `COMPOSE_PATH_SEPARATOR=,` lets the same line work on Linux,
 macOS and Windows.
 
-Caddy turns HTTP/3 off in this `Caddyfile`. HTTP/3 runs over UDP, and Docker's
-small UDP buffers make large uploads slower.
+This `Caddyfile` turns HTTP/3 off. In our tests, HTTP/3 used about 2.5 times
+more CPU per MiB and uploaded about 45% slower than HTTP/2.
 
 Discord caches embed metadata, so repost the link or create a fresh share after
 changing `STAAASH_PUBLIC_URL`.
