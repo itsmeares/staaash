@@ -13,7 +13,7 @@ const { pull_request: pull } = JSON.parse(
   await readFile(GITHUB_EVENT_PATH, "utf8"),
 );
 
-const github = async (method, path, body) => {
+const github = async (method, path, body, allowed = [404]) => {
   const response = await fetch(
     `https://api.github.com/repos/${GITHUB_REPOSITORY}${path}`,
     {
@@ -25,7 +25,7 @@ const github = async (method, path, body) => {
       body: body && JSON.stringify(body),
     },
   );
-  if (!response.ok && response.status !== 404)
+  if (!response.ok && !allowed.includes(response.status))
     throw new Error(
       `${method} ${path}: ${response.status} ${await response.text()}`,
     );
@@ -48,7 +48,8 @@ if (
   (await github("PATCH", `/labels/${name}`, { color, description })).status ===
   404
 )
-  await github("POST", "/labels", label);
+  // 422: another PR's run created it a moment ago.
+  await github("POST", "/labels", label, [422]);
 
 for (const { name: old } of pull.labels)
   if (ours.has(old) && old !== label.name)
