@@ -30,6 +30,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: write
+      pull-requests: read
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
@@ -82,6 +83,7 @@ jobs:
       - name: Prepare package versions
         id: version
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ inputs.version }}
         run: node scripts/release/index.mjs prepare-version
 
@@ -101,13 +103,13 @@ jobs:
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
           RELEASE_BRANCH: ${{ steps.version.outputs.release_branch }}
           VERSION_CHANGED: ${{ steps.version.outputs.changed }}
-          PACKAGE_FILES: ${{ steps.version.outputs.package_files }}
+          RELEASE_FILES: ${{ steps.version.outputs.release_files }}
         run: |
           set -euo pipefail
           RELEASE_SHA="$(git rev-parse HEAD)"
           if [[ "$VERSION_CHANGED" == "true" ]]; then
             git diff --check
-            read -ra FILES <<< "$PACKAGE_FILES"
+            read -ra FILES <<< "$RELEASE_FILES"
             git add "${FILES[@]}"
             EXPECTED_FILES="$(printf '%s\n' "${FILES[@]}" | sort)"
             ACTUAL_FILES="$(git diff --cached --name-only | sort)"
@@ -295,6 +297,7 @@ jobs:
       actions: read
       contents: write
       packages: write
+      pull-requests: read
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
@@ -373,6 +376,7 @@ jobs:
         id: release
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PULL_REQUESTS_TOKEN: ${{ github.token }}
         run: node tooling/scripts/release/index.mjs ensure-release
 
       - name: Capture exact release ID

@@ -1,3 +1,5 @@
+<!-- The title becomes this PR's line in the release notes. Write it for people running Staaash, for example: fix(files): keep uploads after restart -->
+
 ## 🐛 Problem
 
 <!-- Explain the problem, expected behavior, and reproduction steps when relevant. -->

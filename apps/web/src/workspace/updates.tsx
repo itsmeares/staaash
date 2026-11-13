@@ -68,9 +68,10 @@ const TOLD_KEY = "staaash:update-told:";
 const leadLine = (notes: string) =>
   notes
     .split("\n")
+    .filter((line) => !line.startsWith("#"))
     .map((line) =>
       line
-        .replace(/^[#>*\-\s]+/, "")
+        .replace(/^[>*\-\s]+/, "")
         .replace(/[*_`]/g, "")
         .trim(),
     )

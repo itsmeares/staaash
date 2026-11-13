@@ -17,6 +17,7 @@ import {
   createDraftInput,
   ensureReleaseState,
   getReleaseById,
+  readReleaseHistory,
   markGitHubReleaseLatest,
   parseImageInspection,
   preparePackageVersions,
@@ -429,6 +430,65 @@ describe("release trust roots", () => {
       await writeFile(path.join(sourceRoot, "Caddyfile"), "source caddy\n");
       await expect(readReleaseTemplates(sourceRoot)).resolves.toMatchObject({
         optional: { Caddyfile: "source caddy\n" },
+      });
+    } finally {
+      await rm(sourceRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("reads upgrade facts from the release before this one", async () => {
+    const sourceRoot = await mkdtemp(path.join(os.tmpdir(), "release-facts-"));
+    const commit = async (files: Record<string, string>, tag?: string) => {
+      for (const [file, content] of Object.entries(files)) {
+        await mkdir(path.dirname(path.join(sourceRoot, file)), {
+          recursive: true,
+        });
+        await writeFile(path.join(sourceRoot, file), content);
+      }
+      git(sourceRoot, "add", "-A");
+      git(sourceRoot, "commit", "-q", "-m", "chore(release): prepare");
+      if (tag) git(sourceRoot, "tag", tag);
+    };
+    try {
+      git(sourceRoot, "init", "-q");
+      git(sourceRoot, "config", "user.name", "Release Test");
+      git(sourceRoot, "config", "user.email", "release@example.com");
+      await commit(
+        {
+          "docker-compose.yml": "ports: 2113\n",
+          "example.env": "UPLOAD_LOCATION=./library\n",
+          "packages/db/prisma/migrations/1_init/migration.sql": "",
+        },
+        "v1.0.0",
+      );
+      await commit({ "README.md": "rc\n" }, "v1.1.0-rc.1");
+      await commit({
+        "docker-compose.yml": '"${STAAASH_PORT:-2113}:2113"\n',
+        "example.env": "UPLOAD_LOCATION=./library\nSTAAASH_PORT=2113\n",
+        "packages/db/prisma/migrations/2_add/migration.sql": "",
+        "packages/db/prisma/migrations/3_add/migration.sql": "",
+        Caddyfile: "{$STAAASH_PUBLIC_URL}\n",
+      });
+
+      const history = readReleaseHistory({
+        cwd: sourceRoot,
+        repository: "itsmeares/staaash",
+        release: { tag: "v1.1.0", version: "1.1.0", prerelease: false },
+        to: "HEAD",
+      });
+
+      expect(history).toEqual({
+        previousTag: "v1.0.0",
+        changes: [],
+        facts: {
+          prerelease: false,
+          migrations: 2,
+          composeChanged: true,
+          newSettings: ["STAAASH_PORT"],
+          settingsHaveDefaults: true,
+          newFiles: ["Caddyfile"],
+        },
+        candidates: ["v1.1.0-rc.1"],
       });
     } finally {
       await rm(sourceRoot, { recursive: true, force: true });
@@ -862,7 +922,7 @@ describe("exact release resolution", () => {
   it("creates tag-push drafts without redundant target or latest fields", () => {
     const input = createDraftInput({
       context,
-      generated: { name: "Release candidate", body: "Notes.\n" },
+      notes: "Notes.\n",
       provenance: complete,
     });
 
@@ -878,7 +938,7 @@ describe("exact release resolution", () => {
     expect(input).not.toHaveProperty("make_latest");
     expect(input.body).toBe(
       appendReleaseProvenance({
-        body: `# 🚀 Staaash ${context.release.tag.slice(1)}\n\nNotes.\n`,
+        body: "Notes.\n",
         provenance: complete,
       }),
     );
@@ -890,45 +950,6 @@ describe("exact release resolution", () => {
       "tag_name",
     ]);
   });
-
-  it.each(["v2.0.0", "v2.0.0-rc.2"])(
-    "links every desktop installer to its own release for %s",
-    (tag) => {
-      const input = createDraftInput({
-        context: {
-          ...context,
-          release: { tag, prerelease: tag.includes("-") },
-        },
-        generated: { body: "Notes.\n" },
-        provenance: { ...complete, tag },
-        hasDesktop: true,
-      });
-      const links = Array.from(
-        String(input.body).matchAll(/\]\((https:\/\/[^)]+)\)/gu),
-        (match) => match[1],
-      ).filter((link) => link.includes("/releases/download/"));
-
-      expect(links).toEqual(
-        [
-          "win-x64.exe",
-          "win-arm64.exe",
-          "mac-universal.dmg",
-          "mac-universal.dmg",
-          "x86_64.AppImage",
-          "arm64.AppImage",
-          "amd64.deb",
-          "arm64.deb",
-          "x86_64.rpm",
-          "aarch64.rpm",
-        ].map(
-          (suffix) =>
-            `https://github.com/itsmeares/staaash/releases/download/${tag}/Staaash-Desktop-${tag.slice(1)}-${suffix}`,
-        ),
-      );
-      expect(input.body).toContain("Notes.\n");
-      expect(input.body).toContain("staaash:release-provenance:start");
-    },
-  );
 
   it("patches only the body when completing draft provenance", () => {
     const pending = buildReleaseProvenance({

@@ -14,8 +14,8 @@ gh workflow run release.yml --ref main -f version=v1.1.0
 
 The workflow globally queues releases and performs:
 
-1. Validate the requested version and update all package versions together.
-2. Commit the version change directly to `main` with the release App.
+1. Validate the requested version and update all package versions together. A stable release also adds its `CHANGELOG.md` entry.
+2. Commit those files directly to `main` with the release App.
 3. Create the immutable `v<version>` tag from that exact commit.
 4. Select immutable tooling and source checkouts. A new release uses tooling committed in the new tag. Manual recovery uses the exact `main` commit that defined the dispatched workflow. Release source always comes from the requested tag.
 5. Resolve the tag object and peeled commit; require the commit on current `main`.
@@ -32,41 +32,29 @@ The first release using this path may therefore be `v1.1.0`; no package files ne
 
 ## Release notes
 
-The workflow creates a version heading, desktop download links, and GitHub's generated change list. Desktop installers build after the server release is published, so the links will work only after those builds finish. Check the desktop workflow and its attached assets before sharing the release.
+The workflow writes the notes from the merged pull requests since the previous release. A candidate compares with the release just before it, and a stable release compares with the previous stable release. Each PR title becomes one line, so write titles for people running Staaash.
 
-After publication, edit the notes with `gh release edit` or the GitHub UI. Use this format for the human-written sections, keeping only sections that apply:
+| PR                                                                                                                          | Section                  |
+| --------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| `feat(area): …`                                                                                                             | ✨ New features          |
+| `perf(area): …`                                                                                                             | 🏎️ Performance           |
+| `fix(area): …`                                                                                                              | 🐛 Bug fixes             |
+| `security` label                                                                                                            | 🔒 Security              |
+| `docs: …`                                                                                                                   | 📖 Documentation, folded |
+| Opened by Renovate                                                                                                          | 📦 Dependencies, folded  |
+| `chore`, `ci`, `build`, `test`, `refactor`, no type, or the areas `ci`, `deps`, `issues`, `release`, `tooling` and `verify` | 🧹 Maintenance, folded   |
 
-```markdown
-# 🚀 Staaash X.Y.Z
+Lines are sorted by area and end with the PR number and its author. Performance and Bug fixes fold when they have more than 15 lines. Renovate labels vulnerability fixes `security`. Add the label by hand to your own security fixes.
 
-Briefly describe the release and any important warning.
+⚠️ Upgrade notes come from the difference with the previous release: release candidates, new migrations, a changed `docker-compose.yml`, new `example.env` settings, new release files, and security fixes. A new setting that is not commented out needs a `${NAME:-default}` in the compose file, or the notes tell people to check it.
 
-## 🏗️ Enhancements
+The notes end with 📥 Downloads and ❤️ Contributors. Desktop installers build after the server release is published, so their links work only after those builds finish. Check the desktop workflow and its attached assets before sharing the release.
 
-- Describe improvements in terms users can understand.
+After publication, replace the summary comment under the heading with one or two sentences. For a stable release, you can add `## 🌟 Highlights` where the notes say so. Add any upgrade step the script cannot see to ⚠️ Upgrade notes. The app shows these notes in its update dialog without the heading, folded Dependencies and Maintenance lists, and HTML.
 
-## 🔒 Security
+For stable releases, the release commit also adds the same sections to `CHANGELOG.md`, without Documentation, Dependencies and Maintenance. To write an entry by hand, add `## [X.Y.Z]` to `CHANGELOG.md` before releasing, and the workflow keeps it.
 
-- Describe security changes when applicable.
-
-## 📈 General changes
-
-- Describe fixes and other changes users should know about.
-
-## Desktop app
-
-Keep the generated installer links.
-
-## Upgrade notes
-
-- Describe migrations, breaking changes, and backup or rollback steps when applicable.
-
-## What's changed
-
-Keep GitHub's generated change list and full changelog link.
-```
-
-Use the exact version, including any prerelease suffix. Check the changes since the previous release and write accurate summaries. Do not copy example bullets into the release. Preserve this managed block exactly, including its contents:
+Preserve this managed block exactly, including its contents:
 
 ```text
 <!-- staaash:release-provenance:start -->

@@ -39,6 +39,14 @@ import {
   serializeSha256Sums,
 } from "../../packages/config/dist/release.js";
 import {
+  findNewSettings,
+  insertChangelogEntry,
+  previousReleaseTag,
+  releaseCandidateTags,
+  renderChangelogEntry,
+  renderReleaseNotes,
+} from "../../packages/config/dist/release-notes.js";
+import {
   compareSemanticVersions,
   normalizeSemanticVersion,
 } from "../../packages/config/dist/version.js";
@@ -167,8 +175,10 @@ const ghApiAllowNotFound = (endpoint) => {
   throw new Error(`gh ${args.join(" ")} failed: ${detail}`);
 };
 
-const ghApiPaginated = (endpoint) => {
-  const result = run("gh", ["api", "--paginate", "--slurp", endpoint]);
+const ghApiPaginated = (endpoint, environment = process.env) => {
+  const result = run("gh", ["api", "--paginate", "--slurp", endpoint], {
+    environment,
+  });
   const pages = JSON.parse(result.stdout);
   return pages.flat();
 };
@@ -240,6 +250,33 @@ const releaseContextFromEnv = () => {
     toolingSha,
     releaseBranch,
   };
+};
+
+// Stable releases add their entry to CHANGELOG.md in the release commit.
+const writeChangelogEntry = async (release) => {
+  const repository = requiredEnv("GITHUB_REPOSITORY");
+  const file = path.join(TOOLING_ROOT, "CHANGELOG.md");
+  const changelog = await readFile(file, "utf8");
+  const { changes, facts } = readReleaseHistory({
+    cwd: TOOLING_ROOT,
+    repository,
+    release,
+    to: "HEAD",
+  });
+  const next = insertChangelogEntry(
+    changelog,
+    renderChangelogEntry({
+      repository,
+      tag: release.tag,
+      date: new Date().toISOString().slice(0, 10),
+      changes,
+      facts,
+    }),
+    release.tag,
+  );
+  if (next === changelog) return false;
+  await writeFile(file, next);
+  return true;
 };
 
 // Every workspace package shares the release version. Reading the folders,
@@ -650,81 +687,131 @@ const resolvePublishedReleaseById = ({
   return { release, ...identity };
 };
 
-const generateReleaseNotes = (repository, tag) =>
-  ghApi(`repos/${repository}/releases/generate-notes`, {
-    method: "POST",
-    input: { tag_name: tag },
+const showAt = (cwd, ref, file) => {
+  const result = run("git", ["show", `${ref}:${file}`], {
+    cwd,
+    allowFailure: true,
   });
-
-const desktopReleaseNotes = ({ repository, release }) => {
-  const version = release.tag.slice(1);
-  const download = (suffix) =>
-    `https://github.com/${repository}/releases/download/${release.tag}/Staaash-Desktop-${version}-${suffix}`;
-  return `## Desktop app
-
-| System | x64 | ARM64 |
-| --- | --- | --- |
-| Windows | [Installer x64](${download("win-x64.exe")}) | [Installer ARM64](${download("win-arm64.exe")}) |
-| macOS | [Universal DMG](${download("mac-universal.dmg")}) | [Universal DMG](${download("mac-universal.dmg")}) |
-| Linux AppImage | [Installer x64](${download("x86_64.AppImage")}) | [Installer ARM64](${download("arm64.AppImage")}) |
-| Linux DEB | [Installer x64](${download("amd64.deb")}) | [Installer ARM64](${download("arm64.deb")}) |
-| Linux RPM | [Installer x64](${download("x86_64.rpm")}) | [Installer ARM64](${download("aarch64.rpm")}) |`;
+  return result.status === 0 ? result.stdout : "";
 };
 
-const windowsServerReleaseNotes = ({ repository, release }) => {
-  const version = release.tag.slice(1);
-  return `## Windows server
+const existsAt = (cwd, ref, file) =>
+  run("git", ["cat-file", "-e", `${ref}:${file}`], { cwd, allowFailure: true })
+    .status === 0;
 
-[Installer x64](https://github.com/${repository}/releases/download/${release.tag}/Staaash-Server-${version}-win-x64.exe) for Windows Server 2019 and newer, and Windows 10 and 11. Install, update, and backup steps are in the [Windows guide](https://github.com/${repository}/blob/${release.tag}/docs/operations/windows.md).`;
+// Squash merges end with their PR number, so git lists every change. GitHub
+// adds who wrote it and whether it carries the security label.
+const readReleaseChanges = ({ cwd, repository, from, to }) => {
+  const changes = gitAt(cwd, "log", "--format=%s", from ? `${from}..${to}` : to)
+    .split("\n")
+    .flatMap((title) => {
+      const match = /\(#(\d+)\)$/u.exec(title);
+      return match ? [{ title, number: Number(match[1]) }] : [];
+    });
+  if (changes.length === 0) return [];
+  const token = optionalEnv("PULL_REQUESTS_TOKEN");
+  const pulls = new Map(
+    ghApiPaginated(
+      `repos/${repository}/pulls?state=closed&per_page=100`,
+      token ? { ...process.env, GH_TOKEN: token } : process.env,
+    ).map((pull) => [pull.number, pull]),
+  );
+  return changes.map(({ title, number }) => {
+    const pull = pulls.get(number);
+    return {
+      number,
+      title,
+      author: pull?.user?.login ?? null,
+      bot: pull?.user?.type === "Bot",
+      security: Boolean(
+        pull?.labels?.some((label) => label.name === "security"),
+      ),
+    };
+  });
 };
 
-const createDraftInput = ({
-  context,
-  generated,
-  provenance,
-  hasDesktop = false,
-  hasWindowsServer = false,
-}) => ({
+const readUpgradeFacts = ({ cwd, from, to, prerelease }) => {
+  if (!from)
+    return {
+      prerelease,
+      migrations: 0,
+      composeChanged: false,
+      newSettings: [],
+      settingsHaveDefaults: true,
+      newFiles: [],
+    };
+  const compose = showAt(cwd, to, "docker-compose.yml");
+  return {
+    prerelease,
+    migrations: gitAt(
+      cwd,
+      "diff",
+      "--name-only",
+      "--diff-filter=A",
+      from,
+      to,
+      "--",
+      "packages/db/prisma/migrations",
+    )
+      .split("\n")
+      .filter((file) => file.endsWith("/migration.sql")).length,
+    composeChanged: showAt(cwd, from, "docker-compose.yml") !== compose,
+    ...findNewSettings({
+      previousEnv: showAt(cwd, from, "example.env"),
+      nextEnv: showAt(cwd, to, "example.env"),
+      compose,
+    }),
+    newFiles: OPTIONAL_TEMPLATE_NAMES.filter(
+      (file) => existsAt(cwd, to, file) && !existsAt(cwd, from, file),
+    ),
+  };
+};
+
+const readReleaseHistory = ({ cwd, repository, release, to }) => {
+  const tags = gitAt(cwd, "tag", "--list", "v*").split("\n").filter(Boolean);
+  const previousTag = previousReleaseTag(tags, release.tag);
+  return {
+    previousTag,
+    changes: readReleaseChanges({ cwd, repository, from: previousTag, to }),
+    facts: readUpgradeFacts({
+      cwd,
+      from: previousTag,
+      to,
+      prerelease: release.prerelease,
+    }),
+    candidates: release.prerelease
+      ? []
+      : releaseCandidateTags(tags, release.tag),
+  };
+};
+
+const createDraftInput = ({ context, notes, provenance }) => ({
   tag_name: context.release.tag,
   name: context.release.tag,
-  body: appendReleaseProvenance({
-    body: [
-      `# 🚀 Staaash ${context.release.tag.slice(1)}`,
-      hasDesktop ? desktopReleaseNotes(context) : "",
-      hasWindowsServer ? windowsServerReleaseNotes(context) : "",
-      generated.body ?? "",
-    ]
-      .filter(Boolean)
-      .join("\n\n"),
-    provenance,
-  }),
+  body: appendReleaseProvenance({ body: notes, provenance }),
   draft: true,
   prerelease: context.release.prerelease,
 });
 
 const createDraft = ({ context, provenance }) => {
-  const generated = generateReleaseNotes(
-    context.repository,
-    context.release.tag,
-  );
+  const sourceRoot = releaseSourceRoot();
+  const notes = renderReleaseNotes({
+    repository: context.repository,
+    tag: context.release.tag,
+    ...readReleaseHistory({
+      cwd: sourceRoot,
+      repository: context.repository,
+      release: context.release,
+      to: context.release.tag,
+    }),
+    hasDesktop: existsSync(path.join(sourceRoot, "apps/desktop/package.json")),
+    hasWindowsServer: existsSync(
+      path.join(sourceRoot, "scripts", "windows", "staaash-server.nsi"),
+    ),
+  });
   return ghApi(`repos/${context.repository}/releases`, {
     method: "POST",
-    input: createDraftInput({
-      context,
-      generated,
-      provenance,
-      hasDesktop: existsSync(
-        path.join(releaseSourceRoot(), "apps/desktop/package.json"),
-      ),
-      hasWindowsServer: existsSync(
-        path.join(
-          releaseSourceRoot(),
-          "scripts",
-          "windows",
-          "staaash-server.nsi",
-        ),
-      ),
-    }),
+    input: createDraftInput({ context, notes, provenance }),
   });
 };
 
@@ -1414,16 +1501,22 @@ const commandPrepareVersion = async () => {
     );
   }
 
-  const changed = await preparePackageVersions(TOOLING_ROOT, release.version);
-  const packageFiles = (await presentPackageFiles(TOOLING_ROOT)).map(
-    ([, file]) => file,
+  const versionsChanged = await preparePackageVersions(
+    TOOLING_ROOT,
+    release.version,
   );
+  // The release commit holds exactly the files that changed.
+  const releaseFiles = versionsChanged
+    ? (await presentPackageFiles(TOOLING_ROOT)).map(([, file]) => file)
+    : [];
+  if (!release.prerelease && (await writeChangelogEntry(release)))
+    releaseFiles.push("CHANGELOG.md");
   await writeOutputs([
     ["tag", release.tag],
     ["version", release.version],
-    ["changed", changed],
+    ["changed", releaseFiles.length > 0],
     ["release_branch", releaseBranch],
-    ["package_files", packageFiles.join(" ")],
+    ["release_files", releaseFiles.join(" ")],
   ]);
 };
 
@@ -1963,6 +2056,7 @@ const commands = {
 
 export {
   assetDirectory,
+  readReleaseHistory,
   createDraftInput,
   ensureReleaseState,
   getReleaseById,
