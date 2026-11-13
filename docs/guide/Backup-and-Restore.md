@@ -29,16 +29,35 @@ Stop everything first, so no file changes while you copy.
    docker compose stop staaash
    ```
 
-2. Give the worker a minute to finish its work. In the admin **Storage** screen, **Unfinished changes** should say "Nothing unfinished". If a change says **Needs review**, leave it as it is and read [[Storage Check]] before you continue.
+2. Give the worker a minute to finish unfinished changes. Then check that none are left:
 
-3. Stop the worker and the migration step, then the database:
+   ```console
+   docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+   SELECT status, count(*) FROM "StorageMutation"
+   WHERE status IN ('prepared', 'running', 'retrying', 'metadata_committed', 'finalizing')
+   GROUP BY status;
+   SQL
+   ```
+
+   Run it again until it prints `(0 rows)`. A change that says **Needs review** in admin **Storage** is not in this list. Leave it as it is, and read [[Storage Check]].
+
+   On Windows with Docker Desktop, run this in WSL or Git Bash.
+
+3. Stop the worker and the migration step:
 
    ```console
    docker compose stop worker migrate
+   ```
+
+   Run the check from step 2 once more, because the worker may have started a cleanup job. If it prints any rows, run `docker compose start worker` and go back to step 2.
+
+4. Stop the database:
+
+   ```console
    docker compose stop db
    ```
 
-4. Check that nothing is running:
+5. Check that nothing is running:
 
    ```console
    docker compose ps --status running
@@ -46,9 +65,9 @@ Stop everything first, so no file changes while you copy.
 
    The list must be empty. Do not copy the database folder while the database runs. The copy would be broken.
 
-5. Copy both folders (`library` and `postgres`) to your backup place. Copy them in the same session, so they match.
+6. Copy both folders (`library` and `postgres`) to your backup place. Copy them in the same session, so they match.
 
-6. Start Staaash again:
+7. Start Staaash again:
 
    ```console
    docker compose up -d

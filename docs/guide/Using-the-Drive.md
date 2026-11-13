@@ -45,7 +45,7 @@ Click a file to open it. Photos, videos, music, PDFs and text files open right i
 **Move to trash** does not delete a file. It waits in **Trash**, which shows how many days are left before it goes for good. That is 30 days unless your owner changed it.
 
 - Click **Restore** to put an item back where it was.
-- Click **Delete forever** on a file to remove it now.
+- Open the **⋯** menu on a file and click **Delete forever** to remove it now.
 - **Empty trash** removes everything in the trash, folders too. It is on the Trash page and in **Settings → Storage**.
 
 Your settings live in [[Your Account]].

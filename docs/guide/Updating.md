@@ -8,6 +8,8 @@ Each Staaash release is built for one exact version of the app. To update, you p
 2. Read the notes of the new release on the [releases page](https://github.com/itsmeares/staaash/releases), or in the app's update notice. Read **⚠️ Upgrade notes** closely. It says when the release changes the database, the compose file or `example.env`. If you skip releases, read the upgrade notes of each one.
 3. Check that the admin Overview shows no problems. See [[Admin Guide]].
 
+Alpha and beta releases of Staaash cannot be updated to 2.0. Start a fresh install of the current version and move your files in through the app. Do not point it at the old database or storage folders.
+
 Staaash shows a notice in the app when a new version exists. Admins can also press **Check now** on the Overview screen.
 
 ## Update

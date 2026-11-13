@@ -8,7 +8,7 @@ A share link lets someone open a file or folder without an account. You choose h
 2. Open its menu and choose **Share**.
 3. Press **Create link**, then **Copy link**. Send it to the person.
 
-Anyone with the link can open it. Treat the link like a key.
+Anyone with the link can open it, unless you set a password. Treat the link like a key.
 
 ## Choose how it works
 

@@ -40,7 +40,7 @@ Every browser and desktop app signed in to your account, with when it was last s
 
 - **Sign out** next to a device ends that one.
 - **Sign out everywhere else** ends all of them except this browser.
-- **Show addresses** shows the network address each one last used.
+- Each one shows the network address it last used.
 
 Sign out a lost phone or computer here. To add the desktop app, see [[Desktop App]].
 

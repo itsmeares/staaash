@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: Tag or branch to publish; empty publishes the latest stable release
+        description: Tag or branch to publish; empty publishes the latest stable release, which must contain docs/guide
         required: false
         type: string
         default: ""
