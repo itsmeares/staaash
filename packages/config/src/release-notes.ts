@@ -1,3 +1,4 @@
+import { changeKind, parseTitle, type Kind } from "./change-kind.js";
 import { parseReleaseTag } from "./release.js";
 import { compareSemanticVersions } from "./version.js";
 
@@ -20,8 +21,6 @@ export type UpgradeFacts = {
   newFiles: string[];
 };
 
-type Kind = "feat" | "perf" | "fix" | "security" | "docs" | "deps" | "maint";
-
 const SECTIONS: [Kind, string][] = [
   ["feat", "✨ New features"],
   ["perf", "🏎️ Performance"],
@@ -35,34 +34,16 @@ const USER_KINDS = new Set<Kind>(["feat", "perf", "fix", "security"]);
 const ALWAYS_FOLDED = new Set<Kind>(["docs", "deps", "maint"]);
 const FOLDED_WHEN_LONG = new Set<Kind>(["perf", "fix"]);
 const LONG_SECTION = 15;
-// Work on the release, CI and tooling is real work, but not news for people
-// running Staaash.
-const INTERNAL_AREAS = new Set([
-  "ci",
-  "deps",
-  "issues",
-  "release",
-  "tooling",
-  "verify",
-]);
-const TITLE = /^(\w+)(?:\(([^)]*)\))?!?:\s*(.+?)\s*(?:\(#\d+\))?$/u;
 
 const classify = (change: ReleaseChange) => {
-  const match = TITLE.exec(change.title);
-  const area = match?.[2] || null;
-  const rawText =
-    match?.[3] ?? change.title.replace(/\s*\(#\d+\)$/u, "").trim();
-  const text = rawText.charAt(0).toUpperCase() + rawText.slice(1);
-  const type = match?.[1];
-  let kind: Kind = "maint";
-  if (change.security) kind = "security";
-  else if (change.bot) kind = "deps";
-  else if (
-    (type === "feat" || type === "perf" || type === "fix" || type === "docs") &&
-    !(area && INTERNAL_AREAS.has(area))
-  )
-    kind = type;
-  return { kind, area, text, number: change.number, author: change.author };
+  const { area, text } = parseTitle(change.title);
+  return {
+    kind: changeKind(change),
+    area,
+    text: text.charAt(0).toUpperCase() + text.slice(1),
+    number: change.number,
+    author: change.author,
+  };
 };
 
 type Line = ReturnType<typeof classify>;
