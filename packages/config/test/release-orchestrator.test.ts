@@ -320,7 +320,11 @@ describe("release trust roots", () => {
         "apps/desktop/package.json",
         "packages/config/package.json",
         "packages/db/package.json",
+        "packages/ui/package.json",
       ];
+      await mkdir(path.join(sourceRoot, "packages", "no-package"), {
+        recursive: true,
+      });
       await Promise.all(
         packageFiles.map(async (file) => {
           const target = path.join(sourceRoot, file);
@@ -342,6 +346,7 @@ describe("release trust roots", () => {
         desktop: "1.1.0",
         config: "1.1.0",
         db: "1.1.0",
+        ui: "1.1.0",
       });
       await expect(preparePackageVersions(sourceRoot, "1.1.0")).resolves.toBe(
         false,
@@ -351,7 +356,7 @@ describe("release trust roots", () => {
     }
   });
 
-  it("releases a source from before the desktop app", async () => {
+  it("releases a source from before the desktop app and the ui package", async () => {
     const sourceRoot = await mkdtemp(path.join(os.tmpdir(), "release-older-"));
     try {
       for (const file of [
