@@ -26,7 +26,7 @@ import type {
   Settings,
   SyncPair,
 } from "../shared/types";
-import { FIRST_SYNC_SERVER, newer } from "../shared/version";
+import { FIRST_SYNC_SERVER, newer, wantsCandidates } from "../shared/version";
 import { signInWithBrowser, signOutDevice, webSessionUrl } from "./auth";
 import { loadSettings, loadToken, saveSettings, saveToken } from "./settings";
 import {
@@ -554,6 +554,10 @@ const registerIpc = () => {
       await updateSettings(patch);
       if (patch.startAtLogin !== undefined)
         await setStartAtLogin(patch.startAtLogin);
+      if (patch.releaseCandidates !== undefined)
+        updates?.setReleaseCandidates(
+          wantsCandidates(patch.releaseCandidates, app.getVersion()),
+        );
     }),
   );
   handle("pause", (minutes: number | null) => serial(() => pause(minutes)));
@@ -570,6 +574,7 @@ const registerIpc = () => {
   );
   handle("take-command", takeCommand);
   handle("install-update", () => updates?.install());
+  handle("check-updates", () => updates?.check() ?? "failed");
   handle("sign-out", () =>
     serial(async () => {
       // Cancels its unfinished uploads while the token still works.
@@ -629,11 +634,14 @@ void app.whenReady().then(async () => {
     installUpdate: () => void updates?.install(),
     quit: () => app.quit(),
   });
-  updates = startUpdates((next) => {
-    update = next;
-    publish();
-    tray?.rebuild();
-  });
+  updates = startUpdates(
+    (next) => {
+      update = next;
+      publish();
+      tray?.rebuild();
+    },
+    wantsCandidates(settings.releaseCandidates, app.getVersion()),
+  );
   powerMonitor.on("resume", () => send({ type: "sync-now" }));
   if (token && settings.serverUrl) await checkVersions(settings.serverUrl);
   await updateSettings({});

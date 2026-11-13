@@ -39,6 +39,7 @@ const api: DesktopApi = {
     return () => ipcRenderer.removeListener("command", handler);
   },
   installUpdate: call("install-update") as DesktopApi["installUpdate"],
+  checkForUpdates: call("check-updates") as DesktopApi["checkForUpdates"],
   signOut: call("sign-out") as DesktopApi["signOut"],
   quit: call("quit") as DesktopApi["quit"],
 };

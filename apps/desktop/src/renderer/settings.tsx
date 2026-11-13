@@ -26,6 +26,7 @@ import type {
   SizeReading,
   SyncPair,
 } from "../shared/types";
+import { wantsCandidates } from "../shared/version";
 import { DriveGlyph } from "@staaash/ui/drive-glyph";
 import { FolderChooser, ModeSelect } from "./folder-chooser";
 import { desktop } from "./state";
@@ -422,8 +423,49 @@ function NumberSetting({
   );
 }
 
-// Update states change the button.
-// fallow-ignore-next-line complexity
+type UpdateCheck = Awaited<ReturnType<typeof desktop.checkForUpdates>>;
+
+const updateDescription = (
+  update: AppState["update"],
+  check: UpdateCheck | "checking" | null,
+) => {
+  if (update?.ready) return `Version ${update.version} is ready.`;
+  if (update) return `Downloading version ${update.version}…`;
+  if (check === "checking") return "Checking for updates…";
+  if (check === "current") return "You have the newest version.";
+  if (check === "failed") return "Could not check. Try again later.";
+  return "Updates are checked every few hours.";
+};
+
+function UpdateRow({ state }: { state: AppState }) {
+  const [check, setCheck] = useState<UpdateCheck | "checking" | null>(null);
+  const { update } = state;
+  return (
+    <Row
+      description={updateDescription(update, check)}
+      label={`Staaash for desktop ${state.appVersion}`}
+    >
+      {update?.ready ? (
+        <Button onClick={() => void desktop.installUpdate()}>
+          {update.manual ? "Download" : "Restart to update"}
+        </Button>
+      ) : (
+        <Button
+          variant="outline"
+          disabled={check === "checking" || Boolean(update)}
+          onClick={async () => {
+            setCheck("checking");
+            const result = await desktop.checkForUpdates();
+            setCheck(result === "found" ? null : result);
+          }}
+        >
+          Check now
+        </Button>
+      )}
+    </Row>
+  );
+}
+
 export function SettingsPage({ state }: { state: AppState }) {
   const { settings } = state;
   const update = (patch: Partial<Settings>) =>
@@ -548,19 +590,21 @@ export function SettingsPage({ state }: { state: AppState }) {
         </div>
       </Group>
       <Group title="About">
+        <UpdateRow state={state} />
         <Row
-          description={
-            state.update?.ready
-              ? `Version ${state.update.version} is ready.`
-              : "Updates are checked every few hours."
-          }
-          label={`Staaash for desktop ${state.appVersion}`}
+          description="Try new versions before their release. They can have bugs."
+          label="Get release candidates"
         >
-          {state.update?.ready ? (
-            <Button onClick={() => void desktop.installUpdate()}>
-              {state.update.manual ? "Download" : "Restart to update"}
-            </Button>
-          ) : null}
+          <Switch
+            aria-label="Get release candidates"
+            checked={wantsCandidates(
+              settings.releaseCandidates,
+              state.appVersion,
+            )}
+            onCheckedChange={(releaseCandidates) =>
+              update({ releaseCandidates })
+            }
+          />
         </Row>
         <Row
           description="What went wrong while syncing. It stays on this computer."

@@ -36,6 +36,8 @@ export type Settings = {
   startAtLogin: boolean;
   /** The person chose to add folders later, so setup stops asking. */
   setupSkipped: boolean;
+  /** Update to release candidates too; null until the person chooses. */
+  releaseCandidates: boolean | null;
 };
 
 export type EngineConfig = {
@@ -204,6 +206,7 @@ export type DesktopApi = {
   takeCommand: () => Promise<WindowCommand | null>;
   onCommand: (listener: () => void) => () => void;
   installUpdate: () => Promise<void>;
+  checkForUpdates: () => Promise<"found" | "current" | "failed">;
   signOut: () => Promise<void>;
   quit: () => Promise<void>;
 };

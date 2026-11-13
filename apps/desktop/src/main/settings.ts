@@ -20,6 +20,7 @@ const defaults = (): Settings => ({
   pausedUntil: null,
   startAtLogin: true,
   setupSkipped: false,
+  releaseCandidates: null,
 });
 
 const file = () => path.join(app.getPath("userData"), "settings.json");
