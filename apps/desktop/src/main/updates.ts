@@ -89,9 +89,10 @@ export const startUpdates = (
     onChange({ version: info.version, ready: false, manual });
   });
   autoUpdater.on("update-downloaded", (info) => {
+    // Decided here, not when the check started, since the channel may change.
+    autoUpdater.autoInstallOnAppQuit = !unwanted(info.version);
     if (unwanted(info.version)) return;
     latest = info.version;
-    autoUpdater.autoInstallOnAppQuit = true;
     onChange({ version: info.version, ready: true, manual });
   });
   autoUpdater.on("error", () => {

@@ -64,6 +64,18 @@ it("leaving candidates drops a downloaded candidate so it never installs", () =>
   expect(updater.autoInstallOnAppQuit).toBe(true);
 });
 
+it("a candidate still downloading when candidates are left never installs", () => {
+  setPlatform("linux");
+  const onChange = vi.fn();
+  const updates = startUpdates(onChange, true);
+  // The check already picked rc.9 but has not reported it yet.
+  updates.setReleaseCandidates(false);
+  updater.emit("update-available", { version: "2.0.0-rc.9" });
+  updater.emit("update-downloaded", { version: "2.0.0-rc.9" });
+  expect(onChange).not.toHaveBeenCalled();
+  expect(updater.autoInstallOnAppQuit).toBe(false);
+});
+
 it("leaving candidates keeps a stable update that is ready", () => {
   setPlatform("linux");
   const onChange = vi.fn();
