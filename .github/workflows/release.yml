@@ -293,9 +293,7 @@ jobs:
     timeout-minutes: 90
     permissions:
       actions: read
-      attestations: write
       contents: write
-      id-token: write
       packages: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -424,18 +422,6 @@ jobs:
             org.opencontainers.image.revision=${{ env.RELEASE_SHA }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      # Lets anyone check the image came from this workflow:
-      # gh attestation verify oci://ghcr.io/itsmeares/staaash:<tag> --owner itsmeares
-      - name: Attest image build provenance
-        if: steps.build.outputs.digest != ''
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
-        with:
-          subject-name: ${{ env.IMAGE_REPOSITORY }}
-          subject-digest: ${{ steps.build.outputs.digest }}
-          push-to-registry: true
-          # Storage records only exist for organization repositories.
-          create-storage-record: false
 
       - name: Select immutable image digest
         id: digest
