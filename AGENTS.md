@@ -248,8 +248,8 @@ false reports with a clear reason. Stop when the latest commit is green.
 
 Most code changes do not need new docs. Add documentation only when the code
 cannot clearly carry the reason, or when the way people run Staaash changes.
-`docs/architecture.md` holds design rules and `docs/operations/` holds operator
-procedures.
+`docs/architecture.md` holds design rules. `docs/guide/` holds the guides for
+people running Staaash; stable releases publish them to the wiki.
 
 When old documentation becomes wrong, rewrite or remove it. Do not add a second
 explanation beside it. Do not commit plans, research notes, or agent scratch

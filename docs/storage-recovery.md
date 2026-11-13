@@ -1,4 +1,4 @@
-# Storage Mutation Recovery
+# Storage recovery
 
 Staaash keeps human-readable logical paths canonical on local storage. Every
 supported path-changing operation first records complete intent, affected
@@ -6,6 +6,9 @@ entities, fingerprints, and ordered filesystem steps in PostgreSQL. After intent
 is `prepared`, recovery rolls forward, with one exception: a single user
 operation that can never succeed is rolled back before metadata commit (see
 [Pre-commit rejection](#pre-commit-rejection)).
+
+This page is for contributors. Owners whose drive shows "Needs a storage
+check" should read the [Storage Check guide](https://github.com/itsmeares/staaash/wiki/Storage-Check).
 
 ## Supported filesystem
 
@@ -133,7 +136,7 @@ Admin health shows mutation ID, kind, owner, phase, oldest age, retrying count,
 and recovery-required count. Correct transient database, permission, mount, or
 space failures and let the worker retry. Admin retry is safe for transient
 states. There is deliberately no automatic destructive resolution for
-ambiguity.
+ambiguity, and no guided resolution yet either (#595).
 
 Completed mutation path and fingerprint detail is redacted. Replay results stay
 available for seven days; `recovery_required` records and their artifacts remain

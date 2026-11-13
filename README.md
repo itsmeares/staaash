@@ -95,7 +95,7 @@ To try Staaash 2.0, download `docker-compose.yml` and `example.env` from the [v2
 
 ### Windows server
 
-To run the server on Windows Server 2019 or newer, or Windows 10 or 11, without Docker, download the [v2.0.0-rc.8 server installer](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.8/Staaash-Server-2.0.0-rc.8-win-x64.exe). It installs the web app, the worker, and PostgreSQL as Windows services. See [Windows Server](docs/operations/windows.md).
+To run the server on Windows Server 2019 or newer, or Windows 10 or 11, without Docker, download the [v2.0.0-rc.8 server installer](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.8/Staaash-Server-2.0.0-rc.8-win-x64.exe). It installs the web app, the worker, and PostgreSQL as Windows services. See [Windows Server](https://github.com/itsmeares/staaash/wiki/Windows-Server).
 
 ### Desktop app
 
@@ -115,11 +115,11 @@ The app checks GitHub for a new version when it starts and every six hours. Wind
 
 ## Learn more
 
-- [Backup and restore](https://github.com/itsmeares/staaash/blob/main/docs/operations/backup-restore.md): protect your files and practice recovery.
-- [Reverse proxy](https://github.com/itsmeares/staaash/blob/main/docs/operations/reverse-proxy.md): put Staaash behind a domain.
+- [Guides](https://github.com/itsmeares/staaash/wiki): install, configure, update, and run Staaash.
+- [Backup and restore](https://github.com/itsmeares/staaash/wiki/Backup-and-Restore): protect your files and practice recovery.
+- [Reverse proxy](https://github.com/itsmeares/staaash/wiki/Reverse-Proxy): put Staaash behind a domain with HTTPS.
 - [Release notes](https://github.com/itsmeares/staaash/releases): check changes before upgrading.
-- [Storage mutation recovery](https://github.com/itsmeares/staaash/blob/main/docs/operations/storage-mutation-recovery.md): recover interrupted storage operations.
-- [Architecture](https://github.com/itsmeares/staaash/blob/main/docs/architecture.md) and [resumable uploads](https://github.com/itsmeares/staaash/blob/main/docs/operations/resumable-uploads.md): understand how Staaash works.
+- [Architecture](https://github.com/itsmeares/staaash/blob/main/docs/architecture.md): how Staaash stores and protects files.
 - [Brand kit](https://github.com/itsmeares/staaash/blob/main/design/README.md): logos, colors, and screenshots for writing about Staaash.
 
 ## Community

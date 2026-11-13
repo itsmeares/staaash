@@ -1,35 +1,33 @@
 # Architecture
 
-## System Shape
+Staaash is a modular monolith with a separate worker for background work. The
+web app handles requests, and the worker handles durable work that must not
+depend on a request staying open. Storage and recovery come first: the design
+stays small until it has a reason to grow.
 
-Staaash is a modular monolith with a separate worker runtime for background behavior.
+Guides for people running Staaash are in [`guide/`](guide/) and on the
+[wiki](https://github.com/itsmeares/staaash/wiki). This page and the others in
+`docs/` are for contributors.
 
-The web app handles the interactive product surface, request-time business logic, and owner-facing operational views. The worker handles durable background work that should not depend on a request staying open.
-
-This is intentionally a small, explicit architecture. The repo is trying to make storage and recovery behavior reliable before it tries to look more distributed than it needs to be.
-
-## Main Runtimes
+## Parts
 
 ### Web app
 
 - a Vite single-page app (TanStack Router and Query) served by a Hono server
   on Node; the server adds link-preview tags to share pages
-- auth, files, sharing, search, restore, sync, and admin-facing request flows
-- public routes are described in `apps/web/openapi.json`; within a major
-  version they only gain routes and fields, and `GET /api/version` reports the
-  oldest desktop client the server supports
+- auth, files, sharing, search, restore, sync, and admin request flows
+- public routes are described in `apps/web/openapi.json`; see [API](api.md)
 
 ### Worker
 
-- separate runtime for background behavior
-- intended home for cleanup, reconciliation, and other queued work
-- operationally visible through admin health surfaces
+- cleanup, reconciliation, media derivatives, zip archives, and other queued
+  work, visible in admin health
 - one general job slot, one small-archive slot and one small-media slot per
   worker process, with separate lease owners and health records
 - the small-archive slot accepts ZIPs of at most 32 directly selected files and
   8 MiB of source data, using metadata from the authorized selection
 - folders and unknown sizes stay in the general slot; batch-move recovery keeps
-  its existing separate limit
+  its own separate limit
 
 All three job slots use the default database queue. The small-media slot accepts
 thumbnail jobs, including existing queued jobs and retries, and finishes poster
@@ -57,51 +55,80 @@ a fallback. The process starts the periodic scheduler and move recovery once.
 
 ### PostgreSQL
 
-- system of record for metadata
-- stores users, auth/session state, file and folder metadata, sharing state, and other durable app records
+The system of record for metadata: users, sessions, files and folders, shares,
+the mutation journal, and other durable records.
 
-### File storage volume
+### Storage volume
 
-- app-managed local disk
-- stores original binaries in a human-readable canonical logical layout
-- requires local same-volume atomic rename plus working file and directory fsync
+An app-managed local disk that holds original files in a readable layout. It
+needs atomic rename within the volume and working file and directory `fsync`.
 
-## Core Data And Storage Model
+## Storage model
 
-- PostgreSQL stores metadata
-- physical files live on an app-managed local volume
-- logical paths are canonical in metadata and on disk
-- rename, move, trash, and restore physically move paths under a durable
-  PostgreSQL mutation journal
-- uploads stage under `UPLOAD_LOCATION/tmp/` before verification and commit
+- PostgreSQL stores metadata, and the disk stores bytes.
+- Logical paths are the same in metadata and on disk.
+- Rename, move, trash and restore move real paths under a durable mutation
+  journal in PostgreSQL.
+- Uploads wait under `UPLOAD_LOCATION/tmp/` until their checksum is verified.
 
-PostgreSQL is the durable intent authority while the filesystem is the canonical
-byte store. Prepared mutations recover forward after restart, except that a
-single user operation rejected before any metadata commits (quota, overlong path, or
-exhausted retries) is rolled back and aborted. Ambiguous outcomes preserve every
-possible byte and fail closed until an operator investigates.
+PostgreSQL holds the intent, and the filesystem holds the bytes. Prepared
+mutations recover forward after a restart, except that a single user operation
+rejected before any metadata commits (quota, overlong path, or exhausted
+retries) is rolled back and aborted. How the journal works is in
+[storage recovery](storage-recovery.md).
 
-## Locked Behavior Rules
+## Rules
 
-- active originals use `files/<storageId>/<logical hierarchy>`
-- newly trashed roots use isolated readable paths below `.trash/<storageId>/`
-- generated derivatives and archives stay below `derivatives/` and `archives/`
-- thumbnails supply file lists and link-card pictures, follow the Thumbnails
-  setting, and are queued after upload, when a single file is shared, or when a
-  private list or a share page finds one missing; smaller video copies follow
-  their own setting and its upload, first-play and share triggers
-- thumbnails and posters from older releases stay until their file is purged;
-  only smaller video copies expire after the unused-copy retention days
-- a link card offers a video only with a ready picture and either a ready web
-  copy or an MP4 or WebM original below the web-copy threshold, so chat apps
-  are never pointed at a large original
-- resumable uploads reserve bounded database capacity before staging, then
-  verify checksum and transfer the reservation to committed metadata atomically
-- share links bind to files or folders by stable IDs
-- search is case-insensitive, accent-insensitive, and path-token aware
-- `/admin` health includes DB reachability, storage writability, worker heartbeat, queue backlog, disk warnings, and version or update status
-- restore requires reconciliation instead of silent best effort
-- preview-capable media is viewed from original bytes; restore does not regenerate derivative previews
+These rules protect stored files and the promises Staaash makes. Change one only
+with a reason that beats the one given.
+
+1. Active originals live at `files/<storageId>/<logical hierarchy>`.
+   Why: the disk stays readable without Staaash, and restore can compare paths
+   with metadata.
+2. Every rename, move, trash, restore and upload commit goes through the
+   mutation journal.
+   Why: a crash at any step leaves a state recovery can finish.
+3. An ambiguous outcome keeps every possible byte and fails closed until an
+   operator investigates.
+   Why: guessing can destroy a file, and stopping only delays it.
+4. Newly trashed roots use isolated readable paths below `.trash/<storageId>/`.
+   Why: trashed bytes never collide with active files, and restore knows
+   exactly what to put back.
+5. Generated derivatives and archives stay below `derivatives/` and
+   `archives/`.
+   Why: they can always be rebuilt, so they never mix with originals.
+6. Resumable uploads reserve bounded database capacity before staging, then
+   verify the checksum and move the reservation to committed metadata
+   atomically.
+   Why: a half-finished upload never counts as a file and never breaks quota.
+7. Share links bind to files or folders by stable IDs.
+   Why: renaming or moving an item keeps its links working.
+8. Search is case-insensitive, accent-insensitive, and path-token aware.
+   Why: people search for a name the way they remember it.
+9. Preview-capable media is viewed from original bytes; restore does not
+   regenerate derivative previews.
+   Why: a missing preview never blocks opening a file.
+10. Thumbnails supply file lists and link-card pictures, follow the Thumbnails
+    setting, and are queued after upload, when a single file is shared, or when
+    a private list or a share page finds one missing. Smaller video copies
+    follow their own setting and its upload, first-play and share triggers.
+    Thumbnails and posters from older releases stay until their file is purged;
+    only smaller video copies expire after the unused-copy retention days.
+    Why: lists stay fast, and only the costly copies expire.
+11. A link card offers a video only with a ready picture and either a ready web
+    copy or an MP4 or WebM original below the web-copy threshold.
+    Why: chat apps are never pointed at a large original.
+12. Admin health includes database reachability, storage writability, worker
+    heartbeat, queue backlog, disk warnings, and version or update status.
+    Why: the owner sees a problem before members do.
+13. Restore requires reconciliation instead of silent best effort.
+    Why: a database and a files folder restored from different moments must not
+    be trusted blindly.
+14. Owner authority is operational. It is not a bypass into members' private
+    files.
+    Why: members trust the drive with private files.
+
+### Stored names and totals
 
 Search name candidates use `File.searchName`, derived with the same PostgreSQL
 normalization as the name query. A database trigger updates it in the same
@@ -140,9 +167,9 @@ A restore audit failure stops reconciliation. This policy stops startup before
 recovery can change files while accounting is inconsistent. NULL also blocks
 quota admission and file growth in an already running process. An operator must
 investigate and rebuild usage with all writers stopped. See the repair procedure in
-[`resumable uploads`](operations/resumable-uploads.md#repairing-committed-usage).
+[resumable uploads](resumable-uploads.md#repairing-committed-usage).
 
-## Desktop Sync
+## Desktop sync
 
 - a desktop app signs in through the browser: a loopback redirect with PKCE
   gives it a device token, sent as a Bearer header; device tokens cannot reach
@@ -182,17 +209,22 @@ folder, two-way, download only, or upload only. Pairs never overlap.
   the order asked. A settings change or a stop takes effect before the next
   action, and stopping aborts transfers, which resume on the next run
 
-## Boundaries And Non-Goals
+## Limits
 
-- no microservice split in v1
-- no native mobile app in v1
-- no S3-compatible storage backend in v1
-- no internal collaboration permissions or shared workspaces in v1
-- owner authority is operational, not a normal-app superuser bypass for member private content
+Not planned:
 
-## Related Docs
+- a microservice split
+- an S3-compatible storage backend
+- collaboration permissions or shared workspaces
 
-- [`../README.md`](../README.md) for install and local development steps
-- [`operations/backup-restore.md`](./operations/backup-restore.md) for backup and restore expectations
-- [`operations/resumable-uploads.md`](./operations/resumable-uploads.md) for resumable admission, quota, and cleanup behavior
-- [`operations/storage-mutation-recovery.md`](./operations/storage-mutation-recovery.md) for mutation recovery and upgrade operations
+Not yet: a phone app. It is planned for later.
+
+## Related docs
+
+- [API](api.md): public routes, signing in, large folder changes, and health
+  checks
+- [Storage recovery](storage-recovery.md): the mutation journal, recovery, and
+  upgrade cutover
+- [Resumable uploads](resumable-uploads.md): upload admission, quota, and
+  cleanup
+- [Guides](guide/): install, back up, update, and run Staaash
