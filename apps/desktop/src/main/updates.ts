@@ -15,7 +15,7 @@ export type UpdateCheck = "found" | "current" | "failed";
  * a new version exists and opens the download page.
  */
 export const startUpdates = (
-  onChange: (update: UpdateState) => void,
+  onChange: (update: UpdateState | null) => void,
   releaseCandidates: boolean,
 ) => {
   if (!app.isPackaged)
@@ -27,6 +27,13 @@ export const startUpdates = (
   const manual = process.platform === "darwin";
   let includeCandidates = releaseCandidates;
   let latest: string | null = null;
+  /** Leaving candidates drops a candidate already found, so the channel wins. */
+  const dropCandidate = () => {
+    if (!latest?.includes("-")) return false;
+    latest = null;
+    onChange(null);
+    return true;
+  };
 
   if (manual) {
     const check = async (): Promise<UpdateCheck> => {
@@ -60,6 +67,7 @@ export const startUpdates = (
       check,
       setReleaseCandidates: (on: boolean) => {
         includeCandidates = on;
+        if (!on) dropCandidate();
         void check();
       },
     };
@@ -68,12 +76,20 @@ export const startUpdates = (
   const { autoUpdater } = electronUpdater;
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.allowPrerelease = includeCandidates;
-  autoUpdater.on("update-available", (info) =>
-    onChange({ version: info.version, ready: false, manual }),
-  );
-  autoUpdater.on("update-downloaded", (info) =>
-    onChange({ version: info.version, ready: true, manual }),
-  );
+  // A candidate found before the channel changed can still finish later.
+  const unwanted = (version: string) =>
+    version.includes("-") && !autoUpdater.allowPrerelease;
+  autoUpdater.on("update-available", (info) => {
+    if (unwanted(info.version)) return;
+    latest = info.version;
+    onChange({ version: info.version, ready: false, manual });
+  });
+  autoUpdater.on("update-downloaded", (info) => {
+    if (unwanted(info.version)) return;
+    latest = info.version;
+    autoUpdater.autoInstallOnAppQuit = true;
+    onChange({ version: info.version, ready: true, manual });
+  });
   autoUpdater.on("error", () => {
     // Offline or no release for this platform yet; the next check retries.
   });
@@ -92,6 +108,8 @@ export const startUpdates = (
     check,
     setReleaseCandidates: (on: boolean) => {
       autoUpdater.allowPrerelease = on;
+      // The downloaded candidate stays on disk; it just must not install.
+      if (!on && dropCandidate()) autoUpdater.autoInstallOnAppQuit = false;
       void check();
     },
   };
