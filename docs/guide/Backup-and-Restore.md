@@ -1,0 +1,67 @@
+# Backup and Restore
+
+Staaash is not a backup system. It is a drive. If the disk dies, or you delete the wrong folder, your files are gone unless you have a backup.
+
+## What to back up
+
+Two folders, always together:
+
+- `library` holds your uploaded files.
+- `postgres` holds the database. It remembers file names, folders, people and share links.
+
+A backup with only one of them is not complete. Files without the database lose their names and folders. A database without the files has names that point to nothing.
+
+These are the default names. If you changed `UPLOAD_LOCATION` or `DB_DATA_LOCATION` in your `.env` file, back up those folders instead.
+
+Preview pictures and zip files do not need special care. Staaash can rebuild them. Your original files cannot be rebuilt.
+
+## Make a backup
+
+Stop everything first, so no file changes while you copy.
+
+1. Stop the web app:
+
+   ```console
+   docker compose stop staaash
+   ```
+
+2. Give the worker a minute to finish its work. In the admin **Storage** screen, **Unfinished changes** should say "Nothing unfinished". If it shows something marked as needing recovery, stop here and read [[Troubleshooting]]. Do not back up yet.
+
+3. Stop the worker, then the database:
+
+   ```console
+   docker compose stop worker
+   docker compose stop db
+   ```
+
+4. Check that nothing is running:
+
+   ```console
+   docker compose ps --status running
+   ```
+
+   The list must be empty. Do not copy the database folder while the database runs. The copy would be broken.
+
+5. Copy both folders (`library` and `postgres`) to your backup place. Copy them in the same session, so they match.
+
+6. Start Staaash again:
+
+   ```console
+   docker compose up -d db staaash worker
+   ```
+
+Keep more than one copy. A good start is one copy on another disk in the same house, and one copy somewhere else, such as a different building or an online storage service you trust.
+
+## Practice a restore
+
+A backup you never tried is only a hope. Practice on a spare computer or a new folder, never over your real install.
+
+1. Make a new empty folder. Copy in `docker-compose.yml` and `.env` from your real install. Do not start anything yet.
+2. Put your backed-up `library` and `postgres` folders where `UPLOAD_LOCATION` and `DB_DATA_LOCATION` point.
+3. Start it with `docker compose up -d db staaash worker`, and sign in as the owner.
+4. Open admin **Jobs** and run **Restore check**. It compares the files on disk with what the database remembers.
+5. Open a folder, download an old file, upload a small one, and open a share link if you use them.
+
+If something fails, keep the restored copy as it is and do not use it as your main copy. Ask in [GitHub Discussions](https://github.com/itsmeares/staaash/discussions).
+
+To restore for real, do the same on the real computer with Staaash stopped, then run **Restore check**. The full technical version is [backup-restore.md](https://github.com/itsmeares/staaash/blob/main/docs/operations/backup-restore.md).
