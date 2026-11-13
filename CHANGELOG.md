@@ -2,6 +2,38 @@
 
 See linked GitHub release notes for full details.
 
+## [2.0.0](https://github.com/itsmeares/staaash/releases/tag/v2.0.0)
+
+Staaash 2.0 adds a desktop app that syncs folders, a new design for every screen, and a new web engine.
+
+### ⚠️ Upgrade notes
+
+- Back up your database and files together before upgrading. This release runs 18 database migrations, and four of them remove columns or tables. Going back to 1.x means restoring that backup.
+- `docker-compose.yml` and `example.env` changed. Download both from this release. Migrations now run in their own `migrate` service before the server and worker start.
+- Another member's private file, folder, zip or share now answers 404 instead of 403.
+- `/api/auth/session` no longer returns `deviceSessionId`.
+- Upload session limits are fixed at 32 per user and 128 per server, and their admin settings are gone. Two preview size settings and the video preview concurrency setting are gone too.
+
+### ✨ New features
+
+- **Desktop app.** Sync folders between your computer and your drive on Windows, macOS and Linux. Choose two-way, download only or upload only, leave out subfolders, and see speed and time left. Conflicting versions are both kept, and deletes go to the trash on both sides.
+- **New design.** The drive, admin, settings and sign-in are rebuilt, in light and dark, on desktop and phone. Every page uses one list with list and grid views, and phones get a bottom bar and a swiping viewer.
+- **New engine.** A Vite app on a Hono server replaces Next.js. The public API is described in `openapi.json` and only gains routes and fields within 2.x.
+- **Windows server.** Run Staaash on Windows 10, 11 or Server 2019 and newer without Docker. The installer sets up the web app, worker and PostgreSQL as Windows services.
+- **HTTPS.** An optional Caddy setup gets a certificate for your own domain.
+- **Demo.** [Try Staaash](https://itsmeares.github.io/staaash/) in your browser before installing.
+- One transfers menu for uploads, zips and downloads, with speed and time left.
+- Paste a screenshot or copied file into a folder to upload it.
+- Move with a folder picker, and undo the move.
+- Folder links show photos as a gallery.
+- Sign out your other devices from Settings.
+- Empty a large trash in the background, and change folders with thousands of items reliably.
+- The owner can turn thumbnails and smaller video copies on and off separately.
+
+### 🔒 Security
+
+- Private HTML and SVG files no longer run scripts when opened.
+
 ## [1.2.1](https://github.com/itsmeares/staaash/releases/tag/v1.2.1) - 2026-10-23
 
 ### Security

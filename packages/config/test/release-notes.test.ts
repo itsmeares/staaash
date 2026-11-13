@@ -278,4 +278,12 @@ describe("changelog", () => {
     ).toBe(true);
     expect(insertChangelogEntry(changelog, entry, "v2.0.0")).toBe(changelog);
   });
+
+  it("dates an entry written by hand before its release", () => {
+    const changelog = `# Changelog\n\n## [2.0.1](x)\n\nHand-written.\n`;
+
+    expect(insertChangelogEntry(changelog, entry, "v2.0.1")).toBe(
+      "# Changelog\n\n## [2.0.1](https://github.com/itsmeares/staaash/releases/tag/v2.0.1) - 2026-12-01\n\nHand-written.\n",
+    );
+  });
 });
