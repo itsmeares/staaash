@@ -18,7 +18,7 @@ export function selectSuites(
     full ||
     runtimeChanged ||
     files.some((file) =>
-      /^(?:packages\/db\/|packages\/config\/src\/(?:upload|runtime)|apps\/worker\/|apps\/web\/(?:app\/api\/|next\.config\.ts|instrumentation\.ts|server\/(?:files\/|uploads|durable-storage|storage|auth\/|settings))|scripts\/ci\/|\.github\/workflows\/|Dockerfile|\.dockerignore|docker-compose)/.test(
+      /^(?:packages\/db\/|packages\/config\/src\/(?:upload|runtime)|apps\/worker\/|apps\/web\/server\/(?:http\/|main\.ts|files\/|uploads|durable-storage|storage|auth\/|settings)|scripts\/ci\/|\.github\/workflows\/|Dockerfile|\.dockerignore|docker-compose)/.test(
         file,
       ),
     );
