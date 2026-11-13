@@ -11,6 +11,8 @@ Two folders, always together:
 
 A backup with only one of them is not complete. Files without the database lose their names and folders. A database without the files has names that point to nothing.
 
+Keep a copy of your `.env` file with them. The database only opens with the `DB_PASSWORD` it was made with, and `.env` holds that password and your other settings. Store it somewhere safe, because it is a secret.
+
 These are the default names. If you changed `UPLOAD_LOCATION` or `DB_DATA_LOCATION` in your `.env` file, back up those folders instead.
 
 Copy the whole `library` folder, including its hidden and temporary folders. Unfinished changes keep their safety copies there.
@@ -65,7 +67,7 @@ Stop everything first, so no file changes while you copy.
 
    The list must be empty. Do not copy the database folder while the database runs. The copy would be broken.
 
-6. Copy both folders (`library` and `postgres`) to your backup place. Copy them in the same session, so they match.
+6. Copy both folders (`library` and `postgres`) and your `.env` file to your backup place. Copy them in the same session, so they match.
 
 7. Start Staaash again:
 
