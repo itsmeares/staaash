@@ -33,6 +33,7 @@ await test("stored data and startup changes require upgrade and recovery", () =>
     "apps/web/server/health.ts",
     "apps/web/server/http/routes/files.ts",
     "Dockerfile",
+    "compose.https.yml",
     "scripts/ci/stack.mjs",
   ]) {
     const { desktop: _desktop, ...suites } = selectSuites([file]);

@@ -20,77 +20,49 @@ Staaash compares the browser `Origin` host to the request `Host` for mutating re
 
 If your proxy terminates HTTPS and forwards traffic to Staaash over HTTP, make sure it forwards the original protocol as HTTPS.
 
-## Caddy example
+## Caddy with Docker Compose
 
-Caddy is the simplest recommended reverse proxy for most home and small self-hosted installs because it manages HTTPS certificates automatically.
-
-Create a file named `Caddyfile`, no extensions. You can use a notepad app or something like `nano` to edit that file.
-
-Example `Caddyfile`:
-
-```caddyfile
-drive.example.com {
-    reverse_proxy staaash:2113
-}
-```
-
-Set the canonical public URL in `.env`:
+Each release ships `compose.https.yml` and a `Caddyfile`. Put both next to
+`docker-compose.yml`, then add these lines to `.env`:
 
 ```env
 STAAASH_PUBLIC_URL=https://drive.example.com
+COMPOSE_PATH_SEPARATOR=,
+COMPOSE_FILE=docker-compose.yml,compose.https.yml
+STAAASH_PORT=127.0.0.1:2113
 ```
 
-Discord caches embed metadata, so repost the link or create a fresh share after changing this setting.
+Run `docker compose up -d`. Caddy gets a certificate for the hostname in
+`STAAASH_PUBLIC_URL` and listens on ports 80 and 443. `STAAASH_PORT` keeps
+Staaash's own port on this machine only, so traffic from the network goes
+through Caddy. `COMPOSE_PATH_SEPARATOR=,` lets the same line work on Linux,
+macOS and Windows.
 
-`SECURE_COOKIES` is usually not needed. By default, Staaash uses secure cookies on HTTPS and non-secure cookies on plain HTTP.
+This `Caddyfile` turns HTTP/3 off. In our tests, HTTP/3 used about 2.5 times
+more CPU per MiB and uploaded about 45% slower than HTTP/2.
 
-## Docker Compose example
+Discord caches embed metadata, so repost the link or create a fresh share after
+changing `STAAASH_PUBLIC_URL`.
 
-If Caddy runs in the same Compose project as Staaash, it can reach the app through the internal Docker network at `staaash:2113`.
+`SECURE_COOKIES` is usually not needed. By default, Staaash uses secure cookies
+on HTTPS and non-secure cookies on plain HTTP.
 
-Add a Caddy service:
+## Your own proxy
 
-```yaml
-caddy:
-  image: caddy:latest
-  container_name: staaash_caddy
-  restart: always
-  ports:
-    - "80:80"
-    - "443:443"
-  volumes:
-    - ./Caddyfile:/etc/caddy/Caddyfile:ro
-    - caddy_data:/data
-    - caddy_config:/config
-  depends_on:
-    - staaash
+Point the proxy at port 2113 and set `STAAASH_PUBLIC_URL` to the public address.
+A Caddy running on the same machine needs only this:
+
+```caddyfile
+drive.example.com {
+    reverse_proxy 127.0.0.1:2113
+}
 ```
 
-Add the named volumes at the top level of the Compose file:
+When the proxy runs on the same machine, keep Staaash off the network by
+opening its port on this machine only:
 
-```yaml
-volumes:
-  caddy_data:
-  caddy_config:
-```
-
-The `volumes:` block must be at the top level of the file, not inside `services:`.
-
-## Do not expose Staaash directly
-
-When using a reverse proxy, expose only the proxy to the internet.
-
-Remove this from the `staaash` service unless you intentionally want direct access:
-
-```yaml
-ports:
-  - "2113:2113"
-```
-
-Caddy can still reach Staaash internally through:
-
-```text
-http://staaash:2113
+```env
+STAAASH_PORT=127.0.0.1:2113
 ```
 
 Your public traffic should look like this:
@@ -98,8 +70,8 @@ Your public traffic should look like this:
 ```text
 Internet
   -> 80/443
-  -> Caddy
-  -> staaash:2113
+  -> reverse proxy
+  -> Staaash on port 2113
 ```
 
 ## DNS and ports

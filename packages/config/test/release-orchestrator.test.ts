@@ -424,6 +424,11 @@ describe("release trust roots", () => {
       await expect(readReleaseTemplates(sourceRoot)).resolves.toEqual({
         compose: "source compose\n",
         environment: "source env\n",
+        optional: {},
+      });
+      await writeFile(path.join(sourceRoot, "Caddyfile"), "source caddy\n");
+      await expect(readReleaseTemplates(sourceRoot)).resolves.toMatchObject({
+        optional: { Caddyfile: "source caddy\n" },
       });
     } finally {
       await rm(sourceRoot, { recursive: true, force: true });

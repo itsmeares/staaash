@@ -1,15 +1,25 @@
 name: staaash
 
+x-database-url: &database-url postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD:?Set DB_PASSWORD in .env}@db:5432/${DB_DATABASE_NAME:-staaash}
+
+# Docker keeps container logs forever unless they are capped.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
 services:
   migrate:
     image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}
     command: prisma migrate deploy
     environment:
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD}@db:5432/${DB_DATABASE_NAME:-staaash}
+      DATABASE_URL: *database-url
     depends_on:
       db:
         condition: service_healthy
     restart: "no"
+    logging: *logging
 
   staaash:
     container_name: staaash_server
@@ -19,7 +29,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: "2113"
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD}@db:5432/${DB_DATABASE_NAME:-staaash}
+      DATABASE_URL: *database-url
       UPLOAD_LOCATION: /data/files
       SECURE_COOKIES: "${SECURE_COOKIES:-}"
       STAAASH_PUBLIC_URL: "${STAAASH_PUBLIC_URL:-}"
@@ -35,9 +45,26 @@ services:
         condition: service_completed_successfully
 
     ports:
-      - "2113:2113"
+      - "${STAAASH_PORT:-2113}:2113"
+
+    # Live, not ready: a proxy that hides unhealthy containers would otherwise
+    # hide the storage check page Staaash shows during recovery.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-q",
+          "--spider",
+          "http://127.0.0.1:2113/api/health/live",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
     restart: always
+    logging: *logging
 
   worker:
     container_name: staaash_worker
@@ -47,7 +74,7 @@ services:
 
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD}@db:5432/${DB_DATABASE_NAME:-staaash}
+      DATABASE_URL: *database-url
       UPLOAD_LOCATION: /data/files
       UPLOAD_STAGING_RETENTION_HOURS: "${UPLOAD_STAGING_RETENTION_HOURS:-}"
 
@@ -62,6 +89,7 @@ services:
         condition: service_completed_successfully
 
     restart: always
+    logging: *logging
 
   db:
     container_name: staaash_postgres
@@ -69,7 +97,7 @@ services:
 
     environment:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       POSTGRES_DB: ${DB_DATABASE_NAME:-staaash}
 
     volumes:
@@ -88,6 +116,7 @@ services:
       start_period: 10s
 
     restart: always
+    logging: *logging
 
 x-casaos:
   id: io.github.itsmeares.staaash
@@ -97,12 +126,12 @@ x-casaos:
     en_US: Staaash
 
   tagline:
-    en_US: Self-hosted personal cloud drive
+    en_US: The drive for your homelab
 
   description:
-    en_US: A private, self-hosted personal cloud drive for storing and sharing files.
+    en_US: A drive you run yourself. Your photos, documents, and music live on your own disk, and you reach them from a browser, a desktop app that syncs folders, or a share link.
 
-  icon: https://raw.githubusercontent.com/itsmeares/staaash/main/apps/web/public/favicon-64.png
+  icon: https://raw.githubusercontent.com/itsmeares/staaash/main/design/App/Staaash%20App%20Icon%400.25.png
 
   category: Productivity
   author: itsmeares
