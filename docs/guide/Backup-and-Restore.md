@@ -81,7 +81,7 @@ A backup you never tried is only a hope. Practice on a spare computer, never ove
 
 A new folder on the same computer is not enough. `docker-compose.yml` always uses the project name `staaash` and the same container names, so it would take over your real install. If you have only one computer, stop the real install first with `docker compose down` in its folder, and start it again when you are done.
 
-1. Make a new empty folder. Copy in `docker-compose.yml` and `.env` from your real install. Do not start anything yet.
+1. Make a new empty folder. Copy in `docker-compose.yml` and `.env` from your real install. Do not start anything yet. If `UPLOAD_LOCATION` or `DB_DATA_LOCATION` in the copied `.env` is a full path, change it to a folder inside the new folder, so the practice copy never touches your real files.
 2. Put your backed-up `library` and `postgres` folders where `UPLOAD_LOCATION` and `DB_DATA_LOCATION` point.
 3. Start it with `docker compose up -d`, and sign in as the owner.
 4. Open admin **Jobs** and run **Restore check**. It compares the files on disk with what the database remembers.
