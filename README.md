@@ -46,7 +46,7 @@
 
 ## Get started
 
-Pick your system. Each one takes about ten minutes.
+Pick your system. Each one takes a few minutes.
 
 <details>
 <summary><b>🐧 Linux or macOS, with Docker</b></summary>
