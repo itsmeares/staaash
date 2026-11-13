@@ -7,17 +7,17 @@
 <p>Free, open source and yours. No account with anyone, no monthly bill.</p>
 
 <p>
-<a href="https://itsmeares.github.io/staaash/"><img height="40" src="https://img.shields.io/badge/Try_the_live_demo-d5ac76?style=for-the-badge" alt="Try the live demo"></a>&nbsp;
-<a href="#get-started"><img height="40" src="https://img.shields.io/badge/Install-2b2a27?style=for-the-badge" alt="Install"></a>&nbsp;
-<a href="#-desktop-app"><img height="40" src="https://img.shields.io/badge/Desktop_app-2b2a27?style=for-the-badge" alt="Desktop app"></a>
+<a href="https://itsmeares.github.io/staaash/"><img height="52" src="https://img.shields.io/badge/Try_the_live_demo-d5ac76?style=for-the-badge" alt="Try the live demo"></a>&nbsp;
+<a href="#get-started"><img height="52" src="https://img.shields.io/badge/Install-2b2a27?style=for-the-badge" alt="Install"></a>&nbsp;
+<a href="#-desktop-app"><img height="52" src="https://img.shields.io/badge/Desktop_app-2b2a27?style=for-the-badge" alt="Desktop app"></a>
 </p>
 
 <sub>The demo runs in your browser. Nothing you upload leaves your computer.</sub>
 
 <p>
-<a href="https://github.com/itsmeares/staaash/releases"><img height="26" src="https://img.shields.io/github/v/release/itsmeares/staaash?style=flat&label=release&labelColor=1d1a17&color=8d5d24" alt="Latest release"></a>
-<a href="https://github.com/itsmeares/staaash/blob/main/LICENSE"><img height="26" src="https://img.shields.io/github/license/itsmeares/staaash?style=flat&labelColor=1d1a17&color=4a90ff" alt="License: AGPL-3.0"></a>
-<a href="https://github.com/itsmeares/staaash/actions/workflows/ci.yml"><img height="26" src="https://img.shields.io/github/actions/workflow/status/itsmeares/staaash/ci.yml?branch=main&style=flat&label=tests&labelColor=1d1a17" alt="Tests"></a>
+<a href="https://github.com/itsmeares/staaash/releases"><img height="32" src="https://img.shields.io/github/v/release/itsmeares/staaash?style=flat&label=release&labelColor=1d1a17&color=8d5d24" alt="Latest release"></a>
+<a href="https://github.com/itsmeares/staaash/blob/main/LICENSE"><img height="32" src="https://img.shields.io/github/license/itsmeares/staaash?style=flat&labelColor=1d1a17&color=4a90ff" alt="License: AGPL-3.0"></a>
+<a href="https://github.com/itsmeares/staaash/actions/workflows/ci.yml"><img height="32" src="https://img.shields.io/github/actions/workflow/status/itsmeares/staaash/ci.yml?branch=main&style=flat&label=tests&labelColor=1d1a17" alt="Tests"></a>
 </p>
 
 </div>
