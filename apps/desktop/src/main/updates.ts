@@ -8,6 +8,7 @@ const CHECK_MS = 6 * 60 * 60_000;
 
 export type UpdateState = { version: string; ready: boolean; manual: boolean };
 export type UpdateCheck = "found" | "current" | "failed";
+type Release = Parameters<typeof newestRelease>[0][number];
 
 /**
  * Windows and Linux update themselves from GitHub releases. macOS updates
@@ -38,13 +39,16 @@ export const startUpdates = (
   if (manual) {
     const check = async (): Promise<UpdateCheck> => {
       try {
+        // The list's first page always holds the newest release, but a long
+        // run of candidates can push every stable one past it.
         const response = await fetch(
-          "https://api.github.com/repos/itsmeares/staaash/releases",
+          `https://api.github.com/repos/itsmeares/staaash/releases${includeCandidates ? "" : "/latest"}`,
           { headers: { accept: "application/vnd.github+json" } },
         );
         if (!response.ok) return "failed";
+        const body = (await response.json()) as Release | Release[];
         const version = newestRelease(
-          (await response.json()) as Parameters<typeof newestRelease>[0],
+          Array.isArray(body) ? body : [body],
           includeCandidates,
         );
         if (!version || !newerRelease(version, app.getVersion()))

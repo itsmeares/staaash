@@ -97,4 +97,9 @@ it("on macOS, leaving candidates clears a candidate offer", async () => {
   updates.setReleaseCandidates(false);
   expect(onChange).toHaveBeenLastCalledWith(null);
   await expect(updates.check()).resolves.toBe("current");
+  // Stable asks for the latest release, so candidates cannot hide it.
+  expect(fetch).toHaveBeenLastCalledWith(
+    "https://api.github.com/repos/itsmeares/staaash/releases/latest",
+    expect.anything(),
+  );
 });
