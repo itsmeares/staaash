@@ -1,9 +1,5 @@
 # Adds Caddy in front of Staaash with automatic HTTPS. Turn it on in .env.
 services:
-  staaash:
-    # Only Caddy reaches Staaash, so nobody can skip HTTPS.
-    ports: !reset []
-
   caddy:
     container_name: staaash_caddy
     image: caddy:2-alpine

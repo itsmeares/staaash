@@ -164,7 +164,7 @@ test(
   },
 );
 
-test("the HTTPS file puts Caddy in front and closes the direct port", () => {
+test("the HTTPS file puts Caddy in front of a local-only Staaash port", () => {
   const config = JSON.parse(
     execFileSync(
       "docker",
@@ -184,11 +184,15 @@ test("the HTTPS file puts Caddy in front and closes the direct port", () => {
           ...process.env,
           DB_PASSWORD: "startup-test-only",
           STAAASH_PUBLIC_URL: "https://drive.example.com",
+          STAAASH_PORT: "127.0.0.1:2113",
         },
       },
     ),
   );
-  assert.equal(config.services.staaash.ports, undefined);
+  assert.deepEqual(
+    config.services.staaash.ports.map((port) => port.host_ip),
+    ["127.0.0.1"],
+  );
   assert.deepEqual(
     config.services.caddy.ports.map((port) => port.published),
     ["80", "443"],

@@ -29,12 +29,14 @@ Each release ships `compose.https.yml` and a `Caddyfile`. Put both next to
 STAAASH_PUBLIC_URL=https://drive.example.com
 COMPOSE_PATH_SEPARATOR=,
 COMPOSE_FILE=docker-compose.yml,compose.https.yml
+STAAASH_PORT=127.0.0.1:2113
 ```
 
 Run `docker compose up -d`. Caddy gets a certificate for the hostname in
-`STAAASH_PUBLIC_URL` and listens on ports 80 and 443. Staaash's own port closes,
-so all traffic goes through Caddy. `COMPOSE_PATH_SEPARATOR=,` lets the same line
-work on Linux, macOS and Windows.
+`STAAASH_PUBLIC_URL` and listens on ports 80 and 443. `STAAASH_PORT` keeps
+Staaash's own port on this machine only, so traffic from the network goes
+through Caddy. `COMPOSE_PATH_SEPARATOR=,` lets the same line work on Linux,
+macOS and Windows.
 
 Caddy turns HTTP/3 off in this `Caddyfile`. HTTP/3 runs over UDP, and Docker's
 small UDP buffers make large uploads slower.
