@@ -77,7 +77,9 @@ Keep more than one copy. A good start is one copy on another disk in the same ho
 
 ## Practice a restore
 
-A backup you never tried is only a hope. Practice on a spare computer or a new folder, never over your real install.
+A backup you never tried is only a hope. Practice on a spare computer, never over your real install.
+
+A new folder on the same computer is not enough. `docker-compose.yml` always uses the project name `staaash` and the same container names, so it would take over your real install. If you have only one computer, stop the real install first with `docker compose down` in its folder, and start it again when you are done.
 
 1. Make a new empty folder. Copy in `docker-compose.yml` and `.env` from your real install. Do not start anything yet.
 2. Put your backed-up `library` and `postgres` folders where `UPLOAD_LOCATION` and `DB_DATA_LOCATION` point.
