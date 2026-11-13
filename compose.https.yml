@@ -3,6 +3,11 @@ services:
   caddy:
     container_name: staaash_caddy
     image: caddy:2-alpine
+    # Staaash accepts a trailing slash, but Caddy would read it as a path.
+    entrypoint:
+      - sh
+      - -c
+      - export STAAASH_PUBLIC_URL="$${STAAASH_PUBLIC_URL%/}"; exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
     environment:
       STAAASH_PUBLIC_URL: ${STAAASH_PUBLIC_URL:?Set STAAASH_PUBLIC_URL in .env, for example https://drive.example.com}
     ports:
