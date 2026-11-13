@@ -22,7 +22,7 @@ These steps are for Docker. On the Windows server installer, use the backup and 
 
 1. Make a backup as in [[Backup and Restore]].
 2. Copy `docker-compose.yml`, `.env` and the backed-up `library` and `postgres` folders to the new computer. If you use the HTTPS setup, copy `compose.https.yml` and `Caddyfile` too.
-3. If `.env` sets `UPLOAD_LOCATION` or `DB_DATA_LOCATION` to a full path, change it to where the folders are on the new computer.
+3. Make `UPLOAD_LOCATION` and `DB_DATA_LOCATION` in `.env` point to where you put the copied folders. If they sit next to `docker-compose.yml`, that is `./library` and `./postgres`.
 4. Run `docker compose up -d` there, and open the admin **Jobs** screen to run **Restore check**.
 
 ## Can other people use my drive?
