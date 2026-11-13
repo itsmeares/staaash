@@ -202,6 +202,11 @@ describe("update check handler", () => {
       notes: `${fence}html\n<details>\n<summary>Example</summary>\n<!-- staaash:release-provenance:start -->\n<!-- example -->\n<!-- staaash:release-provenance:end -->\n</details>\n${fence}`,
     })),
     {
+      label: "tags hidden inside tags",
+      body: "Safe <<b>!-- x --!>text<scr<b>ipt>.",
+      notes: "Safe text.",
+    },
+    {
       label: "inline code examples",
       body: "Use `<details>` or ``<summary>``.",
       notes: "Use `<details>` or ``<summary>``.",

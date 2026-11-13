@@ -36,12 +36,21 @@ const closesFence = (line: string, fence: string) => {
 
 const openingFence = (line: string) => /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1];
 
+const TAG = /(`+)(.*?)\1|<!--.*?--!?>|<\/?[a-z][a-z0-9-]*(?:\s[^>]*)?\/?>/gi;
+
 // The app's markdown viewer prints raw HTML as text, so tags and comments go.
-const stripReleaseTags = (line: string) =>
-  line.replace(
-    /(`+)(.*?)\1|<!--.*?-->|<\/?[a-z][a-z0-9-]*(?:\s[^>]*)?\/?>/gi,
-    (match) => (match.startsWith("`") ? match : ""),
-  );
+// Removing one can join its neighbours into a new one, so repeat until none is left.
+const stripReleaseTags = (line: string) => {
+  let previous: string;
+  let next = line;
+  do {
+    previous = next;
+    next = previous.replace(TAG, (match) =>
+      match.startsWith("`") ? match : "",
+    );
+  } while (next !== previous);
+  return next;
+};
 
 const FOLD = /^\s*(?:<details[^>]*>\s*)?<summary>(.*?)<\/summary>\s*$/i;
 // Folded dependency and maintenance lists are for GitHub readers, not admins.
@@ -50,7 +59,7 @@ const ALERT = /^>\s*\[!(?:note|tip|important|warning|caution)\]\s*$/i;
 const PROVENANCE_START = "<!-- staaash:release-provenance:start -->";
 const PROVENANCE_END = /<!-- staaash:release-provenance:end -->/;
 const DETAILS_END = /^\s*<\/details>\s*$/i;
-const COMMENT_END = /-->/;
+const COMMENT_END = /--!?>/;
 
 /** A line outside code blocks, and the line that ends a block to drop. */
 const cleanProseLine = (line: string): { lines: string[]; until?: RegExp } => {
