@@ -50,6 +50,7 @@ const ALERT = /^>\s*\[!(?:note|tip|important|warning|caution)\]\s*$/i;
 const PROVENANCE_START = "<!-- staaash:release-provenance:start -->";
 const PROVENANCE_END = /<!-- staaash:release-provenance:end -->/;
 const DETAILS_END = /^\s*<\/details>\s*$/i;
+const COMMENT_END = /-->/;
 
 /** A line outside code blocks, and the line that ends a block to drop. */
 const cleanProseLine = (line: string): { lines: string[]; until?: RegExp } => {
@@ -62,6 +63,12 @@ const cleanProseLine = (line: string): { lines: string[]; until?: RegExp } => {
     return { lines: title ? [`## ${title}`] : [] };
   }
   if (ALERT.test(line)) return { lines: [] };
+  const open = stripReleaseTags(line).indexOf("<!--");
+  if (open !== -1)
+    return {
+      lines: [stripReleaseTags(line).slice(0, open)],
+      until: COMMENT_END,
+    };
   return { lines: [stripReleaseTags(line)] };
 };
 

@@ -1501,16 +1501,20 @@ const commandPrepareVersion = async () => {
     );
   }
 
-  const changed = await preparePackageVersions(TOOLING_ROOT, release.version);
-  const releaseFiles = (await presentPackageFiles(TOOLING_ROOT)).map(
-    ([, file]) => file,
+  const versionsChanged = await preparePackageVersions(
+    TOOLING_ROOT,
+    release.version,
   );
+  // The release commit holds exactly the files that changed.
+  const releaseFiles = versionsChanged
+    ? (await presentPackageFiles(TOOLING_ROOT)).map(([, file]) => file)
+    : [];
   if (!release.prerelease && (await writeChangelogEntry(release)))
     releaseFiles.push("CHANGELOG.md");
   await writeOutputs([
     ["tag", release.tag],
     ["version", release.version],
-    ["changed", changed],
+    ["changed", releaseFiles.length > 0],
     ["release_branch", releaseBranch],
     ["release_files", releaseFiles.join(" ")],
   ]);
