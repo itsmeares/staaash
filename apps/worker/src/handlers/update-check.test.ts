@@ -208,8 +208,9 @@ describe("update check handler", () => {
     },
     {
       label: "inline code examples",
-      body: "Use `<details>` or ``<summary>``.",
-      notes: "Use `<details>` or ``<summary>``.",
+      body: "Use `<details>` or ``<summary>``.\nStart a comment with `<!--`.\nMore.",
+      notes:
+        "Use `<details>` or ``<summary>``.\nStart a comment with `<!--`.\nMore.",
     },
   ])("cleans $label before storing notes", async ({ body, notes }) => {
     stubGitHub({ json: async () => [{ tag_name: "v1.2.1", body }] });

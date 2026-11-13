@@ -72,12 +72,13 @@ const cleanProseLine = (line: string): { lines: string[]; until?: RegExp } => {
     return { lines: title ? [`## ${title}`] : [] };
   }
   if (ALERT.test(line)) return { lines: [] };
-  const open = stripReleaseTags(line).indexOf("<!--");
+  const cleaned = stripReleaseTags(line);
+  // Blank out inline code so a `<!--` shown as an example is not a comment.
+  const open = cleaned
+    .replace(/(`+).*?\1/g, (code) => " ".repeat(code.length))
+    .indexOf("<!--");
   if (open !== -1)
-    return {
-      lines: [stripReleaseTags(line).slice(0, open)],
-      until: COMMENT_END,
-    };
+    return { lines: [cleaned.slice(0, open)], until: COMMENT_END };
   return { lines: [stripReleaseTags(line)] };
 };
 
