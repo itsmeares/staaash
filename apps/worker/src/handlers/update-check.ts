@@ -36,39 +36,62 @@ const closesFence = (line: string, fence: string) => {
 
 const openingFence = (line: string) => /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1];
 
+// The app's markdown viewer prints raw HTML as text, so tags and comments go.
 const stripReleaseTags = (line: string) =>
-  line.replace(/(`+)(.*?)\1|<\/?(?:details|summary)\b[^>]*>/gi, (match) =>
-    match.startsWith("`") ? match : "",
+  line.replace(
+    /(`+)(.*?)\1|<!--.*?-->|<\/?[a-z][a-z0-9-]*(?:\s[^>]*)?\/?>/gi,
+    (match) => (match.startsWith("`") ? match : ""),
   );
+
+const FOLD = /^\s*(?:<details[^>]*>\s*)?<summary>(.*?)<\/summary>\s*$/i;
+// Folded dependency and maintenance lists are for GitHub readers, not admins.
+const HIDDEN_FOLD = /^(?:📦|🧹)/u;
+const ALERT = /^>\s*\[!(?:note|tip|important|warning|caution)\]\s*$/i;
+const PROVENANCE_START = "<!-- staaash:release-provenance:start -->";
+const PROVENANCE_END = /<!-- staaash:release-provenance:end -->/;
+const DETAILS_END = /^\s*<\/details>\s*$/i;
+
+/** A line outside code blocks, and the line that ends a block to drop. */
+const cleanProseLine = (line: string): { lines: string[]; until?: RegExp } => {
+  if (line.trim() === PROVENANCE_START)
+    return { lines: [], until: PROVENANCE_END };
+  const fold = FOLD.exec(line);
+  if (fold) {
+    const title = stripReleaseTags(fold[1]).trim();
+    if (HIDDEN_FOLD.test(title)) return { lines: [], until: DETAILS_END };
+    return { lines: title ? [`## ${title}`] : [] };
+  }
+  if (ALERT.test(line)) return { lines: [] };
+  return { lines: [stripReleaseTags(line)] };
+};
 
 const cleanReleaseNotes = (body: string) => {
   let fence: string | undefined;
-  let inProvenance = false;
-  return body
-    .split("\n")
-    .flatMap((line) => {
-      if (inProvenance) {
-        if (line.includes("<!-- staaash:release-provenance:end -->"))
-          inProvenance = false;
-        return [];
-      }
-      if (fence) {
-        if (closesFence(line, fence)) fence = undefined;
-        return [line];
-      }
-      if (line.trim() === "<!-- staaash:release-provenance:start -->") {
-        inProvenance = true;
-        return [];
-      }
-      const marker = openingFence(line);
-      if (marker) {
-        fence = marker;
-        return [line];
-      }
-      return [stripReleaseTags(line)];
-    })
-    .join("\n")
-    .trim();
+  let until: RegExp | undefined;
+  return (
+    body
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .flatMap((line) => {
+        if (until) {
+          if (until.test(line)) until = undefined;
+          return [];
+        }
+        if (fence) {
+          if (closesFence(line, fence)) fence = undefined;
+          return [line];
+        }
+        fence = openingFence(line);
+        if (fence) return [line];
+        const cleaned = cleanProseLine(line);
+        until = cleaned.until;
+        return cleaned.lines;
+      })
+      .join("\n")
+      .trim()
+      // The dialog already shows the release name above the notes.
+      .replace(/^# [^\n]*\n*/, "")
+  );
 };
 
 const buildGitHubHeaders = () => {
