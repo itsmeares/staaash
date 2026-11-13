@@ -163,3 +163,38 @@ test(
     );
   },
 );
+
+test("the HTTPS file puts Caddy in front and closes the direct port", () => {
+  const config = JSON.parse(
+    execFileSync(
+      "docker",
+      [
+        "compose",
+        "-f",
+        "docker-compose.yml",
+        "-f",
+        "compose.https.yml",
+        "config",
+        "--format",
+        "json",
+      ],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          DB_PASSWORD: "startup-test-only",
+          STAAASH_PUBLIC_URL: "https://drive.example.com",
+        },
+      },
+    ),
+  );
+  assert.equal(config.services.staaash.ports, undefined);
+  assert.deepEqual(
+    config.services.caddy.ports.map((port) => port.published),
+    ["80", "443"],
+  );
+  assert.equal(
+    config.services.caddy.depends_on.staaash.condition,
+    "service_healthy",
+  );
+});

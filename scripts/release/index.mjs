@@ -51,6 +51,8 @@ const REQUIRED_ASSET_NAMES = [
   "release-manifest.json",
   "SHA256SUMS",
 ];
+// Old release branches do not have these, so they ship only when present.
+const OPTIONAL_TEMPLATE_NAMES = ["compose.https.yml", "Caddyfile"];
 const GITHUB_API_VERSION = "2022-11-28";
 const MISSING_IMAGE_PATTERN =
   /manifest unknown|not found|no such manifest|does not exist/iu;
@@ -967,8 +969,14 @@ const assetDirectory = () => requiredAbsolutePath("ASSET_DIR");
 
 const generatedAssets = async () => {
   const directory = assetDirectory();
+  const names = [
+    ...REQUIRED_ASSET_NAMES,
+    ...OPTIONAL_TEMPLATE_NAMES.filter((name) =>
+      existsSync(path.join(directory, name)),
+    ),
+  ];
   const entries = await Promise.all(
-    REQUIRED_ASSET_NAMES.map(async (name) => [
+    names.map(async (name) => [
       name,
       await readFile(path.join(directory, name), "utf8"),
     ]),
@@ -991,15 +999,18 @@ const withoutStaaashVersion = () =>
     ),
   );
 
-const resolveComposeImages = ({ directory, environment }) => {
+const resolveComposeImages = ({
+  directory,
+  environment,
+  files = ["docker-compose.yml"],
+}) => {
   const result = run(
     "docker",
     [
       "compose",
       "--env-file",
       path.join(directory, "example.env"),
-      "-f",
-      path.join(directory, "docker-compose.yml"),
+      ...files.flatMap((file) => ["-f", path.join(directory, file)]),
       "config",
       "--images",
     ],
@@ -1063,6 +1074,22 @@ const validateRenderedAssets = ({
     expectedReference: immutableReference,
     mode: "immutable override",
   });
+
+  if (existsSync(path.join(directory, "compose.https.yml"))) {
+    requireResolvedReleaseImages({
+      images: resolveComposeImages({
+        directory,
+        environment: {
+          ...baseEnvironment,
+          STAAASH_PUBLIC_URL: "https://drive.example.com",
+        },
+        files: ["docker-compose.yml", "compose.https.yml"],
+      }),
+      imageRepository,
+      expectedReference: `${imageRepository}:${releaseTag}`,
+      mode: "HTTPS",
+    });
+  }
 };
 
 const fetchAssetBytes = async (asset) => {
@@ -1256,7 +1283,7 @@ const verifyRemoteAssets = async ({ context, release, localAssets }) => {
     path.join(os.tmpdir(), "staaash-release-assets-"),
   );
   try {
-    for (const name of REQUIRED_ASSET_NAMES) {
+    for (const name of Object.keys(localAssets)) {
       const asset = observed.find((candidate) => candidate.name === name);
       if (!asset) throw new Error(`Release asset ${name} is missing.`);
       await writeFile(
@@ -1267,13 +1294,13 @@ const verifyRemoteAssets = async ({ context, release, localAssets }) => {
 
     const downloaded = Object.fromEntries(
       await Promise.all(
-        REQUIRED_ASSET_NAMES.map(async (name) => [
+        Object.keys(localAssets).map(async (name) => [
           name,
           await readFile(path.join(temporaryDirectory, name), "utf8"),
         ]),
       ),
     );
-    for (const name of REQUIRED_ASSET_NAMES) {
+    for (const name of Object.keys(localAssets)) {
       if (downloaded[name] !== localAssets[name]) {
         throw new Error(
           `Downloaded release asset ${name} differs from generated file.`,
@@ -1516,6 +1543,16 @@ const commandVerifyImage = async () => {
 const readReleaseTemplates = async (sourceRoot = releaseSourceRoot()) => ({
   compose: await readFile(path.join(sourceRoot, "docker-compose.yml"), "utf8"),
   environment: await readFile(path.join(sourceRoot, "example.env"), "utf8"),
+  optional: Object.fromEntries(
+    await Promise.all(
+      OPTIONAL_TEMPLATE_NAMES.filter((name) =>
+        existsSync(path.join(sourceRoot, name)),
+      ).map(async (name) => [
+        name,
+        await readFile(path.join(sourceRoot, name), "utf8"),
+      ]),
+    ),
+  ),
 });
 
 const commandGenerateAssets = async () => {
@@ -1550,6 +1587,7 @@ const commandGenerateAssets = async () => {
     "docker-compose.yml": compose,
     "example.env": environment,
     "release-manifest.json": manifest,
+    ...templates.optional,
   });
   const sums = serializeSha256Sums(checksums);
 
@@ -1558,6 +1596,9 @@ const commandGenerateAssets = async () => {
     writeFile(path.join(directory, "example.env"), environment),
     writeFile(path.join(directory, "release-manifest.json"), manifest),
     writeFile(path.join(directory, "SHA256SUMS"), sums),
+    ...Object.entries(templates.optional).map(([name, content]) =>
+      writeFile(path.join(directory, name), content),
+    ),
   ]);
   validateRenderedAssets({
     directory,

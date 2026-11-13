@@ -1,0 +1,31 @@
+# Adds Caddy in front of Staaash with automatic HTTPS. Turn it on in .env.
+services:
+  staaash:
+    # Only Caddy reaches Staaash, so nobody can skip HTTPS.
+    ports: !reset []
+
+  caddy:
+    container_name: staaash_caddy
+    image: caddy:2-alpine
+    environment:
+      STAAASH_PUBLIC_URL: ${STAAASH_PUBLIC_URL:?Set STAAASH_PUBLIC_URL in .env, for example https://drive.example.com}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      staaash:
+        condition: service_healthy
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,10 @@
+{
+	servers {
+		# HTTP/3 runs over UDP, and Docker's small UDP buffers slow big uploads.
+		protocols h1 h2
+	}
+}
+
+{$STAAASH_PUBLIC_URL} {
+	reverse_proxy staaash:2113
+}
