@@ -16,7 +16,7 @@ In the share window you can set:
 
 - **Expires.** When the link stops working. Pick a preset or choose a date and time. Your owner sets the longest time a link may last.
 - **Password.** Turn it on and type a password. People must type it to open the link.
-- **Allow downloads.** Turn it off for a view-only link. People can look but not download.
+- **Allow downloads.** Turn it off to hide the download buttons. Photos, videos, PDFs and text still open in the browser, so people can save them from there. It is not copy protection.
 
 ## Share a folder
 

@@ -53,10 +53,10 @@ Stop everything first, so no file changes while you copy.
 
    Run the check from step 2 once more, because the worker may have started a cleanup job. If it prints any rows, run `docker compose start worker` and go back to step 2.
 
-4. Stop the database:
+4. Stop the database and everything else, including Caddy if you use the HTTPS setup:
 
    ```console
-   docker compose stop db
+   docker compose stop
    ```
 
 5. Check that nothing is running:
@@ -91,6 +91,20 @@ A new folder on the same computer is not enough. `docker-compose.yml` always use
 
 If something fails, keep the restored copy as it is and do not use it as your main copy. Ask in [GitHub Discussions](https://github.com/itsmeares/staaash/discussions).
 
-To restore for real, do the same on the real computer with Staaash stopped, then run **Restore check**.
+## Restore for real
+
+Do this in your real install's folder, with the `.env` that belongs to the backup.
+
+1. Stop everything:
+
+   ```console
+   docker compose down
+   ```
+
+2. Rename the current `library` and `postgres` folders, for example to `library.old` and `postgres.old`. Do not delete them until the restore works.
+3. Copy the backed-up `library` and `postgres` folders to where `UPLOAD_LOCATION` and `DB_DATA_LOCATION` point.
+4. If `DB_PASSWORD` in `.env` is not the one from the backup, put the backed-up `.env` back.
+5. Start it with `docker compose up -d`, sign in as the owner, and run **Restore check** in admin **Jobs**.
+6. When your files look right, you can delete the `.old` folders.
 
 Backups only work with the version that made them, or a newer one. To go back to an older version, restore a backup made before you updated. See [[Updating]].
