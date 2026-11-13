@@ -20,6 +20,8 @@ export type SyncPair = {
   skipPaths?: string[];
 };
 
+export type UpdateChannel = "auto" | "stable" | "rc";
+
 export type Settings = {
   serverUrl: string | null;
   /** The signed-in account, for display. */
@@ -36,6 +38,8 @@ export type Settings = {
   startAtLogin: boolean;
   /** The person chose to add folders later, so setup stops asking. */
   setupSkipped: boolean;
+  /** The same choices as the server's update channel. */
+  updateChannel: UpdateChannel;
 };
 
 export type EngineConfig = {
@@ -204,6 +208,7 @@ export type DesktopApi = {
   takeCommand: () => Promise<WindowCommand | null>;
   onCommand: (listener: () => void) => () => void;
   installUpdate: () => Promise<void>;
+  checkForUpdates: () => Promise<"found" | "current" | "failed">;
   signOut: () => Promise<void>;
   quit: () => Promise<void>;
 };

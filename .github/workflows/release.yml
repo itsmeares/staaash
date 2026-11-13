@@ -101,14 +101,13 @@ jobs:
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
           RELEASE_BRANCH: ${{ steps.version.outputs.release_branch }}
           VERSION_CHANGED: ${{ steps.version.outputs.changed }}
+          PACKAGE_FILES: ${{ steps.version.outputs.package_files }}
         run: |
           set -euo pipefail
           RELEASE_SHA="$(git rev-parse HEAD)"
           if [[ "$VERSION_CHANGED" == "true" ]]; then
             git diff --check
-            FILES=(package.json apps/web/package.json apps/worker/package.json packages/config/package.json packages/db/package.json)
-            # Release branches from before the desktop app have no desktop package.
-            if [[ -f apps/desktop/package.json ]]; then FILES+=(apps/desktop/package.json); fi
+            read -ra FILES <<< "$PACKAGE_FILES"
             git add "${FILES[@]}"
             EXPECTED_FILES="$(printf '%s\n' "${FILES[@]}" | sort)"
             ACTUAL_FILES="$(git diff --cached --name-only | sort)"

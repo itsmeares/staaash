@@ -17,6 +17,13 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@staaash/ui/components/input-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@staaash/ui/components/select";
 import { Switch } from "@staaash/ui/components/switch";
 import { Textarea } from "@staaash/ui/components/textarea";
 
@@ -25,7 +32,9 @@ import type {
   Settings,
   SizeReading,
   SyncPair,
+  UpdateChannel,
 } from "../shared/types";
+import { wantsCandidates } from "../shared/version";
 import { DriveGlyph } from "@staaash/ui/drive-glyph";
 import { FolderChooser, ModeSelect } from "./folder-chooser";
 import { desktop } from "./state";
@@ -422,8 +431,64 @@ function NumberSetting({
   );
 }
 
-// Update states change the button.
-// fallow-ignore-next-line complexity
+type UpdateCheck = Awaited<ReturnType<typeof desktop.checkForUpdates>>;
+
+// The same names as the server's update channel in admin Settings.
+const CHANNELS: Record<UpdateChannel, string> = {
+  auto: "Automatic",
+  stable: "Stable",
+  rc: "Release candidates",
+};
+
+const channelDescription = (channel: UpdateChannel, appVersion: string) => {
+  if (channel === "auto")
+    return `Following this install: ${wantsCandidates(channel, appVersion) ? "release candidates" : "stable"}.`;
+  if (channel === "rc")
+    return "New versions before their release. They can have bugs.";
+  return "Finished releases only.";
+};
+
+const updateDescription = (
+  update: AppState["update"],
+  check: UpdateCheck | "checking" | null,
+) => {
+  if (update?.ready) return `Version ${update.version} is ready.`;
+  if (update) return `Downloading version ${update.version}…`;
+  if (check === "checking") return "Checking for updates…";
+  if (check === "current") return "You have the newest version.";
+  if (check === "failed") return "Could not check. Try again later.";
+  return "Updates are checked every few hours.";
+};
+
+function UpdateRow({ state }: { state: AppState }) {
+  const [check, setCheck] = useState<UpdateCheck | "checking" | null>(null);
+  const { update } = state;
+  return (
+    <Row
+      description={updateDescription(update, check)}
+      label={`Version ${state.appVersion}`}
+    >
+      {update?.ready ? (
+        <Button onClick={() => void desktop.installUpdate()}>
+          {update.manual ? "Download" : "Restart to update"}
+        </Button>
+      ) : (
+        <Button
+          variant="outline"
+          disabled={check === "checking" || Boolean(update)}
+          onClick={async () => {
+            setCheck("checking");
+            const result = await desktop.checkForUpdates();
+            setCheck(result === "found" ? null : result);
+          }}
+        >
+          Check now
+        </Button>
+      )}
+    </Row>
+  );
+}
+
 export function SettingsPage({ state }: { state: AppState }) {
   const { settings } = state;
   const update = (patch: Partial<Settings>) =>
@@ -547,21 +612,37 @@ export function SettingsPage({ state }: { state: AppState }) {
           />
         </div>
       </Group>
-      <Group title="About">
+      <Group title="Updates">
+        <UpdateRow state={state} />
         <Row
-          description={
-            state.update?.ready
-              ? `Version ${state.update.version} is ready.`
-              : "Updates are checked every few hours."
-          }
-          label={`Staaash for desktop ${state.appVersion}`}
+          description={channelDescription(
+            settings.updateChannel,
+            state.appVersion,
+          )}
+          label="Channel"
         >
-          {state.update?.ready ? (
-            <Button onClick={() => void desktop.installUpdate()}>
-              {state.update.manual ? "Download" : "Restart to update"}
-            </Button>
-          ) : null}
+          <Select
+            value={settings.updateChannel}
+            onValueChange={(updateChannel) =>
+              update({ updateChannel: updateChannel as UpdateChannel })
+            }
+          >
+            <SelectTrigger aria-label="Channel" className="w-full">
+              <SelectValue>
+                {(channel: UpdateChannel) => CHANNELS[channel]}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent align="end" alignItemWithTrigger={false}>
+              {(Object.keys(CHANNELS) as UpdateChannel[]).map((channel) => (
+                <SelectItem key={channel} value={channel}>
+                  {CHANNELS[channel]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Row>
+      </Group>
+      <Group title="About">
         <Row
           description="What went wrong while syncing. It stays on this computer."
           label="Sync log"

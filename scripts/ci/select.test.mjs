@@ -27,7 +27,11 @@ await test("stored data and startup changes require upgrade and recovery", () =>
     "apps/web/server/files/service.ts",
     "apps/web/server/uploads/session-service.ts",
     "apps/worker/src/index.ts",
-    "apps/web/instrumentation.ts",
+    "apps/web/server/main.ts",
+    "apps/web/server/startup.ts",
+    "apps/web/server/restore.ts",
+    "apps/web/server/health.ts",
+    "apps/web/server/http/routes/files.ts",
     "Dockerfile",
     "scripts/ci/stack.mjs",
   ]) {
