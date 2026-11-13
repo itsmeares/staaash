@@ -17,6 +17,13 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@staaash/ui/components/input-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@staaash/ui/components/select";
 import { Switch } from "@staaash/ui/components/switch";
 import { Textarea } from "@staaash/ui/components/textarea";
 
@@ -25,6 +32,7 @@ import type {
   Settings,
   SizeReading,
   SyncPair,
+  UpdateChannel,
 } from "../shared/types";
 import { wantsCandidates } from "../shared/version";
 import { DriveGlyph } from "@staaash/ui/drive-glyph";
@@ -425,6 +433,21 @@ function NumberSetting({
 
 type UpdateCheck = Awaited<ReturnType<typeof desktop.checkForUpdates>>;
 
+// The same names as the server's update channel in admin Settings.
+const CHANNELS: Record<UpdateChannel, string> = {
+  auto: "Automatic",
+  stable: "Stable",
+  rc: "Release candidates",
+};
+
+const channelDescription = (channel: UpdateChannel, appVersion: string) => {
+  if (channel === "auto")
+    return `Following this install: ${wantsCandidates(channel, appVersion) ? "release candidates" : "stable"}.`;
+  if (channel === "rc")
+    return "New versions before their release. They can have bugs.";
+  return "Finished releases only.";
+};
+
 const updateDescription = (
   update: AppState["update"],
   check: UpdateCheck | "checking" | null,
@@ -443,7 +466,7 @@ function UpdateRow({ state }: { state: AppState }) {
   return (
     <Row
       description={updateDescription(update, check)}
-      label={`Staaash for desktop ${state.appVersion}`}
+      label={`Version ${state.appVersion}`}
     >
       {update?.ready ? (
         <Button onClick={() => void desktop.installUpdate()}>
@@ -589,23 +612,37 @@ export function SettingsPage({ state }: { state: AppState }) {
           />
         </div>
       </Group>
-      <Group title="About">
+      <Group title="Updates">
         <UpdateRow state={state} />
         <Row
-          description="Try new versions before their release. They can have bugs."
-          label="Get release candidates"
+          description={channelDescription(
+            settings.updateChannel,
+            state.appVersion,
+          )}
+          label="Channel"
         >
-          <Switch
-            aria-label="Get release candidates"
-            checked={wantsCandidates(
-              settings.releaseCandidates,
-              state.appVersion,
-            )}
-            onCheckedChange={(releaseCandidates) =>
-              update({ releaseCandidates })
+          <Select
+            value={settings.updateChannel}
+            onValueChange={(updateChannel) =>
+              update({ updateChannel: updateChannel as UpdateChannel })
             }
-          />
+          >
+            <SelectTrigger aria-label="Channel" className="w-full">
+              <SelectValue>
+                {(channel: UpdateChannel) => CHANNELS[channel]}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent align="end" alignItemWithTrigger={false}>
+              {(Object.keys(CHANNELS) as UpdateChannel[]).map((channel) => (
+                <SelectItem key={channel} value={channel}>
+                  {CHANNELS[channel]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Row>
+      </Group>
+      <Group title="About">
         <Row
           description="What went wrong while syncing. It stays on this computer."
           label="Sync log"

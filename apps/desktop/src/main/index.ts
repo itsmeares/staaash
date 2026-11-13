@@ -554,9 +554,9 @@ const registerIpc = () => {
       await updateSettings(patch);
       if (patch.startAtLogin !== undefined)
         await setStartAtLogin(patch.startAtLogin);
-      if (patch.releaseCandidates !== undefined)
+      if (patch.updateChannel !== undefined)
         updates?.setReleaseCandidates(
-          wantsCandidates(patch.releaseCandidates, app.getVersion()),
+          wantsCandidates(patch.updateChannel, app.getVersion()),
         );
     }),
   );
@@ -640,7 +640,7 @@ void app.whenReady().then(async () => {
       publish();
       tray?.rebuild();
     },
-    wantsCandidates(settings.releaseCandidates, app.getVersion()),
+    wantsCandidates(settings.updateChannel, app.getVersion()),
   );
   powerMonitor.on("resume", () => send({ type: "sync-now" }));
   if (token && settings.serverUrl) await checkVersions(settings.serverUrl);

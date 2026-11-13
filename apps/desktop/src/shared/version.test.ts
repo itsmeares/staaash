@@ -33,10 +33,10 @@ describe("newestRelease", () => {
 });
 
 describe("wantsCandidates", () => {
-  it("follows the installed version until the person chooses", () => {
-    expect(wantsCandidates(null, "2.0.0-rc.9")).toBe(true);
-    expect(wantsCandidates(null, "2.0.0")).toBe(false);
-    expect(wantsCandidates(true, "2.0.0")).toBe(true);
-    expect(wantsCandidates(false, "2.1.0-rc.1")).toBe(false);
+  it("follows the installed version on Automatic", () => {
+    expect(wantsCandidates("auto", "2.0.0-rc.9")).toBe(true);
+    expect(wantsCandidates("auto", "2.0.0")).toBe(false);
+    expect(wantsCandidates("rc", "2.0.0")).toBe(true);
+    expect(wantsCandidates("stable", "2.1.0-rc.1")).toBe(false);
   });
 });

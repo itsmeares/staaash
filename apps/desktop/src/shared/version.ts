@@ -1,3 +1,5 @@
+import type { UpdateChannel } from "./types";
+
 /** Whether version `a` is newer than `b`, comparing x.y.z numerically. */
 export const newer = (a: string, b: string) => {
   const parse = (value: string) =>
@@ -30,12 +32,13 @@ export const newerRelease = (a: string, b: string) => {
 };
 
 /**
- * Whether updates include release candidates. Until the person chooses, a
- * candidate install keeps getting candidates and a stable one does not, so
- * someone who tried an RC returns to stable once the release is out.
+ * Whether updates include release candidates. Automatic follows the install,
+ * like the server's channel: a candidate keeps getting candidates and a
+ * stable one does not, so someone who tried an RC returns to stable once
+ * the release is out.
  */
-export const wantsCandidates = (choice: boolean | null, appVersion: string) =>
-  choice ?? appVersion.includes("-");
+export const wantsCandidates = (channel: UpdateChannel, appVersion: string) =>
+  channel === "rc" || (channel === "auto" && appVersion.includes("-"));
 
 /** The newest version in a GitHub release list, skipping drafts. */
 export const newestRelease = (

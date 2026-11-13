@@ -20,6 +20,8 @@ export type SyncPair = {
   skipPaths?: string[];
 };
 
+export type UpdateChannel = "auto" | "stable" | "rc";
+
 export type Settings = {
   serverUrl: string | null;
   /** The signed-in account, for display. */
@@ -36,8 +38,8 @@ export type Settings = {
   startAtLogin: boolean;
   /** The person chose to add folders later, so setup stops asking. */
   setupSkipped: boolean;
-  /** Update to release candidates too; null until the person chooses. */
-  releaseCandidates: boolean | null;
+  /** The same choices as the server's update channel. */
+  updateChannel: UpdateChannel;
 };
 
 export type EngineConfig = {

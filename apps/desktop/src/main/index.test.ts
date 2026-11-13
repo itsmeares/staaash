@@ -58,7 +58,7 @@ vi.mock("./settings", () => ({
     pausedUntil: null,
     startAtLogin: false,
     setupSkipped: true,
-    releaseCandidates: null,
+    updateChannel: "auto",
   }),
   loadToken: () => "first-token",
   saveSettings: mocks.saveSettings,
