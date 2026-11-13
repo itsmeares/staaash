@@ -62,7 +62,7 @@ curl -L https://github.com/itsmeares/staaash/releases/latest/download/example.en
 docker compose up -d
 ```
 
-Open **http://localhost:2113** and create your account.
+Open **http://localhost:2113** and create your account. On a server, use its address instead of `localhost`.
 
 </details>
 
