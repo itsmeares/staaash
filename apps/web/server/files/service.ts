@@ -518,6 +518,7 @@ const uploadRequestHash = (
 
 /** At most this many new files commit as one upload_create mutation. */
 const UPLOAD_CREATE_GROUP_LIMIT = 100;
+const FOLDER_CREATE_GROUP_LIMIT = 100;
 
 /**
  * A new file's id follows from its retry key. A group of new files commits
@@ -1823,6 +1824,142 @@ export const createFilesService = ({
       )),
       ...descendants,
     ]);
+
+  const createMissingFolderPaths = async ({
+    targetFolder,
+    requestedPaths,
+    idempotencyKey,
+    folderByParentAndName,
+    fileKeys,
+    loadChildren,
+  }: {
+    targetFolder: FolderSummary;
+    requestedPaths: ParsedFolderUploadPath[];
+    idempotencyKey?: string | null;
+    folderByParentAndName: Map<string, FolderSummary>;
+    fileKeys: Set<string>;
+    loadChildren: (parentId: string, parentPath: string) => Promise<void>;
+  }): Promise<EnsureFolderPathsResult> => {
+    // One journal entry per folder costs a full prepare, commit and
+    // finalize each. Missing folders are planned first, parents before
+    // children, and created a group at a time.
+    const filesRoot = await ensureFilesRoot(targetFolder.ownerUserId);
+    const folderMap = await readFolderMap(targetFolder.ownerUserId, [
+      targetFolder.id,
+    ]);
+    const byCanonicalPath = new Map<string, FolderSummary>();
+    const missing = new Set<string>();
+    const pending: Array<{ folder: FolderSummary; storageKey: string }> = [];
+    const resolveSegment = async (
+      parentFolder: FolderSummary,
+      parentPath: string,
+      canonicalPath: string,
+      name: string,
+    ) => {
+      const known = byCanonicalPath.get(canonicalPath);
+      if (known) return known;
+      let folder: FolderSummary | undefined;
+      // A folder planned in this request has no children yet.
+      if (!missing.has(parentFolder.id)) {
+        await loadChildren(parentFolder.id, parentPath);
+        const key = folderUploadEntryKey(parentFolder.id, name);
+        folder = folderByParentAndName.get(key);
+        if (!folder && fileKeys.has(key)) {
+          throw new FilesError("FOLDER_NAME_CONFLICT");
+        }
+      }
+      if (!folder) {
+        folder = {
+          id: idempotencyKey
+            ? deterministicUuid(
+                `folder-create:${targetFolder.ownerUserId}:${deterministicUuid(
+                  `folder-upload:${idempotencyKey}:${canonicalPath}`,
+                )}`,
+              )
+            : randomUUID(),
+          ownerUserId: targetFolder.ownerUserId,
+          ownerStorageId: targetFolder.ownerStorageId,
+          parentId: parentFolder.id,
+          name,
+          isFilesRoot: false,
+          deletedAt: null,
+          createdAt: now(),
+          updatedAt: now(),
+        };
+        missing.add(folder.id);
+        folderMap.set(folder.id, folder);
+        pending.push({
+          folder,
+          storageKey: buildFolderStorageKey({
+            folder,
+            folderMap,
+            filesRoot,
+            trashed: false,
+          }),
+        });
+      } else {
+        folderMap.set(folder.id, folder);
+      }
+      byCanonicalPath.set(canonicalPath, folder);
+      return folder;
+    };
+
+    const resolved: EnsureFolderPathsResult["folders"] = [];
+    for (const parsed of requestedPaths) {
+      let folder = targetFolder;
+      for (const [index, name] of parsed.segments.entries()) {
+        folder = await resolveSegment(
+          folder,
+          parsed.segments.slice(0, index).join("/"),
+          parsed.segments.slice(0, index + 1).join("/"),
+          name,
+        );
+      }
+      resolved.push({ path: parsed.path, folderId: folder.id });
+    }
+
+    for (
+      let start = 0;
+      start < pending.length;
+      start += FOLDER_CREATE_GROUP_LIMIT
+    ) {
+      const group = pending.slice(start, start + FOLDER_CREATE_GROUP_LIMIT);
+      await runDurableStorageMutation({
+        kind: "folder_create",
+        ownerUserId: targetFolder.ownerUserId,
+        metadataOperations: group.map(
+          ({ folder }) =>
+            ({
+              action: "create_folder",
+              data: {
+                id: folder.id,
+                ownerUserId: folder.ownerUserId,
+                parentId: folder.parentId!,
+                name: folder.name,
+              },
+            }) as const,
+        ),
+        steps: group.map(({ storageKey }) => ({
+          action: "mkdir" as const,
+          targetKey: storageKey,
+          expectedNodeType: "directory" as const,
+          treeManifestDigest: EMPTY_TREE_MANIFEST_DIGEST,
+        })),
+        entities: group.map(({ folder }) => ({
+          entityType: "folder" as const,
+          entityId: folder.id,
+          preRevision: -1,
+          postRevision: 0,
+          beforeJson: null,
+          afterJson: toMetadataJson({
+            parentId: folder.parentId,
+            name: folder.name,
+          }),
+        })),
+      });
+    }
+    return { folders: resolved };
+  };
 
   const buildBreadcrumbs = async (
     currentFolder: FolderSummary,
@@ -3326,6 +3463,17 @@ export const createFilesService = ({
         }
         loadedParents.add(parentId);
       };
+
+      if (!repo) {
+        return createMissingFolderPaths({
+          targetFolder,
+          requestedPaths,
+          idempotencyKey,
+          folderByParentAndName,
+          fileKeys,
+          loadChildren,
+        });
+      }
 
       const resolvedFolders: EnsureFolderPathsResult["folders"] = [];
       const resolvedByCanonicalPath = new Map<string, FolderSummary>();
