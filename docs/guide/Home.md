@@ -30,7 +30,7 @@ On 64-bit Windows you can also skip Docker. See [[Windows Server]].
 
 **New here**
 
-1. [[Installation]]. Be running in about ten minutes.
+1. [[Installation]]. Be running in a few minutes.
 2. [[Backup and Restore]]. Do this on day one.
 3. [[Using the Drive]]. Upload, find and get things back.
 4. [[Sharing Files]] and [[Desktop App]]. The two things most people do next.

@@ -77,3 +77,7 @@ demo drive with made-up people and files. Every photo in it is public domain.
 | `share`       | A shared folder as a visitor sees it          |
 | `share-phone` | The same shared folder on a phone             |
 | `members`     | The owner's list of family members            |
+| `desktop`     | The desktop app syncing folders               |
+
+The `-crop` files are tighter cuts of `search`, `members` and `share-phone`
+for the README.

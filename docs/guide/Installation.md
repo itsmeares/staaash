@@ -1,6 +1,6 @@
 # Installation
 
-This page sets up Staaash with Docker. It takes about ten minutes.
+This page sets up Staaash with Docker. It takes a few minutes.
 
 ## What you need
 
