@@ -46,6 +46,12 @@ export class StorageMutationAmbiguityError extends Error {
   }
 }
 
+/**
+ * A rename source that no longer matches its captured fingerprint. The check
+ * runs before the rename, so the node is still where the plan found it.
+ */
+class StorageMutationStaleCaptureError extends StorageMutationAmbiguityError {}
+
 export class StorageFilesystemUnsupportedError extends Error {
   readonly code = "STORAGE_FILESYSTEM_UNSUPPORTED";
   readonly status = 503;
@@ -880,7 +886,13 @@ const applyRename = async (
     await validateExpectedNode(target, step, trustStats);
     return;
   }
-  await validateExpectedNode(source, step, trustStats);
+  try {
+    await validateExpectedNode(source, step, trustStats);
+  } catch (error) {
+    throw error instanceof StorageMutationAmbiguityError
+      ? new StorageMutationStaleCaptureError(error.message)
+      : error;
+  }
   await syncRenameSource(source, sourceState);
   // Staging writers may have synced the node but not its directory entry.
   // Persist the source entry before a rename can remove it.
@@ -1274,7 +1286,21 @@ const mayAbort = (error: unknown, mutation: StorageMutationRecord) =>
   !(error instanceof StorageMutationIntentError) &&
   !(error instanceof StorageMutationFenceError);
 
+// The plan is fingerprinted before its locks are taken, so an upload that
+// finishes in between leaves a stale fingerprint. On the first attempt, with
+// no step applied, nothing has moved and the outcome is not in doubt: the
+// request is refused instead of blocking the item until an operator steps in.
+const isStaleFirstAttempt = (error: unknown, mutation: StorageMutationRecord) =>
+  error instanceof StorageMutationStaleCaptureError &&
+  mutation.parentId === null &&
+  USER_STORAGE_MUTATION_KINDS.has(mutation.kind) &&
+  mutation.attemptCount === 1 &&
+  mutation.steps.every((step) => step.status !== "applied");
+
 const abortReasonFor = (error: unknown, mutation: StorageMutationRecord) => {
+  if (isStaleFirstAttempt(error, mutation)) {
+    return new StorageMutationRejectedError("STORAGE_ITEM_CHANGED");
+  }
   if (!mayAbort(error, mutation)) return null;
   const rejection = permanentRejectionOf(error);
   if (rejection) return rejection;
@@ -1298,24 +1324,52 @@ const removeUndoneDirectory = async (
   }
 };
 
-// Reverse applied forward steps, newest first. Renames reuse the idempotent
-// forward implementation with source and target swapped, so fingerprints are
-// checked and a crash mid-undo can be resumed.
+// A rename lands before it is recorded, so a step that is not marked applied
+// may still have moved its node.
+const renameLanded = async (filesRoot: string, step: StorageMutationStep) => {
+  if (!step.sourceKey || !step.targetKey) return false;
+  const existsAt = async (storageKey: string) => {
+    try {
+      const state = await pathState(
+        resolveMutationStoragePath(filesRoot, storageKey),
+      );
+      return state.exists;
+    } catch (error) {
+      // A name the filesystem cannot hold was never created.
+      if ((error as NodeJS.ErrnoException).code === "ENAMETOOLONG") {
+        return false;
+      }
+      throw error;
+    }
+  };
+  const [source, target] = await Promise.all([
+    existsAt(step.sourceKey),
+    existsAt(step.targetKey),
+  ]);
+  return !source && target;
+};
+
+// Reverse forward steps, newest first. Renames reuse the idempotent forward
+// implementation with source and target swapped, so fingerprints are checked
+// and a crash mid-undo can be resumed.
 const undoForwardSteps = async (
   mutation: StorageMutationRecord,
   filesRoot: string,
   assertLease: () => Promise<void>,
 ) => {
   for (const step of [...mutation.steps].reverse()) {
-    if (step.status !== "applied" || isCleanup(step.action)) continue;
+    if (isCleanup(step.action)) continue;
     if (step.action === "rename") {
+      if (step.status !== "applied" && !(await renameLanded(filesRoot, step))) {
+        continue;
+      }
       await applyRename(
         filesRoot,
         { ...step, sourceKey: step.targetKey, targetKey: step.sourceKey },
         assertLease,
         false,
       );
-    } else if (step.action === "mkdir") {
+    } else if (step.action === "mkdir" && step.status === "applied") {
       await assertLease();
       await removeUndoneDirectory(filesRoot, step);
     }

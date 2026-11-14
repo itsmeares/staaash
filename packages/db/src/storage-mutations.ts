@@ -299,6 +299,10 @@ const storageMutationRejections = {
     message:
       "The storage operation kept failing and was rolled back. Try again.",
   },
+  STORAGE_ITEM_CHANGED: {
+    status: 409,
+    message: "This item changed while the request was starting. Try again.",
+  },
 } as const;
 
 export type StorageMutationRejectionCode =
