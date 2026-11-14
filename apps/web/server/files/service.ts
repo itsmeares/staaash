@@ -1846,6 +1846,10 @@ export const createFilesService = ({
     const folderMap = await readFolderMap(targetFolder.ownerUserId, [
       targetFolder.id,
     ]);
+    // The caller checked this copy while the folder was active. The snapshot
+    // may already hold a trashed copy with a newer revision, and guarding on
+    // that one would let the group through.
+    folderMap.set(targetFolder.id, targetFolder);
     const byCanonicalPath = new Map<string, FolderSummary>();
     const missing = new Set<string>();
     const pending: Array<{ folder: FolderSummary; storageKey: string }> = [];
