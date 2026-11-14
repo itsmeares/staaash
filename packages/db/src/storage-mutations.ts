@@ -252,6 +252,14 @@ type PrepareStorageMutationInput = {
   readStorageKeys?: string[];
   steps: StorageMutationStepInput[];
   entities?: StorageMutationEntityInput[];
+  /**
+   * Folders the plan took its paths from. A rename, move or trash of one, or
+   * of a folder above it, changes its revision, and the mutation is then
+   * refused instead of writing to the folder's old path. Unlike an entity, a
+   * guarded folder is not marked as changing, so it stays readable and many
+   * mutations can guard it at once.
+   */
+  folderGuards?: Array<{ folderId: string; revision: number }>;
   uploadSessionId?: string | null;
   /** The device session that asked; children inherit their parent's. */
   originDeviceId?: string | null;
@@ -941,6 +949,22 @@ const validatePreparedEntityRevisions = async (
   validate("archive", archives);
 };
 
+const validatePreparedFolderGuards = (
+  tx: Prisma.TransactionClient,
+  guards: PrepareStorageMutationInput["folderGuards"] = [],
+) =>
+  validatePreparedEntityRevisions(
+    tx,
+    guards.map(({ folderId, revision }) => ({
+      entityType: "folder" as const,
+      entityId: folderId,
+      preRevision: revision,
+      postRevision: revision,
+      beforeJson: null,
+      afterJson: null,
+    })),
+  );
+
 type NamespaceTarget = {
   entityType: "file" | "folder";
   entityId: string;
@@ -1507,6 +1531,8 @@ const prepareStorageMutationTransaction = async (
     await assertOwnerQuotaAvailable(tx, input.ownerUserId, input.reservedBytes);
   }
   await acquireStorageMutationResources(tx, resourceKeys);
+  // After the path locks: nothing can rename a guarded folder from here on.
+  await validatePreparedFolderGuards(tx, input.folderGuards);
   const created = await createPreparingStorageMutation(tx, input, resourceKeys);
   const entities = input.entities ?? [];
   await insertStorageMutationEntities(tx, created.id, entities);
@@ -1580,6 +1606,7 @@ const prepareChunkedStorageMutation = async (
       );
     }
     await acquireStorageMutationResources(tx, resourceKeys);
+    await validatePreparedFolderGuards(tx, input.folderGuards);
     return createPreparingStorageMutation(tx, input, resourceKeys);
   }, options);
   try {

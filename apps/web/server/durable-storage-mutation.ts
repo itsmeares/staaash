@@ -80,6 +80,8 @@ export type DurableStorageMutationInput = {
   metadataOperations: StorageMetadataOperation[];
   steps: StorageMutationStepInput[];
   entities?: StorageMutationEntityInput[];
+  /** Folders the paths were planned from; see the journal's `folderGuards`. */
+  folderGuards?: Array<{ folderId: string; revision: number }>;
   resourceKeys?: string[];
   readStorageKeys?: string[];
   details?: Record<string, unknown>;
@@ -280,6 +282,7 @@ const prepareDurableStorageMutation = async (
         reservedBytes: input.reservedBytes,
         steps: input.steps,
         entities: input.entities,
+        folderGuards: input.folderGuards,
         uploadSessionId: input.uploadSessionId,
         parentId: input.parentId,
         originDeviceId: requestDeviceId(),
