@@ -120,7 +120,10 @@ const unlock = createRoute({
   responses: { 200: json(OkSchema, "Unlocked."), ...errorResponses },
 });
 
+// The share page's own waiting step, not something other clients call, so it
+// stays out of the public API description.
 const storageUnavailable = createRoute({
+  hide: true,
   method: "get",
   path: "/s/{token}/storage-unavailable",
   tags: ["Public links"],
