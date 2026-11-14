@@ -217,6 +217,37 @@ describe("waiting outside storage transactions", () => {
     await expect(next).resolves.toBe(started + 5000);
   });
 
+  it("lets an admitted change commit while a same-account request waits for its lock", async () => {
+    vi.useFakeTimers();
+    const start = Date.now();
+    let locked = false;
+    await waitForStorageAdmission(
+      async () => {
+        locked = true;
+      },
+      { ownerUserId: "lock-owner" },
+    );
+    const waiting = waitForStorageAdmission(
+      async () => {
+        if (locked) throw new StorageAdmissionBusyError();
+        return "admitted";
+      },
+      { ownerUserId: "lock-owner" },
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    const commit = waitForStorageAdmission(
+      async () => {
+        locked = false;
+        return Date.now() - start;
+      },
+      { ownerUserId: "lock-owner" },
+    );
+    await vi.advanceTimersByTimeAsync(200);
+    await expect(commit).resolves.toBeLessThan(200);
+    await vi.runAllTimersAsync();
+    await expect(waiting).resolves.toBe("admitted");
+  });
+
   it("releases an owner's turn after an unresolved outcome without retrying it", async () => {
     const error = new StorageTransactionUnavailableError(
       new Error("unknown commit"),
