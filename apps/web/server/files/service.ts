@@ -277,6 +277,40 @@ const parseFolderUploadPath = (rawPath: string) => {
 
 type ParsedFolderUploadPath = ReturnType<typeof parseFolderUploadPath>;
 
+/**
+ * Paths are planned from a snapshot of the folder tree. A rename, move or
+ * trash of the folder or one above it changes its revision, so the journal
+ * refuses a mutation that would put something at the folder's old path.
+ * As an entity the folder also reads as busy until the mutation ends.
+ */
+const folderGuardEntity = (folder: FolderSummary) => ({
+  entityType: "folder" as const,
+  entityId: folder.id,
+  preRevision: folder.storageRevision ?? 0,
+  postRevision: folder.storageRevision ?? 0,
+  beforeJson: null,
+  afterJson: null,
+});
+
+/** The same check without marking the folder as changing, for hot paths. */
+const folderGuard = (folder: FolderSummary) => ({
+  folderId: folder.id,
+  revision: folder.storageRevision ?? 0,
+});
+
+const restoreGuard = (
+  location: FolderRestoreLocation,
+  folderMap: Map<string, FolderSummary>,
+) => {
+  const into = folderMap.get(location.folderId);
+  // Trashed or purged after the restore picked it: a trashed folder's
+  // revision is already the new one, and a purged one has no guard at all.
+  if (into?.deletedAt || (!into && location.kind === "original-parent")) {
+    throw new StorageMutationConflictError("STORAGE_MUTATION_IN_PROGRESS");
+  }
+  return into ? [folderGuardEntity(into)] : [];
+};
+
 const folderUploadEntryKey = (folderId: string, name: string) =>
   `${folderId}\u0000${name}`;
 
@@ -3200,6 +3234,7 @@ export const createFilesService = ({
               }),
             },
           ],
+          folderGuards: [folderGuard(parentFolder)],
         });
         const folder = await activeRepo.findFolderById(virtualFolder.id);
         if (!folder) {
@@ -3790,16 +3825,7 @@ export const createFilesService = ({
             },
           }),
           rootFolder: folder,
-          guardEntities: [
-            {
-              entityType: "folder",
-              entityId: destinationFolder.id,
-              preRevision: destinationFolder.storageRevision ?? 0,
-              postRevision: destinationFolder.storageRevision ?? 0,
-              beforeJson: null,
-              afterJson: null,
-            },
-          ],
+          guardEntities: [folderGuardEntity(destinationFolder)],
           fromStorageKey,
           toStorageKey,
           expectedTreeManifestDigest,
@@ -4314,6 +4340,7 @@ export const createFilesService = ({
           folderUpdates,
           fileUpdates,
           deleteTrashEntryId: folder.trashEntryId,
+          guardEntities: restoreGuard(restoreLocation, currentFolderMap),
           expectedTreeManifestDigest:
             isolatedTrashEntry?.layoutVersion === "isolated"
               ? (isolatedTrashEntry.treeManifestDigest ??
@@ -4595,16 +4622,7 @@ export const createFilesService = ({
           }),
         }),
         file,
-        guardEntities: [
-          {
-            entityType: "folder",
-            entityId: destinationFolder.id,
-            preRevision: destinationFolder.storageRevision ?? 0,
-            postRevision: destinationFolder.storageRevision ?? 0,
-            beforeJson: null,
-            afterJson: null,
-          },
-        ],
+        guardEntities: [folderGuardEntity(destinationFolder)],
         toStorageKey: nextStorageKey,
         data: {
           folderId: destinationFolder.id,
@@ -5007,6 +5025,7 @@ export const createFilesService = ({
           trashEntryId: null,
         },
         deleteTrashEntryId: file.trashEntryId,
+        guardEntities: restoreGuard(restoreLocation, folderMap),
       });
       if (durableRestore) {
         const result = {
@@ -5471,6 +5490,7 @@ export const createFilesService = ({
                 contentChecksum: stagedFile.actualChecksum,
               }),
             })),
+            folderGuards: [folderGuard(targetFolder)],
             resultJson: serializeUploadGroupResult(
               groupEntries(
                 group.map(({ stagedFile, name, fileId }) => ({
@@ -6331,6 +6351,7 @@ export const createFilesService = ({
                   afterJson: toMetadataJson({ status: "completed" }),
                 },
               ],
+              folderGuards: [folderGuard(targetFolder)],
               details: { stagedStorageKey },
               requestHashPayload: {
                 uploadSessionId,
