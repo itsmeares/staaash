@@ -207,7 +207,12 @@ export const uploadRoutes = router()
     ]);
     if (protocolResponse) return protocolResponse;
     if (!uploadSession) throw notFound();
-    return writeUploadChunk({ request: c.req.raw, uploadSession, ownerUserId });
+    return writeUploadChunk({
+      request: c.req.raw,
+      body: c.env?.incoming,
+      uploadSession,
+      ownerUserId,
+    });
   })
   .openapi(cancelSession, async (c) => {
     const { id } = c.req.valid("param");

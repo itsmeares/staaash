@@ -1,3 +1,4 @@
+import type { HttpBindings } from "@hono/node-server";
 import { OpenAPIHono, z } from "@hono/zod-openapi";
 import type { Context } from "hono";
 import { contextStorage } from "hono/context-storage";
@@ -21,6 +22,8 @@ export type Session = NonNullable<
 >;
 
 export type AppEnv = {
+  /** Set by the Node server; absent when tests call the app directly. */
+  Bindings: Partial<HttpBindings>;
   Variables: {
     session: Session;
     idempotencyKey: string;
