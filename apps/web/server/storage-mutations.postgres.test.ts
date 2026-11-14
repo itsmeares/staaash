@@ -1890,13 +1890,13 @@ describe("STO-02 durable PostgreSQL protocol", () => {
         {
           resourceKey: storagePathResourceKey(
             owner.user.id,
-            `${filesKey}/Photos`,
+            `${filesKey}/photos`,
           ),
         },
         {
           resourceKey: storagePathResourceKey(
             owner.user.id,
-            `${filesKey}/Pictures`,
+            `${filesKey}/pictures`,
           ),
         },
       ]);

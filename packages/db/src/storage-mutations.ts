@@ -260,6 +260,11 @@ type PrepareStorageMutationInput = {
    * mutations can guard it at once.
    */
   folderGuards?: Array<{ folderId: string; revision: number }>;
+  /**
+   * The storage disk treats names that differ only in case as one entry, so
+   * a new or renamed name must not match an existing one in any case either.
+   */
+  namesIgnoreCase?: boolean;
   uploadSessionId?: string | null;
   /** The device session that asked; children inherit their parent's. */
   originDeviceId?: string | null;
@@ -1149,9 +1154,11 @@ const validatePreparedTargets = async (
   ownerUserId: string,
   targets: NamespaceTarget[],
   planned: Set<string>,
+  namesIgnoreCase: boolean,
 ) => {
   for (const target of targets) {
-    const key = `${target.parentId ?? ""}\0${target.name}`;
+    const name = namesIgnoreCase ? foldCase(target.name) : target.name;
+    const key = `${target.parentId ?? ""}\0${name}`;
     if (planned.has(key)) {
       throw new StorageMutationConflictError("STORAGE_MUTATION_IN_PROGRESS");
     }
@@ -1163,6 +1170,10 @@ const validatePreparedTargets = async (
       targets.map((target) => target.parentId).filter((id) => id !== null),
     ),
   ];
+  const sameName = (column: string) =>
+    namesIgnoreCase
+      ? Prisma.sql`lower(upper(${Prisma.raw(column)})) = lower(upper(target.name))`
+      : Prisma.sql`${Prisma.raw(column)} = target.name`;
   // Bind parent IDs before joining names, even when owner statistics are stale.
   const [conflict] = await tx.$queryRaw<Array<{ exists: boolean }>>`
     WITH targets AS (
@@ -1171,23 +1182,23 @@ const validatePreparedTargets = async (
     )
     SELECT EXISTS (
       SELECT 1 FROM targets target JOIN "File" file
-        ON file."folderId" = target."parentId" AND file."originalName" = target.name
+        ON file."folderId" = target."parentId" AND ${sameName('file."originalName"')}
       WHERE file."ownerUserId" = ${ownerUserId} AND file."deletedAt" IS NULL
         AND file."folderId" = ANY(${parentIds}::text[])
         AND file.id <> target."entityId"
       UNION ALL
       SELECT 1 FROM targets target JOIN "Folder" folder
-        ON folder."parentId" = target."parentId" AND folder.name = target.name
+        ON folder."parentId" = target."parentId" AND ${sameName("folder.name")}
       WHERE folder."ownerUserId" = ${ownerUserId} AND folder."deletedAt" IS NULL
         AND folder."parentId" = ANY(${parentIds}::text[])
         AND folder.id <> target."entityId"
       UNION ALL
-      SELECT 1 FROM targets target JOIN "File" file ON file."originalName" = target.name
+      SELECT 1 FROM targets target JOIN "File" file ON ${sameName('file."originalName"')}
       WHERE target."parentId" IS NULL AND file."folderId" IS NULL
         AND file."ownerUserId" = ${ownerUserId} AND file."deletedAt" IS NULL
         AND file.id <> target."entityId"
       UNION ALL
-      SELECT 1 FROM targets target JOIN "Folder" folder ON folder.name = target.name
+      SELECT 1 FROM targets target JOIN "Folder" folder ON ${sameName("folder.name")}
       WHERE target."parentId" IS NULL AND folder."parentId" IS NULL
         AND folder."ownerUserId" = ${ownerUserId} AND folder."deletedAt" IS NULL
         AND folder.id <> target."entityId"
@@ -1202,6 +1213,7 @@ const validatePreparedNamespaces = async (
   tx: Prisma.TransactionClient,
   ownerUserId: string,
   operations: StorageMetadataOperation[] | null,
+  namesIgnoreCase: boolean,
   planned = new Set<string>(),
 ) => {
   if (!operations) return;
@@ -1227,7 +1239,13 @@ const validatePreparedNamespaces = async (
     if (target) targets.push(target);
   }
   await validatePreparedTrashRoots(tx, trashStorageRoots);
-  await validatePreparedTargets(tx, ownerUserId, targets, planned);
+  await validatePreparedTargets(
+    tx,
+    ownerUserId,
+    targets,
+    planned,
+    namesIgnoreCase,
+  );
 };
 
 const isUniqueViolation = (error: unknown) =>
@@ -1290,6 +1308,23 @@ const findPreparedMutationReplay = async (
 };
 
 const OWNER_RESOURCE_PREFIX = "owner:";
+
+/**
+ * Locks fold case on every disk: a disk that ignores case puts `Foo` and
+ * `foo` in one place, and on one that does not, the two only wait for each
+ * other. Upper first, so a dotless ı and an i both meet at I as on Windows.
+ */
+const foldCase = (value: string) => value.toUpperCase().toLowerCase();
+
+/** The keys locks are held under: owner keys fold case. */
+const lockKeys = (keys: string[]) =>
+  Array.from(
+    new Set(
+      keys.map((key) =>
+        key.startsWith(OWNER_RESOURCE_PREFIX) ? foldCase(key) : key,
+      ),
+    ),
+  ).sort();
 
 const ownerResourceKey = (ownerUserId: string) =>
   `${OWNER_RESOURCE_PREFIX}${ownerUserId}`;
@@ -1354,12 +1389,15 @@ const assertNoOverlappingOwnerResources = async (
       FROM "StorageMutationResource"
      WHERE "releasedAt" IS NULL
        AND "mutationId" <> ${selfMutationId ?? ""}
-       AND (
-         "resourceKey" = ANY(${ownerKeys.flatMap(resourceKeyAndAncestors)}::text[])
-         OR EXISTS (
-           SELECT 1 FROM unnest(${ownerKeys}::text[]) AS requested(key)
-            WHERE starts_with("resourceKey", requested.key || '/')
-         )
+       -- Also folded here: a lock taken before keys were folded may still be
+       -- held. The plain match stays, so this only ever finds more.
+       AND EXISTS (
+         SELECT 1 FROM unnest(ARRAY["resourceKey", lower(upper("resourceKey"))]) AS held(key)
+          WHERE held.key = ANY(${ownerKeys.flatMap(resourceKeyAndAncestors)}::text[])
+             OR EXISTS (
+               SELECT 1 FROM unnest(${ownerKeys}::text[]) AS requested(key)
+                WHERE starts_with(held.key, requested.key || '/')
+             )
        )
      LIMIT 1
   `;
@@ -1541,6 +1579,7 @@ const prepareStorageMutationTransaction = async (
     tx,
     input.ownerUserId,
     getPreparedMetadataOperations(input.intentJson),
+    input.namesIgnoreCase ?? false,
   );
   return finishStorageMutationPreparation(tx, input, created.id);
 };
@@ -1627,7 +1666,13 @@ const prepareChunkedStorageMutation = async (
     ) {
       const chunk = operations.slice(at, at + STORAGE_MUTATION_CHUNK_SIZE);
       await runPreparationChunk(created.id, (tx) =>
-        validatePreparedNamespaces(tx, input.ownerUserId, chunk, planned),
+        validatePreparedNamespaces(
+          tx,
+          input.ownerUserId,
+          chunk,
+          input.namesIgnoreCase ?? false,
+          planned,
+        ),
       );
     }
     return await runPreparationChunk(created.id, (tx) =>
@@ -1664,16 +1709,16 @@ export const prepareStorageMutation = async (
   input: PrepareStorageMutationInput,
   options: StorageTransactionOptions = {},
 ): Promise<PrepareStorageMutationResult> => {
-  const resourceKeys =
-    input.resourceKeys ?? deriveStorageMutationResourceKeys(input);
-  const uniqueResources = Array.from(new Set(resourceKeys)).sort();
+  const resourceKeys = lockKeys(
+    input.resourceKeys ?? deriveStorageMutationResourceKeys(input),
+  );
   const replay = await findPreparedMutationReplay(input);
   if (replay) return replay;
   try {
     const mutation = needsChunkedPreparation(input)
-      ? await prepareChunkedStorageMutation(input, uniqueResources, options)
+      ? await prepareChunkedStorageMutation(input, resourceKeys, options)
       : await runStorageTransaction(
-          (tx) => prepareStorageMutationTransaction(tx, input, uniqueResources),
+          (tx) => prepareStorageMutationTransaction(tx, input, resourceKeys),
           options,
         );
     return { mutation, replayed: false };
@@ -1849,8 +1894,7 @@ export const claimStorageMutation = async ({
   resolveResourceKeys?: (client: Prisma.TransactionClient) => Promise<string[]>;
 }): Promise<ClaimedStorageMutation | null> => {
   const leaseExpiresAt = new Date(now.getTime() + leaseMs);
-  const uniqueKeys = (keys: string[]) => Array.from(new Set(keys)).sort();
-  const uniqueResources = uniqueKeys(
+  const uniqueResources = lockKeys(
     resolveResourceKeys ? await resolveResourceKeys(getPrisma()) : resourceKeys,
   );
   let claimed: { id: string; leaseToken: bigint } | null;
@@ -1872,7 +1916,7 @@ export const claimStorageMutation = async ({
         if (held) return null;
         if (
           resolveResourceKeys &&
-          uniqueKeys(await resolveResourceKeys(tx)).join("\0") !==
+          lockKeys(await resolveResourceKeys(tx)).join("\0") !==
             uniqueResources.join("\0")
         ) {
           return null;
