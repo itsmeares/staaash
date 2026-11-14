@@ -34,6 +34,14 @@ process.on("uncaughtException", (error) => {
   process.exit(1);
 });
 
+// A timer that fires late means this process was too busy to send anything.
+let lastTick = Date.now();
+setInterval(() => {
+  const late = Date.now() - lastTick - 1000;
+  if (late > 2000) log("sync engine was busy", `${Math.round(late / 1000)} s`);
+  lastTick = Date.now();
+}, 1000).unref();
+
 const engine = new SyncEngine(
   {
     emit,
