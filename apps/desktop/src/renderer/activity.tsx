@@ -138,9 +138,6 @@ function ActivityRow({
 }) {
   const Direction = activity.direction === "up" ? ArrowUp : ArrowDown;
   const active = activity.state === "active";
-  const percent = activity.bytes
-    ? Math.min(100, Math.round((activity.doneBytes / activity.bytes) * 100))
-    : 100;
   const name = fileName(activity.rel);
   const inside = activity.rel.slice(0, -name.length - 1);
   return (
@@ -163,50 +160,71 @@ function ActivityRow({
               {inside ? `${folder}/${inside}` : folder}
             </span>
           </span>
+          {!active && activity.reason ? (
+            <span
+              className="mt-0.5 block truncate text-label text-muted-foreground"
+              title={activity.reason}
+            >
+              {activity.reason}
+            </span>
+          ) : null}
         </span>
         {active ? (
-          <span className="w-28 shrink-0 max-[37.5rem]:w-16">
-            <span className="block h-1 overflow-hidden rounded-full bg-foreground/8">
-              <span
-                className="block h-full rounded-full bg-primary"
-                style={{ width: `${percent}%` }}
-              />
-            </span>
-            <span className="mt-1 block text-end text-label whitespace-nowrap text-muted-foreground">
-              {activity.checking ? (
-                <>
-                  <span className="max-[37.5rem]:hidden">
-                    Server is checking
-                  </span>
-                  <span className="min-[37.5rem]:hidden">Checking</span>
-                </>
-              ) : (
-                <>
-                  {percent}%
-                  <span className="max-[37.5rem]:hidden">
-                    {" "}
-                    of {formatBytes(activity.bytes)}
-                  </span>
-                </>
-              )}
-            </span>
-          </span>
+          <ActivityProgress activity={activity} />
         ) : (
-          <span className="shrink-0 text-end">
-            <span className="block text-meta">
-              {activity.state === "failed"
-                ? "Failed"
-                : activity.state === "waiting"
-                  ? "Waiting"
-                  : formatBytes(activity.bytes)}
-            </span>
-            <span className="mt-0.5 block text-label text-muted-foreground">
-              {ago(activity.at)}
-            </span>
-          </span>
+          <ActivityEnd activity={activity} />
         )}
       </button>
     </li>
+  );
+}
+
+function ActivityEnd({ activity }: { activity: Activity }) {
+  return (
+    <span className="shrink-0 text-end">
+      <span className="block text-meta">
+        {activity.state === "failed"
+          ? "Failed"
+          : activity.state === "waiting"
+            ? "Waiting"
+            : formatBytes(activity.bytes)}
+      </span>
+      <span className="mt-0.5 block text-label text-muted-foreground">
+        {ago(activity.at)}
+      </span>
+    </span>
+  );
+}
+
+function ActivityProgress({ activity }: { activity: Activity }) {
+  const percent = activity.bytes
+    ? Math.min(100, Math.round((activity.doneBytes / activity.bytes) * 100))
+    : 100;
+  return (
+    <span className="w-28 shrink-0 max-[37.5rem]:w-16">
+      <span className="block h-1 overflow-hidden rounded-full bg-foreground/8">
+        <span
+          className="block h-full rounded-full bg-primary"
+          style={{ width: `${percent}%` }}
+        />
+      </span>
+      <span className="mt-1 block text-end text-label whitespace-nowrap text-muted-foreground">
+        {activity.checking ? (
+          <>
+            <span className="max-[37.5rem]:hidden">Server is checking</span>
+            <span className="min-[37.5rem]:hidden">Checking</span>
+          </>
+        ) : (
+          <>
+            {percent}%
+            <span className="max-[37.5rem]:hidden">
+              {" "}
+              of {formatBytes(activity.bytes)}
+            </span>
+          </>
+        )}
+      </span>
+    </span>
   );
 }
 
