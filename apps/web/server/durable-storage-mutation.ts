@@ -283,6 +283,9 @@ const prepareDurableStorageMutation = async (
         steps: input.steps,
         entities: input.entities,
         folderGuards: input.folderGuards,
+        namesIgnoreCase: (
+          await assertStorageFilesystemSupported(getStorageRoot())
+        ).ignoresCase,
         uploadSessionId: input.uploadSessionId,
         parentId: input.parentId,
         originDeviceId: requestDeviceId(),

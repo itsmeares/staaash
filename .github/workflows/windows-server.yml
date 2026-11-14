@@ -154,6 +154,7 @@ jobs:
           server/storage-mutations.postgres.test.ts
           server/files/name-conflicts.postgres.test.ts
           server/files/folder-paths.postgres.test.ts
+          server/files/case-names.postgres.test.ts
 
   attach:
     name: Attach the installer to the release

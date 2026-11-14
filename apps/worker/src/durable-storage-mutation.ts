@@ -235,7 +235,9 @@ export const runWorkerStorageMutation = async ({
   readStorageKeys,
   signal,
 }: WorkerStorageMutationArgs) => {
-  await assertStorageFilesystemSupported(storagePaths.filesRoot);
+  const { ignoresCase } = await assertStorageFilesystemSupported(
+    storagePaths.filesRoot,
+  );
   const intent: RecoverableStorageMutationIntent = {
     version: 1,
     metadataOperations,
@@ -262,6 +264,7 @@ export const runWorkerStorageMutation = async ({
             // Without explicit keys, the journal locks the step paths.
             resourceKeys: resourceKeys ?? (parentId ? [] : undefined),
             readStorageKeys,
+            namesIgnoreCase: ignoresCase,
           },
           { deadline, signal },
         ),

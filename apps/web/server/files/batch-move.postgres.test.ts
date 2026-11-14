@@ -145,8 +145,8 @@ it("moves a folder with 2,500 items after the worker stops right after claiming 
       orderBy: { resourceKey: "asc" },
     }),
   ).toEqual([
-    { resourceKey: `owner:${user.id}/files/${user.id}/Source` },
-    { resourceKey: `owner:${user.id}/files/${user.id}/Target/Source` },
+    { resourceKey: `owner:${user.id}/files/${user.id}/source` },
+    { resourceKey: `owner:${user.id}/files/${user.id}/target/source` },
   ]);
   await new Promise((resolve) => setTimeout(resolve, 5));
 
@@ -453,7 +453,7 @@ it("refuses a move claim whose paths changed before its locks were taken", async
       orderBy: { resourceKey: "asc" },
     }),
   ).toEqual([
-    { resourceKey: `owner:${user.id}/files/${user.id}/Renamed/Selected` },
-    { resourceKey: `owner:${user.id}/files/${user.id}/Target/Selected` },
+    { resourceKey: `owner:${user.id}/files/${user.id}/renamed/selected` },
+    { resourceKey: `owner:${user.id}/files/${user.id}/target/selected` },
   ]);
 });

@@ -58,7 +58,9 @@ const input = {
 describe("worker durable mutation prepare ownership", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.assertStorageFilesystemSupported.mockResolvedValue(undefined);
+    mocks.assertStorageFilesystemSupported.mockResolvedValue({
+      ignoresCase: false,
+    });
     mocks.prepareStorageMutation.mockReset();
     mocks.findStorageMutation.mockReset().mockResolvedValue(null);
     mocks.claimAndExecuteStorageMutation
@@ -128,7 +130,9 @@ describe("artifact publication admission", () => {
   afterEach(() => vi.useRealTimers());
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.assertStorageFilesystemSupported.mockResolvedValue(undefined);
+    mocks.assertStorageFilesystemSupported.mockResolvedValue({
+      ignoresCase: false,
+    });
     mocks.prepareStorageMutation.mockReset();
     mocks.findStorageMutation.mockReset().mockResolvedValue(null);
     mocks.claimAndExecuteStorageMutation

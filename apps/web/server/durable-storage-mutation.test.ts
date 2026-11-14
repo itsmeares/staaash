@@ -14,7 +14,7 @@ import {
 const mocks = vi.hoisted(() => ({
   claimAndExecuteStorageMutation: vi.fn(),
   findStorageMutation: vi.fn(),
-  assertStorageFilesystemSupported: vi.fn(),
+  assertStorageFilesystemSupported: vi.fn(async () => ({ ignoresCase: false })),
   findStorageMutationByIdempotencyKey: vi.fn(),
   findUnique: vi.fn(),
   prepareStorageMutation: vi.fn(),
