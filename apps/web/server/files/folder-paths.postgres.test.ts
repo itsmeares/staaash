@@ -6,6 +6,7 @@ import { assertStorageFilesystemSupported } from "@staaash/db/storage-mutation-e
 import { beforeAll, expect, it, vi } from "vite-plus/test";
 
 import { getStoragePath, getStorageRoot } from "../storage";
+import { prismaFilesRepository } from "./repository";
 import { createFilesService } from "./service";
 
 // Runs once, after a request planned its folders and before it creates them.
@@ -300,5 +301,48 @@ it(
     await expect(isDirectory(`files/${owner.id}/Moved/Inner/A`)).resolves.toBe(
       true,
     );
+  },
+);
+
+it(
+  "creates nothing at the old path when a folder two levels up is renamed while the request plans",
+  {
+    timeout: 30_000,
+  },
+  async () => {
+    const owner = await drive();
+    const { folders } = await ensure(owner, ["Outer", "Outer/Inner"]);
+    const [outer] = folders;
+    const listChildFolders = prismaFilesRepository.listChildFolders.bind(
+      prismaFilesRepository,
+    );
+    // Outer is already read with its old name when the planner lists its
+    // children, so Inner comes back with the revision the rename gave it.
+    const spy = vi
+      .spyOn(prismaFilesRepository, "listChildFolders")
+      .mockImplementation(async (ownerUserId, parentId, options) => {
+        if (parentId === outer!.folderId) {
+          spy.mockRestore();
+          await service.renameFolder({
+            actorUserId: owner.id,
+            actorRole: "member",
+            folderId: outer!.folderId,
+            name: "Moved",
+          });
+        }
+        return listChildFolders(ownerUserId, parentId, options);
+      });
+
+    await expect(ensure(owner, ["Outer/Inner/New"])).rejects.toMatchObject({
+      code: "STORAGE_ADMISSION_BUSY",
+    });
+
+    await expect(
+      stat(getStoragePath(`files/${owner.id}/Outer`)),
+    ).rejects.toThrow();
+    await ensure(owner, ["Moved/Inner/New"]);
+    await expect(
+      isDirectory(`files/${owner.id}/Moved/Inner/New`),
+    ).resolves.toBe(true);
   },
 );

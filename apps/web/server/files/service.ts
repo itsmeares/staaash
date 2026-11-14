@@ -312,6 +312,25 @@ const restoreGuard = (
   return into ? [folderGuardEntity(into)] : [];
 };
 
+/** Every folder above `folders` up to and including `topId`, minus `folders`. */
+const foldersUpTo = (
+  folders: FolderSummary[],
+  folderMap: Map<string, FolderSummary>,
+  topId: string,
+) => {
+  const own = new Set(folders.map((folder) => folder.id));
+  const above = new Map<string, FolderSummary>();
+  for (const folder of folders) {
+    let parent = folderMap.get(folder.parentId!)!;
+    while (!above.has(parent.id)) {
+      if (!own.has(parent.id)) above.set(parent.id, parent);
+      if (parent.id === topId) break;
+      parent = folderMap.get(parent.parentId!)!;
+    }
+  }
+  return above;
+};
+
 const folderUploadEntryKey = (folderId: string, name: string) =>
   `${folderId}\u0000${name}`;
 
@@ -1944,15 +1963,15 @@ export const createFilesService = ({
       start += FOLDER_CREATE_GROUP_LIMIT
     ) {
       const group = pending.slice(start, start + FOLDER_CREATE_GROUP_LIMIT);
-      const created = new Set(group.map(({ folder }) => folder.id));
-      // The paths were planned from a snapshot. A parent renamed or moved
-      // since has a new revision, and the journal then refuses the group
-      // instead of creating folders at the parent's old path.
-      const parents = new Map(
-        group
-          .map(({ folder }) => folderMap.get(folder.parentId!)!)
-          .filter((parent) => !created.has(parent.id))
-          .map((parent) => [parent.id, parent]),
+      // The paths were planned from folders read one level at a time. A
+      // rename or move bumps the revision of the folder and all below it, so
+      // guarding only the parent misses a rename above it that came between
+      // two reads. Guarding every folder up to the target makes the journal
+      // refuse the group instead of creating folders at an old path.
+      const parents = foldersUpTo(
+        group.map(({ folder }) => folder),
+        folderMap,
+        targetFolder.id,
       );
       await runDurableStorageMutation({
         kind: "folder_create",
