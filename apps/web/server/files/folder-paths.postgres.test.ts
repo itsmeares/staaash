@@ -211,3 +211,30 @@ it(
     ).resolves.toBe(0);
   },
 );
+
+it("creates the path again when its folder was renamed since the first request", async () => {
+  const owner = await drive();
+  const key = randomUUID();
+  const first = await ensure(owner, ["Trip/Photos"], key);
+  await service.renameFolder({
+    actorUserId: owner.id,
+    actorRole: "member",
+    folderId: first.folders[0]!.folderId,
+    name: "Pictures",
+  });
+
+  const again = await ensure(owner, ["Trip/Photos"], key);
+
+  expect(again.folders[0]!.folderId).not.toBe(first.folders[0]!.folderId);
+  await expect(isDirectory(`files/${owner.id}/Trip/Photos`)).resolves.toBe(
+    true,
+  );
+  await expect(isDirectory(`files/${owner.id}/Trip/Pictures`)).resolves.toBe(
+    true,
+  );
+  await expect(
+    db.storageMutation.count({
+      where: { ownerUserId: owner.id, status: "recovery_required" },
+    }),
+  ).resolves.toBe(0);
+});

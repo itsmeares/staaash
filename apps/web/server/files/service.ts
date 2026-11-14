@@ -1829,14 +1829,12 @@ export const createFilesService = ({
   const createMissingFolderPaths = async ({
     targetFolder,
     requestedPaths,
-    idempotencyKey,
     folderByParentAndName,
     fileKeys,
     loadChildren,
   }: {
     targetFolder: FolderSummary;
     requestedPaths: ParsedFolderUploadPath[];
-    idempotencyKey?: string | null;
     folderByParentAndName: Map<string, FolderSummary>;
     fileKeys: Set<string>;
     loadChildren: (parentId: string, parentPath: string) => Promise<void>;
@@ -1891,13 +1889,10 @@ export const createFilesService = ({
         }
         plannedSiblings.add(sibling);
         folder = {
-          id: idempotencyKey
-            ? deterministicUuid(
-                `folder-create:${targetFolder.ownerUserId}:${deterministicUuid(
-                  `folder-upload:${idempotencyKey}:${canonicalPath}`,
-                )}`,
-              )
-            : randomUUID(),
+          // A repeat finds what exists by name, so the id carries no meaning.
+          // An id derived from the request would collide with a folder that
+          // was renamed or moved since.
+          id: randomUUID(),
           ownerUserId: targetFolder.ownerUserId,
           ownerStorageId: targetFolder.ownerStorageId,
           parentId: parentFolder.id,
@@ -3489,7 +3484,6 @@ export const createFilesService = ({
         return createMissingFolderPaths({
           targetFolder,
           requestedPaths,
-          idempotencyKey,
           folderByParentAndName,
           fileKeys,
           loadChildren,
