@@ -218,38 +218,6 @@ const acquireOwnerTurn = async (ownerUserId: string, signal?: AbortSignal) => {
   }
 };
 
-const retryStorageAdmission = async <T>(
-  operation: (deadline: number) => Promise<T>,
-  signal: AbortSignal | undefined,
-  retryable: (error: unknown) => boolean,
-): Promise<T> => {
-  const deadline = Date.now() + ADMISSION_MS;
-  const waiter = createAdmissionWaiter();
-  try {
-    for (let attempt = 0; ; attempt++) {
-      assertStorageAdmissionActive(signal);
-      try {
-        return await operation(deadline);
-      } catch (error) {
-        if (!retryable(error)) throw error;
-        const remaining = deadline - Date.now();
-        if (remaining <= 0) throw error;
-        waiter.acquire();
-        await waitForAdmissionRetry(
-          Math.min(
-            remaining,
-            50 * 2 ** Math.min(attempt, 3) + Math.random() * 50,
-          ),
-          signal,
-        );
-        if (Date.now() >= deadline) throw error;
-      }
-    }
-  } finally {
-    waiter.release();
-  }
-};
-
 export const waitForStorageAdmission = async <T>(
   operation: (deadline: number) => Promise<T>,
   {
@@ -262,13 +230,39 @@ export const waitForStorageAdmission = async <T>(
     retryable?: (error: unknown) => boolean;
   } = {},
 ): Promise<T> => {
-  assertStorageAdmissionActive(signal);
-  const releaseOwner = ownerUserId
-    ? await acquireOwnerTurn(ownerUserId, signal)
-    : undefined;
-  try {
-    return await retryStorageAdmission(operation, signal, retryable);
-  } finally {
-    releaseOwner?.();
+  let deadline: number | undefined;
+  for (let attempt = 0; ; attempt++) {
+    assertStorageAdmissionActive(signal);
+    // The turn covers one attempt, not the backoff: an admitted change of the
+    // same account must be able to commit while this request waits for it.
+    const releaseOwner = ownerUserId
+      ? await acquireOwnerTurn(ownerUserId, signal)
+      : undefined;
+    deadline ??= Date.now() + ADMISSION_MS;
+    let failure: unknown;
+    try {
+      return await operation(deadline);
+    } catch (error) {
+      failure = error;
+    } finally {
+      releaseOwner?.();
+    }
+    if (!retryable(failure)) throw failure;
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw failure;
+    const waiter = createAdmissionWaiter();
+    waiter.acquire();
+    try {
+      await waitForAdmissionRetry(
+        Math.min(
+          remaining,
+          50 * 2 ** Math.min(attempt, 3) + Math.random() * 50,
+        ),
+        signal,
+      );
+    } finally {
+      waiter.release();
+    }
+    if (Date.now() >= deadline) throw failure;
   }
 };

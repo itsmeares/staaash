@@ -17,6 +17,7 @@ import {
 import { getQueueBacklogSummary } from "@staaash/db/health";
 import {
   runStorageTransaction,
+  waitForStorageAdmission,
   StorageAdmissionBusyError,
   StorageAdmissionCancelledError,
   StorageTransactionUnavailableError,
@@ -592,6 +593,45 @@ describe("storage admission on real PostgreSQL", () => {
       reservedBytes: null,
       resultJson: { folderId: folder.id },
     });
+  }, 10000);
+  it("commits a claimed change while a same-account request waits for its path", async () => {
+    const { owner } = await createOwner();
+    const first = input(owner.id);
+    await prepareStorageMutation(first);
+    const claimed = await claimStorageMutation({
+      id: first.id,
+      leaseOwner: "path-wait-test",
+    });
+    expect(claimed).not.toBeNull();
+    const attempts: unknown[] = [];
+    const waiting = waitForStorageAdmission(
+      (deadline) =>
+        prepareStorageMutation(
+          { ...input(owner.id), steps: first.steps },
+          { deadline },
+        ).catch((error) => {
+          attempts.push(error);
+          throw error;
+        }),
+      {
+        ownerUserId: owner.id,
+        retryable: (error) =>
+          error instanceof StorageMutationConflictError &&
+          error.code === "STORAGE_MUTATION_IN_PROGRESS",
+      },
+    ).catch((error) => error);
+    await expect.poll(() => attempts.length).toBeGreaterThan(0);
+
+    const started = Date.now();
+    await commitStorageMutationMetadata({
+      mutationId: first.id,
+      ownerUserId: owner.id,
+      leaseOwner: claimed!.leaseOwner,
+      leaseToken: claimed!.leaseToken,
+      callback: async () => null,
+    });
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(await waiting).toBeInstanceOf(StorageMutationConflictError);
   }, 10000);
   it("bounds the entire transaction across multiple individually short queries", async () => {
     await expect(
