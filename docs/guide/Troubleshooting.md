@@ -50,6 +50,12 @@ Thumbnails and video previews come from the worker.
 
 Do not delete files inside `library` by hand. Staaash tracks each file, and a hand delete leaves it confused.
 
+## Big uploads slow down after a few minutes
+
+Many low-cost SSDs write fast only until a small fast area inside them fills, often after a few GB to a few tens of GB. After that, each write waits while the drive tidies up, and uploads can drop to a few tens of MB/s. Reading stays fast. Staaash has the drive save each piece of an upload before it accepts the next one, so a crash never loses a piece it already confirmed, and these drives feel that most.
+
+To check, watch the disk during a long upload, for example with `iostat -x 2` on Linux or Task Manager on Windows. If the disk shows close to 100% busy while it writes only a little, the drive is the limit, not Staaash or your network. A drive that keeps its write speed fixes it: a regular hard drive (CMR, not SMR) or an SSD with its own memory chip (DRAM). Keeping the drive less full also helps.
+
 ## An upload stopped halfway
 
 Unfinished uploads wait in a holding area and are cleaned up after a few hours. Try the upload again. If the same file keeps failing, check that the disk has space, and check the upload size limit under admin **Settings**, **Uploads**.
