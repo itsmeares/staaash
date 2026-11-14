@@ -67,6 +67,7 @@ vi.mock("./settings", () => ({
 vi.mock("./system", () => ({
   setStartAtLogin: vi.fn(),
   installLinuxMenuEntry: async () => {},
+  pointLinuxEntriesAt: () => {},
 }));
 vi.mock("./tray", () => ({
   createTray: () => ({ update: vi.fn(), rebuild: vi.fn() }),

@@ -1,16 +1,20 @@
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
 const updater = vi.hoisted(() => {
-  let listeners: Record<string, (info: { version: string }) => void> = {};
+  let listeners: Record<string, (info: { version: string } | string) => void> =
+    {};
   return {
     autoInstallOnAppQuit: false,
     allowPrerelease: false,
     checkForUpdates: vi.fn(async () => null),
     quitAndInstall: vi.fn(),
-    on: (event: string, listener: (info: { version: string }) => void) => {
+    on: (
+      event: string,
+      listener: (info: { version: string } | string) => void,
+    ) => {
       listeners[event] = listener;
     },
-    emit: (event: string, info: { version: string }) =>
+    emit: (event: string, info: { version: string } | string) =>
       listeners[event]?.(info),
     reset: () => {
       listeners = {};
@@ -114,4 +118,14 @@ it("on macOS, leaving candidates clears a candidate offer", async () => {
     "https://api.github.com/repos/itsmeares/staaash/releases/latest",
     expect.anything(),
   );
+});
+
+it("reports where the AppImage went when an update saved it under a new name", () => {
+  setPlatform("linux");
+  const moved = vi.fn();
+  startUpdates(vi.fn(), true, moved);
+
+  updater.emit("appimage-filename-updated", "/apps/Staaash-2.0.0.AppImage");
+
+  expect(moved).toHaveBeenCalledWith("/apps/Staaash-2.0.0.AppImage");
 });
