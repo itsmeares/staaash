@@ -277,6 +277,20 @@ const parseFolderUploadPath = (rawPath: string) => {
 
 type ParsedFolderUploadPath = ReturnType<typeof parseFolderUploadPath>;
 
+/**
+ * Paths are planned from a snapshot of the folder tree. A rename, move or
+ * trash of the folder or one above it changes its revision, so the journal
+ * refuses a mutation that would put something at the folder's old path.
+ */
+const folderGuardEntity = (folder: FolderSummary) => ({
+  entityType: "folder" as const,
+  entityId: folder.id,
+  preRevision: folder.storageRevision ?? 0,
+  postRevision: folder.storageRevision ?? 0,
+  beforeJson: null,
+  afterJson: null,
+});
+
 const folderUploadEntryKey = (folderId: string, name: string) =>
   `${folderId}\u0000${name}`;
 
@@ -3199,6 +3213,7 @@ export const createFilesService = ({
                 name: normalizedName,
               }),
             },
+            folderGuardEntity(parentFolder),
           ],
         });
         const folder = await activeRepo.findFolderById(virtualFolder.id);
@@ -3790,16 +3805,7 @@ export const createFilesService = ({
             },
           }),
           rootFolder: folder,
-          guardEntities: [
-            {
-              entityType: "folder",
-              entityId: destinationFolder.id,
-              preRevision: destinationFolder.storageRevision ?? 0,
-              postRevision: destinationFolder.storageRevision ?? 0,
-              beforeJson: null,
-              afterJson: null,
-            },
-          ],
+          guardEntities: [folderGuardEntity(destinationFolder)],
           fromStorageKey,
           toStorageKey,
           expectedTreeManifestDigest,
@@ -4595,16 +4601,7 @@ export const createFilesService = ({
           }),
         }),
         file,
-        guardEntities: [
-          {
-            entityType: "folder",
-            entityId: destinationFolder.id,
-            preRevision: destinationFolder.storageRevision ?? 0,
-            postRevision: destinationFolder.storageRevision ?? 0,
-            beforeJson: null,
-            afterJson: null,
-          },
-        ],
+        guardEntities: [folderGuardEntity(destinationFolder)],
         toStorageKey: nextStorageKey,
         data: {
           folderId: destinationFolder.id,
@@ -5458,19 +5455,22 @@ export const createFilesService = ({
               expectedSizeBytes: BigInt(stagedFile.sizeBytes),
               expectedChecksum: stagedFile.actualChecksum,
             })),
-            entities: group.map(({ stagedFile, name, storageKey, fileId }) => ({
-              entityType: "file" as const,
-              entityId: fileId,
-              preRevision: -1,
-              postRevision: 0,
-              beforeJson: null,
-              afterJson: toMetadataJson({
-                storageKey,
-                originalName: name,
-                sizeBytes: stagedFile.sizeBytes,
-                contentChecksum: stagedFile.actualChecksum,
-              }),
-            })),
+            entities: [
+              ...group.map(({ stagedFile, name, storageKey, fileId }) => ({
+                entityType: "file" as const,
+                entityId: fileId,
+                preRevision: -1,
+                postRevision: 0,
+                beforeJson: null,
+                afterJson: toMetadataJson({
+                  storageKey,
+                  originalName: name,
+                  sizeBytes: stagedFile.sizeBytes,
+                  contentChecksum: stagedFile.actualChecksum,
+                }),
+              })),
+              folderGuardEntity(targetFolder),
+            ],
             resultJson: serializeUploadGroupResult(
               groupEntries(
                 group.map(({ stagedFile, name, fileId }) => ({
@@ -6330,6 +6330,7 @@ export const createFilesService = ({
                   beforeJson: toMetadataJson({ status: "committing" }),
                   afterJson: toMetadataJson({ status: "completed" }),
                 },
+                folderGuardEntity(targetFolder),
               ],
               details: { stagedStorageKey },
               requestHashPayload: {
