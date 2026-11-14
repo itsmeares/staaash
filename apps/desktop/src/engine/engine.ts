@@ -627,6 +627,7 @@ export class SyncEngine {
             },
             notify: (title, body) =>
               this.deps.emit({ type: "notify", title, body }),
+            log: this.deps.log,
             current: () => this.current(pair, config.ignore),
             signal: AbortSignal.any([this.halt.signal, stop.signal]),
             full,

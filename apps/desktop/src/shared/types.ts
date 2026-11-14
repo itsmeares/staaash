@@ -85,7 +85,8 @@ export type Activity = {
   pairId: string;
   rel: string;
   direction: "up" | "down";
-  state: "active" | "done" | "failed";
+  /** Waiting: stopped by a pause, or the server asked to try again later. */
+  state: "active" | "done" | "failed" | "waiting";
   bytes: number;
   doneBytes: number;
   at: number;

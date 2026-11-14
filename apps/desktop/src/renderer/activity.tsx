@@ -196,7 +196,9 @@ function ActivityRow({
             <span className="block text-meta">
               {activity.state === "failed"
                 ? "Failed"
-                : formatBytes(activity.bytes)}
+                : activity.state === "waiting"
+                  ? "Waiting"
+                  : formatBytes(activity.bytes)}
             </span>
             <span className="mt-0.5 block text-label text-muted-foreground">
               {ago(activity.at)}
