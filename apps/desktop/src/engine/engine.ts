@@ -62,6 +62,25 @@ const hiddenOnServer = (tree: RemoteTree, pair: SyncPair, ignore: string[]) => {
   return new Set([...skipped, ...ignored].map((each) => pathKey(each.rel)));
 };
 
+/**
+ * What is at `rel`, or null when nothing is there or a link is on the way:
+ * the scan does not enter links, so nothing past one is ever sent.
+ */
+const entryAt = async (root: string, rel: string) => {
+  const parts = rel.split("/");
+  for (let depth = 1; depth <= parts.length; depth += 1) {
+    const stats = await lstat(
+      localPath(root, parts.slice(0, depth).join("/")),
+    ).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    });
+    if (!stats || stats.isSymbolicLink()) return null;
+    if (depth === parts.length) return stats;
+  }
+  return null;
+};
+
 const abandoned = async (
   upload: PendingUpload,
   pair: SyncPair | undefined,
@@ -75,12 +94,7 @@ const abandoned = async (
   if (!existsSync(pair.localPath)) return false;
   // Only a regular file can still be sent, as in the scan: a folder, link or
   // other special entry now at the path ends the upload.
-  const now = await lstat(localPath(pair.localPath, upload.rel)).catch(
-    (error: NodeJS.ErrnoException) => {
-      if (error.code === "ENOENT") return null;
-      throw error;
-    },
-  );
+  const now = await entryAt(pair.localPath, upload.rel);
   // The drive may have gone between the two checks.
   if (!now && !existsSync(pair.localPath)) return false;
   return !now?.isFile();

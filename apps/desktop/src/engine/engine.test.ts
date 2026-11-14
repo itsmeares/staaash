@@ -3,6 +3,7 @@ import {
   mkdirSync,
   mkdtempSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -637,6 +638,20 @@ describe("unfinished uploads", () => {
     expect(cancelled).toHaveLength(1);
     expect(left()).toHaveLength(1);
   });
+
+  it.skipIf(process.platform === "win32")(
+    "cancels one whose folder is now a link",
+    async () => {
+      const pair = pairOf("a");
+      const elsewhere = path.join(root, "elsewhere");
+      mkdirSync(elsewhere);
+      writeFileSync(path.join(elsewhere, "big.bin"), "x");
+      symlinkSync(elsewhere, path.join(pair.localPath, "videos"));
+      pending("a", "videos/big.bin", "behind-a-link");
+      await syncOnce([pair]);
+      expect(cancelled).toEqual(["behind-a-link"]);
+    },
+  );
 
   it("keeps one it cannot check and still cancels the rest", async () => {
     const pair = pairOf("a");
