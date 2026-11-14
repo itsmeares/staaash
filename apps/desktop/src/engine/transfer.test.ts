@@ -210,8 +210,11 @@ describe("pool, with items that report their bytes sent", () => {
     checks.shift()!();
     await new Promise((resolve) => setTimeout(resolve, 5));
     expect(started).toEqual([1, 2, 3]);
+    // Every item has started; the pool still waits for item 2's check.
+    checks.pop()!();
+    await new Promise((resolve) => setTimeout(resolve, 5));
     expect(settled).toBe(false);
-    for (const check of checks.splice(0)) check();
+    checks.shift()!();
     await running;
     expect(settled).toBe(true);
   });
@@ -313,6 +316,12 @@ describe("uploadFile", () => {
     const { dir, input } = await base(SMALL_UPLOAD_BYTES + 2 * chunk);
     try {
       const events: string[] = [];
+      const lastStart = SMALL_UPLOAD_BYTES + chunk;
+      let lastCalled = false;
+      let releaseLast = () => {};
+      const lastHeld = new Promise<void>((resolve) => {
+        releaseLast = resolve;
+      });
       const api = {
         startUpload: async () => ({
           id: "session",
@@ -321,6 +330,10 @@ describe("uploadFile", () => {
           receivedBytes: 0,
         }),
         uploadChunk: async (_id: string, start: number) => {
+          if (start === lastStart) {
+            lastCalled = true;
+            await lastHeld;
+          }
           events.push(`chunk ${start}`);
         },
         completeUpload: async () => {
@@ -328,7 +341,7 @@ describe("uploadFile", () => {
           return { id: "remote" };
         },
       };
-      await uploadFile({
+      const uploading = uploadFile({
         ...input,
         api: api as never,
         store: {
@@ -339,9 +352,15 @@ describe("uploadFile", () => {
         replace: null,
         onSent: () => events.push("sent"),
       });
+      while (!lastCalled)
+        await new Promise((resolve) => setTimeout(resolve, 1));
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      // The last chunk is still on its way: nothing is sent yet.
+      expect(events).not.toContain("sent");
+      releaseLast();
+      await uploading;
 
-      expect(events.at(-2)).toBe("sent");
-      expect(events.at(-1)).toBe("check");
+      expect(events.slice(-3)).toEqual([`chunk ${lastStart}`, "sent", "check"]);
       expect(events.filter((event) => event.startsWith("chunk"))).toHaveLength(
         12,
       );
