@@ -2930,6 +2930,7 @@ export const StorageMutationStepScalarFieldEnum = {
   expectedSizeBytes: 'expectedSizeBytes',
   expectedChecksum: 'expectedChecksum',
   treeManifestDigest: 'treeManifestDigest',
+  expectedFileStat: 'expectedFileStat',
   status: 'status',
   attemptCount: 'attemptCount',
   lastError: 'lastError',

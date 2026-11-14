@@ -37,6 +37,7 @@ import {
   captureTreeManifest,
   claimAndExecuteStorageMutation,
   EMPTY_TREE_MANIFEST_DIGEST,
+  hashFileWithStat,
   StorageMutationAbruptInterruptionError,
   StorageMutationAmbiguityError,
   STORAGE_MUTATION_MAX_PRECOMMIT_ATTEMPTS,
@@ -2329,6 +2330,137 @@ describe("STO-02 durable PostgreSQL protocol", () => {
         "utf8",
       ),
     ).resolves.toBe("private");
+  });
+
+  describe("a file checksum read once", () => {
+    const bytes = Buffer.from("staged");
+    // Change times cannot be set back, so a settled file has to wait it out.
+    const seedSettledFile = async (storageKey: string) => {
+      await mkdir(path.dirname(storagePath(storageKey)), { recursive: true });
+      await writeFile(storagePath(storageKey), bytes);
+      await new Promise((resolve) => setTimeout(resolve, 2_100));
+      return storagePath(storageKey);
+    };
+    const prepareFileRename = (
+      ownerUserId: string,
+      sourceKey: string,
+      expectedChecksum: string,
+      expectedFileStat: string | null,
+    ) =>
+      prepareStorageMutation({
+        kind: "upload_create",
+        ownerUserId,
+        idempotencyKey: randomUUID(),
+        requestHash: randomUUID(),
+        intentJson: intent([]) as unknown as Prisma.InputJsonValue,
+        steps: [
+          {
+            action: "rename",
+            sourceKey,
+            targetKey: `${sourceKey}-moved`,
+            expectedNodeType: "file",
+            expectedSizeBytes: BigInt(bytes.length),
+            expectedChecksum,
+            expectedFileStat,
+          },
+        ],
+      });
+    // A checksum the bytes do not have: only a check that reads them refuses it.
+    const wrongChecksum = "0".repeat(64);
+
+    it("gives no fingerprint for a file written moments ago", async () => {
+      const user = await createUser();
+      const key = `tmp/uploads/${user.id}-fresh.part`;
+      await mkdir(path.dirname(storagePath(key)), { recursive: true });
+      await writeFile(storagePath(key), bytes);
+
+      await expect(hashFileWithStat(storagePath(key))).resolves.toEqual({
+        checksum: checksumOf(bytes),
+        fileStat: null,
+      });
+    });
+
+    it(
+      "moves a file checked a moment ago without reading it again",
+      { timeout: 15_000 },
+      async () => {
+        const user = await createUser();
+        const trusted = `tmp/uploads/${user.id}-trusted.part`;
+        const read = await hashFileWithStat(await seedSettledFile(trusted));
+        expect(read.checksum).toBe(checksumOf(bytes));
+        expect(read.fileStat).not.toBeNull();
+
+        const moved = await prepareFileRename(
+          user.id,
+          trusted,
+          wrongChecksum,
+          read.fileStat,
+        );
+        await execute(moved.mutation);
+        await expectStorageBytes(`${trusted}-moved`, bytes);
+
+        const unfingerprinted = `tmp/uploads/${user.id}-plain.part`;
+        await seedSettledFile(unfingerprinted);
+        const refused = await prepareFileRename(
+          user.id,
+          unfingerprinted,
+          wrongChecksum,
+          null,
+        );
+        await expect(execute(refused.mutation)).rejects.toMatchObject({
+          code: "STORAGE_ITEM_CHANGED",
+        });
+        await expectStorageBytes(unfingerprinted, bytes);
+      },
+    );
+
+    it(
+      "reads a file again when it was written after its check",
+      { timeout: 15_000 },
+      async () => {
+        const user = await createUser();
+        const key = `tmp/uploads/${user.id}-edited.part`;
+        const read = await hashFileWithStat(await seedSettledFile(key));
+        // Same size, different bytes: only the change time gives it away.
+        await writeFile(storagePath(key), "STAGED");
+
+        const refused = await prepareFileRename(
+          user.id,
+          key,
+          read.checksum,
+          read.fileStat,
+        );
+        await expect(execute(refused.mutation)).rejects.toMatchObject({
+          code: "STORAGE_ITEM_CHANGED",
+        });
+        await expectStorageBytes(key, Buffer.from("STAGED"));
+      },
+    );
+
+    it(
+      "reads every byte again on a retried attempt",
+      { timeout: 15_000 },
+      async () => {
+        const user = await createUser();
+        const key = `tmp/uploads/${user.id}-retried.part`;
+        const read = await hashFileWithStat(await seedSettledFile(key));
+        const prepared = await prepareFileRename(
+          user.id,
+          key,
+          wrongChecksum,
+          read.fileStat,
+        );
+        await db.storageMutation.update({
+          where: { id: prepared.mutation.id },
+          data: { attemptCount: 1 },
+        });
+
+        await expect(execute(prepared.mutation)).rejects.toBeInstanceOf(
+          StorageMutationAmbiguityError,
+        );
+        await expectStorageBytes(key, bytes);
+      },
+    );
   });
 
   describe("tree manifests with an lstat fingerprint", () => {

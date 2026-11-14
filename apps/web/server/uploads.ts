@@ -7,11 +7,7 @@ import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { z } from "zod";
 
-import {
-  computeFileSha256,
-  syncDirectory,
-  syncFile,
-} from "@staaash/db/storage-mutation-executor";
+import { syncDirectory, syncFile } from "@staaash/db/storage-mutation-executor";
 
 import { getSystemSettings } from "@/server/settings";
 import { uploadSizeLimitError } from "@/server/uploads/admission";
@@ -25,8 +21,6 @@ import {
   commitStagedUploadWithLock,
   replaceCommittedUploadWithLock,
 } from "@/server/storage-mutations";
-
-export { computeFileSha256 };
 
 export type UploadConflictStrategy = "fail" | "safeRename" | "replace";
 

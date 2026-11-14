@@ -49,6 +49,7 @@ export type StorageMutationStepMinAggregateOutputType = {
   expectedSizeBytes: bigint | null
   expectedChecksum: string | null
   treeManifestDigest: string | null
+  expectedFileStat: string | null
   status: string | null
   attemptCount: number | null
   lastError: string | null
@@ -68,6 +69,7 @@ export type StorageMutationStepMaxAggregateOutputType = {
   expectedSizeBytes: bigint | null
   expectedChecksum: string | null
   treeManifestDigest: string | null
+  expectedFileStat: string | null
   status: string | null
   attemptCount: number | null
   lastError: string | null
@@ -87,6 +89,7 @@ export type StorageMutationStepCountAggregateOutputType = {
   expectedSizeBytes: number
   expectedChecksum: number
   treeManifestDigest: number
+  expectedFileStat: number
   status: number
   attemptCount: number
   lastError: number
@@ -120,6 +123,7 @@ export type StorageMutationStepMinAggregateInputType = {
   expectedSizeBytes?: true
   expectedChecksum?: true
   treeManifestDigest?: true
+  expectedFileStat?: true
   status?: true
   attemptCount?: true
   lastError?: true
@@ -139,6 +143,7 @@ export type StorageMutationStepMaxAggregateInputType = {
   expectedSizeBytes?: true
   expectedChecksum?: true
   treeManifestDigest?: true
+  expectedFileStat?: true
   status?: true
   attemptCount?: true
   lastError?: true
@@ -158,6 +163,7 @@ export type StorageMutationStepCountAggregateInputType = {
   expectedSizeBytes?: true
   expectedChecksum?: true
   treeManifestDigest?: true
+  expectedFileStat?: true
   status?: true
   attemptCount?: true
   lastError?: true
@@ -264,6 +270,7 @@ export type StorageMutationStepGroupByOutputType = {
   expectedSizeBytes: bigint | null
   expectedChecksum: string | null
   treeManifestDigest: string | null
+  expectedFileStat: string | null
   status: string
   attemptCount: number
   lastError: string | null
@@ -306,6 +313,7 @@ export type StorageMutationStepWhereInput = {
   expectedSizeBytes?: Prisma.BigIntNullableFilter<"StorageMutationStep"> | bigint | number | null
   expectedChecksum?: Prisma.StringNullableFilter<"StorageMutationStep"> | string | null
   treeManifestDigest?: Prisma.StringNullableFilter<"StorageMutationStep"> | string | null
+  expectedFileStat?: Prisma.StringNullableFilter<"StorageMutationStep"> | string | null
   status?: Prisma.StringFilter<"StorageMutationStep"> | string
   attemptCount?: Prisma.IntFilter<"StorageMutationStep"> | number
   lastError?: Prisma.StringNullableFilter<"StorageMutationStep"> | string | null
@@ -326,6 +334,7 @@ export type StorageMutationStepOrderByWithRelationInput = {
   expectedSizeBytes?: Prisma.SortOrderInput | Prisma.SortOrder
   expectedChecksum?: Prisma.SortOrderInput | Prisma.SortOrder
   treeManifestDigest?: Prisma.SortOrderInput | Prisma.SortOrder
+  expectedFileStat?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
   lastError?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -350,6 +359,7 @@ export type StorageMutationStepWhereUniqueInput = Prisma.AtLeast<{
   expectedSizeBytes?: Prisma.BigIntNullableFilter<"StorageMutationStep"> | bigint | number | null
   expectedChecksum?: Prisma.StringNullableFilter<"StorageMutationStep"> | string | null
   treeManifestDigest?: Prisma.StringNullableFilter<"StorageMutationStep"> | string | null
+  expectedFileStat?: Prisma.StringNullableFilter<"StorageMutationStep"> | string | null
   status?: Prisma.StringFilter<"StorageMutationStep"> | string
   attemptCount?: Prisma.IntFilter<"StorageMutationStep"> | number
   lastError?: Prisma.StringNullableFilter<"StorageMutationStep"> | string | null
@@ -370,6 +380,7 @@ export type StorageMutationStepOrderByWithAggregationInput = {
   expectedSizeBytes?: Prisma.SortOrderInput | Prisma.SortOrder
   expectedChecksum?: Prisma.SortOrderInput | Prisma.SortOrder
   treeManifestDigest?: Prisma.SortOrderInput | Prisma.SortOrder
+  expectedFileStat?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
   lastError?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -397,6 +408,7 @@ export type StorageMutationStepScalarWhereWithAggregatesInput = {
   expectedSizeBytes?: Prisma.BigIntNullableWithAggregatesFilter<"StorageMutationStep"> | bigint | number | null
   expectedChecksum?: Prisma.StringNullableWithAggregatesFilter<"StorageMutationStep"> | string | null
   treeManifestDigest?: Prisma.StringNullableWithAggregatesFilter<"StorageMutationStep"> | string | null
+  expectedFileStat?: Prisma.StringNullableWithAggregatesFilter<"StorageMutationStep"> | string | null
   status?: Prisma.StringWithAggregatesFilter<"StorageMutationStep"> | string
   attemptCount?: Prisma.IntWithAggregatesFilter<"StorageMutationStep"> | number
   lastError?: Prisma.StringNullableWithAggregatesFilter<"StorageMutationStep"> | string | null
@@ -415,6 +427,7 @@ export type StorageMutationStepCreateInput = {
   expectedSizeBytes?: bigint | number | null
   expectedChecksum?: string | null
   treeManifestDigest?: string | null
+  expectedFileStat?: string | null
   status?: string
   attemptCount?: number
   lastError?: string | null
@@ -435,6 +448,7 @@ export type StorageMutationStepUncheckedCreateInput = {
   expectedSizeBytes?: bigint | number | null
   expectedChecksum?: string | null
   treeManifestDigest?: string | null
+  expectedFileStat?: string | null
   status?: string
   attemptCount?: number
   lastError?: string | null
@@ -453,6 +467,7 @@ export type StorageMutationStepUpdateInput = {
   expectedSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   expectedChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   treeManifestDigest?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expectedFileStat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -473,6 +488,7 @@ export type StorageMutationStepUncheckedUpdateInput = {
   expectedSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   expectedChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   treeManifestDigest?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expectedFileStat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -492,6 +508,7 @@ export type StorageMutationStepCreateManyInput = {
   expectedSizeBytes?: bigint | number | null
   expectedChecksum?: string | null
   treeManifestDigest?: string | null
+  expectedFileStat?: string | null
   status?: string
   attemptCount?: number
   lastError?: string | null
@@ -510,6 +527,7 @@ export type StorageMutationStepUpdateManyMutationInput = {
   expectedSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   expectedChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   treeManifestDigest?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expectedFileStat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -529,6 +547,7 @@ export type StorageMutationStepUncheckedUpdateManyInput = {
   expectedSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   expectedChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   treeManifestDigest?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expectedFileStat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -563,6 +582,7 @@ export type StorageMutationStepCountOrderByAggregateInput = {
   expectedSizeBytes?: Prisma.SortOrder
   expectedChecksum?: Prisma.SortOrder
   treeManifestDigest?: Prisma.SortOrder
+  expectedFileStat?: Prisma.SortOrder
   status?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
   lastError?: Prisma.SortOrder
@@ -588,6 +608,7 @@ export type StorageMutationStepMaxOrderByAggregateInput = {
   expectedSizeBytes?: Prisma.SortOrder
   expectedChecksum?: Prisma.SortOrder
   treeManifestDigest?: Prisma.SortOrder
+  expectedFileStat?: Prisma.SortOrder
   status?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
   lastError?: Prisma.SortOrder
@@ -607,6 +628,7 @@ export type StorageMutationStepMinOrderByAggregateInput = {
   expectedSizeBytes?: Prisma.SortOrder
   expectedChecksum?: Prisma.SortOrder
   treeManifestDigest?: Prisma.SortOrder
+  expectedFileStat?: Prisma.SortOrder
   status?: Prisma.SortOrder
   attemptCount?: Prisma.SortOrder
   lastError?: Prisma.SortOrder
@@ -673,6 +695,7 @@ export type StorageMutationStepCreateWithoutMutationInput = {
   expectedSizeBytes?: bigint | number | null
   expectedChecksum?: string | null
   treeManifestDigest?: string | null
+  expectedFileStat?: string | null
   status?: string
   attemptCount?: number
   lastError?: string | null
@@ -691,6 +714,7 @@ export type StorageMutationStepUncheckedCreateWithoutMutationInput = {
   expectedSizeBytes?: bigint | number | null
   expectedChecksum?: string | null
   treeManifestDigest?: string | null
+  expectedFileStat?: string | null
   status?: string
   attemptCount?: number
   lastError?: string | null
@@ -739,6 +763,7 @@ export type StorageMutationStepScalarWhereInput = {
   expectedSizeBytes?: Prisma.BigIntNullableFilter<"StorageMutationStep"> | bigint | number | null
   expectedChecksum?: Prisma.StringNullableFilter<"StorageMutationStep"> | string | null
   treeManifestDigest?: Prisma.StringNullableFilter<"StorageMutationStep"> | string | null
+  expectedFileStat?: Prisma.StringNullableFilter<"StorageMutationStep"> | string | null
   status?: Prisma.StringFilter<"StorageMutationStep"> | string
   attemptCount?: Prisma.IntFilter<"StorageMutationStep"> | number
   lastError?: Prisma.StringNullableFilter<"StorageMutationStep"> | string | null
@@ -757,6 +782,7 @@ export type StorageMutationStepCreateManyMutationInput = {
   expectedSizeBytes?: bigint | number | null
   expectedChecksum?: string | null
   treeManifestDigest?: string | null
+  expectedFileStat?: string | null
   status?: string
   attemptCount?: number
   lastError?: string | null
@@ -775,6 +801,7 @@ export type StorageMutationStepUpdateWithoutMutationInput = {
   expectedSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   expectedChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   treeManifestDigest?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expectedFileStat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -793,6 +820,7 @@ export type StorageMutationStepUncheckedUpdateWithoutMutationInput = {
   expectedSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   expectedChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   treeManifestDigest?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expectedFileStat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -811,6 +839,7 @@ export type StorageMutationStepUncheckedUpdateManyWithoutMutationInput = {
   expectedSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   expectedChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   treeManifestDigest?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expectedFileStat?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
   lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -832,6 +861,7 @@ export type StorageMutationStepSelect<ExtArgs extends runtime.Types.Extensions.I
   expectedSizeBytes?: boolean
   expectedChecksum?: boolean
   treeManifestDigest?: boolean
+  expectedFileStat?: boolean
   status?: boolean
   attemptCount?: boolean
   lastError?: boolean
@@ -852,6 +882,7 @@ export type StorageMutationStepSelectCreateManyAndReturn<ExtArgs extends runtime
   expectedSizeBytes?: boolean
   expectedChecksum?: boolean
   treeManifestDigest?: boolean
+  expectedFileStat?: boolean
   status?: boolean
   attemptCount?: boolean
   lastError?: boolean
@@ -872,6 +903,7 @@ export type StorageMutationStepSelectUpdateManyAndReturn<ExtArgs extends runtime
   expectedSizeBytes?: boolean
   expectedChecksum?: boolean
   treeManifestDigest?: boolean
+  expectedFileStat?: boolean
   status?: boolean
   attemptCount?: boolean
   lastError?: boolean
@@ -892,6 +924,7 @@ export type StorageMutationStepSelectScalar = {
   expectedSizeBytes?: boolean
   expectedChecksum?: boolean
   treeManifestDigest?: boolean
+  expectedFileStat?: boolean
   status?: boolean
   attemptCount?: boolean
   lastError?: boolean
@@ -900,7 +933,7 @@ export type StorageMutationStepSelectScalar = {
   updatedAt?: boolean
 }
 
-export type StorageMutationStepOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "mutationId" | "ordinal" | "action" | "sourceKey" | "targetKey" | "expectedNodeType" | "expectedSizeBytes" | "expectedChecksum" | "treeManifestDigest" | "status" | "attemptCount" | "lastError" | "appliedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["storageMutationStep"]>
+export type StorageMutationStepOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "mutationId" | "ordinal" | "action" | "sourceKey" | "targetKey" | "expectedNodeType" | "expectedSizeBytes" | "expectedChecksum" | "treeManifestDigest" | "expectedFileStat" | "status" | "attemptCount" | "lastError" | "appliedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["storageMutationStep"]>
 export type StorageMutationStepInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   mutation?: boolean | Prisma.StorageMutationDefaultArgs<ExtArgs>
 }
@@ -927,6 +960,7 @@ export type $StorageMutationStepPayload<ExtArgs extends runtime.Types.Extensions
     expectedSizeBytes: bigint | null
     expectedChecksum: string | null
     treeManifestDigest: string | null
+    expectedFileStat: string | null
     status: string
     attemptCount: number
     lastError: string | null
@@ -1367,6 +1401,7 @@ export interface StorageMutationStepFieldRefs {
   readonly expectedSizeBytes: Prisma.FieldRef<"StorageMutationStep", 'BigInt'>
   readonly expectedChecksum: Prisma.FieldRef<"StorageMutationStep", 'String'>
   readonly treeManifestDigest: Prisma.FieldRef<"StorageMutationStep", 'String'>
+  readonly expectedFileStat: Prisma.FieldRef<"StorageMutationStep", 'String'>
   readonly status: Prisma.FieldRef<"StorageMutationStep", 'String'>
   readonly attemptCount: Prisma.FieldRef<"StorageMutationStep", 'Int'>
   readonly lastError: Prisma.FieldRef<"StorageMutationStep", 'String'>
