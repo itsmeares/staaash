@@ -298,10 +298,14 @@ const folderGuard = (folder: FolderSummary) => ({
   revision: folder.storageRevision ?? 0,
 });
 
-const restoreGuard = (into: FolderSummary | undefined) => {
-  // Trashed after the restore picked it: its revision is already the new
-  // one, so the guard alone would let the restore through.
-  if (into?.deletedAt) {
+const restoreGuard = (
+  location: FolderRestoreLocation,
+  folderMap: Map<string, FolderSummary>,
+) => {
+  const into = folderMap.get(location.folderId);
+  // Trashed or purged after the restore picked it: a trashed folder's
+  // revision is already the new one, and a purged one has no guard at all.
+  if (into?.deletedAt || (!into && location.kind === "original-parent")) {
     throw new StorageMutationConflictError("STORAGE_MUTATION_IN_PROGRESS");
   }
   return into ? [folderGuardEntity(into)] : [];
@@ -4336,9 +4340,7 @@ export const createFilesService = ({
           folderUpdates,
           fileUpdates,
           deleteTrashEntryId: folder.trashEntryId,
-          guardEntities: restoreGuard(
-            currentFolderMap.get(restoreLocation.folderId),
-          ),
+          guardEntities: restoreGuard(restoreLocation, currentFolderMap),
           expectedTreeManifestDigest:
             isolatedTrashEntry?.layoutVersion === "isolated"
               ? (isolatedTrashEntry.treeManifestDigest ??
@@ -5023,7 +5025,7 @@ export const createFilesService = ({
           trashEntryId: null,
         },
         deleteTrashEntryId: file.trashEntryId,
-        guardEntities: restoreGuard(folderMap.get(restoreLocation.folderId)),
+        guardEntities: restoreGuard(restoreLocation, folderMap),
       });
       if (durableRestore) {
         const result = {
