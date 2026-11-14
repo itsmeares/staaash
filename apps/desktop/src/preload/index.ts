@@ -30,6 +30,7 @@ const api: DesktopApi = {
   openStaaash: call("open-staaash") as DesktopApi["openStaaash"],
   openFolder: call("open-folder") as DesktopApi["openFolder"],
   openSyncLog: call("open-sync-log") as DesktopApi["openSyncLog"],
+  syncNow: call("sync-now") as DesktopApi["syncNow"],
   resolveConflict: call("resolve-conflict") as DesktopApi["resolveConflict"],
   resolvePair: call("resolve-pair") as DesktopApi["resolvePair"],
   takeCommand: call("take-command") as DesktopApi["takeCommand"],
