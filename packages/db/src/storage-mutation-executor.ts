@@ -10,6 +10,7 @@ import {
   rmdir,
   type FileHandle,
 } from "node:fs/promises";
+import type { BigIntStats } from "node:fs";
 import path from "node:path";
 
 import type { Prisma } from "./client";
@@ -167,6 +168,47 @@ export const computeFileSha256 = async (filePath: string) => {
   } finally {
     await file.close();
   }
+};
+
+const fileStatKey = (info: BigIntStats) =>
+  `f1:${info.dev}:${info.ino}:${info.size}:${info.mtimeNs}:${info.ctimeNs}`;
+
+// Hashed right after its last piece arrived, a big upload first waits out the
+// settle time: that costs less than the journal reading it all again.
+const SETTLE_WAIT_MIN_BYTES = 512n * 1024n * 1024n;
+
+/**
+ * Hashes a file and, when nothing wrote to it in the settle time before the
+ * read and nothing changed while it was read, also returns its lstat
+ * fingerprint. A rename step that carries it skips reading the file again on
+ * its first attempt. A write afterwards moves its change time, which no
+ * program can set back; recovery reads every byte regardless.
+ */
+export const hashFileWithStat = async (filePath: string) => {
+  let before = await lstat(filePath, { bigint: true });
+  const lastWriteMs = Number(
+    (before.mtimeNs > before.ctimeNs ? before.mtimeNs : before.ctimeNs) /
+      1_000_000n,
+  );
+  const unsettledMs = lastWriteMs + TREE_STAT_SETTLE_MS - Date.now();
+  if (unsettledMs > 0 && before.size >= SETTLE_WAIT_MIN_BYTES) {
+    await new Promise((resolve) => setTimeout(resolve, unsettledMs));
+    before = await lstat(filePath, { bigint: true });
+  }
+  const settledBeforeNs = BigInt(Date.now() - TREE_STAT_SETTLE_MS) * 1_000_000n;
+  const checksum = await computeFileSha256(filePath);
+  const after = await lstat(filePath, { bigint: true });
+  const settled =
+    before.isFile() &&
+    before.mtimeNs < settledBeforeNs &&
+    before.ctimeNs < settledBeforeNs;
+  return {
+    checksum,
+    fileStat:
+      settled && fileStatKey(before) === fileStatKey(after)
+        ? fileStatKey(after)
+        : null,
+  };
 };
 
 export const requireStorageRegularFile = async (
@@ -472,8 +514,18 @@ const assertExpectedNodeChecksum = async (
   candidate: string,
   state: StoragePathState,
   step: StorageMutationStep,
+  trustStats: boolean,
 ) => {
   if (!step.expectedChecksum) return;
+  if (
+    trustStats &&
+    step.expectedFileStat &&
+    state.type === "file" &&
+    fileStatKey(await lstat(candidate, { bigint: true })) ===
+      step.expectedFileStat
+  ) {
+    return;
+  }
   const checksum =
     state.type === "file" ? await computeFileSha256(candidate) : null;
   if (checksum !== step.expectedChecksum.toLowerCase()) {
@@ -509,7 +561,7 @@ const validateExpectedNode = async (
   assertExpectedNodeExists(state);
   assertExpectedNodeType(state, step);
   assertExpectedNodeSize(state, step);
-  await assertExpectedNodeChecksum(candidate, state, step);
+  await assertExpectedNodeChecksum(candidate, state, step, trustStats);
   await assertExpectedTreeManifest(candidate, state, step, trustStats);
 };
 

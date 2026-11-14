@@ -16,11 +16,11 @@ import { app } from "@/server/http/app";
 
 import { StorageMutationConflictError } from "@staaash/db/storage-mutations";
 import { StorageAdmissionBusyError } from "@staaash/db/storage-transactions";
+import { hashFileWithStat } from "@staaash/db/storage-mutation-executor";
 
 import { getRequestSession } from "@/server/auth/guards";
 import { filesService } from "@/server/files/service";
 import { ResumableCompletionError } from "@/server/files/errors";
-import { computeFileSha256 } from "@/server/uploads";
 import {
   beginSessionCommit,
   failAndCleanupResumableSession,
@@ -59,9 +59,11 @@ vi.mock("@/server/uploads/session-service", async (importOriginal) => ({
   writeAndRecordUploadChunk: vi.fn(),
 }));
 
-vi.mock("@/server/uploads", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/server/uploads")>()),
-  computeFileSha256: vi.fn(),
+vi.mock("@staaash/db/storage-mutation-executor", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@staaash/db/storage-mutation-executor")
+  >()),
+  hashFileWithStat: vi.fn(),
 }));
 
 vi.mock("@/server/files/service", async (importOriginal) => ({
@@ -327,7 +329,10 @@ describe("parallel upload route", () => {
         { chunkIndex: 2, startByte: 8, endByte: 9, sizeBytes: 2 },
       ],
     });
-    vi.mocked(computeFileSha256).mockResolvedValue(expectedChecksum);
+    vi.mocked(hashFileWithStat).mockResolvedValue({
+      checksum: expectedChecksum,
+      fileStat: null,
+    });
     vi.mocked(filesService.commitResumableUpload).mockResolvedValue({
       id: "file-1",
     } as never);
@@ -373,7 +378,10 @@ describe("parallel upload route", () => {
         { chunkIndex: 2, startByte: 8, endByte: 9, sizeBytes: 2 },
       ],
     });
-    vi.mocked(computeFileSha256).mockResolvedValue("b".repeat(64));
+    vi.mocked(hashFileWithStat).mockResolvedValue({
+      checksum: "b".repeat(64),
+      fileStat: null,
+    });
 
     const response = await app.request(
       new Request(
@@ -413,7 +421,7 @@ describe("parallel upload route", () => {
         { chunkIndex: 2, startByte: 8, endByte: 9, sizeBytes: 2 },
       ],
     });
-    vi.mocked(computeFileSha256).mockRejectedValue(new Error("read failed"));
+    vi.mocked(hashFileWithStat).mockRejectedValue(new Error("read failed"));
 
     const response = await app.request(
       new Request(
@@ -450,7 +458,10 @@ describe("parallel upload route", () => {
         { chunkIndex: 2, startByte: 8, endByte: 9, sizeBytes: 2 },
       ],
     });
-    vi.mocked(computeFileSha256).mockResolvedValue(expectedChecksum);
+    vi.mocked(hashFileWithStat).mockResolvedValue({
+      checksum: expectedChecksum,
+      fileStat: null,
+    });
     vi.mocked(filesService.commitResumableUpload).mockRejectedValue(
       new ResumableCompletionError("RESUMABLE_COMMIT_RETRYABLE"),
     );
@@ -496,7 +507,10 @@ describe("parallel upload route", () => {
           { chunkIndex: 2, startByte: 8, endByte: 9, sizeBytes: 2 },
         ],
       });
-      vi.mocked(computeFileSha256).mockResolvedValue(expectedChecksum);
+      vi.mocked(hashFileWithStat).mockResolvedValue({
+        checksum: expectedChecksum,
+        fileStat: null,
+      });
       const error = refusal();
       vi.mocked(filesService.commitResumableUpload).mockRejectedValue(error);
 
@@ -540,7 +554,10 @@ describe("parallel upload route", () => {
         { chunkIndex: 2, startByte: 8, endByte: 9, sizeBytes: 2 },
       ],
     });
-    vi.mocked(computeFileSha256).mockResolvedValue(expectedChecksum);
+    vi.mocked(hashFileWithStat).mockResolvedValue({
+      checksum: expectedChecksum,
+      fileStat: null,
+    });
     vi.mocked(filesService.commitResumableUpload).mockRejectedValue(
       new StorageMutationConflictError(
         "STORAGE_RECOVERY_REQUIRED",

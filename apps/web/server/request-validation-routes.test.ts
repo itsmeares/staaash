@@ -105,10 +105,6 @@ vi.mock("@/server/durable-storage-mutation", async (importOriginal) => ({
   findDurableStorageMutationReplay: vi.fn(),
   StorageProtocolNotReadyError: class extends Error {},
 }));
-vi.mock("@/server/uploads", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/server/uploads")>()),
-  computeFileSha256: vi.fn(),
-}));
 vi.mock("@/server/uploads/admission", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/uploads/admission")>()),
   UploadAdmissionError: class extends Error {},

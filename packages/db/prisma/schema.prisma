@@ -593,6 +593,7 @@ model StorageMutationStep {
   expectedSizeBytes  BigInt?
   expectedChecksum   String?
   treeManifestDigest String?
+  expectedFileStat   String?
   status             String          @default("pending")
   attemptCount       Int             @default(0)
   lastError          String?

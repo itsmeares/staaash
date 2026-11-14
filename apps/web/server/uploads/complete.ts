@@ -1,3 +1,4 @@
+import { hashFileWithStat } from "@staaash/db/storage-mutation-executor";
 import { StorageMutationConflictError } from "@staaash/db/storage-mutations";
 import { StorageAdmissionBusyError } from "@staaash/db/storage-transactions";
 import { z } from "zod";
@@ -10,7 +11,6 @@ import {
 } from "@/server/files/errors";
 import { jsonError, type Session } from "@/server/http/core";
 import { attachStorageMutationHeader } from "@/server/storage-idempotency";
-import { computeFileSha256 } from "@/server/uploads";
 import { hasCompleteUploadChunkSet } from "@/server/uploads/chunk-protocol";
 import { UPLOAD_SESSION_STATUS_COMMITTING } from "@/server/uploads/session-state";
 import {
@@ -91,15 +91,16 @@ const resolveExpectedChecksum = async (
   return { expectedChecksum };
 };
 
+/** Answers the staging file's fingerprint, or the response that ends the request. */
 const verifyUploadedFile = async (
   uploadSession: ResumableSession,
   expectedChecksum: string | null,
-): Promise<Response | null> => {
-  if (!expectedChecksum) return null;
+): Promise<{ fileStat: string | null } | Response> => {
+  if (!expectedChecksum) return { fileStat: null };
 
-  let actualChecksum: string;
+  let read: Awaited<ReturnType<typeof hashFileWithStat>>;
   try {
-    actualChecksum = await computeFileSha256(uploadSession.tmpPath);
+    read = await hashFileWithStat(uploadSession.tmpPath);
   } catch (error) {
     try {
       await restoreResumableSessionAfterCommitRollback({
@@ -131,7 +132,7 @@ const verifyUploadedFile = async (
       { status: 503, headers: { "retry-after": "1" } },
     );
   }
-  if (actualChecksum === expectedChecksum) return null;
+  if (read.checksum === expectedChecksum) return { fileStat: read.fileStat };
 
   await failAndCleanupResumableSession({
     id: uploadSession.id,
@@ -205,6 +206,7 @@ const commitResumableUpload = (
   session: Session,
   expectedChecksum: string | null,
   expected: ReplaceExpectation,
+  stagedFileStat: string | null = null,
 ) =>
   filesService.commitResumableUpload({
     actorUserId: session.user.id,
@@ -216,6 +218,7 @@ const commitResumableUpload = (
     mimeType: uploadSession.mimeType,
     totalSizeBytes: uploadSession.totalSizeBytes,
     contentChecksum: expectedChecksum,
+    stagedFileStat,
     conflictStrategy: uploadSession.conflictStrategy as
       | "fail"
       | "safeRename"
@@ -229,6 +232,7 @@ const commitUploadedFile = async (
   session: Session,
   expectedChecksum: string | null,
   expected: ReplaceExpectation,
+  stagedFileStat: string | null,
 ): Promise<Response> => {
   try {
     const file = await commitResumableUpload(
@@ -236,6 +240,7 @@ const commitUploadedFile = async (
       session,
       expectedChecksum,
       expected,
+      stagedFileStat,
     );
     return Response.json(file, { status: 201 });
   } catch (error) {
@@ -400,11 +405,11 @@ export const completeResumableUpload = async ({
     );
   }
 
-  const verificationError = await verifyUploadedFile(
+  const verified = await verifyUploadedFile(
     uploadSession,
     checksumResult.expectedChecksum,
   );
-  if (verificationError) return verificationError;
+  if (verified instanceof Response) return verified;
 
   return attachResumableMutationHeader(
     await commitUploadedFile(
@@ -412,6 +417,7 @@ export const completeResumableUpload = async ({
       session,
       checksumResult.expectedChecksum,
       expectSchema.safeParse(body).data ?? {},
+      verified.fileStat,
     ),
     uploadSession.id,
     session.user.id,

@@ -508,6 +508,8 @@ type CommitResumableUploadInput = FilesActor & {
   mimeType: string;
   totalSizeBytes: number;
   contentChecksum: string | null;
+  /** The staging file's fingerprint from reading `contentChecksum`, if any. */
+  stagedFileStat?: string | null;
   conflictStrategy: UploadConflictStrategy;
   clientModifiedAt?: Date | null;
   /** With replace: the revision of the existing file the client changed. */
@@ -6156,6 +6158,7 @@ export const createFilesService = ({
       mimeType,
       totalSizeBytes,
       contentChecksum,
+      stagedFileStat = null,
       conflictStrategy,
       clientModifiedAt = null,
       ifRevision,
@@ -6333,6 +6336,7 @@ export const createFilesService = ({
                       expectedNodeType: "file",
                       expectedSizeBytes: BigInt(totalSizeBytes),
                       expectedChecksum: durableContentChecksum,
+                      expectedFileStat: stagedFileStat,
                     },
                     {
                       action: "rename",
@@ -6529,6 +6533,7 @@ export const createFilesService = ({
                   expectedNodeType: "file",
                   expectedSizeBytes: BigInt(totalSizeBytes),
                   expectedChecksum: durableContentChecksum,
+                  expectedFileStat: stagedFileStat,
                 },
               ],
               entities: [

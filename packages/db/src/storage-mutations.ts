@@ -136,6 +136,8 @@ export type StorageMutationStepInput = {
   expectedSizeBytes?: bigint | null;
   expectedChecksum?: string | null;
   treeManifestDigest?: string | null;
+  /** From `hashFileWithStat`: lets the first attempt trust the checksum. */
+  expectedFileStat?: string | null;
 };
 
 export type StorageMutationEntityInput = {
@@ -1467,12 +1469,13 @@ const createPreparingStorageMutation = async (
         INSERT INTO "StorageMutationStep" (
           id, "mutationId", ordinal, action, "sourceKey", "targetKey",
           "expectedNodeType", "expectedSizeBytes", "expectedChecksum",
-          "treeManifestDigest", "updatedAt"
+          "treeManifestDigest", "expectedFileStat", "updatedAt"
         )
         SELECT gen_random_uuid()::text, ${created.id}, (ordinal - 1)::integer,
           step->>'action', step->>'sourceKey', step->>'targetKey',
           step->>'expectedNodeType', (step->>'expectedSizeBytes')::bigint,
-          step->>'expectedChecksum', step->>'treeManifestDigest', CURRENT_TIMESTAMP
+          step->>'expectedChecksum', step->>'treeManifestDigest',
+          step->>'expectedFileStat', CURRENT_TIMESTAMP
         FROM jsonb_array_elements(${steps}::jsonb) WITH ORDINALITY AS inputs(step, ordinal)
         RETURNING id
       )
@@ -2335,7 +2338,7 @@ export const completeStorageMutation = async ({
         UPDATE "StorageMutationStep"
         SET "sourceKey" = NULL, "targetKey" = NULL, "expectedChecksum" = NULL,
             "expectedSizeBytes" = NULL, "treeManifestDigest" = NULL,
-            "updatedAt" = ${completedAt}
+            "expectedFileStat" = NULL, "updatedAt" = ${completedAt}
         WHERE "mutationId" = ${mutationId}
         RETURNING id
       ), redacted_entities AS (
