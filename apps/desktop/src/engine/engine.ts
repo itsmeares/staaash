@@ -179,7 +179,12 @@ export class SyncEngine {
       previous?.serverUrl !== config.serverUrl ||
       previous?.token !== config.token
     ) {
-      this.api = createApi(config.serverUrl, config.token, this.halt.signal);
+      this.api = createApi(
+        config.serverUrl,
+        config.token,
+        this.halt.signal,
+        this.deps.log,
+      );
       this.signedOut = false;
       this.connectLive();
     }

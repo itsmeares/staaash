@@ -42,7 +42,7 @@ it("keeps the server's upload limit message and exact byte details", async () =>
   }
 });
 
-it("replays the complete upload body after a retry and reports bytes sent", async () => {
+it("replays the complete upload body after a retry, reports bytes sent and notes the retry", async () => {
   const received: Buffer[] = [];
   const server = createServer(async (request, response) => {
     const parts: Buffer[] = [];
@@ -60,7 +60,13 @@ it("replays the complete upload body after a retry and reports bytes sent", asyn
   try {
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("No port");
-    const api = createApi(`http://127.0.0.1:${address.port}`, "fake-token");
+    const notes: unknown[][] = [];
+    const api = createApi(
+      `http://127.0.0.1:${address.port}`,
+      "fake-token",
+      undefined,
+      (...note) => notes.push(note),
+    );
     const body = Buffer.alloc(200_000, 42);
     let sent = 0;
     await api.uploadChunk("fake", 0, body, body.length, (bytes) => {
@@ -68,6 +74,7 @@ it("replays the complete upload body after a retry and reports bytes sent", asyn
     });
     expect(received).toEqual([body, body]);
     expect(sent).toBe(body.length * 2);
+    expect(notes).toEqual([["retrying a request", "the server answered 503"]]);
   } finally {
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),

@@ -11,6 +11,9 @@ export { ApiError };
 export class SignedOutError extends Error {}
 
 const RETRIES = 5;
+const SLOW_CHUNK_MS = 8000;
+
+type Note = (stage: string, detail: unknown) => void;
 
 const retryDelay = (response: Response | null, attempt: number) => {
   const header = Number(response?.headers.get("retry-after"));
@@ -29,9 +32,11 @@ const retryingFetch = async (
   input: RequestInfo | URL,
   init?: RequestInit,
   makeBody?: () => ReadableStream<Uint8Array>,
+  note?: Note,
 ): Promise<Response> => {
   for (let attempt = 0; ; attempt += 1) {
     let response: Response | null = null;
+    let failed: unknown;
     try {
       response = await fetch(
         input,
@@ -41,12 +46,18 @@ const retryingFetch = async (
       );
     } catch (error) {
       if (attempt >= RETRIES || init?.signal?.aborted) throw error;
+      failed = error;
     }
     if (response && response.status !== 503) {
       if (response.status === 401) throw new SignedOutError("Signed out.");
       return response;
     }
     if (response && attempt >= RETRIES) return response;
+    // A retry waits without sending; the log is the only place it shows.
+    note?.(
+      "retrying a request",
+      response ? `the server answered ${response.status}` : failed,
+    );
     await sleep(retryDelay(response, attempt), undefined, {
       signal: init?.signal ?? undefined,
     });
@@ -99,10 +110,20 @@ export const createApi = (
   serverUrl: string,
   token: string,
   signal?: AbortSignal,
+  note?: Note,
 ) => {
   const headers = { authorization: `Bearer ${token}` };
-  const send: typeof retryingFetch = (input, init, makeBody) =>
-    retryingFetch(input, { ...init, signal: init?.signal ?? signal }, makeBody);
+  const send = (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+    makeBody?: () => ReadableStream<Uint8Array>,
+  ) =>
+    retryingFetch(
+      input,
+      { ...init, signal: init?.signal ?? signal },
+      makeBody,
+      note,
+    );
   const client = hc<AppType>(serverUrl, { headers, fetch: send });
   const write = () => ({
     headers: { ...headers, "idempotency-key": randomUUID() },
@@ -270,6 +291,7 @@ export const createApi = (
       total: number,
       onBytes: (bytes: number, offset: number) => void,
     ) => {
+      const started = Date.now();
       const response = await raw(
         `/api/uploads/sessions/${id}`,
         {
@@ -282,6 +304,13 @@ export const createApi = (
         },
         () => streamOf([body], onBytes),
       );
+      const took = Date.now() - started;
+      if (took > SLOW_CHUNK_MS) {
+        note?.(
+          "slow upload chunk",
+          `${Math.round(took / 1000)} s for ${body.length} bytes`,
+        );
+      }
       if (!response.ok) await read(Promise.resolve(response as never));
     },
     /** A file up to one chunk in one multipart request, with no session. */
