@@ -291,6 +291,9 @@ const folderGuardEntity = (folder: FolderSummary) => ({
   afterJson: null,
 });
 
+const restoreGuard = (into: FolderSummary | undefined) =>
+  into ? [folderGuardEntity(into)] : [];
+
 const folderUploadEntryKey = (folderId: string, name: string) =>
   `${folderId}\u0000${name}`;
 
@@ -4320,6 +4323,9 @@ export const createFilesService = ({
           folderUpdates,
           fileUpdates,
           deleteTrashEntryId: folder.trashEntryId,
+          guardEntities: restoreGuard(
+            currentFolderMap.get(restoreLocation.folderId),
+          ),
           expectedTreeManifestDigest:
             isolatedTrashEntry?.layoutVersion === "isolated"
               ? (isolatedTrashEntry.treeManifestDigest ??
@@ -5004,6 +5010,7 @@ export const createFilesService = ({
           trashEntryId: null,
         },
         deleteTrashEntryId: file.trashEntryId,
+        guardEntities: restoreGuard(folderMap.get(restoreLocation.folderId)),
       });
       if (durableRestore) {
         const result = {

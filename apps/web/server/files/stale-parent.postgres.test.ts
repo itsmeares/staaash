@@ -151,3 +151,67 @@ it(
     );
   },
 );
+
+/** A drive whose Inner folder holds doc.txt, with no rename armed yet. */
+const driveWithFile = async () => {
+  const drive = await driveWithRenameBefore("");
+  const rename = beforeAdmission.run;
+  beforeAdmission.run = null;
+  await upload(drive, "doc.txt");
+  const file = await db.file.findFirstOrThrow({
+    where: { ownerUserId: drive.id },
+  });
+  const renameBefore = (kind: string) => {
+    beforeAdmission.kind = kind;
+    beforeAdmission.run = rename;
+  };
+  return { ...drive, fileId: file.id, renameBefore };
+};
+
+it(
+  "does not restore a file to the old path of a folder renamed since planning",
+  {
+    timeout: 30_000,
+  },
+  async () => {
+    const drive = await driveWithFile();
+    const restore = () =>
+      service.restoreFile({ ...drive.actor, fileId: drive.fileId });
+    await service.trashFile({ ...drive.actor, fileId: drive.fileId });
+    drive.renameBefore("file_restore");
+
+    await expect(restore()).rejects.toMatchObject({
+      code: "STORAGE_ADMISSION_BUSY",
+    });
+
+    await expect(exists(`files/${drive.id}/Outer`)).resolves.toBe(false);
+    await restore();
+    await expect(exists(`files/${drive.id}/Moved/Inner/doc.txt`)).resolves.toBe(
+      true,
+    );
+  },
+);
+
+it(
+  "does not restore a folder to the old path of a folder renamed since planning",
+  {
+    timeout: 30_000,
+  },
+  async () => {
+    const drive = await driveWithFile();
+    const restore = () =>
+      service.restoreFolder({ ...drive.actor, folderId: drive.innerId });
+    await service.trashFolder({ ...drive.actor, folderId: drive.innerId });
+    drive.renameBefore("folder_restore");
+
+    await expect(restore()).rejects.toMatchObject({
+      code: "STORAGE_ADMISSION_BUSY",
+    });
+
+    await expect(exists(`files/${drive.id}/Outer`)).resolves.toBe(false);
+    await restore();
+    await expect(exists(`files/${drive.id}/Moved/Inner/doc.txt`)).resolves.toBe(
+      true,
+    );
+  },
+);
