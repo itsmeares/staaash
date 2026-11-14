@@ -1152,6 +1152,48 @@ describe.skipIf(!origin)("sync against a real server", () => {
       expect((await r.remote()).has("big.bin")).toBe(false);
     });
 
+    const sessionGone = async (session: string | undefined) => {
+      const status = await fetch(
+        new URL(`/api/uploads/sessions/${session}`, origin),
+        { headers: { cookie, origin: origin ?? "" } },
+      );
+      return status.status === 404;
+    };
+
+    it("cancels an unfinished upload once its file is deleted", async () => {
+      const r = await rig("two-way", undefined, { uploadLimitKBps: 100 });
+      await writeFile(r.at("big.bin"), randomBytes(40 * 1024 * 1024));
+      const past = new Date(Date.now() - 60_000);
+      await utimes(r.at("big.bin"), past, past);
+      const syncing = r.engine.syncNow();
+      await transferStarted(r.engine);
+      const [session] = pendingSessions(r.root);
+      expect(session).toBeDefined();
+      await r.restart(async () => {
+        await syncing;
+        await rm(r.at("big.bin"));
+      });
+      await r.sync();
+      expect(await sessionGone(session)).toBe(true);
+      expect(pendingSessions(r.root)).toEqual([]);
+    });
+
+    it("cancels the unfinished uploads of a folder that stops syncing", async () => {
+      const r = await rig("two-way", undefined, { uploadLimitKBps: 100 });
+      await writeFile(r.at("big.bin"), randomBytes(40 * 1024 * 1024));
+      const past = new Date(Date.now() - 60_000);
+      await utimes(r.at("big.bin"), past, past);
+      const syncing = r.engine.syncNow();
+      await transferStarted(r.engine);
+      const [session] = pendingSessions(r.root);
+      expect(session).toBeDefined();
+      await r.restart(() => syncing);
+      await r.configure({ pairs: [] });
+      await r.engine.syncNow();
+      expect(await sessionGone(session)).toBe(true);
+      expect(pendingSessions(r.root)).toEqual([]);
+    });
+
     it("stops transfers on quit, and a restart completes them", async () => {
       const r = await rig("two-way", undefined, { downloadLimitKBps: 2048 });
       for (const name of ["a", "b", "c", "d", "e", "f"]) {

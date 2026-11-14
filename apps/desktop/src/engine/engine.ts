@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { lstat } from "node:fs/promises";
 import path from "node:path";
 
 import type {
@@ -15,12 +16,14 @@ import type { Api } from "./api";
 import { ApiError, SignedOutError, createApi, fetchVersion } from "./api";
 import { localPath } from "./local";
 import { folderSizes } from "./folder-sizes";
+import { covered } from "./plan";
 import type { SyncLog } from "./log";
-import { createIgnore, pathKey } from "./names";
+import { createIgnore, leftOutOf, pathKey } from "./names";
 import type { Waiting } from "./pair-sync";
 import { syncPair } from "./pair-sync";
 import type { StorageChange } from "./remote";
 import { RemoteTree, fromSnapshot } from "./remote";
+import type { PendingUpload } from "./store";
 import { Store } from "./store";
 import { Throttle, UploadMeter } from "./transfer";
 
@@ -37,6 +40,65 @@ const POLL_MS = 60_000;
 const FULL_PASS_MS = 10 * 60_000;
 const DEBOUNCE_MS = 1500;
 const RETRY_SOON_MS = 5000;
+
+// The scan skips a path with an ignored name or under a left-out folder.
+const leftOutPath = (rel: string, pair: SyncPair, ignore: string[]) => {
+  const ignored = createIgnore(ignore);
+  const leftOut = leftOutOf(pair);
+  const names = rel.split("/");
+  return names.some(
+    (name, index) =>
+      ignored(name) || leftOut.local(names.slice(0, index + 1).join("/")),
+  );
+};
+
+/** Paths a pass hides on both sides because of the server folder there. */
+const hiddenOnServer = (tree: RemoteTree, pair: SyncPair, ignore: string[]) => {
+  const { skipped, ignored } = tree.scope(
+    pair.remoteFolderId,
+    createIgnore(ignore),
+    leftOutOf(pair).remote,
+  );
+  return new Set([...skipped, ...ignored].map((each) => pathKey(each.rel)));
+};
+
+/**
+ * What is at `rel`, or null when nothing is there or a link is on the way:
+ * the scan does not enter links, so nothing past one is ever sent.
+ */
+const entryAt = async (root: string, rel: string) => {
+  const parts = rel.split("/");
+  for (let depth = 1; depth <= parts.length; depth += 1) {
+    const stats = await lstat(
+      localPath(root, parts.slice(0, depth).join("/")),
+    ).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    });
+    if (!stats || stats.isSymbolicLink()) return null;
+    if (depth === parts.length) return stats;
+  }
+  return null;
+};
+
+const abandoned = async (
+  upload: PendingUpload,
+  pair: SyncPair | undefined,
+  config: EngineConfig,
+  hidden: (pair: SyncPair) => Set<string>,
+) => {
+  if (!pair) return true;
+  if (leftOutPath(upload.rel, pair, config.ignore)) return true;
+  if (covered(pathKey(upload.rel), hidden(pair))) return true;
+  // A folder that is missing as a whole may be an unplugged drive.
+  if (!existsSync(pair.localPath)) return false;
+  // Only a regular file can still be sent, as in the scan: a folder, link or
+  // other special entry now at the path ends the upload.
+  const now = await entryAt(pair.localPath, upload.rel);
+  // The drive may have gone between the two checks.
+  if (!now && !existsSync(pair.localPath)) return false;
+  return !now?.isFile();
+};
 
 const sizeKey = (config: EngineConfig, pair: SyncPair) =>
   JSON.stringify([
@@ -248,7 +310,11 @@ export class SyncEngine {
         // The engine's own API is aborted by now; this one is not.
         const api = createApi(config.serverUrl, config.token);
         for (const upload of this.store.pendingUploads()) {
-          await api.cancelUpload(upload.sessionId).catch(() => {});
+          await api
+            .cancelUpload(upload.sessionId)
+            .catch((error) =>
+              this.deps.log(`cancelling the upload of ${upload.rel}`, error),
+            );
         }
       }
       this.store.close();
@@ -582,6 +648,15 @@ export class SyncEngine {
         }
         retrySoon ||= result.retrySoon;
       }
+      // The server's changes are read, so one broken folder doesn't hold back
+      // the others' cleanup; each upload's own check keeps what it can't read.
+      if (
+        this.config === config &&
+        !this.stopped &&
+        this.failure !== "offline"
+      ) {
+        await this.cancelAbandonedUploads(config);
+      }
       if (
         this.config === config &&
         !this.stopped &&
@@ -636,6 +711,53 @@ export class SyncEngine {
             ? RETRY_SOON_MS
             : FULL_PASS_MS,
       );
+    }
+  }
+
+  /**
+   * An upload whose folder no longer syncs, or whose file is gone, never
+   * resumes, but its server session holds the space for a day.
+   */
+  private async cancelAbandonedUploads(config: EngineConfig) {
+    const api = this.api;
+    if (!api) return;
+    const hidden = new Map<string, Set<string>>();
+    const hiddenFor = (pair: SyncPair) => {
+      let paths = hidden.get(pair.id);
+      if (!paths) {
+        paths = hiddenOnServer(this.tree, pair, config.ignore);
+        hidden.set(pair.id, paths);
+      }
+      return paths;
+    };
+    // New settings may need an upload this pass's settings left out.
+    const stale = () => this.config !== config || this.stopped;
+    for (const upload of this.store.pendingUploads()) {
+      if (stale()) return;
+      const pair = config.pairs.find((each) => each.id === upload.pairId);
+      // One file that can't be checked waits for the next pass alone.
+      const gone = await abandoned(upload, pair, config, hiddenFor).catch(
+        (error: unknown) => {
+          this.deps.log(`checking the upload of ${upload.rel}`, error);
+          return false;
+        },
+      );
+      if (gone && !stale() && (await this.cancelOnServer(api, upload))) {
+        this.store.deleteUpload(upload.pairId, upload.rel);
+      }
+    }
+  }
+
+  private async cancelOnServer(api: Api, upload: PendingUpload) {
+    try {
+      await api.cancelUpload(upload.sessionId);
+      return true;
+    } catch (error) {
+      if (error instanceof SignedOutError) throw error;
+      // A 404 means the server has nothing left to cancel.
+      if (error instanceof ApiError && error.status === 404) return true;
+      this.deps.log(`cancelling the upload of ${upload.rel}`, error);
+      return false;
     }
   }
 

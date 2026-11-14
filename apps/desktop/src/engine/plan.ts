@@ -99,7 +99,7 @@ const sameOnServer = (previous: BaseEntry, item: RemoteItem) =>
     ? previous.rev === item.rev
     : item.checksum === previous.checksum;
 
-const covered = (key: string, ...sets: Set<string>[]) => {
+export const covered = (key: string, ...sets: Set<string>[]) => {
   for (let each = key; each; each = parentRel(each)) {
     if (sets.some((set) => set.has(each))) return true;
   }

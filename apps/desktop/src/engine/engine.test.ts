@@ -3,8 +3,10 @@ import {
   mkdirSync,
   mkdtempSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { createServer, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
@@ -48,6 +50,8 @@ let replies: { version: Reply; changes: Reply; events?: Reply };
 let engine: SyncEngine;
 let logged: { stage: string; error: unknown }[];
 let emitted: EngineStatus[];
+let cancelled: string[];
+let onCancel: (() => void) | null;
 
 const docsFolder = {
   id: "docs",
@@ -206,8 +210,18 @@ beforeEach(async () => {
   replies = { version: VERSION_OK, changes: FEED_OK };
   logged = [];
   emitted = [];
+  cancelled = [];
+  onCancel = null;
   server = createServer((request, response) => {
     const { pathname, searchParams } = new URL(request.url ?? "", "http://x");
+    if (
+      request.method === "DELETE" &&
+      pathname.startsWith("/api/uploads/sessions/")
+    ) {
+      cancelled.push(path.basename(pathname));
+      onCancel?.();
+      return response.writeHead(204).end();
+    }
     if (pathname === "/api/version") return replies.version(response);
     if (pathname === "/api/sync/changes") return replies.changes(response);
     if (pathname === "/api/sync/events" && replies.events)
@@ -526,5 +540,131 @@ describe("one failing folder", () => {
     await engine.syncNow();
     expect(engine.status().state).toBe("offline");
     expect(existsSync(path.join(b.localPath, "docs"))).toBe(false);
+  });
+});
+
+describe("unfinished uploads", () => {
+  /** An upload the app started and has not finished, as it saves one. */
+  const pending = (pairId: string, rel: string, sessionId: string) => {
+    const db = new DatabaseSync(path.join(root, "data", "sync.db"));
+    db.prepare("INSERT INTO upload VALUES (?, ?, ?, 1, 1, 't')").run(
+      pairId,
+      rel,
+      sessionId,
+    );
+    db.close();
+  };
+  const left = () => {
+    const db = new DatabaseSync(path.join(root, "data", "sync.db"));
+    const rows = db.prepare("SELECT sessionId FROM upload").all();
+    db.close();
+    return rows.map((row) => row.sessionId);
+  };
+
+  it("cancels one whose folder the pair now leaves out", async () => {
+    const pair = { ...pairOf("a"), skipPaths: ["Videos/raw"] } as SyncPair;
+    mkdirSync(path.join(pair.localPath, "Videos", "raw"), { recursive: true });
+    writeFileSync(path.join(pair.localPath, "Videos", "raw", "big.mov"), "x");
+    pending("a", "Videos/raw/big.mov", "skipped");
+    await syncOnce([pair]);
+    expect(cancelled).toEqual(["skipped"]);
+    expect(left()).toEqual([]);
+  });
+
+  it("cancels one whose name an ignore rule now matches", async () => {
+    const pair = pairOf("a");
+    writeFileSync(path.join(pair.localPath, "big.mov"), "x");
+    pending("a", "big.mov", "ignored");
+    await engine.configure({ ...configOf([pair]), ignore: ["*.mov"] });
+    await engine.syncNow();
+    expect(cancelled).toEqual(["ignored"]);
+  });
+
+  it("cancels one under a server folder the pair now leaves out", async () => {
+    const pair = {
+      ...pairOf("b"),
+      skipFolders: [{ id: "docs", label: "docs" }],
+    } as SyncPair;
+    mkdirSync(path.join(pair.localPath, "docs"));
+    writeFileSync(path.join(pair.localPath, "docs", "big.mov"), "x");
+    pending("b", "docs/big.mov", "skipped-on-server");
+    await syncOnce([pair]);
+    expect(cancelled).toEqual(["skipped-on-server"]);
+  });
+
+  it("cancels one whose path is now a folder", async () => {
+    const pair = pairOf("a");
+    mkdirSync(path.join(pair.localPath, "big.bin"));
+    pending("a", "big.bin", "now-a-folder");
+    await syncOnce([pair]);
+    expect(cancelled).toEqual(["now-a-folder"]);
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "cancels one whose path is now a pipe",
+    async () => {
+      const pair = pairOf("a");
+      execFileSync("mkfifo", [path.join(pair.localPath, "big.bin")]);
+      pending("a", "big.bin", "now-a-pipe");
+      await syncOnce([pair]);
+      expect(cancelled).toEqual(["now-a-pipe"]);
+    },
+  );
+
+  it("still cancels while another folder fails to sync", async () => {
+    const a = pairOf("a");
+    breakHistory("a");
+    pending("removed", "big.bin", "removed-folder");
+    const status = await syncOnce([a]);
+    expect(status.state).toBe("problem");
+    expect(cancelled).toEqual(["removed-folder"]);
+  });
+
+  it("stops cancelling once the settings change", async () => {
+    const pair = pairOf("a");
+    writeFileSync(path.join(pair.localPath, "a.mov"), "x");
+    writeFileSync(path.join(pair.localPath, "b.mov"), "x");
+    pending("a", "a.mov", "first");
+    pending("a", "b.mov", "second");
+    // The rule that left both out is gone before the second is cancelled.
+    let changed: Promise<void> | undefined;
+    onCancel = () => {
+      onCancel = null;
+      changed = engine.configure(configOf([pair]));
+    };
+    await engine.configure({ ...configOf([pair]), ignore: ["*.mov"] });
+    await engine.syncNow();
+    await changed;
+    expect(cancelled).toHaveLength(1);
+    expect(left()).toHaveLength(1);
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "cancels one whose folder is now a link",
+    async () => {
+      const pair = pairOf("a");
+      const elsewhere = path.join(root, "elsewhere");
+      mkdirSync(elsewhere);
+      writeFileSync(path.join(elsewhere, "big.bin"), "x");
+      symlinkSync(elsewhere, path.join(pair.localPath, "videos"));
+      pending("a", "videos/big.bin", "behind-a-link");
+      await syncOnce([pair]);
+      expect(cancelled).toEqual(["behind-a-link"]);
+    },
+  );
+
+  it("keeps one it cannot check and still cancels the rest", async () => {
+    const pair = pairOf("a");
+    // A file where a folder should be: checking the path fails, not "gone".
+    writeFileSync(path.join(pair.localPath, "notes"), "x");
+    pending("a", "notes/inner.bin", "unreadable");
+    pending("a", "deleted.bin", "gone");
+    const status = await syncOnce([pair]);
+    expect(cancelled).toEqual(["gone"]);
+    expect(left()).toEqual(["unreadable"]);
+    expect(status.state).not.toBe("problem");
+    expect(logged.map((entry) => entry.stage)).toContain(
+      "checking the upload of notes/inner.bin",
+    );
   });
 });

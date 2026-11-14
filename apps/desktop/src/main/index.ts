@@ -15,7 +15,8 @@ import {
 
 import { createApi, fetchVersion } from "../engine/api";
 import { localPath } from "../engine/local";
-import { SYNC_LOG_NAME } from "../engine/log";
+import type { SyncLog } from "../engine/log";
+import { SYNC_LOG_NAME, createSyncLog } from "../engine/log";
 import { createIgnore } from "../engine/names";
 import { freeBytes } from "../engine/transfer";
 import type {
@@ -67,6 +68,15 @@ let quitting = false;
 let resumeTimer: NodeJS.Timeout | null = null;
 
 const dataDir = () => path.join(app.getPath("userData"), "sync");
+let syncLog: SyncLog | null = null;
+/** The engine's log, for what only the main process sees. */
+const mainLog: SyncLog = (stage, error) => {
+  syncLog ??= createSyncLog(
+    path.join(dataDir(), SYNC_LOG_NAME),
+    app.getVersion(),
+  );
+  syncLog(stage, error);
+};
 
 const state = (): AppState => ({
   appVersion: app.getVersion(),
@@ -236,7 +246,10 @@ const stopEngine = async (cancelUploads = false) => {
   if (!child) return;
   const exited = new Promise((resolve) => child.once("exit", resolve));
   child.postMessage({ type: "stop", cancelUploads } satisfies EngineCommand);
-  const timer = setTimeout(() => child.kill(), 10_000);
+  const timer = setTimeout(() => {
+    mainLog("stopping the sync engine", "it did not stop within 10 seconds");
+    child.kill();
+  }, 10_000);
   await exited;
   clearTimeout(timer);
 };
@@ -259,7 +272,19 @@ const resetAccount = async () => {
   profileRequest = null;
   avatarUrl = null;
   await stopEngine();
-  await rm(dataDir(), { recursive: true, force: true });
+  // The log stays, so a problem from before a sign-out can still be traced.
+  // Only a missing folder is empty; any other error stops the sign-out, so a
+  // later account never syncs against this one's records.
+  const entries = await readdir(dataDir()).catch(
+    (error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return [];
+      throw error;
+    },
+  );
+  for (const entry of entries) {
+    if (entry.startsWith(SYNC_LOG_NAME)) continue;
+    await rm(path.join(dataDir(), entry), { recursive: true, force: true });
+  }
   token = null;
   status = null;
   versionProblem = null;
