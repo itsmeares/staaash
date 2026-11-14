@@ -16,7 +16,7 @@ import { ApiError, SignedOutError, createApi, fetchVersion } from "./api";
 import { localPath, statLocal } from "./local";
 import { folderSizes } from "./folder-sizes";
 import type { SyncLog } from "./log";
-import { createIgnore, pathKey } from "./names";
+import { createIgnore, leftOutOf, pathKey } from "./names";
 import type { Waiting } from "./pair-sync";
 import { syncPair } from "./pair-sync";
 import type { StorageChange } from "./remote";
@@ -39,9 +39,21 @@ const FULL_PASS_MS = 10 * 60_000;
 const DEBOUNCE_MS = 1500;
 const RETRY_SOON_MS = 5000;
 
+// The scan skips a path with an ignored name or under a left-out folder.
+const leftOutPath = (rel: string, pair: SyncPair, ignore: string[]) => {
+  const ignored = createIgnore(ignore);
+  const leftOut = leftOutOf(pair);
+  const names = rel.split("/");
+  return names.some(
+    (name, index) =>
+      ignored(name) || leftOut.local(names.slice(0, index + 1).join("/")),
+  );
+};
+
 const abandoned = async (upload: PendingUpload, config: EngineConfig) => {
   const pair = config.pairs.find((each) => each.id === upload.pairId);
   if (!pair) return true;
+  if (leftOutPath(upload.rel, pair, config.ignore)) return true;
   // A folder that is missing as a whole may be an unplugged drive.
   if (!existsSync(pair.localPath)) return false;
   return !(await statLocal(pair.localPath, upload.rel));
@@ -663,18 +675,27 @@ export class SyncEngine {
     const api = this.api;
     if (!api) return;
     for (const upload of this.store.pendingUploads()) {
-      if (!(await abandoned(upload, config))) continue;
-      try {
-        await api.cancelUpload(upload.sessionId);
-      } catch (error) {
-        if (error instanceof SignedOutError) throw error;
-        // A 404 means the server has nothing left to cancel.
-        if (!(error instanceof ApiError && error.status === 404)) {
-          this.deps.log(`cancelling the upload of ${upload.rel}`, error);
-          continue;
-        }
+      // One file that can't be checked waits for the next pass alone.
+      const gone = await abandoned(upload, config).catch((error: unknown) => {
+        this.deps.log(`checking the upload of ${upload.rel}`, error);
+        return false;
+      });
+      if (gone && (await this.cancelOnServer(api, upload))) {
+        this.store.deleteUpload(upload.pairId, upload.rel);
       }
-      this.store.deleteUpload(upload.pairId, upload.rel);
+    }
+  }
+
+  private async cancelOnServer(api: Api, upload: PendingUpload) {
+    try {
+      await api.cancelUpload(upload.sessionId);
+      return true;
+    } catch (error) {
+      if (error instanceof SignedOutError) throw error;
+      // A 404 means the server has nothing left to cancel.
+      if (error instanceof ApiError && error.status === 404) return true;
+      this.deps.log(`cancelling the upload of ${upload.rel}`, error);
+      return false;
     }
   }
 

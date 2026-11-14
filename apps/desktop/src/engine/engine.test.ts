@@ -48,6 +48,7 @@ let replies: { version: Reply; changes: Reply; events?: Reply };
 let engine: SyncEngine;
 let logged: { stage: string; error: unknown }[];
 let emitted: EngineStatus[];
+let cancelled: string[];
 
 const docsFolder = {
   id: "docs",
@@ -206,8 +207,16 @@ beforeEach(async () => {
   replies = { version: VERSION_OK, changes: FEED_OK };
   logged = [];
   emitted = [];
+  cancelled = [];
   server = createServer((request, response) => {
     const { pathname, searchParams } = new URL(request.url ?? "", "http://x");
+    if (
+      request.method === "DELETE" &&
+      pathname.startsWith("/api/uploads/sessions/")
+    ) {
+      cancelled.push(path.basename(pathname));
+      return response.writeHead(204).end();
+    }
     if (pathname === "/api/version") return replies.version(response);
     if (pathname === "/api/sync/changes") return replies.changes(response);
     if (pathname === "/api/sync/events" && replies.events)
@@ -526,5 +535,58 @@ describe("one failing folder", () => {
     await engine.syncNow();
     expect(engine.status().state).toBe("offline");
     expect(existsSync(path.join(b.localPath, "docs"))).toBe(false);
+  });
+});
+
+describe("unfinished uploads", () => {
+  /** An upload the app started and has not finished, as it saves one. */
+  const pending = (pairId: string, rel: string, sessionId: string) => {
+    const db = new DatabaseSync(path.join(root, "data", "sync.db"));
+    db.prepare("INSERT INTO upload VALUES (?, ?, ?, 1, 1, 't')").run(
+      pairId,
+      rel,
+      sessionId,
+    );
+    db.close();
+  };
+  const left = () => {
+    const db = new DatabaseSync(path.join(root, "data", "sync.db"));
+    const rows = db.prepare("SELECT sessionId FROM upload").all();
+    db.close();
+    return rows.map((row) => row.sessionId);
+  };
+
+  it("cancels one whose folder the pair now leaves out", async () => {
+    const pair = { ...pairOf("a"), skipPaths: ["Videos/raw"] } as SyncPair;
+    mkdirSync(path.join(pair.localPath, "Videos", "raw"), { recursive: true });
+    writeFileSync(path.join(pair.localPath, "Videos", "raw", "big.mov"), "x");
+    pending("a", "Videos/raw/big.mov", "skipped");
+    await syncOnce([pair]);
+    expect(cancelled).toEqual(["skipped"]);
+    expect(left()).toEqual([]);
+  });
+
+  it("cancels one whose name an ignore rule now matches", async () => {
+    const pair = pairOf("a");
+    writeFileSync(path.join(pair.localPath, "big.mov"), "x");
+    pending("a", "big.mov", "ignored");
+    await engine.configure({ ...configOf([pair]), ignore: ["*.mov"] });
+    await engine.syncNow();
+    expect(cancelled).toEqual(["ignored"]);
+  });
+
+  it("keeps one it cannot check and still cancels the rest", async () => {
+    const pair = pairOf("a");
+    // A file where a folder should be: checking the path fails, not "gone".
+    writeFileSync(path.join(pair.localPath, "notes"), "x");
+    pending("a", "notes/inner.bin", "unreadable");
+    pending("a", "deleted.bin", "gone");
+    const status = await syncOnce([pair]);
+    expect(cancelled).toEqual(["gone"]);
+    expect(left()).toEqual(["unreadable"]);
+    expect(status.state).not.toBe("problem");
+    expect(logged.map((entry) => entry.stage)).toContain(
+      "checking the upload of notes/inner.bin",
+    );
   });
 });
