@@ -115,6 +115,7 @@ import {
   storageMutationRejectionFromResult,
 } from "@staaash/db/storage-mutations";
 import {
+  assertStorageFilesystemSupported,
   captureTreeManifest,
   type CapturedTreeEntry,
   calculateStorageFileChecksum,
@@ -1850,6 +1851,9 @@ export const createFilesService = ({
     const byCanonicalPath = new Map<string, FolderSummary>();
     const missing = new Set<string>();
     const pending: Array<{ folder: FolderSummary; storageKey: string }> = [];
+    const plannedSiblings = new Set<string>();
+    const ignoresCase = async () =>
+      (await assertStorageFilesystemSupported(getStorageRoot())).ignoresCase;
     const resolveSegment = async (
       parentFolder: FolderSummary,
       parentPath: string,
@@ -1867,8 +1871,25 @@ export const createFilesService = ({
         if (!folder && fileKeys.has(key)) {
           throw new FilesError("FOLDER_NAME_CONFLICT");
         }
+        // The lookups above match the exact name. This also refuses a name
+        // that differs only in case on a disk that ignores case.
+        if (!folder) {
+          await assertNoFolderNameConflict({
+            ownerUserId: targetFolder.ownerUserId,
+            parentId: parentFolder.id,
+            name,
+          });
+        }
       }
       if (!folder) {
+        const sibling = folderUploadEntryKey(
+          parentFolder.id,
+          name.toLowerCase(),
+        );
+        if (plannedSiblings.has(sibling) && (await ignoresCase())) {
+          throw new FilesError("FOLDER_NAME_CONFLICT");
+        }
+        plannedSiblings.add(sibling);
         folder = {
           id: idempotencyKey
             ? deterministicUuid(
