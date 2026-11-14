@@ -1940,6 +1940,16 @@ export const createFilesService = ({
       start += FOLDER_CREATE_GROUP_LIMIT
     ) {
       const group = pending.slice(start, start + FOLDER_CREATE_GROUP_LIMIT);
+      const created = new Set(group.map(({ folder }) => folder.id));
+      // The paths were planned from a snapshot. A parent renamed or moved
+      // since has a new revision, and the journal then refuses the group
+      // instead of creating folders at the parent's old path.
+      const parents = new Map(
+        group
+          .map(({ folder }) => folderMap.get(folder.parentId!)!)
+          .filter((parent) => !created.has(parent.id))
+          .map((parent) => [parent.id, parent]),
+      );
       await runDurableStorageMutation({
         kind: "folder_create",
         ownerUserId: targetFolder.ownerUserId,
@@ -1961,17 +1971,32 @@ export const createFilesService = ({
           expectedNodeType: "directory" as const,
           treeManifestDigest: EMPTY_TREE_MANIFEST_DIGEST,
         })),
-        entities: group.map(({ folder }) => ({
-          entityType: "folder" as const,
-          entityId: folder.id,
-          preRevision: -1,
-          postRevision: 0,
-          beforeJson: null,
-          afterJson: toMetadataJson({
-            parentId: folder.parentId,
-            name: folder.name,
-          }),
-        })),
+        entities: [
+          ...group.map(({ folder }) => ({
+            entityType: "folder" as const,
+            entityId: folder.id,
+            preRevision: -1,
+            postRevision: 0,
+            beforeJson: null,
+            afterJson: toMetadataJson({
+              parentId: folder.parentId,
+              name: folder.name,
+            }),
+          })),
+          ...[...parents.values()].map((parent) => ({
+            entityType: "folder" as const,
+            entityId: parent.id,
+            // A folder planned in an earlier group was created at revision 0.
+            preRevision: missing.has(parent.id)
+              ? 0
+              : (parent.storageRevision ?? 0),
+            postRevision: missing.has(parent.id)
+              ? 0
+              : (parent.storageRevision ?? 0),
+            beforeJson: null,
+            afterJson: null,
+          })),
+        ],
       });
     }
     return { folders: resolved };

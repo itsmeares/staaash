@@ -3,10 +3,29 @@ import { mkdir, stat } from "node:fs/promises";
 
 import { getPrisma } from "@staaash/db/client";
 import { assertStorageFilesystemSupported } from "@staaash/db/storage-mutation-executor";
-import { beforeAll, expect, it } from "vite-plus/test";
+import { beforeAll, expect, it, vi } from "vite-plus/test";
 
 import { getStoragePath, getStorageRoot } from "../storage";
 import { createFilesService } from "./service";
+
+// Runs once, after a request planned its folders and before it creates them.
+const beforeFolderCreate = vi.hoisted(() => ({
+  run: null as null | (() => Promise<unknown>),
+}));
+vi.mock("@/server/durable-storage-mutation", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@/server/durable-storage-mutation")>();
+  const runDurableStorageMutation: typeof original.runDurableStorageMutation =
+    async (input) => {
+      const { run } = beforeFolderCreate;
+      if (input.kind === "folder_create" && run) {
+        beforeFolderCreate.run = null;
+        await run();
+      }
+      return original.runDurableStorageMutation(input);
+    };
+  return { ...original, runDurableStorageMutation };
+});
 
 const db = getPrisma();
 const service = createFilesService();
@@ -238,3 +257,48 @@ it("creates the path again when its folder was renamed since the first request",
     }),
   ).resolves.toBe(0);
 });
+
+it(
+  "creates nothing at the old path when a parent is renamed while the request runs",
+  {
+    timeout: 30_000,
+  },
+  async () => {
+    const owner = await drive();
+    const { folders } = await ensure(owner, ["Outer", "Outer/Inner"]);
+    beforeFolderCreate.run = () =>
+      service.renameFolder({
+        actorUserId: owner.id,
+        actorRole: "member",
+        folderId: folders[0]!.folderId,
+        name: "Moved",
+      });
+
+    await expect(
+      service.ensureFolderPaths({
+        actorUserId: owner.id,
+        actorRole: "member",
+        parentId: folders[1]!.folderId,
+        paths: ["A", "B"],
+      }),
+    ).rejects.toMatchObject({ code: "STORAGE_ADMISSION_BUSY" });
+
+    await expect(
+      stat(getStoragePath(`files/${owner.id}/Outer`)),
+    ).rejects.toThrow();
+    await expect(isDirectory(`files/${owner.id}/Moved/Inner`)).resolves.toBe(
+      true,
+    );
+    await expect(
+      db.folder.count({ where: { ownerUserId: owner.id, isFilesRoot: false } }),
+    ).resolves.toBe(2);
+    const again = await ensure({ id: owner.id, rootId: folders[1]!.folderId }, [
+      "A",
+      "B",
+    ]);
+    expect(again.folders).toHaveLength(2);
+    await expect(isDirectory(`files/${owner.id}/Moved/Inner/A`)).resolves.toBe(
+      true,
+    );
+  },
+);
