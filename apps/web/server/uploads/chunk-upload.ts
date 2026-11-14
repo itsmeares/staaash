@@ -96,6 +96,7 @@ const validateContentLength = (
 
 const writeParallelUploadChunk = async ({
   request,
+  body,
   uploadSession,
   ownerUserId,
   range,
@@ -103,6 +104,7 @@ const writeParallelUploadChunk = async ({
   expectedLength,
 }: {
   request: Request;
+  body: Readable | undefined;
   uploadSession: ResumableSession;
   ownerUserId: string;
   range: UploadRange;
@@ -118,9 +120,14 @@ const writeParallelUploadChunk = async ({
     sizeBytes: expectedLength,
     writeBytes: async (lockSignal) => {
       await mkdir(path.dirname(uploadSession.tmpPath), { recursive: true });
-      const input = request.body
-        ? Readable.fromWeb(request.body as never)
-        : Readable.from([]);
+      // Node's own request stream: going through request.body converts each
+      // block to a web stream and back and copies it, which used most of the
+      // main thread while uploads arrived.
+      const input =
+        body ??
+        (request.body
+          ? Readable.fromWeb(request.body as never)
+          : Readable.from([]));
       const validator = exactLengthStream(expectedLength);
       const output = createWriteStream(uploadSession.tmpPath, {
         flags: "r+",
@@ -163,11 +170,13 @@ const chunkConflictResponse = (
 
 const handleParallelChunkUpload = async ({
   request,
+  body,
   uploadSession,
   ownerUserId,
   range,
 }: {
   request: Request;
+  body: Readable | undefined;
   uploadSession: ResumableSession;
   ownerUserId: string;
   range: UploadRange;
@@ -191,6 +200,7 @@ const handleParallelChunkUpload = async ({
   try {
     const receivedBytes = await writeParallelUploadChunk({
       request,
+      body,
       uploadSession,
       ownerUserId,
       range,
@@ -254,10 +264,13 @@ const handleLegacyChunkUpload = async ({
 /** Writes one Content-Range chunk into the session's staging file. */
 export const writeUploadChunk = async ({
   request,
+  body,
   uploadSession,
   ownerUserId,
 }: {
   request: Request;
+  /** The request body as Node's stream, when the Node server gives one. */
+  body?: Readable;
   uploadSession: ResumableSession;
   ownerUserId: string;
 }): Promise<Response> => {
@@ -283,6 +296,7 @@ export const writeUploadChunk = async ({
   ) {
     return handleParallelChunkUpload({
       request,
+      body,
       uploadSession,
       ownerUserId,
       range,
