@@ -610,6 +610,15 @@ describe("unfinished uploads", () => {
     },
   );
 
+  it("still cancels while another folder fails to sync", async () => {
+    const a = pairOf("a");
+    breakHistory("a");
+    pending("removed", "big.bin", "removed-folder");
+    const status = await syncOnce([a]);
+    expect(status.state).toBe("problem");
+    expect(cancelled).toEqual(["removed-folder"]);
+  });
+
   it("stops cancelling once the settings change", async () => {
     const pair = pairOf("a");
     writeFileSync(path.join(pair.localPath, "a.mov"), "x");
@@ -617,12 +626,14 @@ describe("unfinished uploads", () => {
     pending("a", "a.mov", "first");
     pending("a", "b.mov", "second");
     // The rule that left both out is gone before the second is cancelled.
+    let changed: Promise<void> | undefined;
     onCancel = () => {
       onCancel = null;
-      void engine.configure(configOf([pair]));
+      changed = engine.configure(configOf([pair]));
     };
     await engine.configure({ ...configOf([pair]), ignore: ["*.mov"] });
     await engine.syncNow();
+    await changed;
     expect(cancelled).toHaveLength(1);
     expect(left()).toHaveLength(1);
   });

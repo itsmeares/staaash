@@ -634,7 +634,13 @@ export class SyncEngine {
         }
         retrySoon ||= result.retrySoon;
       }
-      if (this.config === config && !this.stopped && !this.failure) {
+      // The server's changes are read, so one broken folder doesn't hold back
+      // the others' cleanup; each upload's own check keeps what it can't read.
+      if (
+        this.config === config &&
+        !this.stopped &&
+        this.failure !== "offline"
+      ) {
         await this.cancelAbandonedUploads(config);
       }
       if (
