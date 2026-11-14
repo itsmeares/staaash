@@ -281,6 +281,7 @@ type ParsedFolderUploadPath = ReturnType<typeof parseFolderUploadPath>;
  * Paths are planned from a snapshot of the folder tree. A rename, move or
  * trash of the folder or one above it changes its revision, so the journal
  * refuses a mutation that would put something at the folder's old path.
+ * As an entity the folder also reads as busy until the mutation ends.
  */
 const folderGuardEntity = (folder: FolderSummary) => ({
   entityType: "folder" as const,
@@ -289,6 +290,12 @@ const folderGuardEntity = (folder: FolderSummary) => ({
   postRevision: folder.storageRevision ?? 0,
   beforeJson: null,
   afterJson: null,
+});
+
+/** The same check without marking the folder as changing, for hot paths. */
+const folderGuard = (folder: FolderSummary) => ({
+  folderId: folder.id,
+  revision: folder.storageRevision ?? 0,
 });
 
 const restoreGuard = (into: FolderSummary | undefined) => {
@@ -3222,8 +3229,8 @@ export const createFilesService = ({
                 name: normalizedName,
               }),
             },
-            folderGuardEntity(parentFolder),
           ],
+          folderGuards: [folderGuard(parentFolder)],
         });
         const folder = await activeRepo.findFolderById(virtualFolder.id);
         if (!folder) {
@@ -5468,22 +5475,20 @@ export const createFilesService = ({
               expectedSizeBytes: BigInt(stagedFile.sizeBytes),
               expectedChecksum: stagedFile.actualChecksum,
             })),
-            entities: [
-              ...group.map(({ stagedFile, name, storageKey, fileId }) => ({
-                entityType: "file" as const,
-                entityId: fileId,
-                preRevision: -1,
-                postRevision: 0,
-                beforeJson: null,
-                afterJson: toMetadataJson({
-                  storageKey,
-                  originalName: name,
-                  sizeBytes: stagedFile.sizeBytes,
-                  contentChecksum: stagedFile.actualChecksum,
-                }),
-              })),
-              folderGuardEntity(targetFolder),
-            ],
+            entities: group.map(({ stagedFile, name, storageKey, fileId }) => ({
+              entityType: "file" as const,
+              entityId: fileId,
+              preRevision: -1,
+              postRevision: 0,
+              beforeJson: null,
+              afterJson: toMetadataJson({
+                storageKey,
+                originalName: name,
+                sizeBytes: stagedFile.sizeBytes,
+                contentChecksum: stagedFile.actualChecksum,
+              }),
+            })),
+            folderGuards: [folderGuard(targetFolder)],
             resultJson: serializeUploadGroupResult(
               groupEntries(
                 group.map(({ stagedFile, name, fileId }) => ({
@@ -6343,8 +6348,8 @@ export const createFilesService = ({
                   beforeJson: toMetadataJson({ status: "committing" }),
                   afterJson: toMetadataJson({ status: "completed" }),
                 },
-                folderGuardEntity(targetFolder),
               ],
+              folderGuards: [folderGuard(targetFolder)],
               details: { stagedStorageKey },
               requestHashPayload: {
                 uploadSessionId,

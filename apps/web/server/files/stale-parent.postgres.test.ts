@@ -215,3 +215,35 @@ it(
     );
   },
 );
+
+it(
+  "keeps a folder readable while files upload into it at the same time",
+  {
+    timeout: 30_000,
+  },
+  async () => {
+    const drive = await driveWithFile();
+
+    await Promise.all(
+      Array.from({ length: 8 }, (_, index) =>
+        upload(drive, `side ${index}.txt`),
+      ),
+    );
+
+    // A folder listed as an entity reads as busy until that mutation ends, so
+    // uploads into one folder would block each other and the folder's own view.
+    await expect(
+      db.storageMutationEntity.count({
+        where: {
+          entityId: drive.innerId,
+          mutation: { kind: "upload_create" },
+        },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      db.file.count({
+        where: { ownerUserId: drive.id, folderId: drive.innerId },
+      }),
+    ).resolves.toBe(9);
+  },
+);
