@@ -18,7 +18,7 @@ import * as local from "./local";
 import { type PairContext, syncPair, type Waiting } from "./pair-sync";
 import { RemoteTree } from "./remote";
 import { Store } from "./store";
-import { LANES, Throttle, UploadMeter } from "./transfer";
+import { LANES, SMALL_UPLOAD_BYTES, Throttle, UploadMeter } from "./transfer";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -462,4 +462,38 @@ it("stops promptly when paused with a large queue", async () => {
   expect(r.waiting[0]?.files).toBe(count);
   expect(r.waiting.at(-1)?.files).toBe(0);
   expect(r.start).not.toHaveBeenCalled();
+});
+
+it("says the server is checking only once the app has read the whole file", async () => {
+  const r = await rig([]);
+  const size = SMALL_UPLOAD_BYTES + 1;
+  await writeFile(path.join(r.directory, "big.bin"), Buffer.alloc(size));
+  const old = new Date(Date.now() - 60_000);
+  await utimes(path.join(r.directory, "big.bin"), old, old);
+  // A resumed session the server already has in full: progress is 100% at
+  // once, but the app still reads the file for its checksum.
+  vi.spyOn(r.ctx.api, "startUpload").mockResolvedValue({
+    id: "session",
+    chunkSizeBytes: size,
+    completedChunks: [{ startByte: 0 }],
+    receivedBytes: size,
+  } as never);
+  let atCheck: Activity | undefined;
+  vi.spyOn(r.ctx.api, "completeUpload").mockImplementation(async () => {
+    atCheck = r.activity.at(-1);
+    return {
+      id: "remote-big",
+      folderId: "root",
+      name: "big.bin",
+      sizeBytes: size,
+      storageRevision: 1,
+      clientModifiedAt: old.toISOString(),
+    } as never;
+  });
+
+  await syncPair(r.ctx);
+
+  const full = r.activity.filter((each) => each.doneBytes === size);
+  expect(full[0]?.checking).toBeUndefined();
+  expect(atCheck).toMatchObject({ rel: "big.bin", checking: true });
 });

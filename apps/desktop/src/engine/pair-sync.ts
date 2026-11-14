@@ -532,7 +532,11 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
           activity.doneBytes += bytes;
           ctx.activity(activity);
         },
-        onSent: sent,
+        onSent: () => {
+          activity.checking = true;
+          ctx.activity(activity);
+          sent();
+        },
       });
       const item = remoteFromUpload(file, checksum);
       tree.set(item);

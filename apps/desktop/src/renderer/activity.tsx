@@ -141,9 +141,6 @@ function ActivityRow({
   const percent = activity.bytes
     ? Math.min(100, Math.round((activity.doneBytes / activity.bytes) * 100))
     : 100;
-  // Every byte is sent; the server reads the file once more before it is done.
-  const checking =
-    activity.direction === "up" && activity.doneBytes >= activity.bytes;
   const name = fileName(activity.rel);
   const inside = activity.rel.slice(0, -name.length - 1);
   return (
@@ -176,7 +173,7 @@ function ActivityRow({
               />
             </span>
             <span className="mt-1 block text-end text-label whitespace-nowrap text-muted-foreground">
-              {checking ? (
+              {activity.checking ? (
                 <>
                   <span className="max-[37.5rem]:hidden">
                     Server is checking
