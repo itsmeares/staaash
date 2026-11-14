@@ -295,9 +295,11 @@ export class Store {
     });
   }
 
+  // Unfinished uploads stay: the engine forgets each one only once the
+  // server has cancelled it, or its session keeps disk space reserved.
   clearPair(pairId: string) {
     this.transaction(() => {
-      for (const table of ["base", "upload", "conflict"]) {
+      for (const table of ["base", "conflict"]) {
         this.db.prepare(`DELETE FROM ${table} WHERE pairId = ?`).run(pairId);
       }
     });

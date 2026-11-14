@@ -16,7 +16,10 @@ const mocks = vi.hoisted(() => ({
   ready: Promise.resolve(),
 }));
 
-vi.mock("node:fs/promises", () => ({ rm: vi.fn() }));
+vi.mock("node:fs/promises", () => ({
+  rm: vi.fn(),
+  readdir: vi.fn(async () => ["sync.db", "sync.log"]),
+}));
 vi.mock("electron", () => ({
   app: {
     requestSingleInstanceLock: () => true,
@@ -199,6 +202,14 @@ it("clears the photo at sign-out and ignores a late account reply", async () => 
   expect(state().avatarUrl).toBeNull();
   await refresh();
   expect(mocks.session).toHaveBeenCalledTimes(2);
+});
+
+it("keeps the sync log at sign-out and deletes the rest", async () => {
+  const { rm } = await import("node:fs/promises");
+  await invoke<Promise<void>>("sign-out");
+  const removed = vi.mocked(rm).mock.calls.map(([file]) => String(file));
+  expect(removed.some((file) => file.endsWith("sync.db"))).toBe(true);
+  expect(removed.some((file) => file.endsWith("sync.log"))).toBe(false);
 });
 
 it("keeps the new sign-in photo and its pending refresh when an old reply arrives", async () => {

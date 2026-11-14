@@ -13,7 +13,7 @@ import type {
 } from "../shared/types";
 import type { Api } from "./api";
 import { ApiError, SignedOutError, createApi, fetchVersion } from "./api";
-import { localPath } from "./local";
+import { localPath, statLocal } from "./local";
 import { folderSizes } from "./folder-sizes";
 import type { SyncLog } from "./log";
 import { createIgnore, pathKey } from "./names";
@@ -21,6 +21,7 @@ import type { Waiting } from "./pair-sync";
 import { syncPair } from "./pair-sync";
 import type { StorageChange } from "./remote";
 import { RemoteTree, fromSnapshot } from "./remote";
+import type { PendingUpload } from "./store";
 import { Store } from "./store";
 import { Throttle, UploadMeter } from "./transfer";
 
@@ -37,6 +38,14 @@ const POLL_MS = 60_000;
 const FULL_PASS_MS = 10 * 60_000;
 const DEBOUNCE_MS = 1500;
 const RETRY_SOON_MS = 5000;
+
+const abandoned = async (upload: PendingUpload, config: EngineConfig) => {
+  const pair = config.pairs.find((each) => each.id === upload.pairId);
+  if (!pair) return true;
+  // A folder that is missing as a whole may be an unplugged drive.
+  if (!existsSync(pair.localPath)) return false;
+  return !(await statLocal(pair.localPath, upload.rel));
+};
 
 const sizeKey = (config: EngineConfig, pair: SyncPair) =>
   JSON.stringify([
@@ -248,7 +257,11 @@ export class SyncEngine {
         // The engine's own API is aborted by now; this one is not.
         const api = createApi(config.serverUrl, config.token);
         for (const upload of this.store.pendingUploads()) {
-          await api.cancelUpload(upload.sessionId).catch(() => {});
+          await api
+            .cancelUpload(upload.sessionId)
+            .catch((error) =>
+              this.deps.log(`cancelling the upload of ${upload.rel}`, error),
+            );
         }
       }
       this.store.close();
@@ -582,6 +595,9 @@ export class SyncEngine {
         }
         retrySoon ||= result.retrySoon;
       }
+      if (this.config === config && !this.stopped && !this.failure) {
+        await this.cancelAbandonedUploads(config);
+      }
       if (
         this.config === config &&
         !this.stopped &&
@@ -636,6 +652,29 @@ export class SyncEngine {
             ? RETRY_SOON_MS
             : FULL_PASS_MS,
       );
+    }
+  }
+
+  /**
+   * An upload whose folder no longer syncs, or whose file is gone, never
+   * resumes, but its server session holds the space for a day.
+   */
+  private async cancelAbandonedUploads(config: EngineConfig) {
+    const api = this.api;
+    if (!api) return;
+    for (const upload of this.store.pendingUploads()) {
+      if (!(await abandoned(upload, config))) continue;
+      try {
+        await api.cancelUpload(upload.sessionId);
+      } catch (error) {
+        if (error instanceof SignedOutError) throw error;
+        // A 404 means the server has nothing left to cancel.
+        if (!(error instanceof ApiError && error.status === 404)) {
+          this.deps.log(`cancelling the upload of ${upload.rel}`, error);
+          continue;
+        }
+      }
+      this.store.deleteUpload(upload.pairId, upload.rel);
     }
   }
 
