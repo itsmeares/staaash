@@ -5,13 +5,27 @@ import {
   Check,
   CircleAlert,
   Clock,
+  FolderOpen,
+  Info,
   Pause,
+  RotateCw,
   TriangleAlert,
   WifiOff,
 } from "lucide-react";
 
 import { formatBytes } from "@/lib/format-bytes";
 import { Button } from "@staaash/ui/components/button";
+import {
+  ContextMenu,
+  ContextMenuItem,
+  ContextMenuPopup,
+  ContextMenuTrigger,
+} from "@staaash/ui/components/context-menu";
+import {
+  Popover,
+  PopoverPopup,
+  PopoverTrigger,
+} from "@staaash/ui/components/popover";
 import { ItemTypeIcon } from "@staaash/ui/item-type-icon";
 import { getItemVisual } from "@staaash/ui/item-visuals";
 
@@ -132,79 +146,143 @@ function IssueRow({
 function ActivityRow({
   activity,
   folder,
+  paused = false,
 }: {
   activity: Activity;
   folder: string;
+  paused?: boolean;
 }) {
   const Direction = activity.direction === "up" ? ArrowUp : ArrowDown;
-  const active = activity.state === "active";
+  const name = fileName(activity.rel);
+  const inside = activity.rel.slice(0, -name.length - 1);
+  const stopped = activity.state === "failed" || activity.state === "waiting";
+  const open = () => void desktop.openFolder(activity.pairId, activity.rel);
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger
+        render={
+          <li className="flex items-center gap-3 px-5 py-2 hover:bg-hover has-focus-visible:bg-hover" />
+        }
+      >
+        {/* The status sits outside the button: its info icon is a button too. */}
+        <button
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 border-0 bg-transparent p-0 text-start text-foreground focus-visible:outline-none"
+          type="button"
+          onClick={open}
+        >
+          <ItemTypeIcon
+            className="grid size-8.5 shrink-0 place-items-center rounded-[0.625rem]"
+            size={17}
+            visual={fileVisual(activity.rel)}
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-body font-medium">{name}</span>
+            <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-label text-muted-foreground">
+              <Direction aria-hidden className="size-3 shrink-0" />
+              <span className="truncate">
+                {inside ? `${folder}/${inside}` : folder}
+              </span>
+            </span>
+          </span>
+        </button>
+        {activity.state === "active" ? (
+          <ActivityProgress activity={activity} />
+        ) : (
+          <ActivityEnd activity={activity} />
+        )}
+      </ContextMenuTrigger>
+      <ContextMenuPopup>
+        {stopped ? (
+          <ContextMenuItem
+            disabled={paused}
+            onClick={() => void desktop.syncNow()}
+          >
+            <RotateCw aria-hidden />
+            {paused ? "Resume sync to retry" : "Retry"}
+          </ContextMenuItem>
+        ) : null}
+        <ContextMenuItem onClick={open}>
+          <FolderOpen aria-hidden />
+          Show in folder
+        </ContextMenuItem>
+      </ContextMenuPopup>
+    </ContextMenu>
+  );
+}
+
+const ended: Partial<
+  Record<Activity["state"], { label: string; tone: string }>
+> = {
+  failed: { label: "Failed", tone: "text-destructive-foreground" },
+  waiting: { label: "Waiting", tone: "text-muted-foreground" },
+};
+
+function ActivityEnd({ activity }: { activity: Activity }) {
+  const stopped = ended[activity.state];
+  return (
+    <span className="shrink-0 text-end">
+      <span
+        className={`flex items-center justify-end gap-1 text-meta ${stopped?.tone ?? ""}`}
+      >
+        {stopped?.label ?? formatBytes(activity.bytes)}
+        {stopped && activity.reason ? (
+          <ReasonInfo reason={activity.reason} />
+        ) : null}
+      </span>
+      <span className="mt-0.5 block text-label text-muted-foreground">
+        {ago(activity.at)}
+      </span>
+    </span>
+  );
+}
+
+function ReasonInfo({ reason }: { reason: string }) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        aria-label={`Why: ${reason}`}
+        className="grid size-5 cursor-pointer place-items-center rounded-full border-0 bg-transparent p-0 text-inherit hover:bg-foreground/8 focus-visible:bg-foreground/8 focus-visible:outline-none"
+        delay={100}
+        openOnHover
+      >
+        <Info aria-hidden className="size-3.5" />
+      </PopoverTrigger>
+      <PopoverPopup align="end" className="max-w-64" side="top" tooltipStyle>
+        {reason}
+      </PopoverPopup>
+    </Popover>
+  );
+}
+
+function ActivityProgress({ activity }: { activity: Activity }) {
   const percent = activity.bytes
     ? Math.min(100, Math.round((activity.doneBytes / activity.bytes) * 100))
     : 100;
-  const name = fileName(activity.rel);
-  const inside = activity.rel.slice(0, -name.length - 1);
   return (
-    <li>
-      <button
-        className="flex w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-5 py-2 text-start text-foreground hover:bg-hover focus-visible:bg-hover focus-visible:outline-none"
-        type="button"
-        onClick={() => void desktop.openFolder(activity.pairId, activity.rel)}
-      >
-        <ItemTypeIcon
-          className="grid size-8.5 shrink-0 place-items-center rounded-[0.625rem]"
-          size={17}
-          visual={fileVisual(activity.rel)}
+    <span className="w-28 shrink-0 max-[37.5rem]:w-16">
+      <span className="block h-1 overflow-hidden rounded-full bg-foreground/8">
+        <span
+          className="block h-full rounded-full bg-primary"
+          style={{ width: `${percent}%` }}
         />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-body font-medium">{name}</span>
-          <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-label text-muted-foreground">
-            <Direction aria-hidden className="size-3 shrink-0" />
-            <span className="truncate">
-              {inside ? `${folder}/${inside}` : folder}
-            </span>
-          </span>
-        </span>
-        {active ? (
-          <span className="w-28 shrink-0 max-[37.5rem]:w-16">
-            <span className="block h-1 overflow-hidden rounded-full bg-foreground/8">
-              <span
-                className="block h-full rounded-full bg-primary"
-                style={{ width: `${percent}%` }}
-              />
-            </span>
-            <span className="mt-1 block text-end text-label whitespace-nowrap text-muted-foreground">
-              {activity.checking ? (
-                <>
-                  <span className="max-[37.5rem]:hidden">
-                    Server is checking
-                  </span>
-                  <span className="min-[37.5rem]:hidden">Checking</span>
-                </>
-              ) : (
-                <>
-                  {percent}%
-                  <span className="max-[37.5rem]:hidden">
-                    {" "}
-                    of {formatBytes(activity.bytes)}
-                  </span>
-                </>
-              )}
-            </span>
-          </span>
+      </span>
+      <span className="mt-1 block text-end text-label whitespace-nowrap text-muted-foreground">
+        {activity.checking ? (
+          <>
+            <span className="max-[37.5rem]:hidden">Server is checking</span>
+            <span className="min-[37.5rem]:hidden">Checking</span>
+          </>
         ) : (
-          <span className="shrink-0 text-end">
-            <span className="block text-meta">
-              {activity.state === "failed"
-                ? "Failed"
-                : formatBytes(activity.bytes)}
+          <>
+            {percent}%
+            <span className="max-[37.5rem]:hidden">
+              {" "}
+              of {formatBytes(activity.bytes)}
             </span>
-            <span className="mt-0.5 block text-label text-muted-foreground">
-              {ago(activity.at)}
-            </span>
-          </span>
+          </>
         )}
-      </button>
-    </li>
+      </span>
+    </span>
   );
 }
 
@@ -468,6 +546,7 @@ export function ActivityPage({
                   activity={each}
                   folder={folderOf(each.pairId)}
                   key={`${each.pairId}:${each.rel}`}
+                  paused={state.status?.state === "paused"}
                 />
               ))}
             </ul>

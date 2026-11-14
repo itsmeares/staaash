@@ -85,12 +85,15 @@ export type Activity = {
   pairId: string;
   rel: string;
   direction: "up" | "down";
-  state: "active" | "done" | "failed";
+  /** Waiting: stopped by a pause, or the server asked to try again later. */
+  state: "active" | "done" | "failed" | "waiting";
   bytes: number;
   doneBytes: number;
   at: number;
   /** Every byte is sent and the server is checking the file. */
   checking?: boolean;
+  /** Why it failed or waits, in words for the person. */
+  reason?: string;
 };
 
 export type EngineState =
@@ -201,6 +204,8 @@ export type DesktopApi = {
   openStaaash: () => Promise<Result>;
   openFolder: (pairId: string, rel?: string) => Promise<void>;
   openSyncLog: () => Promise<void>;
+  /** Runs a sync pass now, so failed and waiting files are tried again. */
+  syncNow: () => Promise<void>;
   resolveConflict: (id: number, choice: ConflictChoice) => Promise<void>;
   resolvePair: (
     pairId: string,

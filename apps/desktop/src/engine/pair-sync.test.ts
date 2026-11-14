@@ -87,6 +87,7 @@ const rig = async (names = ["a.txt", "b.txt"]) => {
     scanned: () => {},
     resolved: vi.fn<(rel: string) => void>(),
     notify: () => {},
+    log: vi.fn<(stage: string, error: unknown) => void>(),
     current: () => true,
     signal: new AbortController().signal,
     full: { size: Infinity, message: null as string | null },
@@ -114,6 +115,17 @@ it.each([
     expect.objectContaining({ rel: "", source: "scan", kind: "quota" }),
   ]);
   expect(r.ctx.resolved).not.toHaveBeenCalled();
+  // Tried again on its own: waiting, with the server's reason in the log.
+  expect(r.activity.at(-1)).toMatchObject({
+    state: "waiting",
+    reason: expect.stringMatching(
+      /^(Your storage on the server is full|The server is out of space)\./,
+    ),
+  });
+  expect(r.ctx.log).toHaveBeenCalledWith(
+    expect.stringMatching(/^the server refused f\d+\.txt$/),
+    error,
+  );
 
   full = false;
   r.ctx.full = { size: Infinity, message: null };
@@ -496,4 +508,45 @@ it("says the server is checking only once the app has read the whole file", asyn
   const full = r.activity.filter((each) => each.doneBytes === size);
   expect(full[0]?.checking).toBeUndefined();
   expect(atCheck).toMatchObject({ rel: "big.bin", checking: true });
+});
+
+it("shows an upload stopped by a pause as waiting, not failed", async () => {
+  const r = await rig(["a.txt"]);
+  const pause = new AbortController();
+  r.start.mockImplementation(async () => {
+    pause.abort();
+    throw new DOMException("The operation was aborted.", "AbortError");
+  });
+
+  await syncPair({ ...r.ctx, signal: pause.signal }).catch(() => {});
+
+  expect(r.activity.at(-1)).toMatchObject({
+    rel: "a.txt",
+    state: "waiting",
+    reason: "Paused. Starts again when you resume.",
+  });
+  expect(r.ctx.log).not.toHaveBeenCalled();
+});
+
+it.each([
+  {
+    error: new ApiError(400, "This name is too long.", "NAME_TOO_LONG"),
+    reason: "This name is too long.",
+  },
+  {
+    error: new TypeError("fetch failed"),
+    reason: "Lost the connection to the server.",
+  },
+  { error: new Error("Something broke."), reason: "Something broke." },
+])("says why an upload failed: $reason", async ({ error, reason }) => {
+  const r = await rig(["a.txt"]);
+  r.start.mockRejectedValue(error);
+
+  await syncPair(r.ctx).catch(() => {});
+
+  expect(r.activity.at(-1)).toMatchObject({
+    rel: "a.txt",
+    state: "failed",
+    reason,
+  });
 });

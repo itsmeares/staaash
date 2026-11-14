@@ -4,6 +4,7 @@ import path from "node:path";
 import type { Activity, Issue, SyncPair } from "../shared/types";
 import type { Api } from "./api";
 import { ApiError } from "./api";
+import type { SyncLog } from "./log";
 import type { LocalEntry, LocalScan } from "./local";
 import { hashFile, localPath, sameStat, scanLocal, statLocal } from "./local";
 import { baseName, leftOutOf, parentRel, pathKey } from "./names";
@@ -41,6 +42,7 @@ export type PairContext = {
   scanned: (scan: LocalScan | null) => void;
   resolved: (rel: string) => void;
   notify: (title: string, body: string) => void;
+  log: SyncLog;
   /**
    * False once this pair's settings changed, sync paused or the engine is
    * stopping. Checked before every action: the action in flight finishes,
@@ -114,6 +116,25 @@ const diskMessage = (error: NodeJS.ErrnoException) =>
       : error.code === "EACCES"
         ? "Staaash isn't allowed to read or write this."
         : `Couldn't use this file (${error.code ?? "disk error"}).`;
+
+type Outcome = Pick<Activity, "state" | "reason">;
+
+const changed: Outcome = {
+  state: "waiting",
+  reason: "Changed on the server. Sync looks again.",
+};
+const paused: Outcome = {
+  state: "waiting",
+  reason: "Paused. Starts again when you resume.",
+};
+
+/** Words for an error the engine does not expect; the sync log has the rest. */
+const unexpected = (error: unknown) =>
+  error instanceof TypeError && error.message === "fetch failed"
+    ? "Lost the connection to the server."
+    : error instanceof Error
+      ? error.message
+      : String(error);
 
 const remoteFromUpload = (
   file: {
@@ -267,6 +288,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
    * Treats a refusal from the server as "look again", and a local disk error
    * (a locked file, no permission, a full disk) as a problem with this one
    * path. Anything else ends this folder's run, and the engine decides why.
+   * Says whether the action is tried again later on its own, and why.
    */
   // One branch per server refusal the engine retries.
   // fallow-ignore-next-line complexity
@@ -274,13 +296,16 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     error: unknown,
     rel: string,
     size: number | null = null,
-  ) => {
+  ): Outcome => {
     const local = error as NodeJS.ErrnoException;
     if (typeof local.syscall === "string") {
-      issue(rel, "error", diskMessage(local));
-      return;
+      const reason = diskMessage(local);
+      issue(rel, "error", reason);
+      return { state: "failed", reason };
     }
     if (!(error instanceof ApiError)) throw error;
+    // The row shows a short reason; the server's full answer goes here.
+    ctx.log(`the server refused ${rel}`, error);
     if (error.code === "REVISION_MISMATCH") {
       const details = (error.body?.details ?? null) as {
         id: string;
@@ -293,25 +318,29 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         tree.set({ ...known, rev: details.storageRevision });
       }
       pullAgain = true;
-      return;
+      return changed;
     }
     // Too many uploads in flight on the server: try again once some finish.
     if (error.status === 429) {
       retrySoon = true;
-      return;
+      return {
+        state: "waiting",
+        reason: "The server is busy. Sync tries again soon.",
+      };
     }
     const full = serverFull.get(error.code ?? "");
     if (full) {
       if (size !== null) ctx.full.size = Math.min(ctx.full.size, size);
       ctx.full.message = full;
       serverFullIssue(full);
-      return;
+      return { state: "waiting", reason: full };
     }
     if (error.status === 404 || error.status === 409) {
       pullAgain = true;
-      return;
+      return changed;
     }
     issue(rel, "error", error.message);
+    return { state: "failed", reason: error.message };
   };
 
   type Of<K extends Action["kind"]> = Extract<Action, { kind: K }>;
@@ -639,6 +668,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     }
     const rel = "rel" in action ? action.rel : action.from;
     if (!ctx.current() || waits(action)) return;
+    let ended: Outcome = { state: "failed" };
     try {
       const handler = handlers[action.kind] as Handler<Action["kind"]>;
       if (
@@ -652,10 +682,16 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         resolved(rel);
       }
     } catch (error) {
-      tolerate(error, rel, uploadSize(action));
+      // A pause ends running transfers; they start again on resume.
+      if (ctx.signal.aborted) ended = paused;
+      else {
+        // tolerate() rethrows what it does not expect; the row still says why.
+        ended = { state: "failed", reason: unexpected(error) };
+        ended = tolerate(error, rel, uploadSize(action));
+      }
     } finally {
       for (const activity of open.filter((each) => each.rel === rel)) {
-        ctx.activity({ ...activity, state: "failed", at: Date.now() });
+        ctx.activity({ ...activity, ...ended, at: Date.now() });
       }
       open = open.filter((each) => each.rel !== rel);
     }
