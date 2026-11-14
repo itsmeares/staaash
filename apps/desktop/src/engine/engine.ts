@@ -81,6 +81,8 @@ const abandoned = async (
       throw error;
     },
   );
+  // The drive may have gone between the two checks.
+  if (!now && !existsSync(pair.localPath)) return false;
   return !now?.isFile();
 };
 
@@ -708,7 +710,10 @@ export class SyncEngine {
       }
       return paths;
     };
+    // New settings may need an upload this pass's settings left out.
+    const stale = () => this.config !== config || this.stopped;
     for (const upload of this.store.pendingUploads()) {
+      if (stale()) return;
       const pair = config.pairs.find((each) => each.id === upload.pairId);
       // One file that can't be checked waits for the next pass alone.
       const gone = await abandoned(upload, pair, config, hiddenFor).catch(
@@ -717,7 +722,7 @@ export class SyncEngine {
           return false;
         },
       );
-      if (gone && (await this.cancelOnServer(api, upload))) {
+      if (gone && !stale() && (await this.cancelOnServer(api, upload))) {
         this.store.deleteUpload(upload.pairId, upload.rel);
       }
     }

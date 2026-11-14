@@ -212,6 +212,15 @@ it("keeps the sync log at sign-out and deletes the rest", async () => {
   expect(removed.some((file) => file.endsWith("sync.log"))).toBe(false);
 });
 
+it("stops a sign-out that cannot list the account's data", async () => {
+  const { readdir, rm } = await import("node:fs/promises");
+  vi.mocked(readdir).mockRejectedValueOnce(
+    Object.assign(new Error("denied"), { code: "EACCES" }),
+  );
+  await expect(invoke<Promise<void>>("sign-out")).rejects.toThrow("denied");
+  expect(rm).not.toHaveBeenCalled();
+});
+
 it("keeps the new sign-in photo and its pending refresh when an old reply arrives", async () => {
   const old = deferredSession();
   mocks.session.mockReturnValueOnce(old.promise);

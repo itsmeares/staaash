@@ -273,7 +273,15 @@ const resetAccount = async () => {
   avatarUrl = null;
   await stopEngine();
   // The log stays, so a problem from before a sign-out can still be traced.
-  for (const entry of await readdir(dataDir()).catch(() => [])) {
+  // Only a missing folder is empty; any other error stops the sign-out, so a
+  // later account never syncs against this one's records.
+  const entries = await readdir(dataDir()).catch(
+    (error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return [];
+      throw error;
+    },
+  );
+  for (const entry of entries) {
     if (entry.startsWith(SYNC_LOG_NAME)) continue;
     await rm(path.join(dataDir(), entry), { recursive: true, force: true });
   }

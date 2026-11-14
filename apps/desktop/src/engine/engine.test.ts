@@ -50,6 +50,7 @@ let engine: SyncEngine;
 let logged: { stage: string; error: unknown }[];
 let emitted: EngineStatus[];
 let cancelled: string[];
+let onCancel: (() => void) | null;
 
 const docsFolder = {
   id: "docs",
@@ -209,6 +210,7 @@ beforeEach(async () => {
   logged = [];
   emitted = [];
   cancelled = [];
+  onCancel = null;
   server = createServer((request, response) => {
     const { pathname, searchParams } = new URL(request.url ?? "", "http://x");
     if (
@@ -216,6 +218,7 @@ beforeEach(async () => {
       pathname.startsWith("/api/uploads/sessions/")
     ) {
       cancelled.push(path.basename(pathname));
+      onCancel?.();
       return response.writeHead(204).end();
     }
     if (pathname === "/api/version") return replies.version(response);
@@ -606,6 +609,23 @@ describe("unfinished uploads", () => {
       expect(cancelled).toEqual(["now-a-pipe"]);
     },
   );
+
+  it("stops cancelling once the settings change", async () => {
+    const pair = pairOf("a");
+    writeFileSync(path.join(pair.localPath, "a.mov"), "x");
+    writeFileSync(path.join(pair.localPath, "b.mov"), "x");
+    pending("a", "a.mov", "first");
+    pending("a", "b.mov", "second");
+    // The rule that left both out is gone before the second is cancelled.
+    onCancel = () => {
+      onCancel = null;
+      void engine.configure(configOf([pair]));
+    };
+    await engine.configure({ ...configOf([pair]), ignore: ["*.mov"] });
+    await engine.syncNow();
+    expect(cancelled).toHaveLength(1);
+    expect(left()).toHaveLength(1);
+  });
 
   it("keeps one it cannot check and still cancels the rest", async () => {
     const pair = pairOf("a");
