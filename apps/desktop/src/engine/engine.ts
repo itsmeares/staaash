@@ -15,6 +15,7 @@ import type { Api } from "./api";
 import { ApiError, SignedOutError, createApi, fetchVersion } from "./api";
 import { localPath, statLocal } from "./local";
 import { folderSizes } from "./folder-sizes";
+import { covered } from "./plan";
 import type { SyncLog } from "./log";
 import { createIgnore, leftOutOf, pathKey } from "./names";
 import type { Waiting } from "./pair-sync";
@@ -50,13 +51,29 @@ const leftOutPath = (rel: string, pair: SyncPair, ignore: string[]) => {
   );
 };
 
-const abandoned = async (upload: PendingUpload, config: EngineConfig) => {
-  const pair = config.pairs.find((each) => each.id === upload.pairId);
+/** Paths a pass hides on both sides because of the server folder there. */
+const hiddenOnServer = (tree: RemoteTree, pair: SyncPair, ignore: string[]) => {
+  const { skipped, ignored } = tree.scope(
+    pair.remoteFolderId,
+    createIgnore(ignore),
+    leftOutOf(pair).remote,
+  );
+  return new Set([...skipped, ...ignored].map((each) => pathKey(each.rel)));
+};
+
+const abandoned = async (
+  upload: PendingUpload,
+  pair: SyncPair | undefined,
+  config: EngineConfig,
+  hidden: (pair: SyncPair) => Set<string>,
+) => {
   if (!pair) return true;
   if (leftOutPath(upload.rel, pair, config.ignore)) return true;
+  if (covered(pathKey(upload.rel), hidden(pair))) return true;
   // A folder that is missing as a whole may be an unplugged drive.
   if (!existsSync(pair.localPath)) return false;
-  return !(await statLocal(pair.localPath, upload.rel));
+  // A folder now at the path is not the file the upload started from.
+  return (await statLocal(pair.localPath, upload.rel))?.type !== "file";
 };
 
 const sizeKey = (config: EngineConfig, pair: SyncPair) =>
@@ -674,12 +691,24 @@ export class SyncEngine {
   private async cancelAbandonedUploads(config: EngineConfig) {
     const api = this.api;
     if (!api) return;
+    const hidden = new Map<string, Set<string>>();
+    const hiddenFor = (pair: SyncPair) => {
+      let paths = hidden.get(pair.id);
+      if (!paths) {
+        paths = hiddenOnServer(this.tree, pair, config.ignore);
+        hidden.set(pair.id, paths);
+      }
+      return paths;
+    };
     for (const upload of this.store.pendingUploads()) {
+      const pair = config.pairs.find((each) => each.id === upload.pairId);
       // One file that can't be checked waits for the next pass alone.
-      const gone = await abandoned(upload, config).catch((error: unknown) => {
-        this.deps.log(`checking the upload of ${upload.rel}`, error);
-        return false;
-      });
+      const gone = await abandoned(upload, pair, config, hiddenFor).catch(
+        (error: unknown) => {
+          this.deps.log(`checking the upload of ${upload.rel}`, error);
+          return false;
+        },
+      );
       if (gone && (await this.cancelOnServer(api, upload))) {
         this.store.deleteUpload(upload.pairId, upload.rel);
       }

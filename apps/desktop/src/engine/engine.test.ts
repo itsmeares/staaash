@@ -575,6 +575,26 @@ describe("unfinished uploads", () => {
     expect(cancelled).toEqual(["ignored"]);
   });
 
+  it("cancels one under a server folder the pair now leaves out", async () => {
+    const pair = {
+      ...pairOf("b"),
+      skipFolders: [{ id: "docs", label: "docs" }],
+    } as SyncPair;
+    mkdirSync(path.join(pair.localPath, "docs"));
+    writeFileSync(path.join(pair.localPath, "docs", "big.mov"), "x");
+    pending("b", "docs/big.mov", "skipped-on-server");
+    await syncOnce([pair]);
+    expect(cancelled).toEqual(["skipped-on-server"]);
+  });
+
+  it("cancels one whose path is now a folder", async () => {
+    const pair = pairOf("a");
+    mkdirSync(path.join(pair.localPath, "big.bin"));
+    pending("a", "big.bin", "now-a-folder");
+    await syncOnce([pair]);
+    expect(cancelled).toEqual(["now-a-folder"]);
+  });
+
   it("keeps one it cannot check and still cancels the rest", async () => {
     const pair = pairOf("a");
     // A file where a folder should be: checking the path fails, not "gone".
