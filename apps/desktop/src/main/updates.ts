@@ -18,6 +18,7 @@ type Release = Parameters<typeof newestRelease>[0][number];
 export const startUpdates = (
   onChange: (update: UpdateState | null) => void,
   releaseCandidates: boolean,
+  onAppImageMoved: (file: string) => void = () => {},
 ) => {
   if (!app.isPackaged)
     return {
@@ -95,6 +96,7 @@ export const startUpdates = (
     latest = info.version;
     onChange({ version: info.version, ready: true, manual });
   });
+  autoUpdater.on("appimage-filename-updated", onAppImageMoved);
   autoUpdater.on("error", () => {
     // Offline or no release for this platform yet; the next check retries.
   });

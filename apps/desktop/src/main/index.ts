@@ -32,6 +32,7 @@ import { loadSettings, loadToken, saveSettings, saveToken } from "./settings";
 import {
   foldersOverlap,
   installLinuxMenuEntry,
+  pointLinuxEntriesAt,
   otherSyncAppWarning,
   setStartAtLogin,
 } from "./system";
@@ -641,6 +642,7 @@ void app.whenReady().then(async () => {
       tray?.rebuild();
     },
     wantsCandidates(settings.updateChannel, app.getVersion()),
+    pointLinuxEntriesAt,
   );
   powerMonitor.on("resume", () => send({ type: "sync-now" }));
   if (token && settings.serverUrl) await checkVersions(settings.serverUrl);

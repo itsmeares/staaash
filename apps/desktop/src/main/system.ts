@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -16,6 +16,34 @@ Terminal=false
 Categories=Network;FileTransfer;
 ${extra ? "X-GNOME-Autostart-enabled=true\n" : ""}`;
 
+const autostartEntry = path.join(
+  home,
+  ".config",
+  "autostart",
+  "staaash.desktop",
+);
+const menuEntry = path.join(
+  home,
+  ".local",
+  "share",
+  "applications",
+  "staaash.desktop",
+);
+
+/**
+ * An update that installs as the app quits saves the new AppImage under its
+ * new name and removes the old file. Nothing starts afterwards to rewrite the
+ * entries, so they move here, before the process ends.
+ */
+export const pointLinuxEntriesAt = (appImage: string) => {
+  for (const [file, extra] of [
+    [menuEntry, ""],
+    [autostartEntry, " --hidden"],
+  ]) {
+    if (existsSync(file)) writeFileSync(file, desktopEntry(appImage, extra));
+  }
+};
+
 /** Linux autostart is a desktop file; Windows and macOS have a setting. */
 export const setStartAtLogin = async (enabled: boolean) => {
   if (!app.isPackaged) return;
@@ -24,7 +52,7 @@ export const setStartAtLogin = async (enabled: boolean) => {
     app.setLoginItemSettings({ openAtLogin: enabled, args: ["--hidden"] });
     return;
   }
-  const file = path.join(home, ".config", "autostart", "staaash.desktop");
+  const file = autostartEntry;
   if (!enabled) {
     await rm(file, { force: true });
     return;
@@ -57,9 +85,8 @@ export const installLinuxMenuEntry = async () => {
     icon,
     readFileSync(path.join(process.resourcesPath, "icon.png")),
   );
-  const entry = path.join(share, "applications", "staaash.desktop");
-  await mkdir(path.dirname(entry), { recursive: true });
-  await writeFile(entry, desktopEntry(appImage));
+  await mkdir(path.dirname(menuEntry), { recursive: true });
+  await writeFile(menuEntry, desktopEntry(appImage));
 };
 
 /** Folders other sync apps own. Two sync apps on one folder fight. */
