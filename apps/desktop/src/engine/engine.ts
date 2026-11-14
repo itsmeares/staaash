@@ -134,6 +134,12 @@ export class SyncEngine {
   private stopped = false;
   private queue: Promise<unknown> = Promise.resolve();
   private readonly halt = new AbortController();
+  /** The folder being synced now, and the way to end its transfers. */
+  private syncing: {
+    pair: SyncPair;
+    ignore: string[];
+    stop: AbortController;
+  } | null = null;
   private refusedPasses = 0;
   private passWaiting: Promise<void> | null = null;
   private timer: NodeJS.Timeout | null = null;
@@ -170,6 +176,11 @@ export class SyncEngine {
   async configure(config: EngineConfig) {
     const previous = this.config;
     this.config = config;
+    // Pausing, or changing the folder being synced, ends its running
+    // transfers too. A big upload would otherwise carry on until it finished.
+    if (this.syncing && !this.current(this.syncing.pair, this.syncing.ignore)) {
+      this.syncing.stop.abort();
+    }
     this.uploads.limitKBps = config.uploadLimitKBps;
     this.downloads.limitKBps = config.downloadLimitKBps;
     this.tree.setRoots(
@@ -560,6 +571,8 @@ export class SyncEngine {
         if (this.config !== config) break;
         this.unchecked = config.pairs.length - index - 1;
         let result;
+        const stop = new AbortController();
+        this.syncing = { pair, ignore: config.ignore, stop };
         try {
           result = await syncPair({
             api: this.api as Api,
@@ -615,11 +628,13 @@ export class SyncEngine {
             notify: (title, body) =>
               this.deps.emit({ type: "notify", title, body }),
             current: () => this.current(pair, config.ignore),
-            signal: this.halt.signal,
+            signal: AbortSignal.any([this.halt.signal, stop.signal]),
             full,
           });
         } catch (error) {
           if (error instanceof SignedOutError || this.stopped) throw error;
+          // Ended on purpose by a pause or a settings change: not a failure.
+          if (stop.signal.aborted) continue;
           await this.recordFailure(`sync folder ${pair.id}`, error);
           // Other pairs need the server too; one broken pair doesn't stop them.
           if (this.failure === "offline") break;
@@ -632,6 +647,7 @@ export class SyncEngine {
           });
           continue;
         } finally {
+          this.syncing = null;
           this.waiting = { files: 0, bytes: 0, uploadBytes: 0 };
         }
         issues.push(...result.issues);
