@@ -188,6 +188,32 @@ it("keeps the latest readings when paused during a pass", async () => {
   expect(engine.status().folderSizes.a?.computer?.bytes).toBe(7);
 });
 
+it("ends the running transfers when paused, without calling it a failure", async () => {
+  const pair = pairOf("a");
+  let started!: () => void;
+  const running = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  vi.spyOn(pairSync, "syncPair").mockImplementation(
+    (ctx) =>
+      new Promise((_resolve, reject) => {
+        // A transfer that only ends when it is told to.
+        ctx.signal.addEventListener("abort", () => reject(ctx.signal.reason));
+        started();
+      }),
+  );
+  await engine.configure(configOf([pair]));
+  const pass = engine.syncNow();
+  await running;
+
+  await engine.configure({ ...configOf([pair]), paused: true });
+  await pass;
+
+  expect(engine.status().state).toBe("paused");
+  expect(engine.status().issues).toEqual([]);
+  expect(logged).toEqual([]);
+});
+
 it("does not show pre-transfer readings while a fresh server read is needed", async () => {
   const pair = pairOf("a");
   vi.spyOn(pairSync, "syncPair").mockImplementation(async (ctx) => {
