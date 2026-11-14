@@ -115,6 +115,7 @@ import {
   storageMutationRejectionFromResult,
 } from "@staaash/db/storage-mutations";
 import {
+  assertStorageFilesystemSupported,
   captureTreeManifest,
   type CapturedTreeEntry,
   calculateStorageFileChecksum,
@@ -309,6 +310,25 @@ const restoreGuard = (
     throw new StorageMutationConflictError("STORAGE_MUTATION_IN_PROGRESS");
   }
   return into ? [folderGuardEntity(into)] : [];
+};
+
+/** Every folder above `folders` up to and including `topId`, minus `folders`. */
+const foldersUpTo = (
+  folders: FolderSummary[],
+  folderMap: Map<string, FolderSummary>,
+  topId: string,
+) => {
+  const own = new Set(folders.map((folder) => folder.id));
+  const above = new Map<string, FolderSummary>();
+  for (const folder of folders) {
+    let parent = folderMap.get(folder.parentId!)!;
+    while (!above.has(parent.id)) {
+      if (!own.has(parent.id)) above.set(parent.id, parent);
+      if (parent.id === topId) break;
+      parent = folderMap.get(parent.parentId!)!;
+    }
+  }
+  return above;
 };
 
 const folderUploadEntryKey = (folderId: string, name: string) =>
@@ -518,6 +538,7 @@ const uploadRequestHash = (
 
 /** At most this many new files commit as one upload_create mutation. */
 const UPLOAD_CREATE_GROUP_LIMIT = 100;
+const FOLDER_CREATE_GROUP_LIMIT = 100;
 
 /**
  * A new file's id follows from its retry key. A group of new files commits
@@ -1823,6 +1844,177 @@ export const createFilesService = ({
       )),
       ...descendants,
     ]);
+
+  const createMissingFolderPaths = async ({
+    targetFolder,
+    requestedPaths,
+    folderByParentAndName,
+    fileKeys,
+    loadChildren,
+  }: {
+    targetFolder: FolderSummary;
+    requestedPaths: ParsedFolderUploadPath[];
+    folderByParentAndName: Map<string, FolderSummary>;
+    fileKeys: Set<string>;
+    loadChildren: (parentId: string, parentPath: string) => Promise<void>;
+  }): Promise<EnsureFolderPathsResult> => {
+    // One journal entry per folder costs a full prepare, commit and
+    // finalize each. Missing folders are planned first, parents before
+    // children, and created a group at a time.
+    const filesRoot = await ensureFilesRoot(targetFolder.ownerUserId);
+    const folderMap = await readFolderMap(targetFolder.ownerUserId, [
+      targetFolder.id,
+    ]);
+    // The caller checked this copy while the folder was active. The snapshot
+    // may already hold a trashed copy with a newer revision, and guarding on
+    // that one would let the group through.
+    folderMap.set(targetFolder.id, targetFolder);
+    const byCanonicalPath = new Map<string, FolderSummary>();
+    const missing = new Set<string>();
+    const pending: Array<{ folder: FolderSummary; storageKey: string }> = [];
+    const plannedSiblings = new Set<string>();
+    const ignoresCase = async () =>
+      (await assertStorageFilesystemSupported(getStorageRoot())).ignoresCase;
+    const resolveSegment = async (
+      parentFolder: FolderSummary,
+      parentPath: string,
+      canonicalPath: string,
+      name: string,
+    ) => {
+      const known = byCanonicalPath.get(canonicalPath);
+      if (known) return known;
+      let folder: FolderSummary | undefined;
+      // A folder planned in this request has no children yet.
+      if (!missing.has(parentFolder.id)) {
+        await loadChildren(parentFolder.id, parentPath);
+        const key = folderUploadEntryKey(parentFolder.id, name);
+        folder = folderByParentAndName.get(key);
+        if (!folder && fileKeys.has(key)) {
+          throw new FilesError("FOLDER_NAME_CONFLICT");
+        }
+        // The lookups above match the exact name. This also refuses a name
+        // that differs only in case on a disk that ignores case.
+        if (!folder) {
+          await assertNoFolderNameConflict({
+            ownerUserId: targetFolder.ownerUserId,
+            parentId: parentFolder.id,
+            name,
+          });
+        }
+      }
+      if (!folder) {
+        const sibling = folderUploadEntryKey(
+          parentFolder.id,
+          name.toLowerCase(),
+        );
+        if (plannedSiblings.has(sibling) && (await ignoresCase())) {
+          throw new FilesError("FOLDER_NAME_CONFLICT");
+        }
+        plannedSiblings.add(sibling);
+        folder = {
+          // A repeat finds what exists by name, so the id carries no meaning.
+          // An id derived from the request would collide with a folder that
+          // was renamed or moved since.
+          id: randomUUID(),
+          ownerUserId: targetFolder.ownerUserId,
+          ownerStorageId: targetFolder.ownerStorageId,
+          parentId: parentFolder.id,
+          name,
+          isFilesRoot: false,
+          deletedAt: null,
+          createdAt: now(),
+          updatedAt: now(),
+        };
+        missing.add(folder.id);
+        folderMap.set(folder.id, folder);
+        pending.push({
+          folder,
+          storageKey: buildFolderStorageKey({
+            folder,
+            folderMap,
+            filesRoot,
+            trashed: false,
+          }),
+        });
+      } else {
+        folderMap.set(folder.id, folder);
+      }
+      byCanonicalPath.set(canonicalPath, folder);
+      return folder;
+    };
+
+    const resolved: EnsureFolderPathsResult["folders"] = [];
+    for (const parsed of requestedPaths) {
+      let folder = targetFolder;
+      for (const [index, name] of parsed.segments.entries()) {
+        folder = await resolveSegment(
+          folder,
+          parsed.segments.slice(0, index).join("/"),
+          parsed.segments.slice(0, index + 1).join("/"),
+          name,
+        );
+      }
+      resolved.push({ path: parsed.path, folderId: folder.id });
+    }
+
+    for (
+      let start = 0;
+      start < pending.length;
+      start += FOLDER_CREATE_GROUP_LIMIT
+    ) {
+      const group = pending.slice(start, start + FOLDER_CREATE_GROUP_LIMIT);
+      // The paths were planned from folders read one level at a time. A
+      // rename or move bumps the revision of the folder and all below it, so
+      // guarding only the parent misses a rename above it that came between
+      // two reads. Guarding every folder up to the target makes the journal
+      // refuse the group instead of creating folders at an old path.
+      const parents = foldersUpTo(
+        group.map(({ folder }) => folder),
+        folderMap,
+        targetFolder.id,
+      );
+      await runDurableStorageMutation({
+        kind: "folder_create",
+        ownerUserId: targetFolder.ownerUserId,
+        metadataOperations: group.map(
+          ({ folder }) =>
+            ({
+              action: "create_folder",
+              data: {
+                id: folder.id,
+                ownerUserId: folder.ownerUserId,
+                parentId: folder.parentId!,
+                name: folder.name,
+              },
+            }) as const,
+        ),
+        steps: group.map(({ storageKey }) => ({
+          action: "mkdir" as const,
+          targetKey: storageKey,
+          expectedNodeType: "directory" as const,
+          treeManifestDigest: EMPTY_TREE_MANIFEST_DIGEST,
+        })),
+        entities: group.map(({ folder }) => ({
+          entityType: "folder" as const,
+          entityId: folder.id,
+          preRevision: -1,
+          postRevision: 0,
+          beforeJson: null,
+          afterJson: toMetadataJson({
+            parentId: folder.parentId,
+            name: folder.name,
+          }),
+        })),
+        // A guard, not an entity: the parents stay readable meanwhile.
+        folderGuards: [...parents.values()].map((parent) => ({
+          folderId: parent.id,
+          // A folder planned in an earlier group was created at revision 0.
+          revision: missing.has(parent.id) ? 0 : (parent.storageRevision ?? 0),
+        })),
+      });
+    }
+    return { folders: resolved };
+  };
 
   const buildBreadcrumbs = async (
     currentFolder: FolderSummary,
@@ -3326,6 +3518,16 @@ export const createFilesService = ({
         }
         loadedParents.add(parentId);
       };
+
+      if (!repo) {
+        return createMissingFolderPaths({
+          targetFolder,
+          requestedPaths,
+          folderByParentAndName,
+          fileKeys,
+          loadChildren,
+        });
+      }
 
       const resolvedFolders: EnsureFolderPathsResult["folders"] = [];
       const resolvedByCanonicalPath = new Map<string, FolderSummary>();
