@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { lstat } from "node:fs/promises";
 import path from "node:path";
 
 import type {
@@ -13,7 +14,7 @@ import type {
 } from "../shared/types";
 import type { Api } from "./api";
 import { ApiError, SignedOutError, createApi, fetchVersion } from "./api";
-import { localPath, statLocal } from "./local";
+import { localPath } from "./local";
 import { folderSizes } from "./folder-sizes";
 import { covered } from "./plan";
 import type { SyncLog } from "./log";
@@ -72,8 +73,15 @@ const abandoned = async (
   if (covered(pathKey(upload.rel), hidden(pair))) return true;
   // A folder that is missing as a whole may be an unplugged drive.
   if (!existsSync(pair.localPath)) return false;
-  // A folder now at the path is not the file the upload started from.
-  return (await statLocal(pair.localPath, upload.rel))?.type !== "file";
+  // Only a regular file can still be sent, as in the scan: a folder, link or
+  // other special entry now at the path ends the upload.
+  const now = await lstat(localPath(pair.localPath, upload.rel)).catch(
+    (error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    },
+  );
+  return !now?.isFile();
 };
 
 const sizeKey = (config: EngineConfig, pair: SyncPair) =>

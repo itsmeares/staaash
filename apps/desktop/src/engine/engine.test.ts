@@ -5,6 +5,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { createServer, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
@@ -594,6 +595,17 @@ describe("unfinished uploads", () => {
     await syncOnce([pair]);
     expect(cancelled).toEqual(["now-a-folder"]);
   });
+
+  it.skipIf(process.platform === "win32")(
+    "cancels one whose path is now a pipe",
+    async () => {
+      const pair = pairOf("a");
+      execFileSync("mkfifo", [path.join(pair.localPath, "big.bin")]);
+      pending("a", "big.bin", "now-a-pipe");
+      await syncOnce([pair]);
+      expect(cancelled).toEqual(["now-a-pipe"]);
+    },
+  );
 
   it("keeps one it cannot check and still cancels the rest", async () => {
     const pair = pairOf("a");
