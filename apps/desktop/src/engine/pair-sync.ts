@@ -319,6 +319,8 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     action: Of<K>,
     rel: string,
     full: string,
+    /** For an upload: its bytes are sent, so another transfer may start. */
+    sent: () => void,
   ) => Promise<true | void>;
   // One handler per action, each with its own checks before it touches a file.
   const handlers: { [K in Action["kind"]]: Handler<K> } = {
@@ -492,7 +494,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       putBase(rel, written, remote, checksum);
       finish();
     },
-    upload: async (action, rel, full) => {
+    upload: async (action, rel, full, sent) => {
       const { local } = action;
       if (Date.now() - local.mtimeMs < SETTLE_MS) return;
       const parentId = remoteIdAt(parentRel(rel));
@@ -530,13 +532,18 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
           activity.doneBytes += bytes;
           ctx.activity(activity);
         },
+        onSent: () => {
+          activity.checking = true;
+          ctx.activity(activity);
+          sent();
+        },
       });
       const item = remoteFromUpload(file, checksum);
       tree.set(item);
       putBase(rel, local, item, checksum);
       finish();
     },
-    "keep-mine": async (action, rel, full) => {
+    "keep-mine": async (action, rel, full, sent) => {
       const { local, remote } = action;
       if (Date.now() - local.mtimeMs < SETTLE_MS) return;
       const parentId = remote.parentId ?? remoteIdAt(parentRel(rel));
@@ -560,6 +567,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         meter: ctx.uploadMeter,
         signal: transfers,
         onBytes: () => {},
+        onSent: sent,
       });
       const result = await api.keepMine(remote.id, remote.rev, copy.id);
       tree.removeSubtree(copy.id);
@@ -620,7 +628,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     ctx.waiting(waiting);
   };
 
-  const run = async (action: Action) => {
+  const run = async (action: Action, sent = () => {}) => {
     if (queued.delete(action)) {
       waiting = {
         files: waiting.files - 1,
@@ -633,7 +641,14 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     if (!ctx.current() || waits(action)) return;
     try {
       const handler = handlers[action.kind] as Handler<Action["kind"]>;
-      if (await handler(action as never, rel, localPath(pair.localPath, rel))) {
+      if (
+        await handler(
+          action as never,
+          rel,
+          localPath(pair.localPath, rel),
+          sent,
+        )
+      ) {
         resolved(rel);
       }
     } catch (error) {

@@ -186,6 +186,57 @@ describe("pool", () => {
   });
 });
 
+describe("pool, with items that report their bytes sent", () => {
+  it("starts the next item while a sent one waits for the server", async () => {
+    const started: number[] = [];
+    const checks: Array<() => void> = [];
+    let settled = false;
+    const running = pool(
+      [{ items: [1, 2, 3], size: 1 }],
+      async (item, sent) => {
+        started.push(item);
+        sent();
+        // The server check: it ends when the test lets it.
+        await new Promise<void>((resolve) => checks.push(resolve));
+      },
+      () => {},
+    ).then(() => {
+      settled = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    // One slot sends, and one sent item may wait for the server beside it.
+    expect(started).toEqual([1, 2]);
+    checks.shift()!();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(started).toEqual([1, 2, 3]);
+    // Every item has started; the pool still waits for item 2's check.
+    checks.pop()!();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(settled).toBe(false);
+    checks.shift()!();
+    await running;
+    expect(settled).toBe(true);
+  });
+
+  it("reports an error from a sent item and stops queued ones", async () => {
+    const started: number[] = [];
+    const running = pool(
+      [{ items: [1, 2, 3, 4], size: 1 }],
+      async (item, sent) => {
+        started.push(item);
+        sent();
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        if (item === 1) throw new Error("checksum mismatch");
+      },
+      () => {},
+    );
+
+    await expect(running).rejects.toThrow("checksum mismatch");
+    expect(started).toEqual([1, 2]);
+  });
+});
+
 describe("uploadFile", () => {
   const base = async (size: number) => {
     const dir = await mkdtemp(path.join(os.tmpdir(), "staaash-upload-"));
@@ -255,6 +306,64 @@ describe("uploadFile", () => {
       expect(shown.mock.calls).toEqual([[3], [2]]);
       expect(cancelUpload).toHaveBeenCalledWith("old");
       expect(deleteUpload).toHaveBeenCalledWith("pair", "notes.txt");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("says its bytes are sent after the last chunk and before the server check", async () => {
+    const chunk = 1024 * 1024;
+    const { dir, input } = await base(SMALL_UPLOAD_BYTES + 2 * chunk);
+    try {
+      const events: string[] = [];
+      const lastStart = SMALL_UPLOAD_BYTES + chunk;
+      let lastCalled = false;
+      let releaseLast = () => {};
+      const lastHeld = new Promise<void>((resolve) => {
+        releaseLast = resolve;
+      });
+      const api = {
+        startUpload: async () => ({
+          id: "session",
+          chunkSizeBytes: chunk,
+          completedChunks: [],
+          receivedBytes: 0,
+        }),
+        uploadChunk: async (_id: string, start: number) => {
+          if (start === lastStart) {
+            lastCalled = true;
+            await lastHeld;
+          }
+          events.push(`chunk ${start}`);
+        },
+        completeUpload: async () => {
+          events.push("check");
+          return { id: "remote" };
+        },
+      };
+      const uploading = uploadFile({
+        ...input,
+        api: api as never,
+        store: {
+          pendingUpload: () => null,
+          putUpload: () => {},
+          deleteUpload: () => {},
+        } as never,
+        replace: null,
+        onSent: () => events.push("sent"),
+      });
+      while (!lastCalled)
+        await new Promise((resolve) => setTimeout(resolve, 1));
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      // The last chunk is still on its way: nothing is sent yet.
+      expect(events).not.toContain("sent");
+      releaseLast();
+      await uploading;
+
+      expect(events.slice(-3)).toEqual([`chunk ${lastStart}`, "sent", "check"]);
+      expect(events.filter((event) => event.startsWith("chunk"))).toHaveLength(
+        12,
+      );
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

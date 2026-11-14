@@ -89,6 +89,8 @@ export type Activity = {
   bytes: number;
   doneBytes: number;
   at: number;
+  /** Every byte is sent and the server is checking the file. */
+  checking?: boolean;
 };
 
 export type EngineState =

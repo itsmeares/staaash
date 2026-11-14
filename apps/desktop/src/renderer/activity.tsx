@@ -165,7 +165,7 @@ function ActivityRow({
           </span>
         </span>
         {active ? (
-          <span className="w-24 shrink-0 max-[37.5rem]:w-16">
+          <span className="w-28 shrink-0 max-[37.5rem]:w-16">
             <span className="block h-1 overflow-hidden rounded-full bg-foreground/8">
               <span
                 className="block h-full rounded-full bg-primary"
@@ -173,11 +173,22 @@ function ActivityRow({
               />
             </span>
             <span className="mt-1 block text-end text-label whitespace-nowrap text-muted-foreground">
-              {percent}%
-              <span className="max-[37.5rem]:hidden">
-                {" "}
-                of {formatBytes(activity.bytes)}
-              </span>
+              {activity.checking ? (
+                <>
+                  <span className="max-[37.5rem]:hidden">
+                    Server is checking
+                  </span>
+                  <span className="min-[37.5rem]:hidden">Checking</span>
+                </>
+              ) : (
+                <>
+                  {percent}%
+                  <span className="max-[37.5rem]:hidden">
+                    {" "}
+                    of {formatBytes(activity.bytes)}
+                  </span>
+                </>
+              )}
             </span>
           </span>
         ) : (

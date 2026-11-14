@@ -104,30 +104,60 @@ const CHUNKS_AT_ONCE = 3;
 
 /**
  * Runs `work` over the items of each lane, up to its size at a time, all
- * lanes together. The first error stops queued items and calls `onFatal`,
+ * lanes together. An item that calls `sent` gives its place to the next one
+ * while it waits for the server, as long as fewer than the lane's size are
+ * already waiting. The first error stops queued items and calls `onFatal`,
  * which ends the running ones. The pool settles only when no worker is still
  * writing, then rethrows that first error.
  */
 export const pool = async <T>(
   lanes: { items: T[]; size: number }[],
-  work: (item: T) => Promise<void>,
+  work: (item: T, sent: () => void) => Promise<void>,
   onFatal: () => void,
 ) => {
   let failure: { error: unknown } | null = null;
+  const fail = (error: unknown) => {
+    if (failure) return;
+    failure = { error };
+    onFatal();
+  };
+  const running = new Set<Promise<void>>();
   await Promise.all(
     lanes.flatMap(({ items, size }) => {
       let next = 0;
+      let waiting = 0;
+      const blocked = new Set<() => void>();
+      const take = (item: T) =>
+        new Promise<void>((free) => {
+          let sent = false;
+          let freed = false;
+          const tryFree = () => {
+            if (!sent || freed || waiting >= size) return;
+            freed = true;
+            waiting += 1;
+            free();
+          };
+          blocked.add(tryFree);
+          const done = work(item, () => {
+            sent = true;
+            tryFree();
+          })
+            .catch(fail)
+            .finally(() => {
+              blocked.delete(tryFree);
+              running.delete(done);
+              if (!freed) return free();
+              waiting -= 1;
+              for (const other of blocked) other();
+            });
+          running.add(done);
+        });
       return Array.from({ length: Math.min(size, items.length) }, async () => {
-        try {
-          while (!failure && next < items.length) await work(items[next++]);
-        } catch (error) {
-          if (failure) return;
-          failure = { error };
-          onFatal();
-        }
+        while (!failure && next < items.length) await take(items[next++]);
       });
     }),
   );
+  while (running.size) await Promise.all(running);
   if (failure) throw (failure as { error: unknown }).error;
 };
 
@@ -288,6 +318,8 @@ const sendFile = async (
     throttle: Throttle;
     meter: UploadMeter;
     onBytes: (bytes: number) => void;
+    /** Every byte is on the server; only its check is left. */
+    onSent?: () => void;
     signal: AbortSignal;
   },
   completed: (bytes: number) => void,
@@ -364,6 +396,7 @@ const sendOpened = async (
   }
   if (failure) throw (failure as { error: unknown }).error;
   const checksum = hash.digest("hex");
+  input.onSent?.();
   const file = (await api.completeUpload(
     session.id,
     checksum,
