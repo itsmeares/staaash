@@ -1975,32 +1975,23 @@ export const createFilesService = ({
           expectedNodeType: "directory" as const,
           treeManifestDigest: EMPTY_TREE_MANIFEST_DIGEST,
         })),
-        entities: [
-          ...group.map(({ folder }) => ({
-            entityType: "folder" as const,
-            entityId: folder.id,
-            preRevision: -1,
-            postRevision: 0,
-            beforeJson: null,
-            afterJson: toMetadataJson({
-              parentId: folder.parentId,
-              name: folder.name,
-            }),
-          })),
-          ...[...parents.values()].map((parent) => ({
-            entityType: "folder" as const,
-            entityId: parent.id,
-            // A folder planned in an earlier group was created at revision 0.
-            preRevision: missing.has(parent.id)
-              ? 0
-              : (parent.storageRevision ?? 0),
-            postRevision: missing.has(parent.id)
-              ? 0
-              : (parent.storageRevision ?? 0),
-            beforeJson: null,
-            afterJson: null,
-          })),
-        ],
+        entities: group.map(({ folder }) => ({
+          entityType: "folder" as const,
+          entityId: folder.id,
+          preRevision: -1,
+          postRevision: 0,
+          beforeJson: null,
+          afterJson: toMetadataJson({
+            parentId: folder.parentId,
+            name: folder.name,
+          }),
+        })),
+        // A guard, not an entity: the parents stay readable meanwhile.
+        folderGuards: [...parents.values()].map((parent) => ({
+          folderId: parent.id,
+          // A folder planned in an earlier group was created at revision 0.
+          revision: missing.has(parent.id) ? 0 : (parent.storageRevision ?? 0),
+        })),
       });
     }
     return { folders: resolved };
