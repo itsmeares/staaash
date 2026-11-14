@@ -291,8 +291,14 @@ const folderGuardEntity = (folder: FolderSummary) => ({
   afterJson: null,
 });
 
-const restoreGuard = (into: FolderSummary | undefined) =>
-  into ? [folderGuardEntity(into)] : [];
+const restoreGuard = (into: FolderSummary | undefined) => {
+  // Trashed after the restore picked it: its revision is already the new
+  // one, so the guard alone would let the restore through.
+  if (into?.deletedAt) {
+    throw new StorageMutationConflictError("STORAGE_MUTATION_IN_PROGRESS");
+  }
+  return into ? [folderGuardEntity(into)] : [];
+};
 
 const folderUploadEntryKey = (folderId: string, name: string) =>
   `${folderId}\u0000${name}`;
