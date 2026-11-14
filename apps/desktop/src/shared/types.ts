@@ -92,6 +92,8 @@ export type Activity = {
   at: number;
   /** Every byte is sent and the server is checking the file. */
   checking?: boolean;
+  /** Why it failed or waits, in words for the person. */
+  reason?: string;
 };
 
 export type EngineState =
