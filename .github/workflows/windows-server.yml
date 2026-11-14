@@ -153,6 +153,7 @@ jobs:
           vp run --filter web test:postgres
           server/storage-mutations.postgres.test.ts
           server/files/name-conflicts.postgres.test.ts
+          server/files/folder-paths.postgres.test.ts
 
   attach:
     name: Attach the installer to the release
