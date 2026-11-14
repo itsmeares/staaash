@@ -269,3 +269,8 @@ it("does not release a new account's pending refresh when a request began during
   await currentRequest;
   expect(state().avatarUrl).toBe("new-photo");
 });
+
+it("runs a sync pass when a window asks to retry", () => {
+  invoke("sync-now");
+  expect(mocks.postMessage).toHaveBeenCalledWith({ type: "sync-now" });
+});

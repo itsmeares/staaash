@@ -204,6 +204,8 @@ export type DesktopApi = {
   openStaaash: () => Promise<Result>;
   openFolder: (pairId: string, rel?: string) => Promise<void>;
   openSyncLog: () => Promise<void>;
+  /** Runs a sync pass now, so failed and waiting files are tried again. */
+  syncNow: () => Promise<void>;
   resolveConflict: (id: number, choice: ConflictChoice) => Promise<void>;
   resolvePair: (
     pairId: string,
