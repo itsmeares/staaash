@@ -371,9 +371,12 @@ describe("preview follow-up regressions", () => {
     const view = await client.read<{
       files: { id: string }[];
       total: number;
-    }>("/api/views/viewer/owner-coast");
+    }>("/api/views/viewer/owner-notes");
     expect(view.files.map((f) => f.id)).not.toContain("owner-coast");
     expect(view.total).toBe(view.files.length);
+    expect((await client.request("/api/views/viewer/owner-coast")).status).toBe(
+      404,
+    );
   });
 
   it("keeps recovery unhealthy after an ineligible retry", async () => {

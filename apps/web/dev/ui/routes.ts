@@ -62,7 +62,12 @@ export function mountViews(app: Hono<PreviewEnv>) {
   );
   app.get("/api/views/viewer/:id", (c) => {
     const file = owned(c.var.state, fileOf(c.var.state, c.req.param("id")));
-    if (!file.viewerKind || isDeleted(c.var.state, file))
+    // Like the server: a file mid-mutation is not in its viewer window, so it does not open.
+    if (
+      !file.viewerKind ||
+      file.storageMutation ||
+      isDeleted(c.var.state, file)
+    )
       throw new PreviewError(404, "File not found.");
     const folderId = file.folderId ?? rootOf(c.var.state).id;
     return c.json({
