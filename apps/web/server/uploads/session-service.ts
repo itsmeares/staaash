@@ -33,7 +33,9 @@ import {
 } from "@/server/uploads/session-state";
 
 const CURRENT_UPLOAD_PROTOCOL_VERSION = 2;
-const DEFAULT_RESUMABLE_CHUNK_SIZE = 10 * 1024 * 1024;
+// Each piece ends with a disk flush. Bigger pieces mean fewer flushes, which
+// keeps uploads faster on drives that slow down under many flushes.
+const DEFAULT_RESUMABLE_CHUNK_SIZE = 32 * 1024 * 1024;
 
 export type CompletedUploadChunk = {
   chunkIndex: number;
