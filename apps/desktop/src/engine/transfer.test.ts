@@ -15,6 +15,7 @@ import path from "node:path";
 import { ApiError } from "./api";
 import { statLocal, UNKNOWN_INO } from "./local";
 import {
+  chunkSizeFor,
   pool,
   SMALL_UPLOAD_BYTES,
   Throttle,
@@ -549,6 +550,43 @@ describe("uploadFile", () => {
         null,
       );
     });
+  });
+
+  it("asks for chunks of about two seconds at the upload limit", async () => {
+    const MiB = 1024 * 1024;
+    expect(chunkSizeFor(null)).toBeUndefined();
+    expect(chunkSizeFor(1024)).toBe(2 * MiB);
+    expect(chunkSizeFor(100)).toBe(MiB);
+    expect(chunkSizeFor(100 * 1024)).toBe(32 * MiB);
+    const { dir, input } = await base(SMALL_UPLOAD_BYTES + 1);
+    try {
+      const startUpload = vi.fn(async () => ({
+        id: "session",
+        chunkSizeBytes: input.size,
+        completedChunks: [],
+        receivedBytes: 0,
+      }));
+      await uploadFile({
+        ...input,
+        api: {
+          startUpload,
+          uploadChunk: async () => {},
+          completeUpload: async () => ({ id: "remote" }),
+        } as never,
+        store: {
+          pendingUpload: () => null,
+          putUpload: () => {},
+          deleteUpload: () => {},
+        } as never,
+        replace: null,
+        throttle: new Throttle(1024),
+      });
+      expect(startUpload).toHaveBeenCalledWith(
+        expect.objectContaining({ chunkSizeBytes: 2 * MiB }),
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it("leaves a sent upload unfinished when sync stops during its last chunk", async () => {

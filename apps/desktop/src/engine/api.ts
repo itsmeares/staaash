@@ -263,6 +263,7 @@ export const createApi = (
       size: number;
       modifiedAt: number;
       replace: boolean;
+      chunkSizeBytes?: number;
     }) =>
       read(
         client.api.uploads.sessions.$post(
@@ -274,6 +275,7 @@ export const createApi = (
               totalSizeBytes: input.size,
               conflictStrategy: input.replace ? "replace" : "fail",
               clientModifiedAt: new Date(input.modifiedAt).toISOString(),
+              chunkSizeBytes: input.chunkSizeBytes,
             },
           },
           write(),

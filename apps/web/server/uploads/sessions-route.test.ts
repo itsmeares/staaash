@@ -122,3 +122,52 @@ describe("resumable session admission responses", () => {
     });
   });
 });
+
+describe("resumable session chunk size", () => {
+  const start = (chunkSizeBytes?: number) =>
+    app.request(
+      new Request("http://localhost:3000/api/uploads/sessions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify({
+          originalName: "file.txt",
+          mimeType: "text/plain",
+          totalSizeBytes: 4,
+          chunkSizeBytes,
+        }),
+      }),
+    );
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mocks.getRequestSession.mockResolvedValue({
+      user: { id: "owner-1", role: "member" },
+    });
+    mocks.createResumableSession.mockImplementation(async (input) => ({
+      id: "session-1",
+      receivedBytes: 0,
+      protocolVersion: 2,
+      chunkSizeBytes: input.chunkSizeBytes ?? 32 * 1024 * 1024,
+      completedChunks: [],
+      expiresAt: new Date("2026-01-01T00:00:00.000Z"),
+    }));
+  });
+
+  it("uses a smaller chunk size a client asks for", async () => {
+    const response = await start(2 * 1024 * 1024);
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toMatchObject({
+      chunkSizeBytes: 2 * 1024 * 1024,
+    });
+  });
+
+  it("refuses a chunk size below 1 MiB or above the default", async () => {
+    for (const size of [1024 * 1024 - 1, 32 * 1024 * 1024 + 1]) {
+      expect((await start(size)).status).toBe(400);
+    }
+    expect(mocks.createResumableSession).not.toHaveBeenCalled();
+  });
+});
