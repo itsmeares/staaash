@@ -326,13 +326,24 @@ export const renderChangelogEntry = ({
   return out.join("\n");
 };
 
-/** Adds the entry above older ones. An entry written by hand is kept. */
+/**
+ * Adds the entry above older ones. An entry written by hand is kept, and gets
+ * the release date if its heading has none.
+ */
 export const insertChangelogEntry = (
   changelog: string,
   entry: string,
   tag: string,
 ) => {
-  if (changelog.includes(`## [${tag.slice(1)}]`)) return changelog;
+  const lines = changelog.split("\n");
+  const own = lines.findIndex((line) =>
+    line.startsWith(`## [${tag.slice(1)}]`),
+  );
+  if (own !== -1) {
+    if (!/ - \d{4}-\d{2}-\d{2}$/u.test(lines[own]))
+      lines[own] = entry.slice(0, entry.indexOf("\n"));
+    return lines.join("\n");
+  }
   const first = changelog.search(/^## \[/mu);
   return first === -1
     ? `${changelog.trimEnd()}\n\n${entry}`

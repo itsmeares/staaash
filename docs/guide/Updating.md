@@ -36,7 +36,7 @@ On the Windows server installer, run the newer installer instead. See [[Windows 
 ## Check that it worked
 
 1. Open Staaash and sign in.
-2. Open the admin **Overview**. The version number should be the new one, and every health line should be green.
+2. Open the admin **Overview**. The version number should be the new one, and every health line should be green. **Restore check** is gray when it has never run. That is fine, but after an update it is a good extra check: open admin **Jobs** and run **Restore check**. It should finish without issues.
 3. Open a few files, and upload a small one.
 
 ## If something goes wrong

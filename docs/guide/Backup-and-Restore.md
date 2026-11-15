@@ -51,6 +51,8 @@ Stop everything first, so no file changes while you copy.
    docker compose stop worker migrate
    ```
 
+   Staaash 1.x has no migration step. If this says `no such service: migrate`, nothing was stopped. Run `docker compose stop worker` instead.
+
    Run the check from step 2 once more, because the worker may have started a cleanup job. If it prints any rows, run `docker compose start worker` and go back to step 2.
 
 4. Stop the database and everything else, including Caddy if you use the HTTPS setup:

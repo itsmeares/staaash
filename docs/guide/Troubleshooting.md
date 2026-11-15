@@ -86,7 +86,7 @@ A failed preview job or another background job does not make `ready` fail. Those
 ## It broke after an update
 
 1. Check the logs for the first error.
-2. Check that `STAAASH_VERSION` in `.env` is the version you meant, and that `docker-compose.yml` is from the same release.
+2. Check that `STAAASH_VERSION` in `.env` is the version you meant, and that `docker-compose.yml` is from the same release. After an update from 1.x, `Cannot find module '/app/dist/server/main.mjs'` in `docker compose logs staaash` means `STAAASH_VERSION` still names a 1.x version.
 3. Restore your backup if you cannot fix it. See [[Updating]] and [[Backup and Restore]].
 
 ## Asking for help
