@@ -10,7 +10,7 @@
 <a href="#desktop-app"><img width="139" src="https://img.shields.io/badge/Desktop_app-2b2a27?style=for-the-badge" alt="Desktop app"></a>
 </p>
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Banner/Staaash%20README-Dark.webp"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Banner/Staaash%20README-Light.webp" alt="Staaash on a desktop and a phone: the Lisbon 2026 folder and its share link" width="100%"></picture>
+<a href="https://itsmeares.github.io/staaash/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Banner/Staaash%20README-Dark.webp"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Banner/Staaash%20README-Light.webp" alt="Staaash on a desktop and a phone: the Lisbon 2026 folder and its share link" width="100%"></picture></a>
 
 <p>Free and open source. No cloud account, no monthly bill.</p>
 
