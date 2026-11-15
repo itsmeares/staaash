@@ -365,6 +365,17 @@ describe("preview follow-up regressions", () => {
     ).toBe(200);
   });
 
+  it("leaves a file mid-mutation out of the viewer and its count", async () => {
+    const client = browser();
+    await client.scenario("busy");
+    const view = await client.read<{
+      files: { id: string }[];
+      total: number;
+    }>("/api/views/viewer/owner-coast");
+    expect(view.files.map((f) => f.id)).not.toContain("owner-coast");
+    expect(view.total).toBe(view.files.length);
+  });
+
   it("keeps recovery unhealthy after an ineligible retry", async () => {
     const client = browser();
     await client.scenario("busy");
