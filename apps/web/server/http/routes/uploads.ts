@@ -17,6 +17,7 @@ import { completeResumableUpload } from "@/server/uploads/complete";
 import {
   cancelAndCleanupResumableSession,
   createResumableSession,
+  DEFAULT_RESUMABLE_CHUNK_SIZE,
   findActiveResumableSession,
 } from "@/server/uploads/session-service";
 
@@ -68,6 +69,16 @@ const createSession = createRoute({
           description:
             "The file's modified time on the uploader's computer, kept with the file.",
         }),
+        chunkSizeBytes: z
+          .number()
+          .int()
+          .min(1024 * 1024)
+          .max(DEFAULT_RESUMABLE_CHUNK_SIZE)
+          .optional()
+          .openapi({
+            description:
+              "Bytes per chunk, for a client that limits its upload speed and wants short bursts. Defaults to the largest size.",
+          }),
       }),
     ),
   },

@@ -45,6 +45,18 @@ export class Throttle {
   }
 }
 
+const MiB = 1024 * 1024;
+
+/**
+ * The speed limit lets each chunk go at full speed and then holds the next,
+ * so with a limit set, chunks of about two seconds at that limit keep every
+ * burst short. Each request still ends fast, well inside server timeouts.
+ */
+const chunkSizeFor = (limitKBps: number | null) =>
+  limitKBps
+    ? Math.min(32 * MiB, Math.max(MiB, Math.round(limitKBps * 1024 * 2)))
+    : undefined;
+
 export class UploadMeter {
   private readonly active = new Set<{ remaining: number }>();
   private bytes = 0;
@@ -286,6 +298,7 @@ const sessionFor = async (input: UploadInput, handle: FileHandle) => {
       size: input.size,
       modifiedAt: input.mtimeMs,
       replace: input.replace !== null,
+      chunkSizeBytes: chunkSizeFor(input.throttle.limitKBps),
     });
     store.putUpload({
       pairId: input.pairId,

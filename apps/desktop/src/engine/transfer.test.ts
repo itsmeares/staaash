@@ -551,6 +551,50 @@ describe("uploadFile", () => {
     });
   });
 
+  it("asks for chunks of about two seconds at the upload limit", async () => {
+    const MiB = 1024 * 1024;
+    const { dir, input } = await base(SMALL_UPLOAD_BYTES + 1);
+    try {
+      const asked = async (limitKBps: number | null) => {
+        const startUpload = vi.fn(async () => ({
+          id: "session",
+          chunkSizeBytes: input.size,
+          completedChunks: [],
+          receivedBytes: 0,
+        }));
+        await uploadFile({
+          ...input,
+          api: {
+            startUpload,
+            uploadChunk: async () => {},
+            completeUpload: async () => ({ id: "remote" }),
+          } as never,
+          store: {
+            pendingUpload: () => null,
+            putUpload: () => {},
+            deleteUpload: () => {},
+          } as never,
+          replace: null,
+          // Unlimited for the test itself; only the asked size matters.
+          throttle: Object.assign(
+            new Throttle(null),
+            { take: async () => {} },
+            { limitKBps },
+          ),
+        });
+        return (
+          startUpload.mock.calls[0] as unknown as [{ chunkSizeBytes?: number }]
+        )[0].chunkSizeBytes;
+      };
+      expect(await asked(null)).toBeUndefined();
+      expect(await asked(1024)).toBe(2 * MiB);
+      expect(await asked(100)).toBe(MiB);
+      expect(await asked(100 * 1024)).toBe(32 * MiB);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("leaves a sent upload unfinished when sync stops during its last chunk", async () => {
     const { dir, input } = await base(SMALL_UPLOAD_BYTES + 1);
     try {
