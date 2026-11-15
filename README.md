@@ -94,7 +94,6 @@ Download `Staaash-Server-…-win-x64.exe` from the [latest release](https://gith
 
 </details>
 
-
 ### Desktop app
 
 Keeps folders on your computer in sync with your drive. Needs a Staaash 2.0 server.
@@ -106,7 +105,6 @@ Keeps folders on your computer in sync with your drive. Needs a Staaash 2.0 serv
 <sub>The installers are not code signed yet. The <a href="https://github.com/itsmeares/staaash/wiki/Desktop-App">desktop app guide</a> shows how to open them the first time.</sub>
 
 Want to reach your drive from outside the house? [Add HTTPS with your own domain](https://github.com/itsmeares/staaash/wiki/Reverse-Proxy).
-
 
 ## Guides
 
