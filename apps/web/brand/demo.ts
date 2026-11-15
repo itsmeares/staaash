@@ -19,7 +19,9 @@ export async function settle(page: Page | Frame) {
       page.locator("img:visible").evaluateAll((images) =>
         images.every(
           (image) =>
-            (image as HTMLImageElement).complete ||
+            // A broken image is complete too; naturalWidth 0 keeps waiting, so the run fails instead.
+            ((image as HTMLImageElement).complete &&
+              (image as HTMLImageElement).naturalWidth > 0) ||
             // Lazy images below the fold never load, and nobody sees them.
             image.getBoundingClientRect().top > window.innerHeight,
         ),
