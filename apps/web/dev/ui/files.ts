@@ -177,7 +177,8 @@ export function mountFiles(app: Hono<PreviewEnv>) {
       await sampleBytes(state, c.var.assets, file.id, action === "thumbnail"),
       action === "thumbnail" ? "image/jpeg" : file.mimeType,
       c.req.raw,
-      action === "download" ? file.name : undefined,
+      action === "thumbnail" ? undefined : file.name,
+      action === "download" ? "attachment" : "inline",
     );
   });
   app.post("/api/files/archives", (c) =>

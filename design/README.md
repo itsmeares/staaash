@@ -32,7 +32,19 @@ recolor, stretch, rotate, or outline it, and do not change the name's font.
 
 [Banner/Staaash Banner-Dark.jpg](Banner/Staaash%20Banner-Dark.jpg) and
 [Banner/Staaash Banner-Light.jpg](Banner/Staaash%20Banner-Light.jpg) are
-2560 x 1280. They head the README and serve as the repository's social preview.
+2560 x 1280. They serve as the repository's social preview.
+[Banner/Staaash README-Dark.webp](Banner/Staaash%20README-Dark.webp) and
+[Banner/Staaash README-Light.webp](Banner/Staaash%20README-Light.webp) head the
+README: the drive on a desktop and a phone, on a transparent background.
+
+## Feature cards
+
+`Features/` holds the README's feature cards in dark and light: `open`,
+`share`, `people`, and `sync`. Each one is a title, a line of text, and the
+screen it describes, on a transparent background. `promises` is the strip of three
+promises under "Built not to lose your files". Each one also has a `-phone`
+version with the text above the screen, which the README shows on narrow
+screens, where the side-by-side card's text would be too small to read.
 
 ## Launch video
 
@@ -64,6 +76,8 @@ here are close conversions for tools that need hex.
 
 `Screenshots/` holds each screen in a dark and a light version, taken from a
 demo drive with made-up people and files. Every photo in it is public domain.
+`pnpm --filter web brand` retakes them, the banners, and the feature cards
+from the frontend preview. The desktop app screenshot is taken by hand.
 
 | Screen        | Shows                                         |
 | ------------- | --------------------------------------------- |
@@ -76,4 +90,5 @@ demo drive with made-up people and files. Every photo in it is public domain.
 | `search`      | Search results while typing                   |
 | `share`       | A shared folder as a visitor sees it          |
 | `share-phone` | The same shared folder on a phone             |
-| `members`     | The owner's list of family members            |
+| `members`     | The owner's list of members                   |
+| `desktop`     | The desktop app syncing folders               |

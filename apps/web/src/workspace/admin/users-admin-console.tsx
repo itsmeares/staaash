@@ -155,7 +155,7 @@ function InviteDialog({ signInUrl }: { signInUrl: string }) {
           />
         </Field>
         <TemporaryPasswordFields />
-        <AdminToggleField label="Can open the admin pages" name="isAdmin" />
+        <AdminToggleField label="Admin access" name="isAdmin" />
       </AdminFormDialog>
       <TemporaryPasswordDialog
         result={result}

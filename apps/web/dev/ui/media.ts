@@ -1,3 +1,4 @@
+import { contentDisposition } from "../../server/downloads/content-disposition";
 import {
   getPublicShareSafeInlineMimeType,
   PUBLIC_SHARE_CONTENT_SECURITY_POLICY,
@@ -31,6 +32,7 @@ export function byteResponse(
   type: string,
   request: Request,
   name?: string,
+  disposition: "attachment" | "inline" = "attachment",
 ) {
   const headers = new Headers({
     "Content-Type": type,
@@ -43,10 +45,7 @@ export function byteResponse(
     }),
   });
   if (name)
-    headers.set(
-      "Content-Disposition",
-      `attachment; filename*=UTF-8''${encodeURIComponent(name)}`,
-    );
+    headers.set("Content-Disposition", contentDisposition(disposition, name));
   const range = request.headers.get("range");
   if (range) return rangeResponse(bytes, headers, range);
   return new Response(bytes, { headers });

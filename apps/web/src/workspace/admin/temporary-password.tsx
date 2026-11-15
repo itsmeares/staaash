@@ -53,7 +53,7 @@ export function TemporaryPasswordFields() {
     <>
       <AdminToggleField
         checked={generated}
-        label="Make up a password for me"
+        label="Generate a password"
         onChange={setGenerated}
       />
       <input name="generate" type="hidden" value={generated ? "on" : ""} />

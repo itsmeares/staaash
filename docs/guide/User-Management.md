@@ -4,11 +4,11 @@ You decide who can use your drive. This page is for the owner.
 
 ## The roles
 
-| Role   | What they can do                                                                                                                                                                                                                                                  |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Owner  | The account that set up the instance. Runs the admin area.                                                                                                                                                                                                        |
-| Admin  | A person the owner marked as "Can open the admin pages". They can look at Overview, Users, Storage and Jobs, but they cannot change anything. Settings and every change still need the owner. Give it only to people you trust to see everyone's names and usage. |
-| Member | A normal person. Has their own files, shares and settings.                                                                                                                                                                                                        |
+| Role   | What they can do                                                                                                                                                                                                                                   |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owner  | The account that set up the instance. Runs the admin area.                                                                                                                                                                                         |
+| Admin  | A person the owner gave **Admin access**. They can look at Overview, Users, Storage and Jobs, but they cannot change anything. Settings and every change still need the owner. Give it only to people you trust to see everyone's names and usage. |
+| Member | A normal person. Has their own files, shares and settings.                                                                                                                                                                                         |
 
 Everyone has a private space. The owner cannot read a member's files by being the owner.
 
@@ -19,9 +19,9 @@ Everyone has a private space. The owner cannot read a member's files by being th
 1. Open **Admin**, then **Users**, then press **Invite**.
 2. Type their email.
 3. Optional: set a **Storage limit**. Leave it empty for no limit.
-4. Pick a password. Either type one, or choose **Make up a password for me**.
+4. Pick a password. Either type one, or choose **Generate a password**.
 5. Optional: turn on **Ask for a new password at sign-in**, so they pick their own after the first sign-in.
-6. Optional: turn on **Can open the admin pages**.
+6. Optional: turn on **Admin access**.
 7. Press **Invite**.
 
 Staaash shows the sign-in address, the email and the password **once**. Copy it and send it to them with a way you trust. Staaash does not send email, so you must give it to them yourself.

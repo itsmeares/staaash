@@ -2,6 +2,7 @@ import type { InferResponseType } from "hono/client";
 import type { api } from "../../lib/api";
 import { version } from "../../../../package.json";
 import { folderBatchItems } from "../../src/workspace/files/folder-batch";
+import { privateViewerFiles } from "../../lib/private-viewer";
 import {
   compareListItems,
   filterWorkspaceItems,
@@ -244,11 +245,16 @@ export function viewerWindow(state: State, folderId: string, offset = 0) {
   const folder = folderOf(state, folderId);
   if (folder.ownerUserId !== user.id || isDeleted(state, folder))
     throw new PreviewError(404, "Folder not found.", "FOLDER_NOT_FOUND");
+  // Like the server's usableOnly: a file mid-mutation is neither listed nor counted.
   const all = state.files.filter(
-    (f) => f.folderId === folderId && f.viewerKind && !isDeleted(state, f),
+    (f) =>
+      f.folderId === folderId &&
+      f.viewerKind &&
+      !f.storageMutation &&
+      !isDeleted(state, f),
   );
   return {
-    files: all.slice(offset, offset + 100).map(publicFile),
+    files: privateViewerFiles(all.slice(offset, offset + 100)),
     start: offset,
     total: all.length,
   };
