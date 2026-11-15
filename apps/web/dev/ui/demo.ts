@@ -1,6 +1,6 @@
 import type { ViewerKind } from "@staaash/config/media-types";
 
-/** The public demo's drive: the Rivera family's mixed drive, not test edge cases. */
+/** The public demo's drive: Sam Rivera's mixed drive, shared with family and a friend, not test edge cases. */
 export const demoFolders = [
   {
     key: "lisbon",

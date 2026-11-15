@@ -109,10 +109,10 @@ export function createState(scenario: Scenario = "owner") {
   const users: User[] = ["owner", "admin", "member"].map((role, index) => ({
     id: role,
     email: demo
-      ? [demoAccount.email, "alex@rivera.home", "mia@rivera.home"][index]!
+      ? [demoAccount.email, "jordan@rivera.home", "mia@rivera.home"][index]!
       : `${role}@staaash.test`,
     displayName: (demo
-      ? ["Sam Rivera", "Alex Rivera", "Mia Rivera"]
+      ? ["Sam Rivera", "Jordan Park", "Mia Rivera"]
       : ["Alex Morgan", "Sam Rivera", "Mia Chen"]
     )[index]!,
     avatarUrl: null,

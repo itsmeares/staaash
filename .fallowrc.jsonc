@@ -7,6 +7,7 @@
     "apps/web/vitest.postgres.config.ts",
     "apps/web/vitest.ui.config.ts",
     "apps/web/playwright.ui.config.ts",
+    "apps/web/playwright.brand.config.ts",
     // The preview HTML loads this separate browser entry.
     "apps/web/dev/ui/controls.tsx",
     // The demo build bundles the service worker from its path.
@@ -38,6 +39,7 @@
     "packages/db/src/generated/prisma/**",
     "apps/web/e2e/**",
     "apps/web/system/**",
+    "apps/web/brand/**",
     "!.agents/**",
   ],
   "ignoreDependencies": ["@staaash/config"],
