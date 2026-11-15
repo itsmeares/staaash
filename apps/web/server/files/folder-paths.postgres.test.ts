@@ -176,19 +176,19 @@ it("treats names that differ only in case as the disk does", async () => {
     await assertStorageFilesystemSupported(getStorageRoot());
   await ensure(owner, ["Trip"]);
 
-  const existing = ensure(owner, ["trip/Day"]);
-  const planned = ensure(owner, ["New/Day", "New/day"]);
+  // Settled together: awaiting one first leaves the other's refusal
+  // unhandled while it waits.
+  const outcomes = await Promise.allSettled([
+    ensure(owner, ["trip/Day"]),
+    ensure(owner, ["New/Day", "New/day"]),
+  ]);
 
-  if (ignoresCase) {
-    await expect(existing).rejects.toMatchObject({
-      code: "FOLDER_NAME_CONFLICT",
-    });
-    await expect(planned).rejects.toMatchObject({
-      code: "FOLDER_NAME_CONFLICT",
-    });
-  } else {
-    await expect(existing).resolves.toBeDefined();
-    await expect(planned).resolves.toBeDefined();
+  for (const outcome of outcomes) {
+    expect(outcome).toMatchObject(
+      ignoresCase
+        ? { status: "rejected", reason: { code: "FOLDER_NAME_CONFLICT" } }
+        : { status: "fulfilled" },
+    );
   }
   await expect(
     db.folder.count({ where: { ownerUserId: owner.id, isFilesRoot: false } }),

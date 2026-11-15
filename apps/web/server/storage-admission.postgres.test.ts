@@ -631,7 +631,14 @@ describe("storage admission on real PostgreSQL", () => {
       callback: async () => null,
     });
     expect(Date.now() - started).toBeLessThan(1000);
-    expect(await waiting).toBeInstanceOf(StorageMutationConflictError);
+    // The path stays owned until the first change is finalized, so the wait
+    // runs to its deadline. It ends on the last attempt's answer, or on busy
+    // when no time was left for one; both tell the client to retry.
+    expect(await waiting).toMatchObject({
+      code: expect.stringMatching(
+        /^(STORAGE_MUTATION_IN_PROGRESS|STORAGE_ADMISSION_BUSY)$/,
+      ),
+    });
   }, 10000);
   it("bounds the entire transaction across multiple individually short queries", async () => {
     await expect(
