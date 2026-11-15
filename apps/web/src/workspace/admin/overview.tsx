@@ -82,7 +82,9 @@ const healthRows = ({ health }: Summary) =>
     ],
     [
       "Restore check",
-      health.reconciliation.status,
+      health.reconciliation.runStatus === null
+        ? "idle"
+        : health.reconciliation.status,
       health.reconciliation.message,
     ],
   ] as const;
