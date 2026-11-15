@@ -82,7 +82,7 @@ In Notepad, set `DB_PASSWORD` to a long mix of letters and numbers, save, and cl
 docker compose up -d
 ```
 
-Open **http://localhost:2113** and create your account.
+Open **http://localhost:2113** and create your account right away. Until you do, anyone who can reach port 2113 can take the owner account.
 
 </details>
 
@@ -90,7 +90,7 @@ Open **http://localhost:2113** and create your account.
 <summary><b>Windows, without Docker</b></summary>
 <br>
 
-Download `Staaash-Server-…-win-x64.exe` from the [latest release](https://github.com/itsmeares/staaash/releases/latest) and run it. It sets up Staaash and its database as Windows services, then opens the page to create your account. See the [Windows server guide](https://github.com/itsmeares/staaash/wiki/Windows-Server).
+Download `Staaash-Server-…-win-x64.exe` from the [latest release](https://github.com/itsmeares/staaash/releases/latest) and run it. It sets up Staaash and its database as Windows services, then opens the page to create your account. Create it right away. The installer opens port 2113 in the Windows firewall, so until you do, anyone who can reach it can take the owner account. See the [Windows server guide](https://github.com/itsmeares/staaash/wiki/Windows-Server).
 
 </details>
 
