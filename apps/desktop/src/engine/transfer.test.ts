@@ -495,6 +495,47 @@ describe("uploadFile", () => {
       expect(result).toEqual({ file: { id: "committed" }, checksum });
     });
 
+    it("stops reading for the replay when sync pauses", async () => {
+      const { dir, input } = await base(SMALL_UPLOAD_BYTES + 1);
+      try {
+        // Paused once the read is under way: the second check throws.
+        let checks = 0;
+        const pause = {
+          aborted: false,
+          throwIfAborted: () => {
+            checks += 1;
+            if (checks > 1) throw new Error("Paused.");
+          },
+        };
+        const completeUpload = vi.fn();
+        await expect(
+          uploadFile({
+            ...input,
+            api: {
+              uploadStatus: async () => {
+                throw new ApiError(404, "Upload session not found.");
+              },
+              completeUpload,
+            } as never,
+            store: {
+              pendingUpload: () => ({
+                sessionId: "old",
+                size: input.size,
+                mtimeMs: input.mtimeMs,
+                target: JSON.stringify(["folder", "notes.txt", false]),
+              }),
+            } as never,
+            replace: null,
+            signal: pause as never,
+          }),
+        ).rejects.toThrow("Paused.");
+        expect(checks).toBe(2);
+        expect(completeUpload).not.toHaveBeenCalled();
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
+
     it("sends the file again when the session never finished", async () => {
       const { api } = await resume(async (id) => {
         if (id === "old") throw new ApiError(404, "Upload session not found.");

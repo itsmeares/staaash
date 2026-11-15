@@ -533,6 +533,7 @@ const replayFinish = async (
     start: 0,
     autoClose: false,
   })) {
+    input.signal.throwIfAborted();
     hash.update(chunk as Buffer);
   }
   input.signal.throwIfAborted();
