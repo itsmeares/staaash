@@ -1,55 +1,52 @@
 <div align="center">
 
-<a href="https://itsmeares.github.io/staaash/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Banner/Staaash%20Banner-Dark.jpg"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Banner/Staaash%20Banner-Light.jpg" alt="Staaash, the drive for your homelab."></picture></a>
+<picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Logo/Staaash%20Logo-Dark.png"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Logo/Staaash%20Logo-Light.png" width="360" alt="Staaash"></picture>
 
-<h3>Your own drive, on your own box.</h3>
-
-<p>Free, open source and yours. No account with anyone, no monthly bill.</p>
+<h3>The drive for your homelab.</h3>
 
 <p>
-<a href="https://itsmeares.github.io/staaash/"><img height="52" src="https://img.shields.io/badge/Try_the_live_demo-d5ac76?style=for-the-badge" alt="Try the live demo"></a>&nbsp;
-<a href="#get-started"><img height="52" src="https://img.shields.io/badge/Install-2b2a27?style=for-the-badge" alt="Install"></a>&nbsp;
-<a href="#-desktop-app"><img height="52" src="https://img.shields.io/badge/Desktop_app-2b2a27?style=for-the-badge" alt="Desktop app"></a>
+<a href="https://itsmeares.github.io/staaash/"><img width="190" src="https://img.shields.io/badge/Try_the_live_demo-d5ac76?style=for-the-badge" alt="Try the live demo"></a>&nbsp;
+<a href="#get-started"><img width="97" src="https://img.shields.io/badge/Install-2b2a27?style=for-the-badge" alt="Install"></a>&nbsp;
+<a href="#desktop-app"><img width="139" src="https://img.shields.io/badge/Desktop_app-2b2a27?style=for-the-badge" alt="Desktop app"></a>
 </p>
 
-<sub>The demo runs in your browser. Nothing you upload leaves your computer.</sub>
+<picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Banner/Staaash%20README-Dark.webp"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Banner/Staaash%20README-Light.webp" alt="Staaash on a desktop and a phone: the Lisbon 2026 folder and its share link" width="100%"></picture>
+
+<p>Free and open source. No cloud account, no monthly bill.</p>
 
 <p>
-<a href="https://github.com/itsmeares/staaash/releases"><img height="32" src="https://img.shields.io/github/v/release/itsmeares/staaash?style=flat&label=release&labelColor=1d1a17&color=8d5d24" alt="Latest release"></a>
-<a href="https://github.com/itsmeares/staaash/blob/main/LICENSE"><img height="32" src="https://img.shields.io/github/license/itsmeares/staaash?style=flat&labelColor=1d1a17&color=4a90ff" alt="License: AGPL-3.0"></a>
-<a href="https://github.com/itsmeares/staaash/actions/workflows/ci.yml"><img height="32" src="https://img.shields.io/github/actions/workflow/status/itsmeares/staaash/ci.yml?branch=main&style=flat&label=tests&labelColor=1d1a17" alt="Tests"></a>
+<a href="https://github.com/itsmeares/staaash/releases"><img src="https://img.shields.io/github/v/release/itsmeares/staaash?style=flat-square&label=release&labelColor=1d1a17&color=8d5d24" alt="Latest release"></a>
+<a href="https://github.com/itsmeares/staaash/blob/main/LICENSE"><img src="https://img.shields.io/github/license/itsmeares/staaash?style=flat-square&labelColor=1d1a17&color=4a90ff" alt="License: AGPL-3.0"></a>
+<a href="https://github.com/itsmeares/staaash/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/itsmeares/staaash/ci.yml?branch=main&style=flat-square&label=tests&labelColor=1d1a17" alt="Tests"></a>
 </p>
 
 </div>
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/lisbon-dark.jpg"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/lisbon-light.jpg" alt="A Lisbon trip folder in Staaash with photos, a video and a packing list" width="100%"></picture>
+<!-- The phone sources say prefers-color-scheme:dark with no space on purpose. GitHub rewrites sources that match "prefers-color-scheme: dark" for people with a fixed theme, which would drop the width check. -->
 
-<table>
-<tr><td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/photo-dark.jpg"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/photo-light.jpg" alt="A photo open in the viewer" width="100%"></picture></td><td width="50%" valign="middle"><h3>Open everything in the browser</h3><p>Photos (HEIC too), videos, music, PDFs and text open right away, on a laptop or a phone. No app to install for the people you share with.</p></td></tr>
-<tr><td width="50%" valign="middle"><h3>Share a folder in two clicks</h3><p>Send a link with an end date, a password, or downloads turned off. Visitors need no account, and a photo folder opens as a gallery.</p></td><td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/share-phone-crop-dark.jpg"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/share-phone-crop-light.jpg" alt="A shared Lisbon folder on a phone" width="60%"></picture></td></tr>
-<tr><td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/search-crop-dark.jpg"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/search-crop-light.jpg" alt="Search results while typing" width="100%"></picture></td><td width="50%" valign="middle"><h3>Find anything as you type</h3><p>Search ignores capitals and accents, and matches folder names too. Type <code>tax</code> and <code>Taxes 2025.pdf</code> is there before you finish.</p></td></tr>
-<tr><td width="50%" valign="middle"><h3>Room for the whole family</h3><p>Invite people and give each one a private space and a storage limit. Even the owner can't browse someone else's files in the app.</p></td><td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/members-crop-dark.jpg"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/members-crop-light.jpg" alt="The owner's list of family members" width="100%"></picture></td></tr>
-<tr><td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/desktop-dark.jpg"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Screenshots/desktop-light.jpg" alt="The desktop app syncing a Lisbon folder" width="100%"></picture></td><td width="50%" valign="middle"><h3>Keep folders in sync</h3><p>The desktop app for Windows, macOS and Linux keeps a folder on your computer and your drive the same. Two-way, download-only or upload-only. It lives in the tray.</p></td></tr>
-</table>
+<picture><source media="(max-width: 600px) and (prefers-color-scheme:dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/open-phone-dark.webp"><source media="(max-width: 600px)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/open-phone-light.webp"><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/open-dark.webp"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/open-light.webp" alt="Open everything in the browser. Photos (HEIC too), videos, music, PDFs and text open right away, on a laptop or a phone. No app to install for the people you share with." width="100%"></picture>
+
+<picture><source media="(max-width: 600px) and (prefers-color-scheme:dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/share-phone-dark.webp"><source media="(max-width: 600px)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/share-phone-light.webp"><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/share-dark.webp"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/share-light.webp" alt="Share a folder in two clicks. Send a link with an end date, a password, or downloads turned off. Visitors need no account, and a photo folder opens as a gallery." width="100%"></picture>
+
+<picture><source media="(max-width: 600px) and (prefers-color-scheme:dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/people-phone-dark.webp"><source media="(max-width: 600px)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/people-phone-light.webp"><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/people-dark.webp"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/people-light.webp" alt="One drive, room for everyone. Invite family, friends or your whole group. Each person gets a private space and a storage limit. Even the owner can't browse someone else's files in the app." width="100%"></picture>
+
+<picture><source media="(max-width: 600px) and (prefers-color-scheme:dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/sync-phone-dark.webp"><source media="(max-width: 600px)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/sync-phone-light.webp"><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/sync-dark.webp"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/sync-light.webp" alt="Keep folders in sync. The desktop app for Windows, macOS and Linux keeps a folder on your computer and your drive the same. Two-way, download-only or upload-only. It lives in the tray." width="100%"></picture>
+
+<br>
 
 ## Built not to lose your files
 
-<table>
-<tr>
-<td width="33%" align="center"><h3>🔌</h3><b>Pull the plug</b><br>A move or upload never ends half done.</td>
-<td width="33%" align="center"><h3>📂</h3><b>Plain folders</b><br>Your files are normal files. Copy them and go.</td>
-<td width="33%" align="center"><h3>📦</h3><b>One box</b><br>The app, a worker and PostgreSQL. That's all.</td>
-</tr>
-</table>
+<picture><source media="(max-width: 600px) and (prefers-color-scheme:dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/promises-phone-dark.webp"><source media="(max-width: 600px)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/promises-phone-light.webp"><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/promises-dark.webp"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Features/promises-light.webp" alt="Pull the plug. A move or upload never ends half done. Plain folders. Your files are normal files. Copy them and go. One box. The app, a worker and PostgreSQL. That's all." width="100%"></picture>
 
-<sub>Staaash is a drive, not a backup. Keep a separate copy of what matters.</sub>
+> [!NOTE]
+> These keep a crash or a move from breaking your files. A dead disk still can. Staaash is a drive, not a backup, so keep a copy somewhere else.
 
 ## Get started
 
 Pick your system. Each one takes a few minutes.
 
 <details>
-<summary><b>🐧 Linux or macOS, with Docker</b></summary>
+<summary><b>Linux or macOS, with Docker</b></summary>
 <br>
 
 Paste this. It downloads two files, makes a random database password, and starts Staaash.
@@ -67,7 +64,7 @@ Open **http://localhost:2113** and create your account right away. Until you do,
 </details>
 
 <details>
-<summary><b>🪟 Windows, with Docker Desktop</b></summary>
+<summary><b>Windows, with Docker Desktop</b></summary>
 <br>
 
 In PowerShell:
@@ -90,14 +87,15 @@ Open **http://localhost:2113** and create your account.
 </details>
 
 <details>
-<summary><b>🪟 Windows, without Docker</b></summary>
+<summary><b>Windows, without Docker</b></summary>
 <br>
 
 Download `Staaash-Server-…-win-x64.exe` from the [latest release](https://github.com/itsmeares/staaash/releases/latest) and run it. It sets up Staaash and its database as Windows services, then opens the page to create your account. See the [Windows server guide](https://github.com/itsmeares/staaash/wiki/Windows-Server).
 
 </details>
 
-### 💻 Desktop app
+
+### Desktop app
 
 Keeps folders on your computer in sync with your drive. Needs a Staaash 2.0 server.
 
@@ -109,32 +107,23 @@ Keeps folders on your computer in sync with your drive. Needs a Staaash 2.0 serv
 
 Want to reach your drive from outside the house? [Add HTTPS with your own domain](https://github.com/itsmeares/staaash/wiki/Reverse-Proxy).
 
+
 ## Guides
 
-<table>
-<tr>
-<td width="33%" valign="top">🚀 <a href="https://github.com/itsmeares/staaash/wiki/Installation"><b>Installation</b></a><br>From nothing to your own drive, step by step.</td>
-<td width="33%" valign="top">🔄 <a href="https://github.com/itsmeares/staaash/wiki/Updating"><b>Updating</b></a><br>Move to a new version without losing a thing.</td>
-<td width="33%" valign="top">💾 <a href="https://github.com/itsmeares/staaash/wiki/Backup-and-Restore"><b>Backup and restore</b></a><br>Protect your files and practice getting them back.</td>
-</tr>
-<tr>
-<td width="33%" valign="top">📁 <a href="https://github.com/itsmeares/staaash/wiki/Using-the-Drive"><b>Using the drive</b></a><br>Upload, find, preview and get things back.</td>
-<td width="33%" valign="top">👪 <a href="https://github.com/itsmeares/staaash/wiki/User-Management"><b>Family and friends</b></a><br>Invite people and give each one a storage limit.</td>
-<td width="33%" valign="top">❓ <a href="https://github.com/itsmeares/staaash/wiki/FAQ"><b>FAQ</b></a><br>Quick answers to the questions people ask first.</td>
-</tr>
-</table>
+- 🚀 **[Installation](https://github.com/itsmeares/staaash/wiki/Installation)**. From nothing to your own drive, step by step.
+- 🔄 **[Updating](https://github.com/itsmeares/staaash/wiki/Updating)**. Move to a new version without losing a thing.
+- 💾 **[Backup and restore](https://github.com/itsmeares/staaash/wiki/Backup-and-Restore)**. Protect your files and practice getting them back.
+- 📁 **[Using the drive](https://github.com/itsmeares/staaash/wiki/Using-the-Drive)**. Upload, find, preview and get things back.
+- 👪 **[Family and friends](https://github.com/itsmeares/staaash/wiki/User-Management)**. Invite people and give each one a storage limit.
+- ❓ **[FAQ](https://github.com/itsmeares/staaash/wiki/FAQ)**. Quick answers to the questions people ask first.
 
-<p align="center"><a href="https://github.com/itsmeares/staaash/wiki">All guides →</a></p>
+[All guides →](https://github.com/itsmeares/staaash/wiki)
 
 ## Community
 
-<table>
-<tr>
-<td width="33%" valign="top">💬 <a href="https://github.com/itsmeares/staaash/discussions"><b>Discussions</b></a><br>Ask a question, share an idea or show your setup.</td>
-<td width="33%" valign="top">🐞 <a href="https://github.com/itsmeares/staaash/issues/new/choose"><b>Issues</b></a><br>Report a bug or ask for a feature.</td>
-<td width="33%" valign="top">🔒 <a href="https://github.com/itsmeares/staaash/blob/main/.github/SECURITY.md"><b>Security</b></a><br>Found a security problem? Tell us privately.</td>
-</tr>
-</table>
+- 💬 **[Discussions](https://github.com/itsmeares/staaash/discussions)**. Ask a question, share an idea or show your setup.
+- 🐞 **[Issues](https://github.com/itsmeares/staaash/issues/new/choose)**. Report a bug or ask for a feature.
+- 🔒 **[Security](https://github.com/itsmeares/staaash/blob/main/.github/SECURITY.md)**. Found a security problem? Tell us privately.
 
 Want to help build it? Start with [CONTRIBUTING.md](https://github.com/itsmeares/staaash/blob/main/.github/CONTRIBUTING.md). Writing about Staaash? Use the [brand kit](https://github.com/itsmeares/staaash/blob/main/design/README.md).
 
