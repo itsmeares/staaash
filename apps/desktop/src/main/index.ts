@@ -590,6 +590,7 @@ const registerIpc = () => {
   handle("open-staaash", openStaaash);
   handle("open-folder", openFolder);
   handle("open-sync-log", openSyncLog);
+  handle("sync-now", () => send({ type: "sync-now" }));
   handle(
     "resolve-conflict",
     (id: number, choice: "keep-server" | "keep-mine") =>

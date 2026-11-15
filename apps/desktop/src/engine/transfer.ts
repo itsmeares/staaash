@@ -241,7 +241,7 @@ export const moveIntoPlace = async (temp: string, target: string) => {
  * The upload session for this file: the saved one when it still fits, or a
  * new one the store remembers across restarts.
  */
-const sessionFor = async (input: UploadInput) => {
+const sessionFor = async (input: UploadInput, handle: FileHandle) => {
   const { api, store } = input;
   // A session commits to the folder, name and replace choice it was started
   // with, so it is only reused for exactly that.
@@ -268,10 +268,15 @@ const sessionFor = async (input: UploadInput) => {
   let session: Awaited<ReturnType<Api["startUpload"]>> | null = null;
   if (pending) {
     try {
-      session = await api.uploadStatus(pending.sessionId);
+      session = await api.uploadStatus(pending.sessionId, input.signal);
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 404) throw error;
+      // The server lists only open sessions, so this one may have committed
+      // with its answer lost. Asking again replays that commit instead of
+      // sending the file, or a conflict copy, a second time.
+      const finished = await replayFinish(input, pending.sessionId, handle);
       store.deleteUpload(input.pairId, input.rel);
+      if (finished) return finished;
     }
   }
   if (!session) {
@@ -342,7 +347,8 @@ const sendOpened = async (
   completed: (bytes: number) => void,
 ) => {
   const { api, store } = input;
-  const session = await sessionFor(input);
+  const session = await sessionFor(input, handle);
+  if ("file" in session) return session;
   const chunkSize = session.chunkSizeBytes ?? input.size;
   const done = new Set(session.completedChunks.map((chunk) => chunk.startByte));
   input.onBytes(session.receivedBytes);
@@ -381,6 +387,7 @@ const sendOpened = async (
           buffer,
           input.size,
           progress(input, completed),
+          signal,
         )
         .then(() => input.onBytes(length))
         .catch(fail)
@@ -512,6 +519,37 @@ export const uploadFile = async (input: UploadInput) => {
       : await sendFile(input, upload.completed);
   } finally {
     upload.finish();
+  }
+};
+
+/** The committed file of a finished session, or null when it never finished. */
+const replayFinish = async (
+  input: UploadInput,
+  id: string,
+  handle: FileHandle,
+) => {
+  const hash = createHash("sha256");
+  for await (const chunk of handle.createReadStream({
+    start: 0,
+    autoClose: false,
+  })) {
+    input.signal.throwIfAborted();
+    hash.update(chunk as Buffer);
+  }
+  input.signal.throwIfAborted();
+  const checksum = hash.digest("hex");
+  try {
+    const file = (await input.api.completeUpload(
+      id,
+      checksum,
+      input.replace,
+    )) as unknown as UploadedFile;
+    return { file, checksum };
+  } catch (error) {
+    // Expired, cancelled, or another file's bytes: send it again.
+    if (error instanceof ApiError && [400, 404].includes(error.status))
+      return null;
+    throw error;
   }
 };
 
