@@ -435,11 +435,15 @@ it("preserves a local edit made while a download was running", async () => {
     ...r.ctx,
     current: () => running,
     activity: (update) => {
-      if (update.state === "failed") running = false;
+      if (update.state !== "active") running = false;
       r.activity.push({ ...update });
     },
   });
   expect(r.ctx.resolved).not.toHaveBeenCalled();
+  expect(r.activity.at(-1)).toMatchObject({
+    state: "waiting",
+    reason: "Changed on this computer. Sync looks again.",
+  });
   expect(await readFile(path.join(r.directory, "a.txt"), "utf8")).toBe(
     "local edit",
   );

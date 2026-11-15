@@ -123,6 +123,10 @@ const changed: Outcome = {
   state: "waiting",
   reason: "Changed on the server. Sync looks again.",
 };
+const changedHere: Outcome = {
+  state: "waiting",
+  reason: "Changed on this computer. Sync looks again.",
+};
 const paused: Outcome = {
   state: "waiting",
   reason: "Paused. Starts again when you resume.",
@@ -344,13 +348,14 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
   };
 
   type Of<K extends Action["kind"]> = Extract<Action, { kind: K }>;
+  /** `true` clears the file's issues; an outcome ends its row with a reason. */
   type Handler<K extends Action["kind"]> = (
     action: Of<K>,
     rel: string,
     full: string,
     /** For an upload: its bytes are sent, so another transfer may start. */
     sent: () => void,
-  ) => Promise<true | void>;
+  ) => Promise<true | Outcome | void>;
   // One handler per action, each with its own checks before it touches a file.
   const handlers: { [K in Action["kind"]]: Handler<K> } = {
     "move-local": async (action, rel, full) => {
@@ -515,11 +520,11 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       const now = await statLocal(pair.localPath, rel);
       if (action.expect ? !now || !sameStat(now, action.expect) : now) {
         await rm(temp, { force: true });
-        return;
+        return changedHere;
       }
       await moveIntoPlace(temp, full);
       const written = await statLocal(pair.localPath, rel);
-      if (!written) return;
+      if (!written) return changedHere;
       putBase(rel, written, remote, checksum);
       finish();
     },
@@ -671,16 +676,14 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     let ended: Outcome = { state: "failed" };
     try {
       const handler = handlers[action.kind] as Handler<Action["kind"]>;
-      if (
-        await handler(
-          action as never,
-          rel,
-          localPath(pair.localPath, rel),
-          sent,
-        )
-      ) {
-        resolved(rel);
-      }
+      const result = await handler(
+        action as never,
+        rel,
+        localPath(pair.localPath, rel),
+        sent,
+      );
+      if (result === true) resolved(rel);
+      else if (result) ended = result;
     } catch (error) {
       // A pause ends running transfers; they start again on resume.
       if (ctx.signal.aborted) ended = paused;

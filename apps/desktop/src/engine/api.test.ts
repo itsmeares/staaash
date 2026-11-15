@@ -95,7 +95,14 @@ it("stops a chunk's retry wait when sync pauses", async () => {
   try {
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("No port");
-    const api = createApi(`http://127.0.0.1:${address.port}`, "fake-token");
+    let retrying!: () => void;
+    const waiting = new Promise<void>((resolve) => (retrying = resolve));
+    const api = createApi(
+      `http://127.0.0.1:${address.port}`,
+      "fake-token",
+      undefined,
+      () => retrying(),
+    );
     const pause = new AbortController();
     const body = Buffer.alloc(16, 1);
     const sending = api.uploadChunk(
@@ -106,7 +113,8 @@ it("stops a chunk's retry wait when sync pauses", async () => {
       () => {},
       pause.signal,
     );
-    while (requests === 0) await new Promise((r) => setTimeout(r, 10));
+    // The retry note comes just before the wait, so the pause lands in it.
+    await waiting;
     pause.abort();
     await expect(sending).rejects.toThrow();
     expect(requests).toBe(1);

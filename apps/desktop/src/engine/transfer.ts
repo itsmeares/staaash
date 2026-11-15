@@ -261,27 +261,30 @@ const sessionFor = async (input: UploadInput) => {
       pending.target !== target)
   ) {
     // The file or the upload changed since: the staged bytes are useless.
-    await api.cancelUpload(pending.sessionId).catch(() => {});
+    await api.cancelUpload(pending.sessionId, input.signal).catch(() => {});
     store.deleteUpload(input.pairId, input.rel);
     pending = null;
   }
   let session: Awaited<ReturnType<Api["startUpload"]>> | null = null;
   if (pending) {
     try {
-      session = await api.uploadStatus(pending.sessionId);
+      session = await api.uploadStatus(pending.sessionId, input.signal);
     } catch (error) {
       if (!(error instanceof ApiError) || error.status !== 404) throw error;
       store.deleteUpload(input.pairId, input.rel);
     }
   }
   if (!session) {
-    session = await api.startUpload({
-      folderId: input.folderId,
-      name: input.name,
-      size: input.size,
-      modifiedAt: input.mtimeMs,
-      replace: input.replace !== null,
-    });
+    session = await api.startUpload(
+      {
+        folderId: input.folderId,
+        name: input.name,
+        size: input.size,
+        modifiedAt: input.mtimeMs,
+        replace: input.replace !== null,
+      },
+      input.signal,
+    );
     store.putUpload({
       pairId: input.pairId,
       rel: input.rel,
@@ -405,6 +408,7 @@ const sendOpened = async (
     session.id,
     checksum,
     input.replace,
+    signal,
   )) as unknown as UploadedFile;
   store.deleteUpload(input.pairId, input.rel);
   return { file, checksum };
@@ -465,7 +469,7 @@ const sendSmall = async (
   // Left by an older app, or from before the file shrank.
   const pending = store.pendingUpload(input.pairId, input.rel);
   if (pending) {
-    await api.cancelUpload(pending.sessionId).catch(() => {});
+    await api.cancelUpload(pending.sessionId, input.signal).catch(() => {});
     store.deleteUpload(input.pairId, input.rel);
   }
   const handle = await openScanned(input);
@@ -499,6 +503,7 @@ const sendSmall = async (
       sent(bytes, Math.min(offset, body.length));
       show(Math.min(offset, body.length));
     },
+    input.signal,
   );
   show(body.length);
   return { file: file as unknown as UploadedFile, checksum };

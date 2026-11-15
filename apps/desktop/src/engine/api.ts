@@ -257,13 +257,16 @@ export const createApi = (
           write(),
         ),
       ),
-    startUpload: (input: {
-      folderId: string;
-      name: string;
-      size: number;
-      modifiedAt: number;
-      replace: boolean;
-    }) =>
+    startUpload: (
+      input: {
+        folderId: string;
+        name: string;
+        size: number;
+        modifiedAt: number;
+        replace: boolean;
+      },
+      signal?: AbortSignal,
+    ) =>
       read(
         client.api.uploads.sessions.$post(
           {
@@ -276,13 +279,23 @@ export const createApi = (
               clientModifiedAt: new Date(input.modifiedAt).toISOString(),
             },
           },
-          write(),
+          { ...write(), init: { signal } },
         ),
       ),
-    uploadStatus: (id: string) =>
-      read(client.api.uploads.sessions[":id"].$get({ param: { id } })),
-    cancelUpload: (id: string) =>
-      read(client.api.uploads.sessions[":id"].$delete({ param: { id } })),
+    uploadStatus: (id: string, signal?: AbortSignal) =>
+      read(
+        client.api.uploads.sessions[":id"].$get(
+          { param: { id } },
+          { init: { signal } },
+        ),
+      ),
+    cancelUpload: (id: string, signal?: AbortSignal) =>
+      read(
+        client.api.uploads.sessions[":id"].$delete(
+          { param: { id } },
+          { init: { signal } },
+        ),
+      ),
     /** `end` is inclusive, as in Content-Range. */
     uploadChunk: async (
       id: string,
@@ -326,6 +339,7 @@ export const createApi = (
       },
       body: Buffer,
       onBytes: (bytes: number, offset: number) => void,
+      signal?: AbortSignal,
     ) => {
       const manifest = JSON.stringify([
         {
@@ -360,6 +374,7 @@ export const createApi = (
         "/api/files/files",
         {
           method: "POST",
+          signal,
           headers: {
             "content-type": `multipart/form-data; boundary=${boundary}`,
             "content-length": String(
@@ -379,6 +394,7 @@ export const createApi = (
       id: string,
       checksum: string,
       replace: { id: string; rev: number } | null,
+      signal?: AbortSignal,
     ) =>
       read(
         client.api.uploads.sessions[":id"].complete.$post(
@@ -389,7 +405,7 @@ export const createApi = (
               ...(replace && { ifRevision: replace.rev, ifFileId: replace.id }),
             },
           },
-          write(),
+          { ...write(), init: { signal } },
         ),
       ),
     download: async (fileId: string, signal?: AbortSignal) => {

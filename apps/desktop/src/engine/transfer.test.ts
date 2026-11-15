@@ -112,6 +112,7 @@ it("excludes resumed bytes and repeated retry bytes from remaining upload work",
       "session",
       sha256(Buffer.alloc(size)),
       null,
+      expect.any(AbortSignal),
     );
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -302,9 +303,10 @@ describe("uploadFile", () => {
         },
         Buffer.alloc(5, 7),
         expect.any(Function),
+        input.signal,
       );
       expect(shown.mock.calls).toEqual([[3], [2]]);
-      expect(cancelUpload).toHaveBeenCalledWith("old");
+      expect(cancelUpload).toHaveBeenCalledWith("old", input.signal);
       expect(deleteUpload).toHaveBeenCalledWith("pair", "notes.txt");
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -594,6 +596,7 @@ describe("uploadFile", () => {
         "session",
         checksum,
         null,
+        expect.any(AbortSignal),
       );
       expect(result).toEqual({ file: { id: "remote" }, checksum });
     } finally {
