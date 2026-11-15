@@ -52,7 +52,7 @@ const MiB = 1024 * 1024;
  * so with a limit set, chunks of about two seconds at that limit keep every
  * burst short. Each request still ends fast, well inside server timeouts.
  */
-export const chunkSizeFor = (limitKBps: number | null) =>
+const chunkSizeFor = (limitKBps: number | null) =>
   limitKBps
     ? Math.min(32 * MiB, Math.max(MiB, Math.round(limitKBps * 1024 * 2)))
     : undefined;
