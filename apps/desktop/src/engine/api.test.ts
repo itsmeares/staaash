@@ -181,3 +181,90 @@ it("sends a small file as a multipart body the server can parse", async () => {
     );
   }
 });
+
+it("follows a large folder change the server runs in the background", async () => {
+  const seen: { method?: string; url?: string; prefer?: string }[] = [];
+  let polls = 0;
+  const folder = { id: "folder", name: "Renamed", storageRevision: 2 };
+  const server = createServer(async (request, response) => {
+    for await (const _ of request);
+    seen.push({
+      method: request.method,
+      url: request.url,
+      prefer: String(request.headers.prefer),
+    });
+    response.setHeader("content-type", "application/json");
+    if (request.method === "POST") {
+      response.writeHead(202);
+      response.end(JSON.stringify({ operationId: "op", status: "queued" }));
+      return;
+    }
+    polls += 1;
+    response.end(
+      JSON.stringify(
+        polls === 1
+          ? { operationId: "op", status: "running" }
+          : { operationId: "op", status: "succeeded", response: { folder } },
+      ),
+    );
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  try {
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("No port");
+    const api = createApi(`http://127.0.0.1:${address.port}`, "fake-token");
+    await expect(api.renameFolder("folder", 1, "Renamed")).resolves.toEqual({
+      folder,
+    });
+    expect(seen[0]).toMatchObject({ method: "POST", prefer: "respond-async" });
+    expect(seen.slice(1).map((each) => each.url)).toEqual([
+      "/api/files/folders/operations/op",
+      "/api/files/folders/operations/op",
+    ]);
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
+
+it("reports a background folder change that failed as the server's error", async () => {
+  const server = createServer(async (request, response) => {
+    for await (const _ of request);
+    response.setHeader("content-type", "application/json");
+    response.writeHead(request.method === "POST" ? 202 : 200);
+    response.end(
+      JSON.stringify(
+        request.method === "POST"
+          ? { operationId: "op", status: "queued" }
+          : {
+              operationId: "op",
+              status: "failed",
+              error: {
+                status: 409,
+                code: "REVISION_MISMATCH",
+                message: "The folder changed meanwhile.",
+              },
+            },
+      ),
+    );
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  try {
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("No port");
+    const api = createApi(`http://127.0.0.1:${address.port}`, "fake-token");
+    await expect(api.trashFolder("folder", 1)).rejects.toMatchObject({
+      constructor: ApiError,
+      status: 409,
+      code: "REVISION_MISMATCH",
+      message: "The folder changed meanwhile.",
+    });
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});

@@ -3,6 +3,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { hc, type ClientResponse } from "hono/client";
 
 import { ApiError, read } from "@/lib/api";
+import type { FolderOperationResponse } from "@/server/files/types";
 import type { AppType } from "@/server/http/app";
 
 export { ApiError };
@@ -12,6 +13,7 @@ export class SignedOutError extends Error {}
 
 const RETRIES = 5;
 const SLOW_CHUNK_MS = 8000;
+const FOLLOW_OPERATION_MS = 1000;
 
 type Note = (stage: string, detail: unknown) => void;
 
@@ -168,14 +170,38 @@ export const createApi = (
     );
   };
 
-  // The desktop never sends `Prefer: respond-async`, so the server finishes
-  // every folder change inside the request.
+  // A large folder changes in the background and answers with an operation
+  // to follow. Inside one request the change held it open for as long as it
+  // ran, and proxies cut such requests off while the server carried on.
+  const inBackground = () => ({
+    headers: { ...write().headers, prefer: "respond-async" },
+  });
   const finishedFolder = async <T extends object>(pending: Promise<T>) => {
-    const result = await pending;
-    if (!("folder" in result)) {
-      throw new Error("The server moved a folder change to the background.");
+    let answer: object = await pending;
+    while (!("folder" in answer)) {
+      const operation = answer as FolderOperationResponse;
+      if (operation.status === "succeeded" && operation.response) {
+        answer = operation.response;
+        break;
+      }
+      if (
+        operation.status === "failed" ||
+        operation.status === "recovery_required"
+      ) {
+        throw new ApiError(
+          operation.error?.status ?? 503,
+          operation.error?.message ?? "The folder change did not finish.",
+          operation.error?.code,
+        );
+      }
+      await sleep(FOLLOW_OPERATION_MS, undefined, { signal });
+      answer = await read(
+        client.api.files.folders.operations[":operationId"].$get({
+          param: { operationId: operation.operationId },
+        }),
+      );
     }
-    return result as Extract<T, { folder: unknown }>;
+    return answer as Extract<T, { folder: unknown }>;
   };
 
   return {
@@ -224,7 +250,7 @@ export const createApi = (
               query: revision(ifRevision),
               json: { destinationFolderId },
             },
-            write(),
+            inBackground(),
           ),
         ),
       ),
@@ -237,7 +263,7 @@ export const createApi = (
               query: revision(ifRevision),
               json: { name },
             },
-            write(),
+            inBackground(),
           ),
         ),
       ),
@@ -246,7 +272,7 @@ export const createApi = (
         read(
           client.api.files.folders[":folderId"].trash.$post(
             { param: { folderId }, query: revision(ifRevision) },
-            write(),
+            inBackground(),
           ),
         ),
       ),
