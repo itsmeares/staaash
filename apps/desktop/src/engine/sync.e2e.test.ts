@@ -22,6 +22,7 @@ import {
   describe,
   expect,
   it,
+  vi,
 } from "vite-plus/test";
 
 import type { EngineConfig, EngineEvent, SyncMode } from "../shared/types";
@@ -572,6 +573,44 @@ describe.skipIf(!origin)("sync against a real server", () => {
     expect(await readFile(r.at("new/two.txt"), "utf8")).toBe("2");
     expect((await readdir(r.trash)).length).toBe(0);
   });
+
+  it(
+    "renames a folder too big for one request through the server's background change",
+    { timeout: 240_000 },
+    async () => {
+      const r = await rig();
+      // Over the 2,000 items the server changes in the background.
+      for (let index = 0; index < 2_001; index += 1) {
+        await writeOld(r.at(`big/f${index}.txt`), String(index));
+      }
+      await r.sync();
+      const before = await r.remote();
+      expect(before.size).toBe(2_002);
+      await rename(r.at("big"), r.at("renamed"));
+      const calls = vi.spyOn(globalThis, "fetch");
+      try {
+        await r.sync();
+        // Followed as an operation, not held open in the rename request.
+        expect(
+          calls.mock.calls.some(([url]) =>
+            (url instanceof Request ? url.url : url.toString()).includes(
+              "/api/files/folders/operations/",
+            ),
+          ),
+        ).toBe(true);
+      } finally {
+        calls.mockRestore();
+      }
+      const remote = await r.remote();
+      // One folder rename on the server, not 2,001 file moves.
+      expect(remote.get("renamed")?.id).toBe(before.get("big")?.id);
+      expect(remote.has("big")).toBe(false);
+      expect(remote.get("renamed/f2000.txt")?.contentChecksum).toBe(
+        sha("2000"),
+      );
+      expect(r.engine.status().issues).toEqual([]);
+    },
+  );
 
   it("upload-only keeps the server copy of a file deleted here", async () => {
     const r = await rig("upload");
