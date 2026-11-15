@@ -381,6 +381,7 @@ const sendOpened = async (
           buffer,
           input.size,
           progress(input, completed),
+          signal,
         )
         .then(() => input.onBytes(length))
         .catch(fail)

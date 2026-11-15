@@ -82,6 +82,41 @@ it("replays the complete upload body after a retry, reports bytes sent and notes
   }
 });
 
+it("stops a chunk's retry wait when sync pauses", async () => {
+  let requests = 0;
+  const server = createServer(async (request, response) => {
+    for await (const _ of request);
+    requests += 1;
+    response.writeHead(503, { "retry-after": "60" });
+    response.end();
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  try {
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("No port");
+    const api = createApi(`http://127.0.0.1:${address.port}`, "fake-token");
+    const pause = new AbortController();
+    const body = Buffer.alloc(16, 1);
+    const sending = api.uploadChunk(
+      "fake",
+      0,
+      body,
+      body.length,
+      () => {},
+      pause.signal,
+    );
+    while (requests === 0) await new Promise((r) => setTimeout(r, 10));
+    pause.abort();
+    await expect(sending).rejects.toThrow();
+    expect(requests).toBe(1);
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
+
 it("sends a small file as a multipart body the server can parse", async () => {
   let form: FormData | null = null;
   let length = "";

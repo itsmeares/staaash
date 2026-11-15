@@ -290,12 +290,14 @@ export const createApi = (
       body: Buffer,
       total: number,
       onBytes: (bytes: number, offset: number) => void,
+      stop?: AbortSignal,
     ) => {
       const started = Date.now();
       const response = await raw(
         `/api/uploads/sessions/${id}`,
         {
           method: "PATCH",
+          signal: stop,
           headers: {
             "content-type": "application/octet-stream",
             "content-length": String(body.length),
