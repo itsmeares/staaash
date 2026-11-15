@@ -109,8 +109,6 @@ Keeps folders on your computer in sync with your drive. Needs a Staaash 2.0 serv
 
 Want to reach your drive from outside the house? [Add HTTPS with your own domain](https://github.com/itsmeares/staaash/wiki/Reverse-Proxy).
 
-<sub>2.0 is in release candidates until 2.0.0 is out. To try it now, use the <a href="https://github.com/itsmeares/staaash/releases">newest release candidate</a>.</sub>
-
 ## Guides
 
 <table>

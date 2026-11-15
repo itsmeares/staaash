@@ -8,7 +8,7 @@ Staaash 2.0 adds a desktop app that syncs folders, a new design for every screen
 
 ### ⚠️ Upgrade notes
 
-- Back up your database and files together before upgrading. This release runs 18 database migrations, and four of them remove columns or tables. Going back to 1.x means restoring that backup.
+- Back up your database and files together before upgrading. This release runs 19 database migrations, and four of them remove columns or tables. Going back to 1.x means restoring that backup.
 - `docker-compose.yml` changed. Download it from this release and replace your old one. Keep your own `.env` and set `STAAASH_VERSION` in it to this release. With the old version left there, the new file starts the old server and it does not come up. Migrations now run in their own `migrate` service before the server and worker start.
 - Another member's private file, folder, zip or share now answers 404 instead of 403.
 - `/api/auth/session` no longer returns `deviceSessionId`.
@@ -28,6 +28,7 @@ Staaash 2.0 adds a desktop app that syncs folders, a new design for every screen
 - Folder links show photos as a gallery.
 - Sign out your other devices from Settings.
 - Empty a large trash in the background, and change folders with thousands of items reliably.
+- Big files upload in 32 MB pieces and are read once instead of twice when they finish.
 - The owner can turn thumbnails and smaller video copies on and off separately.
 
 ### 🔒 Security
