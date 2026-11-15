@@ -261,7 +261,7 @@ const sessionFor = async (input: UploadInput) => {
       pending.target !== target)
   ) {
     // The file or the upload changed since: the staged bytes are useless.
-    await api.cancelUpload(pending.sessionId, input.signal).catch(() => {});
+    await api.cancelUpload(pending.sessionId).catch(() => {});
     store.deleteUpload(input.pairId, input.rel);
     pending = null;
   }
@@ -275,16 +275,13 @@ const sessionFor = async (input: UploadInput) => {
     }
   }
   if (!session) {
-    session = await api.startUpload(
-      {
-        folderId: input.folderId,
-        name: input.name,
-        size: input.size,
-        modifiedAt: input.mtimeMs,
-        replace: input.replace !== null,
-      },
-      input.signal,
-    );
+    session = await api.startUpload({
+      folderId: input.folderId,
+      name: input.name,
+      size: input.size,
+      modifiedAt: input.mtimeMs,
+      replace: input.replace !== null,
+    });
     store.putUpload({
       pairId: input.pairId,
       rel: input.rel,
@@ -408,7 +405,6 @@ const sendOpened = async (
     session.id,
     checksum,
     input.replace,
-    signal,
   )) as unknown as UploadedFile;
   store.deleteUpload(input.pairId, input.rel);
   return { file, checksum };
@@ -469,7 +465,7 @@ const sendSmall = async (
   // Left by an older app, or from before the file shrank.
   const pending = store.pendingUpload(input.pairId, input.rel);
   if (pending) {
-    await api.cancelUpload(pending.sessionId, input.signal).catch(() => {});
+    await api.cancelUpload(pending.sessionId).catch(() => {});
     store.deleteUpload(input.pairId, input.rel);
   }
   const handle = await openScanned(input);
@@ -503,7 +499,6 @@ const sendSmall = async (
       sent(bytes, Math.min(offset, body.length));
       show(Math.min(offset, body.length));
     },
-    input.signal,
   );
   show(body.length);
   return { file: file as unknown as UploadedFile, checksum };
