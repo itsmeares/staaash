@@ -12,6 +12,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 
+import { ApiError } from "./api";
 import { statLocal, UNKNOWN_INO } from "./local";
 import {
   pool,
@@ -440,6 +441,73 @@ describe("uploadFile", () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+
+  describe("a saved session the server no longer lists", () => {
+    const resume = async (completeUpload: (id: string) => Promise<unknown>) => {
+      const { dir, input } = await base(SMALL_UPLOAD_BYTES + 1);
+      const api = {
+        uploadStatus: async () => {
+          throw new ApiError(404, "Upload session not found.");
+        },
+        completeUpload: vi.fn(completeUpload),
+        startUpload: vi.fn(async () => ({
+          id: "fresh",
+          chunkSizeBytes: input.size,
+          completedChunks: [],
+          receivedBytes: 0,
+        })),
+        uploadChunk: vi.fn(async () => {}),
+      };
+      const deleteUpload = vi.fn();
+      const store = {
+        pendingUpload: () => ({
+          sessionId: "old",
+          size: input.size,
+          mtimeMs: input.mtimeMs,
+          target: JSON.stringify(["folder", "notes.txt", false]),
+        }),
+        deleteUpload,
+        putUpload: () => {},
+      };
+      try {
+        const result = await uploadFile({
+          ...input,
+          api: api as never,
+          store: store as never,
+          replace: null,
+        });
+        return { api, deleteUpload, result, input };
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    };
+
+    it("takes the commit the server replays, without sending the file again", async () => {
+      const { api, deleteUpload, result, input } = await resume(async () => ({
+        id: "committed",
+      }));
+      const checksum = sha256(Buffer.alloc(input.size, 7));
+      expect(api.completeUpload).toHaveBeenCalledWith("old", checksum, null);
+      expect(api.startUpload).not.toHaveBeenCalled();
+      expect(api.uploadChunk).not.toHaveBeenCalled();
+      expect(deleteUpload).toHaveBeenCalled();
+      expect(result).toEqual({ file: { id: "committed" }, checksum });
+    });
+
+    it("sends the file again when the session never finished", async () => {
+      const { api } = await resume(async (id) => {
+        if (id === "old") throw new ApiError(404, "Upload session not found.");
+        return { id: "committed" };
+      });
+      expect(api.startUpload).toHaveBeenCalled();
+      expect(api.uploadChunk).toHaveBeenCalled();
+      expect(api.completeUpload).toHaveBeenLastCalledWith(
+        "fresh",
+        expect.any(String),
+        null,
+      );
+    });
   });
 
   it("leaves a sent upload unfinished when sync stops during its last chunk", async () => {
