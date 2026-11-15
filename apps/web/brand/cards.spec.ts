@@ -77,7 +77,9 @@ const features: Feature[] = [
       await app.getByRole("button", { name: "Invite" }).click();
       await app.getByPlaceholder("name@example.com").fill("lena@rivera.home");
       await app.getByPlaceholder("No limit").fill("50");
-      await app.locator("body").evaluate(() => (document.activeElement as HTMLElement).blur());
+      await app
+        .locator("body")
+        .evaluate(() => (document.activeElement as HTMLElement).blur());
     },
   },
   {
@@ -196,9 +198,13 @@ async function shoot(
   await tab.mouse.move(0, 0);
   await tab.waitForTimeout(800);
   const height =
-    built.h || (await tab.evaluate(() => document.body.getBoundingClientRect().height));
+    built.h ||
+    (await tab.evaluate(() => document.body.getBoundingClientRect().height));
   saveWebp(
-    await tab.screenshot({ clip: { x: 0, y: 0, width: built.w, height }, omitBackground: true }),
+    await tab.screenshot({
+      clip: { x: 0, y: 0, width: built.w, height },
+      omitBackground: true,
+    }),
     `../../design/Features/${name}-${t}.webp`,
   );
 }

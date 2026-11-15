@@ -1,7 +1,10 @@
 type Theme = "dark" | "light";
 
 // The app's --background, so the status bar runs into the page under it.
-const screen = { dark: "oklch(0.135 0.003 70)", light: "oklch(0.968 0.0035 75)" };
+const screen = {
+  dark: "oklch(0.135 0.003 70)",
+  light: "oklch(0.968 0.0035 75)",
+};
 const ink = { dark: "#fff", light: "#000" };
 
 const statusIcons = (color: string) => `

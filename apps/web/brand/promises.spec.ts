@@ -7,14 +7,38 @@ import { saveWebp } from "./demo";
 const fonts = "../../packages/ui/fonts";
 
 const themes = {
-  dark: { text: "#e6edf3", muted: "#9198a1", accent: "#d5ac76", tile: "rgb(213 172 118 / 0.12)", ring: "rgb(213 172 118 / 0.28)" },
-  light: { text: "#1f2328", muted: "#59636e", accent: "#8d5d24", tile: "rgb(141 93 36 / 0.08)", ring: "rgb(141 93 36 / 0.22)" },
+  dark: {
+    text: "#e6edf3",
+    muted: "#9198a1",
+    accent: "#d5ac76",
+    tile: "rgb(213 172 118 / 0.12)",
+    ring: "rgb(213 172 118 / 0.28)",
+  },
+  light: {
+    text: "#1f2328",
+    muted: "#59636e",
+    accent: "#8d5d24",
+    tile: "rgb(141 93 36 / 0.08)",
+    ring: "rgb(141 93 36 / 0.22)",
+  },
 };
 
 const promises = [
-  { icon: Unplug, title: "Pull the plug", text: "A move or upload never ends half done." },
-  { icon: FolderOpen, title: "Plain folders", text: "Your files are normal files. Copy them and go." },
-  { icon: Box, title: "One box", text: "The app, a worker and PostgreSQL. That's all." },
+  {
+    icon: Unplug,
+    title: "Pull the plug",
+    text: "A move or upload never ends half done.",
+  },
+  {
+    icon: FolderOpen,
+    title: "Plain folders",
+    text: "Your files are normal files. Copy them and go.",
+  },
+  {
+    icon: Box,
+    title: "One box",
+    text: "The app, a worker and PostgreSQL. That's all.",
+  },
 ];
 
 const page = (t: keyof typeof themes, phone: boolean) => {
@@ -53,16 +77,28 @@ test.use({ deviceScaleFactor: 2 });
 for (const t of ["dark", "light"] as const) {
   for (const phone of [false, true]) {
     test(`promises${phone ? " phone" : ""} ${t}`, async ({ page: tab }) => {
-      await tab.setViewportSize({ width: phone ? 640 : 1120, height: phone ? 900 : 220 });
+      await tab.setViewportSize({
+        width: phone ? 640 : 1120,
+        height: phone ? 900 : 220,
+      });
       await tab.route("**/__brand/fonts/*", (route) =>
-        route.fulfill({ path: `${fonts}/${new URL(route.request().url()).pathname.split("/").pop()}` }),
+        route.fulfill({
+          path: `${fonts}/${new URL(route.request().url()).pathname.split("/").pop()}`,
+        }),
       );
-      await tab.route("**/__brand", (route) => route.fulfill({ contentType: "text/html", body: page(t, phone) }));
+      await tab.route("**/__brand", (route) =>
+        route.fulfill({ contentType: "text/html", body: page(t, phone) }),
+      );
       await tab.goto("/__brand");
       await tab.evaluate(() => document.fonts.ready);
-      const box = await tab.evaluate(() => document.body.getBoundingClientRect());
+      const box = await tab.evaluate(() =>
+        document.body.getBoundingClientRect(),
+      );
       saveWebp(
-        await tab.screenshot({ clip: { x: 0, y: 0, width: box.width, height: box.height }, omitBackground: true }),
+        await tab.screenshot({
+          clip: { x: 0, y: 0, width: box.width, height: box.height },
+          omitBackground: true,
+        }),
         `../../design/Features/promises${phone ? "-phone" : ""}-${t}.webp`,
       );
     });

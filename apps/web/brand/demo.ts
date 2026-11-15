@@ -63,5 +63,22 @@ export async function playFrom(page: Page, seconds: number) {
  * PNG with the same visible pixels. Needs ffmpeg, which the worker needs too.
  */
 export function saveWebp(png: Buffer, path: string) {
-  execFileSync("ffmpeg", ["-v", "error", "-y", "-i", "pipe:0", "-c:v", "libwebp", "-lossless", "1", "-compression_level", "6", path], { input: png });
+  execFileSync(
+    "ffmpeg",
+    [
+      "-v",
+      "error",
+      "-y",
+      "-i",
+      "pipe:0",
+      "-c:v",
+      "libwebp",
+      "-lossless",
+      "1",
+      "-compression_level",
+      "6",
+      path,
+    ],
+    { input: png },
+  );
 }
