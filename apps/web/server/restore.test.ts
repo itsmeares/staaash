@@ -7,6 +7,13 @@ import {
 } from "@/server/restore";
 
 describe("restore reconciliation", () => {
+  it("does not warn when the restore check never ran", () => {
+    expect(buildRestoreReconciliationHealthSummary(null)).toMatchObject({
+      status: "healthy",
+      runStatus: null,
+    });
+  });
+
   it("creates empty reconciliation reports by default", () => {
     expect(createRestoreReconciliationReport()).toEqual({
       missingOriginalIds: [],

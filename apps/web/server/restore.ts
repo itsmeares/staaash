@@ -18,14 +18,16 @@ export const hasRestoreIssues = (report: RestoreReconciliationReport) =>
 export const buildRestoreReconciliationHealthSummary = (
   run: RestoreReconciliationRunRecord | null,
 ): RestoreReconciliationHealthSummary => {
+  // The check only runs when an admin starts it, so most instances never
+  // need it. Never having run is not a problem to report.
   if (!run) {
     return {
-      status: "warning",
+      status: "healthy",
       runStatus: null,
       lastCompletedAt: null,
       missingOriginalCount: 0,
       orphanedStorageCount: 0,
-      message: "Restore check has not completed yet.",
+      message: "Not run yet. Run it from Jobs after a restore.",
     };
   }
 
