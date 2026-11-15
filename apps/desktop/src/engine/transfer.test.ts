@@ -442,6 +442,38 @@ describe("uploadFile", () => {
     }
   });
 
+  it("leaves a sent upload unfinished when sync stops during its last chunk", async () => {
+    const { dir, input } = await base(SMALL_UPLOAD_BYTES + 1);
+    try {
+      const stop = new AbortController();
+      const completeUpload = vi.fn();
+      const putUpload = vi.fn();
+      const api = {
+        startUpload: async () => ({
+          id: "session",
+          chunkSizeBytes: input.size,
+          completedChunks: [],
+          receivedBytes: 0,
+        }),
+        uploadChunk: async () => stop.abort(),
+        completeUpload,
+      };
+      await expect(
+        uploadFile({
+          ...input,
+          api: api as never,
+          store: { pendingUpload: () => null, putUpload } as never,
+          replace: null,
+          signal: stop.signal,
+        }),
+      ).rejects.toThrow();
+      expect(completeUpload).not.toHaveBeenCalled();
+      expect(putUpload).toHaveBeenCalled();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("sends nothing from a file swapped in since the scan", async () => {
     const chunk = 1024 * 1024;
     const { dir, input } = await base(SMALL_UPLOAD_BYTES + 8 * chunk);

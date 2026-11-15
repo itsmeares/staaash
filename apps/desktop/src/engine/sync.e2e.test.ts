@@ -1081,7 +1081,9 @@ describe.skipIf(!origin)("sync against a real server", () => {
       await writeOld(r.at("report.txt"), "base");
       await r.sync();
       const original = (await r.remote()).get("report.txt");
-      const edit = randomBytes(24 * 1024 * 1024);
+      // More than one 32 MB piece: the speed limit sends the first at once and
+      // holds the next, so the restart lands mid-upload.
+      const edit = randomBytes(40 * 1024 * 1024);
       await writeFile(r.at("report.txt"), edit);
       const past = new Date(Date.now() - 60_000);
       await utimes(r.at("report.txt"), past, past);

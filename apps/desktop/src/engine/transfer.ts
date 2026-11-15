@@ -395,6 +395,9 @@ const sendOpened = async (
     await Promise.all(sending);
   }
   if (failure) throw (failure as { error: unknown }).error;
+  // Stopped while the last chunks were sending: the session keeps them, and
+  // the next start only finishes it.
+  input.signal.throwIfAborted();
   const checksum = hash.digest("hex");
   input.onSent?.();
   const file = (await api.completeUpload(
