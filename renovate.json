@@ -5,7 +5,9 @@
     "mergeConfidence:all-badges",
     "security:minimumReleaseAgeNpm"
   ],
-  "dependencyDashboard": true,
+  "dependencyDashboard": {
+    "enabled": true
+  },
   "timezone": "Europe/London",
   "schedule": ["* 2-7 * * 1"],
   "updateNotScheduled": false,
