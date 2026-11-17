@@ -52,7 +52,12 @@ const features: Feature[] = [
     width: 1280,
     height: 800,
     visual: (t) =>
-      windowFrame(t, live("/files/view/owner-img-4210", 1280, 800), 1280, 800),
+      windowFrame(
+        t,
+        live("/files/view/owner-kitchen-idea", 1280, 800),
+        1280,
+        800,
+      ),
   },
   {
     key: "share",
@@ -75,7 +80,7 @@ const features: Feature[] = [
     after: async (page) => {
       const app = page.frameLocator("iframe");
       await app.getByRole("button", { name: "Invite" }).click();
-      await app.getByPlaceholder("name@example.com").fill("lena@rivera.home");
+      await app.getByPlaceholder("name@example.com").fill("lotte@devries.home");
       await app.getByPlaceholder("No limit").fill("50");
       await app
         .locator("body")

@@ -1,10 +1,11 @@
 # Demo media sources
 
-Every photo, the video, and the recording here are CC0 (public domain), from
-Wikimedia Commons. The photos were resized to 1280 px with a 480 px thumbnail,
-the video was cut to 10 seconds, the recording to 75 seconds, and their
-metadata was removed. The documents, notes, and Office files were written for
-this demo.
+Every photo, profile picture, the video, and the recording here are CC0
+(public domain), from Wikimedia Commons. The photos were resized to 1280 px
+with a 480 px thumbnail, the profile pictures cropped to 160 px squares, the
+video was cut to 10 seconds, the recording to 75 seconds, and their metadata
+was removed. The documents, notes, and Office files were written for this
+demo, for the made-up de Vries household.
 
 | File               | Source                                                                                                                                                         |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -22,3 +23,15 @@ this demo.
 | img-4255.jpg       | [Yellow car side (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AYellow_car_side_%28Unsplash%29.jpg)                                                 |
 | beach-sunset.mp4   | [Sunset timelapse on the beach in Libreville, Gabon.webm](https://commons.wikimedia.org/wiki/File%3ASunset_timelapse_on_the_beach_in_Libreville%2C_Gabon.webm) |
 | piano-practice.m4a | [Chopin - Nocturne Op. posth. 72 no. 1.ogg](https://commons.wikimedia.org/wiki/File%3AChopin_-_Nocturne_Op._posth._72_no._1.ogg)                               |
+| kitchen-today.jpg  | [Kitchen (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AKitchen_%28Unsplash%29.jpg)                                                                 |
+| kitchen-idea.jpg   | [Blue white kitchen interior (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ABlue_white_kitchen_interior_%28Unsplash%29.jpg)                         |
+| drawer-handles.jpg | [Kitchen drawer (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AKitchen_drawer_%28Unsplash%29.jpg)                                                   |
+| living-room.jpg    | [Living room (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ALiving_room_%28Unsplash%29.jpg)                                                         |
+| roof-tiles.jpg     | [Terracotta clay tile (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ATerracotta_clay_tile_%28Unsplash%29.jpg)                                       |
+| bathroom.jpg       | [White towel in tiled bathroom (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AWhite_towel_in_tiled_bathroom_%28Unsplash%29.jpg)                     |
+| old-floor.jpg      | [Rustic wooden floor (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3ARustic_wooden_floor_%28Unsplash%29.jpg)                                         |
+| avatars/jesse.jpg  | [Man with crossed arms (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AMan_with_crossed_arms_%28Unsplash%29.jpg)                                     |
+| avatars/noor.jpg   | [Happy daughter (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AHappy_daughter_%28Unsplash%29.jpg)                                                   |
+| avatars/fenna.jpg  | [I Love Portraits (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AI_Love_Portraits_%28Unsplash%29.jpg)                                               |
+| avatars/bram.jpg   | [Always smile (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AAlways_smile_%28Unsplash%29.jpg)                                                       |
+| avatars/henk.jpg   | [Karen Elder (Unsplash).jpg](https://commons.wikimedia.org/wiki/File%3AKaren_Elder_%28Unsplash%29.jpg)                                                         |

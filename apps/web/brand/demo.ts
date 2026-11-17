@@ -3,10 +3,10 @@ import { expect, type Frame, type Page } from "@playwright/test";
 
 // From lib/demo.ts, which only loads inside Vite.
 export const demoAccount = {
-  email: "sam@rivera.home",
+  email: "jesse@devries.home",
   password: "staaash-demo",
 };
-export const demoShareToken = "lisbon-2026";
+export const demoShareToken = "home-renovation";
 
 /** Waits until the screen has its data, fonts, and images, and nothing moves. */
 export async function settle(page: Page | Frame) {

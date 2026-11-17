@@ -1496,7 +1496,7 @@ describe("public demo drive", () => {
       resolution: { listing: { files: Array<{ id: string; name: string }> } };
     }>(`/s/${demoShareToken}/view`);
     const photo = share.resolution.listing.files.find(
-      (entry) => entry.name === "IMG_4228.jpg",
+      (entry) => entry.name === "Kitchen idea.jpg",
     )!;
     for (const action of ["thumbnail", "content"]) {
       const response = await client.request(
@@ -1504,6 +1504,24 @@ describe("public demo drive", () => {
       );
       expect(response.status, action).toBe(200);
     }
+  });
+
+  it("lists the household with storage use the admin pages can read", async () => {
+    const client = browser();
+    await client.scenario("demo");
+    await client.post("/api/auth/sign-in", demoAccount);
+    const { users } = await client.read<{
+      users: Array<{ displayName: string; storageUsedBytes: string }>;
+    }>("/api/views/admin/users");
+    expect(users.map((user) => user.displayName)).toEqual([
+      "Jesse de Vries",
+      "Noor de Vries",
+      "Bram de Vries",
+      "Fenna de Vries",
+      "Henk Bakker",
+    ]);
+    for (const user of users)
+      expect(() => BigInt(user.storageUsedBytes)).not.toThrow();
   });
 
   it("accepts files up to 100 MiB and up to 500 MiB in total", async () => {

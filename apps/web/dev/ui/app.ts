@@ -32,7 +32,8 @@ function checkOrigin(request: Request) {
 /** A fresh sample drive whose file sizes match the sample bytes. */
 export function seedState(assets: Assets, scenario?: Scenario) {
   const state = createState(scenario);
-  for (const file of state.files) file.sizeBytes = assets.size(file.asset);
+  for (const file of state.files)
+    file.sizeBytes = file.shownSizeBytes ?? assets.size(file.asset);
   return state;
 }
 /**

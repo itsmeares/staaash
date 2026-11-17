@@ -22,11 +22,11 @@ for (const theme of ["dark", "light"] as const) {
       await settle(page);
       await shoot("home");
 
-      await page.goto("/files/f/owner-lisbon");
+      await page.goto("/files/f/owner-renovation");
       await settle(page);
-      await shoot("lisbon");
+      await shoot("renovation");
 
-      await page.goto("/files/view/owner-img-4210");
+      await page.goto("/files/view/owner-kitchen-idea");
       await settle(page);
       await shoot("photo");
 
@@ -54,6 +54,30 @@ for (const theme of ["dark", "light"] as const) {
       await page.goto("/admin/users");
       await settle(page);
       await shoot("members");
+
+      // Last, because the upload is still running when the picture is taken.
+      // A slow upload line shows it part way, as a real one over Wi-Fi would.
+      await page.goto("/files/f/owner-renovation");
+      await settle(page);
+      const network = await page.context().newCDPSession(page);
+      await network.send("Network.emulateNetworkConditions", {
+        offline: false,
+        latency: 20,
+        downloadThroughput: -1,
+        uploadThroughput: 3 * 1024 * 1024,
+      });
+      await page
+        .locator('input[type="file"]')
+        .first()
+        .setInputFiles({
+          name: "Kitchen walkthrough.mp4",
+          mimeType: "video/mp4",
+          buffer: Buffer.alloc(48 * 1024 * 1024),
+        });
+      await page.waitForTimeout(5000);
+      await page.getByRole("button", { name: /^Transfers/ }).click();
+      await page.waitForTimeout(800);
+      await shoot("upload");
     });
 
     test("share link", async ({ page }) => {

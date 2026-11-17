@@ -1,6 +1,6 @@
 import type { FirstRunKind } from "../../components/public/first-run";
 import { photoSamples, sampleFiles } from "./fixtures";
-import { demoFiles, demoFolders, type DemoFolderKey } from "./demo";
+import { demoFiles, demoFolders, demoPeople, type DemoFolderKey } from "./demo";
 import { demoAccount, demoShareToken } from "../../lib/demo";
 import type { InferResponseType } from "hono/client";
 import type { api } from "../../lib/api";
@@ -80,6 +80,8 @@ export function sampleJob(
 export type File = Plain<FileSummary> & {
   asset: string;
   thumbnailAsset?: string;
+  /** A demo backup's listed size; its bytes are a small sample. */
+  shownSizeBytes?: number;
   favorite: boolean;
   pinned: boolean;
 };
@@ -106,19 +108,24 @@ const firstRunByScenario: Partial<
 > = { invited: "member-password", onboarding: "member", password: "password" };
 export function createState(scenario: Scenario = "owner") {
   const demo = scenario === "demo";
-  const users: User[] = ["owner", "admin", "member"].map((role, index) => ({
-    id: role,
-    email: demo
-      ? [demoAccount.email, "jordan@rivera.home", "mia@rivera.home"][index]!
-      : `${role}@staaash.test`,
-    displayName: (demo
-      ? ["Sam Rivera", "Jordan Park", "Mia Rivera"]
-      : ["Alex Morgan", "Sam Rivera", "Mia Chen"]
-    )[index]!,
-    avatarUrl: null,
-    role: role as User["role"],
-    storageId: `sample-${role}`,
-    storageLimitBytes: role === "owner" ? null : "5368709120",
+  const people = demo
+    ? demoPeople
+    : ["owner", "admin", "member"].map((role, index) => ({
+        id: role,
+        role: role as User["role"],
+        email: `${role}@staaash.test`,
+        displayName: ["Alex Morgan", "Sam Rivera", "Mia Chen"][index]!,
+        avatarUrl: null as string | null,
+        storageLimitBytes: role === "owner" ? null : "5368709120",
+      }));
+  const users: User[] = people.map((person) => ({
+    id: person.id,
+    email: person.email,
+    displayName: person.displayName,
+    avatarUrl: person.avatarUrl,
+    role: person.role,
+    storageId: `sample-${person.id}`,
+    storageLimitBytes: person.storageLimitBytes,
     storageUsedBytes: "0",
     createdAt: timestamp,
     note: null,
@@ -146,7 +153,7 @@ export function createState(scenario: Scenario = "owner") {
     firstRuns: new Map<string, Exclude<FirstRunKind, "owner-setup">>(
       firstRun ? [["member", firstRun]] : [],
     ),
-    instanceName: demo ? "Staaash" : "Sample Drive",
+    instanceName: demo ? "De Vries Home" : "Sample Drive",
     users,
     passwords: new Map(
       users.map((user) => [user.id, demo ? demoAccount.password : password]),
@@ -193,14 +200,11 @@ export function createState(scenario: Scenario = "owner") {
 }
 const daysAgo = (days: number) =>
   new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-/** The owner gets the whole demo drive; the others a slice for the admin pages. */
-const demoSlices: Record<string, DemoFolderKey[] | null> = {
-  owner: null,
-  admin: ["recipes"],
-  member: ["school", "music"],
-};
 function seedDemoDrive(state: State, user: User) {
-  const slice = demoSlices[user.id] ?? null;
+  const person = demoPeople.find((p) => p.id === user.id)!;
+  // The owner gets the whole demo drive; the others a slice for the admin pages.
+  const slice: readonly DemoFolderKey[] | null =
+    user.role === "owner" ? null : person.folders;
   const id = (key: string) => `${user.id}-${key}`;
   const base = {
     ownerUserId: user.id,
@@ -252,11 +256,26 @@ function seedDemoDrive(state: State, user: User) {
         thumbnailAsset: file.thumbnailAsset,
         folderId: file.folder ? id(file.folder) : root.id,
         sizeBytes: 0,
-        favorite: ["img-4210", "taxes"].includes(file.key),
+        shownSizeBytes: file.sizeBytes,
+        favorite: ["kitchen-idea", "taxes"].includes(file.key),
         createdAt: daysAgo(file.daysAgo),
         updatedAt: daysAgo(file.daysAgo),
       })),
   );
+  if (person.backup)
+    state.files.push({
+      ...base,
+      id: id("backup"),
+      name: person.backup.name,
+      mimeType: "application/zip",
+      viewerKind: null,
+      asset: "demo/old-phone-backup.zip",
+      folderId: root.id,
+      sizeBytes: 0,
+      shownSizeBytes: person.backup.sizeBytes,
+      createdAt: daysAgo(person.backup.daysAgo),
+      updatedAt: daysAgo(person.backup.daysAgo),
+    });
   if (!slice) seedDemoExtras(state, user.id, id);
 }
 /** The owner's trash and share links. */
@@ -266,14 +285,14 @@ function seedDemoExtras(
   id: (key: string) => string,
 ) {
   state.files.push({
-    ...state.files.find((file) => file.id === id("lease"))!,
-    id: id("old-lease"),
-    name: "Old apartment lease.pdf",
+    ...state.files.find((file) => file.id === id("kitchen-quote"))!,
+    id: id("old-quote"),
+    name: "Kitchen quote - first draft.pdf",
     deletedAt: daysAgo(3),
   });
   for (const [key, token, targetType, downloadDisabled] of [
-    ["lisbon", demoShareToken, "folder", false],
-    ["lease", "apartment-lease", "file", true],
+    ["renovation", demoShareToken, "folder", false],
+    ["floor-plan", "floor-plan", "file", true],
   ] as const)
     state.shares.push({
       id: id(`share-${key}`),
@@ -473,6 +492,13 @@ export class PreviewError extends Error {
   }
 }
 const MiB = 1024 * 1024;
+const GiB = 1024 * MiB;
+/** The sample server's disk: room for the household's drives and then some. */
+export const sampleDisk = {
+  capacityBytes: String(2048 * GiB),
+  usedBytes: String(412 * GiB),
+  freeBytes: String((2048 - 412) * GiB),
+};
 /** The demo keeps uploads in the visitor's browser, so it allows real files. */
 export const uploadLimits = (state: State) =>
   state.scenario === "demo"

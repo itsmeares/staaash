@@ -82,7 +82,7 @@ from the frontend preview. The desktop app screenshot is taken by hand.
 | Screen        | Shows                                         |
 | ------------- | --------------------------------------------- |
 | `home`        | Home with recent files, pins, and share links |
-| `lisbon`      | A trip folder with photos and a video         |
+| `renovation`  | A renovation folder with photos and plans     |
 | `photo`       | A photo open in the viewer                    |
 | `video`       | A video playing in the viewer                 |
 | `pdf`         | A PDF open in the viewer                      |
@@ -91,4 +91,5 @@ from the frontend preview. The desktop app screenshot is taken by hand.
 | `share`       | A shared folder as a visitor sees it          |
 | `share-phone` | The same shared folder on a phone             |
 | `members`     | The owner's list of members                   |
+| `upload`      | An upload part way through                    |
 | `desktop`     | The desktop app syncing folders               |

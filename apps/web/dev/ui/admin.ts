@@ -4,7 +4,13 @@ import type { Plain } from "../../lib/plain";
 import type { InstanceHealthSummary } from "../../server/types";
 import type { UpdateState } from "../../server/admin/updates";
 import { version } from "../../../../package.json";
-import { type State, timestamp, jobKinds, previewStatus } from "./state";
+import {
+  type State,
+  timestamp,
+  jobKinds,
+  previewStatus,
+  sampleDisk,
+} from "./state";
 import { storageView } from "./views";
 
 function updateStatus(state: State): UpdateState["status"] {
@@ -70,7 +76,10 @@ export function storageSummary(state: State) {
     ),
   };
 }
-const disk = { capacityBytes: "536870912000", usedBytes: "53687091200" };
+const disk = {
+  capacityBytes: sampleDisk.capacityBytes,
+  usedBytes: sampleDisk.usedBytes,
+};
 export function jobsView(state: State) {
   const statusCounts = {
     queued: 0,
@@ -221,7 +230,7 @@ export function healthView(state: State): Plain<InstanceHealthSummary> {
     storageMutations: mutationHealth(state),
     storageWarnings: {
       status: "healthy",
-      freeBytes: "483183820800",
+      freeBytes: sampleDisk.freeBytes,
       totalBytes: disk.capacityBytes,
       message: "Sample disk has space.",
     },

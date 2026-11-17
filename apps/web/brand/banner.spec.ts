@@ -38,7 +38,7 @@ const style = (theme: Theme, css: string) => `<!doctype html>
   ${css}
 </style>`;
 
-/** The social preview: the name on the left, the Lisbon folder tilted on the right. */
+/** The social preview: the name on the left, the renovation folder tilted on the right. */
 const banner = (theme: Theme) => {
   const c = themes[theme];
   return `${style(
@@ -62,7 +62,7 @@ const banner = (theme: Theme) => {
   <h2>The drive for your homelab.</h2>
   <p>Photos, documents and music on your own hardware, with desktop sync and share links.</p>
 </div>
-<div class="stage"><iframe class="win" src="/files/f/owner-lisbon"></iframe></div>`;
+<div class="stage"><iframe class="win" src="/files/f/owner-renovation"></iframe></div>`;
 };
 
 /** The README picture: the desktop folder and its share link on a phone, on a transparent background. */
@@ -79,7 +79,7 @@ const hero = (theme: Theme) => {
   .phone { position: absolute; left: 862px; top: 168px; transform: scale(0.62); transform-origin: 0 0; }
   `,
   )}
-<iframe class="win" src="/files/f/owner-lisbon"></iframe>
+<iframe class="win" src="/files/f/owner-renovation"></iframe>
 <div class="phone">${phone(`/s/${demoShareToken}`, theme)}</div>`;
 };
 
