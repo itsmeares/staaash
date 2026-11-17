@@ -4,11 +4,11 @@ title: FAQ
 
 ## Does it work on Windows?
 
-Yes. Use Docker Desktop and follow [Installation](/docs/installation/), or install the server without Docker. See [Windows Server](/docs/windows-server/).
+Yes. Use Docker Desktop and follow [Installation](/docs/installation/), From 2.0, now a release candidate, you can also install the server without Docker. See [Windows Server](/docs/windows-server/).
 
 ## Is there a phone app?
 
-Not yet. It is planned for later. Until then, open Staaash in your phone's browser. The pages fit a small screen. For syncing folders there is a [Desktop App](/docs/desktop-app/) for Windows, macOS and Linux.
+Not yet. It is planned for later. Until then, open Staaash in your phone's browser. The pages fit a small screen. For syncing folders, 2.0 adds a [Desktop App](/docs/desktop-app/) for Windows, macOS and Linux. It is a release candidate for now.
 
 ## Where are my files stored?
 

@@ -26,7 +26,7 @@ It is free and open source.
 
 A computer or server with Docker. That can be Linux, or Windows with Docker Desktop. Staaash runs on Intel/AMD and ARM.
 
-On 64-bit Windows you can also skip Docker. See [Windows Server](/docs/windows-server/).
+From 2.0, now a release candidate, you can also skip Docker on 64-bit Windows. See [Windows Server](/docs/windows-server/).
 
 ## Where to begin
 
