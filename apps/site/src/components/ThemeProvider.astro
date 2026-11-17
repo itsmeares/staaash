@@ -1,0 +1,24 @@
+---
+// Starlight marks the theme with data-theme; the shared tokens in
+// packages/ui switch on a .dark class. Keep the two in step, before paint.
+---
+
+<script is:inline>
+  (() => {
+    const root = document.documentElement;
+    const stored =
+      typeof localStorage !== "undefined" &&
+      localStorage.getItem("starlight-theme");
+    const theme =
+      stored ||
+      (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+    const apply = () =>
+      root.classList.toggle("dark", root.dataset.theme === "dark");
+    root.dataset.theme = theme === "light" ? "light" : "dark";
+    apply();
+    new MutationObserver(apply).observe(root, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+  })();
+</script>

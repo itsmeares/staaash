@@ -1,0 +1,8 @@
+---
+import Default from "@astrojs/starlight/components/PageTitle.astro";
+
+// The landing page draws its own top; every docs page keeps the default.
+const isLanding = Astro.url.pathname === "/";
+---
+
+{!isLanding && <Default />}

@@ -6,6 +6,8 @@ test-results/
 playwright-report/
 .cache/
 .vite/
+.astro/
+.wrangler/
 .fallow/
 *.log
 npm-debug.log*

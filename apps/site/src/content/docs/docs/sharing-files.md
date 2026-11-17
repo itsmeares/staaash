@@ -1,4 +1,6 @@
-# Sharing Files
+---
+title: Sharing Files
+---
 
 A share link lets someone open a file or folder without an account. You choose how long it works, and you can turn it off at any time.
 
@@ -36,4 +38,4 @@ A visitor sees a simple page with the file or folder. Photos and videos open inl
 
 ## Links that use your domain name
 
-Share links use the address you open Staaash from. If you run Staaash behind a domain, set `STAAASH_PUBLIC_URL` so links always use it. See [[Reverse Proxy]].
+Share links use the address you open Staaash from. If you run Staaash behind a domain, set `STAAASH_PUBLIC_URL` so links always use it. See [Reverse Proxy](/docs/reverse-proxy/).

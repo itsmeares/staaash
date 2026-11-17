@@ -1,4 +1,6 @@
-# Staaash
+---
+title: Staaash
+---
 
 Staaash is a drive that lives on your own computer. You put files in, and you get them back from any browser or from the desktop app. Nobody else holds your files.
 
@@ -24,34 +26,34 @@ It is free and open source.
 
 A computer or server with Docker. That can be Linux, or Windows with Docker Desktop. Staaash runs on Intel/AMD and ARM.
 
-On 64-bit Windows you can also skip Docker. See [[Windows Server]].
+On 64-bit Windows you can also skip Docker. See [Windows Server](/docs/windows-server/).
 
 ## Where to begin
 
 **New here**
 
-1. [[Installation]]. Be running in a few minutes.
-2. [[Backup and Restore]]. Do this on day one.
-3. [[Using the Drive]]. Upload, find and get things back.
-4. [[Sharing Files]] and [[Desktop App]]. The two things most people do next.
+1. [Installation](/docs/installation/). Be running in a few minutes.
+2. [Backup and Restore](/docs/backup-and-restore/). Do this on day one.
+3. [Using the Drive](/docs/using-the-drive/). Upload, find and get things back.
+4. [Sharing Files](/docs/sharing-files/) and [Desktop App](/docs/desktop-app/). The two things most people do next.
 
 **Already running it**
 
-- [[Updating]]
-- [[Configuration]]
-- [[Reverse Proxy]]. Reach your drive from outside the house, with HTTPS.
-- [[Storage Check]]. When a file says it needs a check.
-- [[Troubleshooting]]
-- [[FAQ]]
+- [Updating](/docs/updating/)
+- [Configuration](/docs/configuration/)
+- [Reverse Proxy](/docs/reverse-proxy/). Reach your drive from outside the house, with HTTPS.
+- [Storage Check](/docs/storage-check/). When a file says it needs a check.
+- [Troubleshooting](/docs/troubleshooting/)
+- [FAQ](/docs/faq/)
 
 **Your own settings**
 
-- [[Your Account]]
+- [Your Account](/docs/your-account/)
 
 **Running it for other people**
 
-- [[User Management]]
-- [[Admin Guide]]
+- [User Management](/docs/user-management/)
+- [Admin Guide](/docs/admin-guide/)
 
 ## How it is built
 

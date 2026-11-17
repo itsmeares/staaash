@@ -1,0 +1,106 @@
+/*
+ * One stylesheet for every page: Starlight's layout, Staaash's tokens and
+ * fonts from packages/ui, and Tailwind utilities for the landing page.
+ * Tailwind's reset is left out so it does not undo Starlight's own.
+ */
+@layer base, starlight, theme, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "@staaash/ui/styles/fonts.css";
+@import "@staaash/ui/styles/tokens.css";
+@import "@staaash/ui/styles/theme.css";
+@import "@staaash/ui/styles/utilities.css";
+
+@source "../../../../packages/ui/src";
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border: 0 solid;
+  }
+}
+
+/* Starlight sets its light colors on :root[data-theme="light"], so match
+   that to win over it. The tokens already switch with the theme. */
+:root,
+:root[data-theme="light"] {
+  --sl-font: var(--font-sans);
+  --sl-font-mono: var(--font-mono);
+  --sl-color-white: var(--foreground);
+  --sl-color-gray-1: color-mix(
+    in oklab,
+    var(--foreground) 92%,
+    var(--background)
+  );
+  --sl-color-gray-2: color-mix(
+    in oklab,
+    var(--foreground) 84%,
+    var(--background)
+  );
+  --sl-color-gray-3: var(--muted-foreground);
+  --sl-color-gray-4: color-mix(
+    in oklab,
+    var(--foreground) 38%,
+    var(--background)
+  );
+  --sl-color-gray-5: var(--input);
+  --sl-color-gray-6: var(--muted);
+  --sl-color-gray-7: color-mix(
+    in oklab,
+    var(--foreground) 3%,
+    var(--background)
+  );
+  --sl-color-black: var(--background);
+  --sl-color-accent-low: color-mix(
+    in oklab,
+    var(--primary) 16%,
+    var(--background)
+  );
+  --sl-color-accent: var(--primary);
+  --sl-color-accent-high: var(--color-primary-ink);
+  --sl-color-text-accent: var(--color-primary-ink);
+  --sl-color-hairline: var(--border);
+  --sl-color-hairline-light: var(--border);
+  --sl-color-hairline-shade: var(--input);
+  --sl-color-bg: var(--background);
+  --sl-color-bg-nav: var(--background);
+  --sl-color-bg-sidebar: var(--background);
+  --sl-color-bg-inline-code: var(--muted);
+  --sl-color-bg-accent: var(--primary);
+  --sl-color-text-invert: var(--primary-foreground);
+  --sl-text-h1: 2.5rem;
+  --sl-text-h2: 1.75rem;
+  --sl-text-h3: 1.375rem;
+  --sl-text-h4: 1.125rem;
+  --sl-line-height-headings: 1.15;
+}
+
+.sl-markdown-content :is(h1, h2, h3, h4),
+h1#_top {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.sl-markdown-content a:not(:where(.not-content *)) {
+  text-underline-offset: 0.2em;
+}
+
+/* The current page gets the app's "you are here" pill, not a solid fill. */
+.sidebar-content a[aria-current="page"],
+.sidebar-content a[aria-current="page"]:hover,
+.sidebar-content a[aria-current="page"]:focus {
+  background-color: color-mix(in oklab, var(--foreground) 8%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--foreground) 9%, transparent);
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+starlight-menu-button button {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--input);
+  color: var(--foreground);
+}

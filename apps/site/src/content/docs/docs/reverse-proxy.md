@@ -1,4 +1,6 @@
-# Reverse Proxy
+---
+title: Reverse Proxy
+---
 
 A reverse proxy is a small program that stands in front of Staaash. People visit a name like `https://drive.example.com`. The proxy handles the secure HTTPS part, then passes the visit to Staaash.
 
@@ -74,4 +76,4 @@ If uploads are slow from inside your home but fine from outside, your devices ar
 
 This only speeds up devices that use your home DNS. It does not change uploads from outside.
 
-If sign-in or uploads fail after any of this, see **Sign-in or uploads fail behind a proxy** in [[Troubleshooting]].
+If sign-in or uploads fail after any of this, see **Sign-in or uploads fail behind a proxy** in [Troubleshooting](/docs/troubleshooting/).

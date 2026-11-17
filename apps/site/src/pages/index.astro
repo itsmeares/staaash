@@ -1,0 +1,381 @@
+---
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import { Code, TabItem, Tabs } from "@astrojs/starlight/components";
+import { buttonVariants } from "@staaash/ui/components/button";
+import { Box, FolderOpen, Plug } from "lucide-react";
+
+import ThemedImage from "../components/ThemedImage.astro";
+import { links } from "../links";
+
+import heroDark from "../../../../design/Banner/Staaash README-Dark.webp";
+import heroLight from "../../../../design/Banner/Staaash README-Light.webp";
+import desktopDark from "../../../../design/Screenshots/desktop-dark.jpg";
+import desktopLight from "../../../../design/Screenshots/desktop-light.jpg";
+import membersDark from "../../../../design/Screenshots/members-dark.jpg";
+import membersLight from "../../../../design/Screenshots/members-light.jpg";
+import photoDark from "../../../../design/Screenshots/photo-dark.jpg";
+import photoLight from "../../../../design/Screenshots/photo-light.jpg";
+import shareDark from "../../../../design/Screenshots/share-dark.jpg";
+import shareLight from "../../../../design/Screenshots/share-light.jpg";
+
+const features = [
+  {
+    title: "Open everything in the browser",
+    text: "Photos (HEIC too), videos, music, PDFs and text open right away, on a laptop or a phone. No app to install for the people you share with.",
+    light: photoLight,
+    dark: photoDark,
+    alt: "A photo of a Lisbon tram open in Staaash's viewer, with the rest of the album along the bottom.",
+  },
+  {
+    title: "Share a folder in two clicks",
+    text: "Send a link with an end date, a password, or downloads turned off. Visitors need no account, and a photo folder opens as a gallery.",
+    light: shareLight,
+    dark: shareDark,
+    alt: "A shared Lisbon 2026 folder shown as a photo gallery, with a Download all button and the link's end date.",
+  },
+  {
+    title: "One drive, room for everyone",
+    text: "Invite family, friends or your whole group. Each person gets a private space and a storage limit. Even the owner can't browse someone else's files in the app.",
+    light: membersLight,
+    dark: membersDark,
+    alt: "The users page, listing each person with their role and storage use.",
+    // The users list fills only the top corner of this screenshot.
+    crop: true,
+  },
+  {
+    title: "Keep folders in sync",
+    text: "The desktop app for Windows, macOS and Linux keeps a folder on your computer and your drive the same. Two-way, download-only or upload-only. It lives in the tray.",
+    light: desktopLight,
+    dark: desktopDark,
+    alt: "The desktop app syncing 23 files, with progress for each upload.",
+  },
+];
+
+const promises = [
+  {
+    icon: Plug,
+    title: "Pull the plug",
+    text: "A move or upload never ends half done. After a crash, Staaash checks its work. When it can't tell what happened, it keeps every file and stops.",
+  },
+  {
+    icon: FolderOpen,
+    title: "Plain folders",
+    text: "Your files are normal files in normal folders on your disk. Copy them anywhere and go. Nothing is locked in a database.",
+  },
+  {
+    icon: Box,
+    title: "One box",
+    text: "The app, a worker and PostgreSQL in one Docker Compose file. Nothing else to run or pay for.",
+  },
+];
+
+const unixInstall = `mkdir staaash && cd staaash
+curl -LO ${links.composeFile}
+curl -L ${links.envFile} \\
+  | sed "s/^DB_PASSWORD=.*/DB_PASSWORD=$(openssl rand -hex 24)/" > .env
+docker compose up -d`;
+
+const windowsDownload = `mkdir staaash; cd staaash
+curl.exe -LO ${links.composeFile}
+curl.exe -L -o .env ${links.envFile}
+notepad .env`;
+
+const desktop = [
+  { system: "Windows", files: "Installer for x64 and ARM64" },
+  { system: "macOS", files: "Universal DMG" },
+  { system: "Linux", files: "AppImage, DEB and RPM" },
+];
+
+const section = "mx-auto w-full max-w-6xl px-0";
+---
+
+<StarlightPage
+  frontmatter={{
+    title: "Staaash, the drive for your homelab",
+    description:
+      "A self-hosted drive for your photos, documents and music. Open files in any browser, share with a link, sync folders with the desktop app. Free and open source.",
+    template: "splash",
+    tableOfContents: false,
+    editUrl: false,
+    lastUpdated: false,
+    prev: false,
+    next: false,
+  }}
+>
+  <div class="landing not-content">
+    <section class:list={[section, "grid items-center gap-12 pt-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:pt-14"]}>
+      <div class="max-w-xl">
+        <h1 class="font-heading text-display font-extrabold text-balance text-foreground">
+          The drive for your homelab.
+        </h1>
+        <p class="mt-6 text-lg/relaxed text-pretty text-muted-foreground">
+          Your photos, documents and music live on your own disk. Open them in
+          any browser, share them with a link, and keep folders in sync with
+          the desktop app.
+        </p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a
+            href={links.demo}
+            class={buttonVariants({ size: "xl" })}
+            data-umami-event="try-demo"
+          >
+            Try the demo
+          </a>
+          <a
+            href="#install"
+            class={buttonVariants({ size: "xl", variant: "outline" })}
+            data-umami-event="get-started"
+          >
+            Install it
+          </a>
+        </div>
+        <p class="mt-6 text-meta text-muted-foreground">
+          Free and open source. Runs on AMD64 and ARM64 with Docker. The demo
+          runs in your browser, so nothing you upload leaves your computer.
+        </p>
+      </div>
+      <div class="hero-shot">
+        <ThemedImage
+          light={heroLight}
+          dark={heroDark}
+          alt="Staaash on a desktop and a phone: the Lisbon 2026 folder and its share link."
+          widths={[720, 1160, 1600, 2320]}
+          sizes="(min-width: 1024px) 58vw, 100vw"
+          eager
+          class="h-auto w-full"
+        />
+      </div>
+    </section>
+
+    <section class:list={[section, "mt-28 grid gap-24 lg:mt-36 lg:gap-32"]} aria-label="What Staaash does">
+      {
+        features.map((feature, index) => (
+          <article class="grid items-center gap-8 lg:grid-cols-12 lg:gap-14">
+            <div
+              class:list={[
+                "lg:col-span-4",
+                index % 2 === 1 && "lg:order-2",
+              ]}
+            >
+              <h2 class="font-heading text-3xl font-bold text-balance text-foreground sm:text-4xl">
+                {feature.title}
+              </h2>
+              <p class="mt-4 text-base/relaxed text-pretty text-muted-foreground">
+                {feature.text}
+              </p>
+            </div>
+            <figure class:list={["shot lg:col-span-8", feature.crop && "crop"]}>
+              <ThemedImage
+                light={feature.light}
+                dark={feature.dark}
+                alt={feature.alt}
+                widths={[640, 960, 1440, 1920]}
+                sizes="(min-width: 1024px) 66vw, 100vw"
+                class="h-auto w-full"
+              />
+            </figure>
+          </article>
+        ))
+      }
+    </section>
+
+    <section class:list={[section, "mt-32 lg:mt-40"]} aria-labelledby="promises">
+      <h2 id="promises" class="max-w-2xl font-heading text-3xl font-bold text-balance text-foreground sm:text-4xl">
+        Built not to lose your files
+      </h2>
+      <ul class="mt-12 grid gap-10 sm:grid-cols-3">
+        {
+          promises.map(({ icon: Icon, title, text }) => (
+            <li>
+              <span class="flex size-11 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary-ink">
+                <Icon className="size-5" aria-hidden="true" />
+              </span>
+              <h3 class="mt-5 font-heading text-xl font-bold text-foreground">{title}</h3>
+              <p class="mt-2 text-base/relaxed text-muted-foreground">{text}</p>
+            </li>
+          ))
+        }
+      </ul>
+      <p class="mt-12 max-w-2xl border-l-2 border-primary/40 pl-4 text-base/relaxed text-muted-foreground">
+        These keep a crash or a move from breaking your files. A dead disk
+        still can. Staaash is a drive, not a backup, so keep a copy somewhere
+        else. The <a href="/docs/backup-and-restore/" class="text-link">backup guide</a>{" "}
+        shows how.
+      </p>
+    </section>
+
+    <section id="install" class:list={[section, "mt-32 scroll-mt-24 lg:mt-40"]} aria-labelledby="install-title">
+      <div class="grid gap-10 lg:grid-cols-12 lg:gap-14">
+        <div class="lg:col-span-4">
+          <h2 id="install-title" class="font-heading text-3xl font-bold text-balance text-foreground sm:text-4xl">
+            Running in a few minutes
+          </h2>
+          <ol class="steps mt-6 grid gap-4 text-base/relaxed text-muted-foreground">
+            <li><span>Paste the commands for your system. They download two files and start Staaash.</span></li>
+            <li><span>Open <code class="font-mono text-foreground">http://localhost:2113</code>, or your server's address.</span></li>
+            <li><span>Create your account right away. Until you do, anyone who can reach port 2113 can take the owner account.</span></li>
+          </ol>
+          <p class="mt-6 text-base/relaxed text-muted-foreground">
+            The <a href={links.install} class="text-link" data-umami-event="get-started">installation guide</a>{" "}
+            walks through every step, and{" "}
+            <a href="/docs/remote-access/" class="text-link">remote access</a>{" "}
+            covers reaching it from outside the house.
+          </p>
+        </div>
+        <div class="install min-w-0 lg:col-span-8">
+          <Tabs syncKey="system">
+            <TabItem label="Linux or macOS">
+              <Code code={unixInstall} lang="bash" frame="terminal" title="Docker" />
+            </TabItem>
+            <TabItem label="Windows">
+              <Code code={windowsDownload} lang="powershell" frame="terminal" title="Docker Desktop, in PowerShell" />
+              <p class="text-base/relaxed text-muted-foreground">
+                In Notepad, set <code class="font-mono text-foreground">DB_PASSWORD</code>{" "}
+                to a long mix of letters and numbers, save, and close. Then:
+              </p>
+              <Code code="docker compose up -d" lang="powershell" frame="terminal" title="PowerShell" />
+            </TabItem>
+            <TabItem label="Windows without Docker">
+              <p class="text-base/relaxed text-muted-foreground">
+                Download <code class="font-mono text-foreground">Staaash-Server-…-win-x64.exe</code>{" "}
+                from the{" "}
+                <a href={links.latestRelease} class="text-link">latest release</a>{" "}
+                and run it. It sets up Staaash and its database as Windows
+                services, then opens the page to create your account. The{" "}
+                <a href="/docs/windows-server/" class="text-link">Windows server guide</a>{" "}
+                has the details.
+              </p>
+            </TabItem>
+          </Tabs>
+        </div>
+      </div>
+    </section>
+
+    <section class:list={[section, "mt-32 lg:mt-40"]} aria-labelledby="desktop-title">
+      <div class="grid gap-10 rounded-2xl border border-hairline bg-card p-6 sm:p-10 lg:grid-cols-12 lg:gap-14">
+        <div class="lg:col-span-5">
+          <h2 id="desktop-title" class="font-heading text-3xl font-bold text-balance text-foreground">
+            The desktop app
+          </h2>
+          <p class="mt-4 text-base/relaxed text-muted-foreground">
+            Keeps folders on your computer in sync with your drive. Needs a
+            Staaash 2.0 server. The installers aren't code signed yet, and the{" "}
+            <a href="/docs/desktop-app/" class="text-link">desktop app guide</a>{" "}
+            shows how to open them the first time.
+          </p>
+        </div>
+        <ul class="grid content-center gap-3 lg:col-span-7">
+          {
+            desktop.map((item) => (
+              <li>
+                <a
+                  href={links.latestRelease}
+                  class="flex items-center justify-between gap-4 rounded-xl border border-hairline px-4 py-3 no-underline hover:bg-hover"
+                  data-umami-event="download-desktop"
+                  data-umami-event-system={item.system}
+                >
+                  <span class="font-heading text-lg font-bold text-foreground">{item.system}</span>
+                  <span class="text-meta text-muted-foreground">{item.files}</span>
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </section>
+  </div>
+</StarlightPage>
+
+<style>
+  /* The landing page has no title panel; drop its empty strip. */
+  :global(main > .content-panel:first-child) {
+    display: none;
+  }
+
+  :global(main > .content-panel + .content-panel) {
+    border-top: 0;
+  }
+
+  @layer utilities {
+    .landing a {
+      text-decoration: none;
+    }
+
+    .landing a.text-link {
+      color: var(--foreground);
+      text-decoration: underline;
+      text-underline-offset: 0.2em;
+    }
+
+    .landing h1,
+    .landing h2,
+    .landing h3 {
+      margin: 0;
+      line-height: 1.08;
+    }
+
+    .landing ul,
+    .landing ol {
+      padding: 0;
+      list-style: none;
+    }
+
+    .shot :global(img) {
+      border-radius: var(--radius-2xl);
+      box-shadow:
+        0 0 0 1px var(--border),
+        var(--shadow-panel);
+    }
+
+    .shot.crop {
+      overflow: hidden;
+      aspect-ratio: 16 / 7;
+      border-radius: var(--radius-2xl);
+      box-shadow:
+        0 0 0 1px var(--border),
+        var(--shadow-panel);
+    }
+
+    .shot.crop :global(img) {
+      width: 190%;
+      max-width: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .steps {
+      counter-reset: step;
+    }
+
+    .steps li {
+      counter-increment: step;
+      display: grid;
+      grid-template-columns: 1.75rem minmax(0, 1fr);
+      gap: 0.5rem;
+    }
+
+    .install :global(.expressive-code) {
+      margin-top: 1rem;
+    }
+
+    .steps li::before {
+      content: counter(step);
+      display: grid;
+      place-items: center;
+      width: 1.5rem;
+      height: 1.5rem;
+      margin-top: 0.125rem;
+      border-radius: 999px;
+      background: color-mix(in oklab, var(--primary) 14%, transparent);
+      color: var(--color-primary-ink);
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    @media (min-width: 64rem) {
+      .hero-shot {
+        margin-right: calc(-1 * min(6vw, 4rem));
+      }
+    }
+  }
+</style>
