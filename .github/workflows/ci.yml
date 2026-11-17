@@ -38,8 +38,7 @@ jobs:
       - run: >-
           node --test scripts/ci/select*.test.mjs
           scripts/ci/resolve-stable.test.mjs scripts/ci/cleanup.test.mjs
-          scripts/ci/stack.test.mjs scripts/ci/guide.test.mjs
-      - run: node scripts/ci/guide.mjs
+          scripts/ci/stack.test.mjs
       - id: suites
         env:
           CI_BASE_SHA: ${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || github.sha }}
@@ -69,6 +68,8 @@ jobs:
         run: vp run format:check
       - name: Lint
         run: vp run lint
+      - name: Build the website and check its links
+        run: vp run --filter site build
       - name: Fallow new-code gate
         run: vp run quality:fallow
       - name: API stays compatible within its major version

@@ -33,7 +33,7 @@ Do not edit the `volumes:` lines inside `docker-compose.yml`. Change `UPLOAD_LOC
 
 Staaash listens on port `2113`. To use another port, set it in `.env` and run `docker compose up -d`:
 
-```env
+```dotenv
 STAAASH_PORT=8080
 ```
 

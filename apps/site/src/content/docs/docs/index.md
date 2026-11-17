@@ -32,6 +32,8 @@ On 64-bit Windows you can also skip Docker. See [Windows Server](/docs/windows-s
 
 **New here**
 
+Not sure yet? Read [Is Staaash right for you?](/docs/right-for-you/) or try the [demo](https://itsmeares.github.io/staaash/).
+
 1. [Installation](/docs/installation/). Be running in a few minutes.
 2. [Backup and Restore](/docs/backup-and-restore/). Do this on day one.
 3. [Using the Drive](/docs/using-the-drive/). Upload, find and get things back.
@@ -41,7 +43,8 @@ On 64-bit Windows you can also skip Docker. See [Windows Server](/docs/windows-s
 
 - [Updating](/docs/updating/)
 - [Configuration](/docs/configuration/)
-- [Reverse Proxy](/docs/reverse-proxy/). Reach your drive from outside the house, with HTTPS.
+- [Remote Access](/docs/remote-access/). Reach your drive from outside the house.
+- [Reverse Proxy](/docs/reverse-proxy/). Your own domain name, with HTTPS.
 - [Storage Check](/docs/storage-check/). When a file says it needs a check.
 - [Troubleshooting](/docs/troubleshooting/)
 - [FAQ](/docs/faq/)

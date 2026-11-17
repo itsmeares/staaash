@@ -5,8 +5,9 @@ web app handles requests, and the worker handles durable work that must not
 depend on a request staying open. Storage and recovery come first: the design
 stays small until it has a reason to grow.
 
-Guides for people running Staaash are in [`guide/`](guide/) and on the
-[wiki](https://github.com/itsmeares/staaash/wiki). This page and the others in
+Guides for people running Staaash are at
+[staaash.org/docs](https://staaash.org/docs/), built from
+[`apps/site`](../apps/site/src/content/docs/docs/). This page and the others in
 `docs/` are for contributors.
 
 ## Parts
@@ -228,4 +229,5 @@ Not yet: a phone app. It is planned for later.
   upgrade cutover
 - [Resumable uploads](resumable-uploads.md): upload admission, quota, and
   cleanup
-- [Guides](guide/): install, back up, update, and run Staaash
+- [Guides](../apps/site/src/content/docs/docs/): install, back up, update,
+  and run Staaash

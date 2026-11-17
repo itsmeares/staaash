@@ -1,6 +1,7 @@
 ---
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
 import { Code, TabItem, Tabs } from "@astrojs/starlight/components";
+import { badgeVariants } from "@staaash/ui/components/badge";
 import { buttonVariants } from "@staaash/ui/components/button";
 import { Box, FolderOpen, Plug } from "lucide-react";
 
@@ -237,9 +238,10 @@ const section = "mx-auto w-full max-w-6xl px-0";
             </TabItem>
             <TabItem label="Windows without Docker">
               <p class="text-base/relaxed text-muted-foreground">
-                Download <code class="font-mono text-foreground">Staaash-Server-…-win-x64.exe</code>{" "}
-                from the{" "}
-                <a href={links.latestRelease} class="text-link">latest release</a>{" "}
+                Coming in 2.0. Download{" "}
+                <code class="font-mono text-foreground">Staaash-Server-…-win-x64.exe</code>{" "}
+                from a{" "}
+                <a href={links.releases} class="text-link">2.0 release candidate</a>{" "}
                 and run it. It sets up Staaash and its database as Windows
                 services, then opens the page to create your account. The{" "}
                 <a href="/docs/windows-server/" class="text-link">Windows server guide</a>{" "}
@@ -254,12 +256,17 @@ const section = "mx-auto w-full max-w-6xl px-0";
     <section class:list={[section, "mt-32 lg:mt-40"]} aria-labelledby="desktop-title">
       <div class="grid gap-10 rounded-2xl border border-hairline bg-card p-6 sm:p-10 lg:grid-cols-12 lg:gap-14">
         <div class="lg:col-span-5">
-          <h2 id="desktop-title" class="font-heading text-3xl font-bold text-balance text-foreground">
-            The desktop app
-          </h2>
+          <div class="flex flex-wrap items-center gap-3">
+            <h2 id="desktop-title" class="font-heading text-3xl font-bold text-balance text-foreground">
+              The desktop app
+            </h2>
+            <span class={badgeVariants({ variant: "accent", size: "lg" })}>Coming in 2.0</span>
+          </div>
           <p class="mt-4 text-base/relaxed text-muted-foreground">
-            Keeps folders on your computer in sync with your drive. Needs a
-            Staaash 2.0 server. The installers aren't code signed yet, and the{" "}
+            Keeps folders on your computer in sync with your drive. It needs
+            Staaash 2.0, which is in testing, so the downloads are on the
+            release candidates for now. The installers aren't code signed yet,
+            and the{" "}
             <a href="/docs/desktop-app/" class="text-link">desktop app guide</a>{" "}
             shows how to open them the first time.
           </p>
@@ -269,7 +276,7 @@ const section = "mx-auto w-full max-w-6xl px-0";
             desktop.map((item) => (
               <li>
                 <a
-                  href={links.latestRelease}
+                  href={links.releases}
                   class="flex items-center justify-between gap-4 rounded-xl border border-hairline px-4 py-3 no-underline hover:bg-hover"
                   data-umami-event="download-desktop"
                   data-umami-event-system={item.system}

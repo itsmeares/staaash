@@ -2,6 +2,10 @@
 title: Windows Server
 ---
 
+:::note[Coming in 2.0]
+The Windows server installer ships with Staaash 2.0, which is in testing. The latest stable release is 1.2.1. To try it now, use a [2.0 release candidate](https://github.com/itsmeares/staaash/releases).
+:::
+
 Staaash runs on Windows without Docker. One installer sets up the web app,
 the worker, and PostgreSQL 18 as Windows services on the same computer.
 
@@ -32,7 +36,7 @@ For HTTPS, put a reverse proxy in front of the web port as described in
 [Reverse Proxy](/docs/reverse-proxy/). With [Caddy for Windows](https://caddyserver.com/docs/install#windows),
 a `Caddyfile` next to `caddy.exe` is enough:
 
-```caddyfile
+```txt title="Caddyfile"
 drive.example.com {
 	reverse_proxy 127.0.0.1:2113
 }

@@ -2,7 +2,7 @@
 // every page.
 const host = "https://stats.staaash.org";
 const websites = {
-  "staaash.org": "",
+  "staaash.org": "0c1d81dc-326f-4c8e-816a-a787d8fa4984",
 };
 
 /** Starlight head entries that load Umami and its heatmap recorder. */

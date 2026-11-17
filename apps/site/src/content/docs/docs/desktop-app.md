@@ -2,6 +2,10 @@
 title: Desktop App
 ---
 
+:::note[Coming in 2.0]
+The desktop app needs Staaash 2.0, which is in testing. The latest stable release is 1.2.1. To try it now, use a [2.0 release candidate](https://github.com/itsmeares/staaash/releases).
+:::
+
 The desktop app keeps folders on your computer in step with folders in your drive. It lives in the tray, near the clock. A file you save in a synced folder goes to your drive. A file that changes in your drive comes to your computer.
 
 It needs a Staaash server version 2.0 or newer.

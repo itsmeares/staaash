@@ -19,7 +19,7 @@ Staaash shows a notice in the app when a new version exists. Admins can also pre
 1. Find the tag of the new release, for example `vX.Y.Z`. It is the title of the release.
 2. Open your `.env` file and set `STAAASH_VERSION` to that tag:
 
-   ```env
+   ```dotenv
    STAAASH_VERSION=vX.Y.Z
    ```
 
