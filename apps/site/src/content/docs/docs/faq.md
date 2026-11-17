@@ -4,7 +4,7 @@ title: FAQ
 
 ## Does it work on Windows?
 
-Yes. Use Docker Desktop and follow [Installation](/docs/installation/), From 2.0, now a release candidate, you can also install the server without Docker. See [Windows Server](/docs/windows-server/).
+Yes. Use Docker Desktop and follow [Installation](/docs/installation/). From 2.0, now a release candidate, you can also install the server without Docker. See [Windows Server](/docs/windows-server/).
 
 ## Is there a phone app?
 
