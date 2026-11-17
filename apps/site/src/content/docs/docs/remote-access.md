@@ -5,16 +5,18 @@ description: Reach your drive from outside the house with Tailscale, a VPN, a Cl
 
 At home, you open Staaash at your server's address, such as `http://192.168.1.10:2113`. To reach it from anywhere else, pick one of these.
 
-| Way                                                      | Open to the internet    | Share links work for anyone | Setup     |
-| -------------------------------------------------------- | ----------------------- | --------------------------- | --------- |
-| [Tailscale](#tailscale)                                  | No                      | No, only your devices       | Easiest   |
-| [WireGuard or another VPN](#wireguard-or-another-vpn)    | One VPN port            | No, only your devices       | Medium    |
-| [Cloudflare Tunnel](#cloudflare-tunnel)                  | Yes, through Cloudflare | Yes                         | Medium    |
-| [Port forwarding](#port-forwarding-with-a-reverse-proxy) | Ports 80 and 443        | Yes                         | Most work |
+| Way                                                      | Opens on your router               | Share links work for anyone | Setup     |
+| -------------------------------------------------------- | ---------------------------------- | --------------------------- | --------- |
+| [Tailscale](#tailscale)                                  | Nothing                            | No, only your devices       | Easiest   |
+| [WireGuard or another VPN](#wireguard-or-another-vpn)    | One VPN port                       | No, only your devices       | Medium    |
+| [Cloudflare Tunnel](#cloudflare-tunnel)                  | Nothing, public through Cloudflare | Yes                         | Medium    |
+| [Port forwarding](#port-forwarding-with-a-reverse-proxy) | Ports 80 and 443                   | Yes                         | Most work |
 
 If only you and your family use the drive, start with Tailscale. If you send share links to people outside, you need a Cloudflare Tunnel or port forwarding.
 
 Never forward port 2113 itself on your router. Staaash expects HTTPS from a proxy in front of it when it faces the internet.
+
+This page is for a server at home behind a router. A rented server with its own public address, such as a VPS, has no router in front of it, so Docker opens port 2113 to the internet. There, set `STAAASH_PORT=127.0.0.1:2113` and put a [reverse proxy](/docs/reverse-proxy/) in front.
 
 ## Tailscale
 

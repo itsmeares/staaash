@@ -2,7 +2,7 @@
 title: Staaash
 ---
 
-Staaash is a drive that lives on your own computer. You put files in, and you get them back from any browser or from the desktop app. Nobody else holds your files.
+Staaash is a drive that lives on your own computer. You put files in, and you get them back from any browser or, from 2.0, the desktop app. Nobody else holds your files.
 
 It is free and open source.
 
@@ -13,7 +13,7 @@ It is free and open source.
 - See photo and video previews.
 - Send a link to a file or folder. Add a password or an end date, and turn it off whenever you like.
 - Get deleted files back from the trash for 30 days by default.
-- Keep a folder on your computer in sync with your drive.
+- Keep a folder on your computer in sync with your drive, from 2.0.
 - Share one drive with family or friends, each with a private space and an optional storage limit.
 
 ## Three promises
