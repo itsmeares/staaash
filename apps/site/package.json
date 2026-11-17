@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "sync": "astro sync",
     "preview": "astro build && wrangler dev"
   },
   "devDependencies": {

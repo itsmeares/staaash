@@ -17,7 +17,7 @@
     "db:build": "pnpm --filter @staaash/db build",
     "db:test": "vp run --filter @staaash/db test",
     "build": "vp run -r build",
-    "lint": "vp run build:deps && vp lint && vp run --filter web check:styles",
+    "lint": "vp run build:deps && vp run --filter site sync && vp lint && vp run --filter web check:styles",
     "test": "vp run -r test",
     "test:postgres": "pnpm --filter web test:postgres",
     "format": "vp fmt .",
