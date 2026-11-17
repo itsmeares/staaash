@@ -16,7 +16,7 @@ If only you and your family use the drive, start with Tailscale. If you send sha
 
 Never forward port 2113 itself on your router. Staaash expects HTTPS from a proxy in front of it when it faces the internet.
 
-This page is for a server at home behind a router. A rented server with its own public address, such as a VPS, has no router in front of it, so Docker opens port 2113 to the internet. There, set `STAAASH_PORT=127.0.0.1:2113` and put a [reverse proxy](/docs/reverse-proxy/) in front.
+Docker opens port 2113 on every address your server has. On a rented server with its own public address, such as a VPS, that includes the internet. The same goes for a home server with a public IPv6 address when the router lets incoming IPv6 through. In those cases, or if you are not sure, set `STAAASH_PORT=127.0.0.1:2113` and put a [reverse proxy](/docs/reverse-proxy/) in front.
 
 ## Tailscale
 
