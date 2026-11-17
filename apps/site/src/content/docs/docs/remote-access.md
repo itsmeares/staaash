@@ -18,7 +18,7 @@ Never forward port 2113 itself on your router. Staaash expects HTTPS from a prox
 
 ## Tailscale
 
-[Tailscale](https://tailscale.com) puts your devices on a private network with each other. Nothing on your server is open to the internet.
+[Tailscale](https://tailscale.com) puts your devices on a private network with each other. You open no port on your router for it.
 
 1. Install Tailscale on the server and sign in.
 2. Install it on your phone and laptop, and sign in with the same account.
@@ -27,7 +27,7 @@ Never forward port 2113 itself on your router. Staaash expects HTTPS from a prox
 
 Staaash works over plain HTTP here, because Tailscale already encrypts the connection between your devices. Sign-in and uploads work the same as at home.
 
-If you set `STAAASH_PORT=127.0.0.1:2113` for a reverse proxy, port 2113 only answers on the server itself, so step 4 fails. Open Staaash through the proxy's address instead, or remove that line. Port 2113 stays off the internet either way, as long as your router does not forward it.
+If you set `STAAASH_PORT=127.0.0.1:2113` for a reverse proxy, port 2113 only answers on the server itself, so step 4 fails. Keep that line and open the proxy's address over Tailscale instead.
 
 Share links use the Tailscale address you opened Staaash at, so only people on your Tailscale network can open them. If you set `STAAASH_PUBLIC_URL`, share links use that address instead.
 
