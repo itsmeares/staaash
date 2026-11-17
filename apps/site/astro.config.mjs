@@ -75,6 +75,7 @@ export default defineConfig({
         },
         { label: "Help", items: ["docs/faq", "docs/roadmap"] },
       ],
+      // The guides point people at http://localhost:2113 on purpose.
       plugins: [starlightLinksValidator({ errorOnLocalLinks: false })],
     }),
     react(),

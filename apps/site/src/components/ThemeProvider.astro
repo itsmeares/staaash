@@ -6,15 +6,18 @@
 <script is:inline>
   (() => {
     const root = document.documentElement;
-    const stored =
-      typeof localStorage !== "undefined" &&
-      localStorage.getItem("starlight-theme");
-    const theme =
-      stored ||
-      (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+    // Reading storage throws when the browser blocks site data.
+    let stored = null;
+    try {
+      stored = localStorage.getItem("starlight-theme");
+    } catch {}
+    const system = matchMedia("(prefers-color-scheme: light)").matches
+      ? "light"
+      : "dark";
     const apply = () =>
       root.classList.toggle("dark", root.dataset.theme === "dark");
-    root.dataset.theme = theme === "light" ? "light" : "dark";
+    root.dataset.theme =
+      stored === "light" || stored === "dark" ? stored : system;
     apply();
     new MutationObserver(apply).observe(root, {
       attributes: true,
