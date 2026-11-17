@@ -14,7 +14,7 @@ It supports 64-bit Windows Server 2019 and newer, and Windows 10 and 11.
 ## Install
 
 1. Download `Staaash-Server-<version>-win-x64.exe` from the
-   [latest release](https://github.com/itsmeares/staaash/releases/latest).
+   [newest 2.0 release](https://github.com/itsmeares/staaash/releases).
    It is the server. `Staaash-Desktop-<version>-win-x64.exe` is the sync app.
 2. Run it as an administrator. The installer is not code signed, so Windows
    may show "Windows protected your PC". Click More info, then Run anyway.
