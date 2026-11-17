@@ -5,6 +5,7 @@ import type { api } from "../../lib/api";
 import { createNodePreviewApp } from "./node";
 import { SETTINGS_DEFAULTS } from "../../server/admin/settings-schema";
 import { demoAccount, demoShareToken } from "../../lib/demo";
+import { demoPeople } from "./demo";
 
 vi.mock("pg", () => {
   throw new Error("The UI preview must not import a database driver.");
@@ -1513,15 +1514,14 @@ describe("public demo drive", () => {
     const { users } = await client.read<{
       users: Array<{ displayName: string; storageUsedBytes: string }>;
     }>("/api/views/admin/users");
-    expect(users.map((user) => user.displayName)).toEqual([
-      "Jesse de Vries",
-      "Noor de Vries",
-      "Bram de Vries",
-      "Fenna de Vries",
-      "Henk Bakker",
-    ]);
-    for (const user of users)
-      expect(() => BigInt(user.storageUsedBytes)).not.toThrow();
+    expect(users.map((user) => user.displayName)).toEqual(
+      demoPeople.map((person) => person.displayName),
+    );
+    for (const [index, { backup }] of demoPeople.entries())
+      if (backup)
+        expect(
+          BigInt(users[index].storageUsedBytes) >= BigInt(backup.sizeBytes),
+        ).toBe(true);
   });
 
   it("accepts files up to 100 MiB and up to 500 MiB in total", async () => {
