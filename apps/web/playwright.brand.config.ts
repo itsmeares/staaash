@@ -15,10 +15,15 @@ export default defineConfig(uiConfig, {
   use: {
     ...uiConfig.use,
     channel: "chromium",
-    // The sync card frames the desktop window from its own local port, which
-    // Chromium's local network checks block.
     launchOptions: {
-      args: ["--disable-features=LocalNetworkAccessChecks"],
+      args: [
+        // The sync card frames the desktop window from its own local port,
+        // which Chromium's local network checks block.
+        "--disable-features=LocalNetworkAccessChecks",
+        // The PDF viewer runs in its own process, which ignores the emulated
+        // scale and draws a 2x page into half of its box.
+        "--force-device-scale-factor=2",
+      ],
     },
   },
   // Added to the frontend preview's server: the desktop app's window, which

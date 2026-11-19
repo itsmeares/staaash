@@ -17,6 +17,7 @@ export const demoFolders = [
     parent: null,
     color: "orange",
     icon: null,
+    daysAgo: 1,
     pinned: true,
   },
   {
@@ -25,6 +26,7 @@ export const demoFolders = [
     parent: "renovation",
     color: null,
     icon: "FileText",
+    daysAgo: 3,
   },
   {
     key: "documents",
@@ -32,6 +34,7 @@ export const demoFolders = [
     parent: null,
     color: "blue",
     icon: "FileText",
+    daysAgo: 40,
   },
   {
     key: "homelab",
@@ -39,14 +42,23 @@ export const demoFolders = [
     parent: null,
     color: "violet",
     icon: "Code",
+    daysAgo: 21,
   },
-  { key: "music", name: "Music", parent: null, color: "pink", icon: "Music" },
+  {
+    key: "music",
+    name: "Music",
+    parent: null,
+    color: "pink",
+    icon: "Music",
+    daysAgo: 60,
+  },
   {
     key: "photos",
     name: "Photos",
     parent: null,
     color: "amber",
     icon: "Image",
+    daysAgo: 90,
   },
   {
     key: "lisbon",
@@ -54,6 +66,7 @@ export const demoFolders = [
     parent: "photos",
     color: null,
     icon: null,
+    daysAgo: 200,
   },
   {
     key: "recipes",
@@ -61,8 +74,16 @@ export const demoFolders = [
     parent: null,
     color: "green",
     icon: "Heart",
+    daysAgo: 30,
   },
-  { key: "work", name: "Work", parent: null, color: "teal", icon: "Briefcase" },
+  {
+    key: "work",
+    name: "Work",
+    parent: null,
+    color: "teal",
+    icon: "Briefcase",
+    daysAgo: 9,
+  },
 ] as const;
 export type DemoFolderKey = (typeof demoFolders)[number]["key"];
 
@@ -138,7 +159,7 @@ export const demoFiles: DemoFile[] = [
     "welcome",
     "Welcome to Staaash.md",
     null,
-    0,
+    170,
     "welcome.md",
     markdown,
     "text",
@@ -282,7 +303,7 @@ export const demoFiles: DemoFile[] = [
     "backup-log",
     "backup.log",
     "homelab",
-    1,
+    4,
     // Stored as .txt because the repository ignores *.log files.
     "backup-log.txt",
     "text/plain",

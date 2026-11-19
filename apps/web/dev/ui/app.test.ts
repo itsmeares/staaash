@@ -1507,6 +1507,21 @@ describe("public demo drive", () => {
     }
   });
 
+  it("puts the newest changes first on Home, like the server", async () => {
+    const client = browser();
+    await client.scenario("demo");
+    await client.post("/api/auth/sign-in", demoAccount);
+    const home = await client.read<{
+      recent: Array<{ at: string }>;
+      pickUp: Array<{ kind: string; at: string }>;
+    }>("/api/views/home");
+    for (const list of [home.recent, home.pickUp]) {
+      const times = list.map((item) => Date.parse(item.at));
+      expect(times).toEqual([...times].sort((a, b) => b - a));
+    }
+    expect(home.pickUp.every((item) => item.kind === "file")).toBe(true);
+  });
+
   it("lists the household with storage use the admin pages can read", async () => {
     const client = browser();
     await client.scenario("demo");

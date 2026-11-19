@@ -240,8 +240,8 @@ function seedDemoDrive(state: State, user: User) {
         icon: folder.icon,
         favorite: folder.key === "recipes",
         pinned: "pinned" in folder,
-        createdAt: daysAgo(170),
-        updatedAt: daysAgo(1),
+        createdAt: daysAgo(180),
+        updatedAt: daysAgo(folder.daysAgo),
       })),
   );
   state.files.push(

@@ -349,14 +349,17 @@ export function shellView(
   } satisfies InferResponseType<typeof api.api.views.shell.$get, 200>;
 }
 export function homeView(state: State, origin: string) {
-  const items = ownedItems(state);
+  // Newest change first, like the server's recent lists.
+  const items = ownedItems(state).sort(
+    (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+  );
   const recent = items.slice(0, 8).map((i) => recentItem(state, i));
   return {
     hasFavorites: items.some((i) => i.favorite),
     pinned: items.filter((i) => i.pinned).map((i) => recentItem(state, i)),
     recent,
-    pickUp: state.files
-      .filter((f) => f.ownerUserId === state.userId && !isDeleted(state, f))
+    pickUp: items
+      .filter((i) => "folderId" in i)
       .slice(0, 6)
       .map((f) => recentItem(state, f)),
     shares: state.shares
