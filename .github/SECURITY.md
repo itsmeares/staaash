@@ -15,7 +15,7 @@ Release candidates are for testing and get no fixes of their own. Update to the 
 
 If you find a security problem, please do not open a public issue for it.
 
-Use GitHub Security Advisories and include:
+Report it through [GitHub Security Advisories](https://github.com/itsmeares/staaash/security/advisories/new), or email security@staaash.org. Include:
 
 - affected component or route
 - reproduction steps

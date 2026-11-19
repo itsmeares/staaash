@@ -5,12 +5,12 @@
 <h3>The drive for your homelab.</h3>
 
 <p>
-<a href="https://itsmeares.github.io/staaash/"><img width="190" src="https://img.shields.io/badge/Try_the_live_demo-d5ac76?style=for-the-badge" alt="Try the live demo"></a>&nbsp;
+<a href="https://demo.staaash.org/"><img width="190" src="https://img.shields.io/badge/Try_the_live_demo-d5ac76?style=for-the-badge" alt="Try the live demo"></a>&nbsp;
 <a href="#get-started"><img width="97" src="https://img.shields.io/badge/Install-2b2a27?style=for-the-badge" alt="Install"></a>&nbsp;
 <a href="#desktop-app"><img width="139" src="https://img.shields.io/badge/Desktop_app-2b2a27?style=for-the-badge" alt="Desktop app"></a>
 </p>
 
-<a href="https://itsmeares.github.io/staaash/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Banner/Staaash%20README-Dark.webp"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Banner/Staaash%20README-Light.webp" alt="Staaash on a desktop and a phone: the Home renovation folder and its share link" width="100%"></picture></a>
+<a href="https://demo.staaash.org/"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Banner/Staaash%20README-Dark.webp"><img src="https://raw.githubusercontent.com/itsmeares/staaash/main/design/Banner/Staaash%20README-Light.webp" alt="Staaash on a desktop and a phone: the Home renovation folder and its share link" width="100%"></picture></a>
 
 <p>Free and open source. No cloud account, no monthly bill.</p>
 
@@ -90,7 +90,7 @@ Open **http://localhost:2113** and create your account right away. Until you do,
 <summary><b>Windows, without Docker</b></summary>
 <br>
 
-Download `Staaash-Server-…-win-x64.exe` from the [latest release](https://github.com/itsmeares/staaash/releases/latest) and run it. It sets up Staaash and its database as Windows services, then opens the page to create your account. Create it right away. The installer opens port 2113 in the Windows firewall, so until you do, anyone who can reach it can take the owner account. See the [Windows server guide](https://github.com/itsmeares/staaash/wiki/Windows-Server).
+Download `Staaash-Server-…-win-x64.exe` from the [latest release](https://github.com/itsmeares/staaash/releases/latest) and run it. It sets up Staaash and its database as Windows services, then opens the page to create your account. Create it right away. The installer opens port 2113 in the Windows firewall, so until you do, anyone who can reach it can take the owner account. See the [Windows server guide](https://staaash.org/docs/windows-server/).
 
 </details>
 
@@ -102,20 +102,20 @@ Keeps folders on your computer in sync with your drive. Needs a Staaash 2.0 serv
 | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [Installer x64](https://github.com/itsmeares/staaash/releases/latest) · [Installer ARM64](https://github.com/itsmeares/staaash/releases/latest) | [Universal DMG](https://github.com/itsmeares/staaash/releases/latest) | [AppImage](https://github.com/itsmeares/staaash/releases/latest) · [DEB](https://github.com/itsmeares/staaash/releases/latest) · [RPM](https://github.com/itsmeares/staaash/releases/latest) |
 
-<sub>The installers are not code signed yet. The <a href="https://github.com/itsmeares/staaash/wiki/Desktop-App">desktop app guide</a> shows how to open them the first time.</sub>
+<sub>The installers are not code signed yet. The <a href="https://staaash.org/docs/desktop-app/">desktop app guide</a> shows how to open them the first time.</sub>
 
-Want to reach your drive from outside the house? [Add HTTPS with your own domain](https://github.com/itsmeares/staaash/wiki/Reverse-Proxy).
+Want to reach your drive from outside the house? [Add HTTPS with your own domain](https://staaash.org/docs/reverse-proxy/).
 
 ## Guides
 
-- 🚀 **[Installation](https://github.com/itsmeares/staaash/wiki/Installation)**. From nothing to your own drive, step by step.
-- 🔄 **[Updating](https://github.com/itsmeares/staaash/wiki/Updating)**. Move to a new version without losing a thing.
-- 💾 **[Backup and restore](https://github.com/itsmeares/staaash/wiki/Backup-and-Restore)**. Protect your files and practice getting them back.
-- 📁 **[Using the drive](https://github.com/itsmeares/staaash/wiki/Using-the-Drive)**. Upload, find, preview and get things back.
-- 👪 **[Family and friends](https://github.com/itsmeares/staaash/wiki/User-Management)**. Invite people and give each one a storage limit.
-- ❓ **[FAQ](https://github.com/itsmeares/staaash/wiki/FAQ)**. Quick answers to the questions people ask first.
+- 🚀 **[Installation](https://staaash.org/docs/installation/)**. From nothing to your own drive, step by step.
+- 🔄 **[Updating](https://staaash.org/docs/updating/)**. Move to a new version without losing a thing.
+- 💾 **[Backup and restore](https://staaash.org/docs/backup-and-restore/)**. Protect your files and practice getting them back.
+- 📁 **[Using the drive](https://staaash.org/docs/using-the-drive/)**. Upload, find, preview and get things back.
+- 👪 **[Family and friends](https://staaash.org/docs/user-management/)**. Invite people and give each one a storage limit.
+- ❓ **[FAQ](https://staaash.org/docs/faq/)**. Quick answers to the questions people ask first.
 
-[All guides →](https://github.com/itsmeares/staaash/wiki)
+[All guides →](https://staaash.org/docs/)
 
 ## Community
 

@@ -186,11 +186,11 @@ const downloads = ({
     "",
     "| Server | |",
     "| --- | --- |",
-    `| 🐳 Docker | [docker-compose.yml](${base}/docker-compose.yml) · [example.env](${base}/example.env) · [Get started](https://github.com/${repository}#get-started) |`,
+    `| 🐳 Docker | [docker-compose.yml](${base}/docker-compose.yml) · [example.env](${base}/example.env) · [Get started](https://staaash.org/docs/installation/) |`,
   ];
   if (hasWindowsServer)
     lines.push(
-      `| 🪟 Windows | [Installer x64](${base}/Staaash-Server-${version}-win-x64.exe) · [Windows guide](https://github.com/${repository}/wiki/Windows-Server) |`,
+      `| 🪟 Windows | [Installer x64](${base}/Staaash-Server-${version}-win-x64.exe) · [Windows guide](https://staaash.org/docs/windows-server/) |`,
     );
   if (hasDesktop)
     lines.push(

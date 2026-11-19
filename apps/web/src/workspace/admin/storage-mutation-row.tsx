@@ -106,7 +106,7 @@ export function MutationRow({
               : "Give these details to the instance owner. They need to check the worker logs and follow the storage recovery guide. Do not move or delete storage files by hand."}{" "}
             <a
               className="underline underline-offset-4"
-              href="https://github.com/itsmeares/staaash/wiki/Storage-Check"
+              href="https://staaash.org/docs/storage-check/"
               target="_blank"
               rel="noopener noreferrer"
             >

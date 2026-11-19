@@ -6,7 +6,7 @@
   "private": true,
   "license": "AGPL-3.0-only",
   "author": "Staaash",
-  "homepage": "https://github.com/itsmeares/staaash",
+  "homepage": "https://staaash.org",
   "main": "dist/main/index.cjs",
   "desktopName": "staaash.desktop",
   "scripts": {
