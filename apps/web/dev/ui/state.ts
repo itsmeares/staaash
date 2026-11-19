@@ -237,6 +237,7 @@ function seedDemoDrive(state: State, user: User) {
         parentId: folder.parent ? id(folder.parent) : root.id,
         isFilesRoot: false,
         color: folder.color,
+        icon: folder.icon,
         favorite: folder.key === "recipes",
         pinned: "pinned" in folder,
         createdAt: daysAgo(170),
