@@ -1,4 +1,6 @@
-# User Management
+---
+title: User Management
+---
 
 You decide who can use your drive. This page is for the owner.
 
@@ -14,7 +16,7 @@ Everyone has a private space. The owner cannot read a member's files by being th
 
 ## Invite someone
 
-![Users](images/admin-users.png)
+![Users](./images/admin-users.png)
 
 1. Open **Admin**, then **Users**, then press **Invite**.
 2. Type their email.
@@ -48,7 +50,7 @@ Resetting signs them out everywhere. You can also sign out a single device from 
 
 ## Sign-in time
 
-By default people stay signed in for a while and then sign in again. Change the time under admin **Settings**, **Sessions**. See [[Configuration]].
+By default people stay signed in for a while and then sign in again. Change the time under admin **Settings**, **Sessions**. See [Configuration](/docs/configuration/).
 
 ## Removing a person
 

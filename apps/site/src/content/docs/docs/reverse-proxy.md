@@ -1,4 +1,6 @@
-# Reverse Proxy
+---
+title: Reverse Proxy
+---
 
 A reverse proxy is a small program that stands in front of Staaash. People visit a name like `https://drive.example.com`. The proxy handles the secure HTTPS part, then passes the visit to Staaash.
 
@@ -16,7 +18,7 @@ Each release ships a ready setup with Caddy, which gets and renews HTTPS certifi
 1. Download `compose.https.yml` and `Caddyfile` from the release **Assets**. Put them next to `docker-compose.yml`.
 2. Add or change these lines in `.env`:
 
-   ```env
+   ```dotenv
    STAAASH_PUBLIC_URL=https://drive.example.com
    STAAASH_PORT=127.0.0.1:2113
    COMPOSE_PATH_SEPARATOR=,
@@ -39,13 +41,47 @@ HTTP/3 is off in this `Caddyfile`. In our tests it used about 2.5 times more pro
 
 ## Your own proxy
 
-Point your proxy at port 2113 and set `STAAASH_PUBLIC_URL` to the public address. A Caddy running on the same computer needs only this:
+Point your proxy at port 2113 and set `STAAASH_PUBLIC_URL` to the public address. The examples below were tested with sign-in and a 40 MB upload. The browser sends files under 100 MiB in one request and bigger ones in pieces of up to 32 MiB, so the proxy must accept request bodies of at least 128 MiB.
 
-```caddyfile
+### Caddy
+
+A Caddy running on the same computer needs only this:
+
+```txt title="Caddyfile"
 drive.example.com {
     reverse_proxy 127.0.0.1:2113
 }
 ```
+
+### Traefik
+
+If Traefik already runs in Docker with a `websecure` entry point on port 443 and a certificate resolver, add these labels to the `staaash` service. Put the labels in a `compose.override.yml` next to `docker-compose.yml`, so the next update does not replace them:
+
+```yaml title="compose.override.yml"
+services:
+  staaash:
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.staaash.rule: Host(`drive.example.com`)
+      traefik.http.routers.staaash.entrypoints: websecure
+      traefik.http.routers.staaash.tls.certresolver: letsencrypt
+      traefik.http.services.staaash.loadbalancer.server.port: "2113"
+```
+
+Use the name of your own certificate resolver instead of `letsencrypt`. Traefik and Staaash must share a Docker network. Traefik passes the original address and HTTPS on by itself, and it has no upload size limit.
+
+### Nginx Proxy Manager
+
+Add a proxy host:
+
+1. **Domain names:** `drive.example.com`.
+2. **Scheme:** `http`. **Forward hostname / IP:** your server's address, or `staaash` if Nginx Proxy Manager shares a Docker network with Staaash. **Forward port:** `2113`.
+3. Turn on **Websockets support** and **Block common exploits**.
+4. On the **SSL** tab, request a new certificate and turn on **Force SSL**.
+
+Nothing else is needed. Nginx Proxy Manager passes the original address and HTTPS on, and it accepts uploads up to 2000 MB per request.
+
+### Rules for any proxy
 
 Keep these rules, or sign-in and uploads fail on purpose:
 
@@ -63,7 +99,7 @@ If uploads are slow from inside your home but fine from outside, your devices ar
 2. **Add a local DNS record.** In your router, AdGuard Home, Pi-hole or other home DNS, point `drive.example.com` to the server's home address. If the name also has an IPv6 (`AAAA`) record, add a home answer for that too.
 3. **Make the proxy answer on port 443 at home.** If your router sends public port 443 to port 443 on the server, you are done. If it sends it to another port, such as 8443, the proxy must also listen on 443 at the home address. With your own Caddy, add a second block:
 
-   ```caddyfile
+   ```txt title="Caddyfile"
    https://drive.example.com:443 {
        bind 192.168.1.10
        reverse_proxy 127.0.0.1:2113
@@ -74,4 +110,4 @@ If uploads are slow from inside your home but fine from outside, your devices ar
 
 This only speeds up devices that use your home DNS. It does not change uploads from outside.
 
-If sign-in or uploads fail after any of this, see **Sign-in or uploads fail behind a proxy** in [[Troubleshooting]].
+If sign-in or uploads fail after any of this, see **Sign-in or uploads fail behind a proxy** in [Troubleshooting](/docs/troubleshooting/).

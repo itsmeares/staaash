@@ -1,4 +1,6 @@
-# Desktop App
+---
+title: Desktop App
+---
 
 The desktop app keeps folders on your computer in step with folders in your drive. It lives in the tray, near the clock. A file you save in a synced folder goes to your drive. A file that changes in your drive comes to your computer.
 
@@ -42,4 +44,4 @@ In the app's settings, under **Updates**:
 - **Check now** looks for a new version right away.
 - **Channel** picks which releases to follow. **Automatic** follows release candidates only while you run one, so a test version moves back to stable releases once the stable one is out. **Stable** never offers release candidates. **Release candidates** always offers them.
 
-If the app will not connect, check the address and read [[Troubleshooting]].
+If the app will not connect, check the address and read [Troubleshooting](/docs/troubleshooting/).

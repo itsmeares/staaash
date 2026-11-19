@@ -1,4 +1,6 @@
-# Troubleshooting
+---
+title: Troubleshooting
+---
 
 Start with two commands. They answer most questions.
 
@@ -28,11 +30,11 @@ Staaash checks that the address in the browser matches the address it was called
 
 - Use one address everywhere.
 - Make sure the proxy passes on the original Host and says the visit was HTTPS.
-- Compare against [[Reverse Proxy]].
+- Compare against [Reverse Proxy](/docs/reverse-proxy/).
 
 ## Share links have the wrong address
 
-Set `STAAASH_PUBLIC_URL` in `.env` to your public address, then run `docker compose up -d`. Links made after that use it. Links already sent keep their old address, so create a fresh share. See [[Configuration]].
+Set `STAAASH_PUBLIC_URL` in `.env` to your public address, then run `docker compose up -d`. Links made after that use it. Links already sent keep their old address, so create a fresh share. See [Configuration](/docs/configuration/).
 
 ## Previews are missing
 
@@ -46,7 +48,7 @@ Thumbnails and video previews come from the worker.
 
 1. Open admin **Overview** and **Storage**. They show who uses the space.
 2. Ask people to empty their trash. Trash is deleted for good after the cleanup time.
-3. Add space on the disk, or move to a bigger disk. To move the library, follow the steps in [[Configuration]].
+3. Add space on the disk, or move to a bigger disk. To move the library, follow the steps in [Configuration](/docs/configuration/).
 
 Do not delete files inside `library` by hand. Staaash tracks each file, and a hand delete leaves it confused.
 
@@ -72,14 +74,14 @@ Unfinished uploads wait in a holding area and are cleaned up after a few hours. 
 
 ## A file says "Needs a storage check"
 
-A move, rename or delete stopped halfway, and Staaash kept every byte instead of guessing. See [[Storage Check]].
+A move, rename or delete stopped halfway, and Staaash kept every byte instead of guessing. See [Storage Check](/docs/storage-check/).
 
 ## Health checks for monitoring
 
 Two addresses answer without signing in, for tools like Uptime Kuma:
 
 - `/api/health/live` answers 200 while the web app runs. Docker's health check uses it.
-- `/api/health/ready` answers 200 when the database, the files folder and the worker are all fine. It answers 503 when one is not, or when a change needs a [[Storage Check]]. Its reply lists which check failed.
+- `/api/health/ready` answers 200 when the database, the files folder and the worker are all fine. It answers 503 when one is not, or when a change needs a [Storage Check](/docs/storage-check/). Its reply lists which check failed.
 
 A failed preview job or another background job does not make `ready` fail. Those show in admin **Jobs**.
 
@@ -87,7 +89,7 @@ A failed preview job or another background job does not make `ready` fail. Those
 
 1. Check the logs for the first error.
 2. Check that `STAAASH_VERSION` in `.env` is the version you meant, and that `docker-compose.yml` is from the same release. After an update from 1.x, `Cannot find module '/app/dist/server/main.mjs'` in `docker compose logs staaash` means `STAAASH_VERSION` still names a 1.x version.
-3. Restore your backup if you cannot fix it. See [[Updating]] and [[Backup and Restore]].
+3. Restore your backup if you cannot fix it. See [Updating](/docs/updating/) and [Backup and Restore](/docs/backup-and-restore/).
 
 ## Asking for help
 

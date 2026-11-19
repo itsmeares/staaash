@@ -8,7 +8,7 @@ operation that can never succeed is rolled back before metadata commit (see
 [Pre-commit rejection](#pre-commit-rejection)).
 
 This page is for contributors. Owners whose drive shows "Needs a storage
-check" should read the [Storage Check guide](https://github.com/itsmeares/staaash/wiki/Storage-Check).
+check" should read the [Storage Check guide](https://staaash.org/docs/storage-check/).
 
 ## Supported filesystem
 

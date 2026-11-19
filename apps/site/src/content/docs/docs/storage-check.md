@@ -1,4 +1,6 @@
-# Storage Check
+---
+title: Storage Check
+---
 
 Before Staaash moves, renames, trashes or restores anything on your disk, it writes the change down in the database. If a change stops halfway, for example because the power went out, Staaash reads that note and finishes the change when it starts again.
 
@@ -43,5 +45,5 @@ Click **Needs a storage check** on the item, and send the reference number to wh
 
 ## Backups and health checks
 
-- A backup can wait for changes that finish on their own. Leave a change that needs review as it is, and back up anyway. See [[Backup and Restore]].
-- While a change needs review, the ready health check answers `503`. See **Health checks for monitoring** in [[Troubleshooting]].
+- A backup can wait for changes that finish on their own. Leave a change that needs review as it is, and back up anyway. See [Backup and Restore](/docs/backup-and-restore/).
+- While a change needs review, the ready health check answers `503`. See **Health checks for monitoring** in [Troubleshooting](/docs/troubleshooting/).

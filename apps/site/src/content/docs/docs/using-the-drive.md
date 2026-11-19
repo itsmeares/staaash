@@ -1,8 +1,10 @@
-# Using the Drive
+---
+title: Using the Drive
+---
 
 This page covers the everyday things: adding files, finding them, and getting them back.
 
-![The Files page in grid view](images/drive-files.png)
+![The Files page in grid view](./images/drive-files.png)
 
 The sidebar has **Home**, **Files**, **Recent**, **Favorites**, **Shared** and **Trash**. The bar at the bottom shows how much space you use.
 
@@ -24,7 +26,7 @@ Click the **⋯** button on an item, or right-click it, to see what you can do:
 - **Download as zip** for a folder.
 - **Color** to give a folder a color.
 - **Add to favorites**.
-- **Share** to make a link. See [[Sharing Files]].
+- **Share** to make a link. See [Sharing Files](/docs/sharing-files/).
 - **Details** to see the size, dates and where it lives.
 
 You can also drag items onto a folder to move them. Select several items with `Ctrl` or `Shift` and a click, or drag across empty space. Press `?` to see every keyboard shortcut.
@@ -48,4 +50,4 @@ Click a file to open it. Photos, videos, music, PDFs and text files open right i
 - Open the **⋯** menu on a file and click **Delete forever** to remove it now.
 - **Empty trash** removes everything in the trash, folders too. It is on the Trash page and in **Settings → Storage**.
 
-Your settings live in [[Your Account]].
+Your settings live in [Your Account](/docs/your-account/).

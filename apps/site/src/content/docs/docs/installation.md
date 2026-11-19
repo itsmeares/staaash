@@ -1,10 +1,12 @@
-# Installation
+---
+title: Installation
+---
 
 This page sets up Staaash with Docker. It takes a few minutes.
 
 ## What you need
 
-- A Linux computer or server (Intel/AMD or ARM), or a Windows computer with Docker Desktop. To run it on Windows without Docker, see [[Windows Server]].
+- A Linux computer or server (Intel/AMD or ARM), or a Windows computer with Docker Desktop. To run it on Windows without Docker, see [Windows Server](/docs/windows-server/).
 - Docker with the Compose plugin. Run `docker compose version`. If you see a version number, you are ready.
 
 ## Step 1. Download two files
@@ -16,7 +18,7 @@ Open the [releases page](https://github.com/itsmeares/staaash/releases), pick th
 1. Rename `example.env` to `.env`.
 2. Open `.env` and set `DB_PASSWORD` to a long password. Use letters and numbers only. A symbol or a space breaks the database connection. `openssl rand -hex 24` makes a good one.
 
-Leave the rest as it is. Every setting is explained in [[Configuration]].
+Leave the rest as it is. Every setting is explained in [Configuration](/docs/configuration/).
 
 ## Step 3. Start it
 
@@ -26,6 +28,8 @@ docker compose ps
 ```
 
 Until you create your account in the next step, anyone who can reach this port can create the owner account first. Do step 4 right away, and do not forward the port to the internet before that. On a shared network, set `STAAASH_PORT=127.0.0.1:2113` in `.env` until your account exists, then remove it and run `docker compose up -d` again.
+
+On a server the internet can reach, such as a VPS, set `STAAASH_PORT=127.0.0.1:2113` before the first start and keep it. Open the setup page through an SSH tunnel: run `ssh -L 2113:localhost:2113 you@your-server` on your own computer, then open `http://localhost:2113` there. Put a [reverse proxy](/docs/reverse-proxy/) in front for everyday use.
 
 The first start downloads the images, which can take a few minutes. `docker compose ps` should list `staaash_server`, `staaash_worker` and `staaash_postgres`, all running.
 
@@ -39,8 +43,8 @@ Your files are now in the `library` folder and your database is in the `postgres
 
 ## Next
 
-- Back up now: [[Backup and Restore]].
-- Learn the everyday things: [[Using the Drive]].
-- Reach it with a domain name and HTTPS: [[Reverse Proxy]].
-- Invite family or friends: [[User Management]].
-- It does not start: [[Troubleshooting]].
+- Back up now: [Backup and Restore](/docs/backup-and-restore/).
+- Learn the everyday things: [Using the Drive](/docs/using-the-drive/).
+- Reach it with a domain name and HTTPS: [Reverse Proxy](/docs/reverse-proxy/).
+- Invite family or friends: [User Management](/docs/user-management/).
+- It does not start: [Troubleshooting](/docs/troubleshooting/).

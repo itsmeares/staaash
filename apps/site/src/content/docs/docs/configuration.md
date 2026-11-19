@@ -1,4 +1,6 @@
-# Configuration
+---
+title: Configuration
+---
 
 Staaash has two places for settings:
 
@@ -15,7 +17,7 @@ Staaash has two places for settings:
 | `STAAASH_PORT`                           | The port Staaash opens on your computer. See [Change the port](#change-the-port).                                                    | `2113`       |
 | `STAAASH_PUBLIC_URL`                     | The web address people use, such as `https://drive.example.com`. Share links use it. Leave it unset if you only use Staaash at home. | not set      |
 | `STAAASH_VERSION`                        | Which version of Staaash to run. Release files set this to an exact version.                                                         | `latest`     |
-| `COMPOSE_FILE`, `COMPOSE_PATH_SEPARATOR` | Turn on HTTPS with the release files. See [[Reverse Proxy]].                                                                         | not set      |
+| `COMPOSE_FILE`, `COMPOSE_PATH_SEPARATOR` | Turn on HTTPS with the release files. See [Reverse Proxy](/docs/reverse-proxy/).                                                     | not set      |
 | `DB_USERNAME`                            | The database user. Leave it alone.                                                                                                   | `postgres`   |
 | `DB_DATABASE_NAME`                       | The database name. Leave it alone.                                                                                                   | `staaash`    |
 | `SECURE_COOKIES`                         | `true` or `false`. Usually you do not need it. Staaash already uses secure cookies on HTTPS and normal cookies on plain HTTP.        | not set      |
@@ -31,7 +33,7 @@ Do not edit the `volumes:` lines inside `docker-compose.yml`. Change `UPLOAD_LOC
 
 Staaash listens on port `2113`. To use another port, set it in `.env` and run `docker compose up -d`:
 
-```env
+```dotenv
 STAAASH_PORT=8080
 ```
 
@@ -41,7 +43,7 @@ To keep Staaash reachable only from the same computer, for example behind a prox
 
 ### Share link address
 
-If people open your drive through a domain name, set `STAAASH_PUBLIC_URL` so share links use that name. Without it, links use whatever address the person created them from. See [[Reverse Proxy]].
+If people open your drive through a domain name, set `STAAASH_PUBLIC_URL` so share links use that name. Without it, links use whatever address the person created them from. See [Reverse Proxy](/docs/reverse-proxy/).
 
 ## Admin settings inside the app
 
@@ -61,4 +63,4 @@ Hover or read the small text under each setting. It says what the setting does. 
 
 ## Per-person limits
 
-The owner can give each person a storage limit. See [[User Management]].
+The owner can give each person a storage limit. See [User Management](/docs/user-management/).

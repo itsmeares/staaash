@@ -26,6 +26,9 @@ database and one local storage volume.
   fonts used by the web app and the desktop app.
 - `packages/config` contains runtime paths, upload staging, and version code
   shared by both apps.
+- `apps/site` contains staaash.org: the landing page and the guides for
+  people running Staaash, in `src/content/docs/docs/`. Cloudflare builds and
+  deploys it from `main`.
 - `scripts` contains local maintenance and release tooling.
 - `docs/architecture.md` contains the locked storage, sharing, and restore
   rules. Read it before changing those areas.
@@ -248,8 +251,10 @@ false reports with a clear reason. Stop when the latest commit is green.
 
 Most code changes do not need new docs. Add documentation only when the code
 cannot clearly carry the reason, or when the way people run Staaash changes.
-`docs/architecture.md` holds design rules. `docs/guide/` holds the guides for
-people running Staaash; stable releases publish them to the wiki.
+`docs/architecture.md` holds design rules. The guides for people running
+Staaash live in `apps/site/src/content/docs/docs/` and publish to
+staaash.org/docs on every merge to `main`. Mark a feature that is not in a
+stable release yet with a "Coming in" note.
 
 When old documentation becomes wrong, rewrite or remove it. Do not add a second
 explanation beside it. Do not commit plans, research notes, or agent scratch

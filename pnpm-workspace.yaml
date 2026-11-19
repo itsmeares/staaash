@@ -31,6 +31,7 @@ allowBuilds:
   esbuild: true
   msw: true
   prisma: true
+  workerd: true
 catalog:
   vitest: 5.1.0
   vite-plus: 1.6.0
@@ -41,3 +42,12 @@ peerDependencyRules:
   allowedVersions:
     vite: "*"
     vitest: "*"
+minimumReleaseAgeExclude:
+  - "@cloudflare/workerd-darwin-64@1.20261117.1"
+  - "@cloudflare/workerd-darwin-arm64@1.20261117.1"
+  - "@cloudflare/workerd-linux-64@1.20261117.1"
+  - "@cloudflare/workerd-linux-arm64@1.20261117.1"
+  - "@cloudflare/workerd-windows-64@1.20261117.1"
+  - miniflare@5.20261117.0-beta
+  - workerd@1.20261117.1
+  - wrangler@4.164.0

@@ -1,4 +1,6 @@
-# Backup and Restore
+---
+title: Backup and Restore
+---
 
 Staaash is not a backup system. It is a drive. If the disk dies, or you delete the wrong folder, your files are gone unless you have a backup.
 
@@ -19,7 +21,7 @@ Copy the whole `library` folder, including its hidden and temporary folders. Unf
 
 Preview pictures and zip files do not need special care. Staaash can rebuild them. Your original files cannot be rebuilt.
 
-On the Windows server installer, the steps are different. See [[Windows Server]].
+On the Windows server installer, the steps are different. See [Windows Server](/docs/windows-server/).
 
 ## Make a backup
 
@@ -41,7 +43,7 @@ Stop everything first, so no file changes while you copy.
    SQL
    ```
 
-   Run it again until it prints `(0 rows)`. A change that says **Needs review** in admin **Storage** is not in this list. Leave it as it is, and read [[Storage Check]].
+   Run it again until it prints `(0 rows)`. A change that says **Needs review** in admin **Storage** is not in this list. Leave it as it is, and read [Storage Check](/docs/storage-check/).
 
    On Windows with Docker Desktop, run this in WSL or Git Bash.
 
@@ -109,4 +111,4 @@ Do this in your real install's folder, with the `.env` that belongs to the backu
 5. Start it with `docker compose up -d`, sign in as the owner, and run **Restore check** in admin **Jobs**.
 6. When your files look right, you can delete the `.old` folders.
 
-Backups only work with the version that made them, or a newer one. To go back to an older version, restore a backup made before you updated. See [[Updating]].
+Backups only work with the version that made them, or a newer one. To go back to an older version, restore a backup made before you updated. See [Updating](/docs/updating/).

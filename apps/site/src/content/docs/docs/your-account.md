@@ -1,8 +1,10 @@
-# Your Account
+---
+title: Your Account
+---
 
 Click your picture in the top right corner, then **Settings**. The same menu has **Keyboard shortcuts**, **Get the desktop app** and **Sign out**.
 
-![The Appearance settings](images/account-settings.png)
+![The Appearance settings](./images/account-settings.png)
 
 Changes in Appearance and Date and time wait for you to press **Save**. **Reset to defaults** puts a group back the way it started.
 
@@ -42,8 +44,8 @@ Every browser and desktop app signed in to your account, with when it was last s
 - **Sign out everywhere else** ends all of them except this browser.
 - Each one shows the network address it last used.
 
-Sign out a lost phone or computer here. To add the desktop app, see [[Desktop App]].
+Sign out a lost phone or computer here. To add the desktop app, see [Desktop App](/docs/desktop-app/).
 
 ## Updates
 
-Only the owner sees this. **Tell me about new versions** shows a note in the sidebar and a short announcement when a new Staaash version is out. To install it, see [[Updating]].
+Only the owner sees this. **Tell me about new versions** shows a note in the sidebar and a short announcement when a new Staaash version is out. To install it, see [Updating](/docs/updating/).
