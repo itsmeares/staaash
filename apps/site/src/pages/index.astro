@@ -24,21 +24,21 @@ const features = [
     text: "Photos (HEIC too), videos, music, PDFs and text open right away, on a laptop or a phone. No app to install for the people you share with.",
     light: photoLight,
     dark: photoDark,
-    alt: "A photo of a Lisbon tram open in Staaash's viewer, with the rest of the album along the bottom.",
+    alt: "A kitchen photo open in Staaash's viewer, with the rest of the folder along the bottom.",
   },
   {
     title: "Share a folder in two clicks",
     text: "Send a link with an end date, a password, or downloads turned off. Visitors need no account, and a photo folder opens as a gallery.",
     light: shareLight,
     dark: shareDark,
-    alt: "A shared Lisbon 2026 folder shown as a photo gallery, with a Download all button and the link's end date.",
+    alt: "A shared Home renovation folder shown as a photo gallery, with a Download all button and the link's end date.",
   },
   {
     title: "One drive, room for everyone",
     text: "Invite family, friends or your whole group. Each person gets a private space and a storage limit. Even the owner can't browse someone else's files in the app.",
     light: membersLight,
     dark: membersDark,
-    alt: "The users page, listing each person with their role and storage use.",
+    alt: "The users page, listing five family members with their role and storage use.",
     // The users list fills only the top corner of this screenshot.
     crop: true,
   },
@@ -138,7 +138,7 @@ const section = "mx-auto w-full max-w-6xl px-0";
         <ThemedImage
           light={heroLight}
           dark={heroDark}
-          alt="Staaash on a desktop and a phone: the Lisbon 2026 folder and its share link."
+          alt="Staaash on a desktop and a phone: the Home renovation folder and its share link."
           widths={[720, 1160, 1600, 2320]}
           sizes="(min-width: 1024px) 58vw, 100vw"
           eager
@@ -341,7 +341,7 @@ const section = "mx-auto w-full max-w-6xl px-0";
     }
 
     .shot.crop :global(img) {
-      width: 190%;
+      width: 135%;
       max-width: none;
       border-radius: 0;
       box-shadow: none;
