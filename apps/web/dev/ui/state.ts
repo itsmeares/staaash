@@ -153,7 +153,7 @@ export function createState(scenario: Scenario = "owner") {
     firstRuns: new Map<string, Exclude<FirstRunKind, "owner-setup">>(
       firstRun ? [["member", firstRun]] : [],
     ),
-    instanceName: demo ? "De Vries Home" : "Sample Drive",
+    instanceName: demo ? "Staaash" : "Sample Drive",
     users,
     passwords: new Map(
       users.map((user) => [user.id, demo ? demoAccount.password : password]),
