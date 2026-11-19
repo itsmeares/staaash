@@ -77,7 +77,8 @@ here are close conversions for tools that need hex.
 `Screenshots/` holds each screen in a dark and a light version, taken from a
 demo drive with made-up people and files. Every photo in it is public domain.
 `pnpm --filter web brand` retakes them, the banners, and the feature cards
-from the frontend preview. The desktop app screenshot is taken by hand.
+from the frontend preview, and the desktop app's window with sample sync
+activity.
 
 | Screen        | Shows                                         |
 | ------------- | --------------------------------------------- |

@@ -1,5 +1,6 @@
 import { test } from "@playwright/test";
 import { demoShareToken, openDemo, playFrom, settle } from "./demo";
+import { desktopURL, showDesktop } from "./desktop";
 
 const out = (name: string) => `../../design/Screenshots/${name}.jpg`;
 
@@ -85,6 +86,17 @@ for (const theme of ["dark", "light"] as const) {
       await page.goto(`/s/${demoShareToken}`);
       await settle(page);
       await page.screenshot({ path: out(`share-${theme}`), quality: 92 });
+    });
+
+    test.describe("desktop app", () => {
+      test.use({ viewport: { width: 860, height: 640 } });
+
+      test("syncing", async ({ page }) => {
+        await showDesktop(page);
+        await page.goto(desktopURL);
+        await settle(page);
+        await page.screenshot({ path: out(`desktop-${theme}`), quality: 92 });
+      });
     });
 
     test.describe("phone", () => {
