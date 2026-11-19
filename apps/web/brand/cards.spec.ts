@@ -1,10 +1,9 @@
 import { test, type Page } from "@playwright/test";
 import { demoShareToken, openDemo, saveWebp, settle } from "./demo";
+import { desktopURL, showDesktop } from "./desktop";
 import { phone } from "./phone";
 
 const fonts = "../../packages/ui/fonts";
-// The desktop app is not part of the web preview, so its screenshot is a file.
-const desktopShots = "../../design/Screenshots";
 
 const themes = {
   dark: {
@@ -52,7 +51,12 @@ const features: Feature[] = [
     width: 1280,
     height: 800,
     visual: (t) =>
-      windowFrame(t, live("/files/view/owner-img-4210", 1280, 800), 1280, 800),
+      windowFrame(
+        t,
+        live("/files/view/owner-kitchen-idea", 1280, 800),
+        1280,
+        800,
+      ),
   },
   {
     key: "share",
@@ -75,7 +79,7 @@ const features: Feature[] = [
     after: async (page) => {
       const app = page.frameLocator("iframe");
       await app.getByRole("button", { name: "Invite" }).click();
-      await app.getByPlaceholder("name@example.com").fill("lena@rivera.home");
+      await app.getByPlaceholder("name@example.com").fill("lotte@devries.home");
       await app.getByPlaceholder("No limit").fill("50");
       await app
         .locator("body")
@@ -89,13 +93,7 @@ const features: Feature[] = [
     text: "The desktop app for Windows, macOS and Linux keeps a folder on your computer and your drive the same. Two-way, download-only or upload-only. It lives in the tray.",
     width: 860,
     height: 640,
-    visual: (t) =>
-      windowFrame(
-        t,
-        `<img src="/__brand/desktop-${t}.jpg" style="display:block;width:860px;height:640px">`,
-        860,
-        640,
-      ),
+    visual: (t) => windowFrame(t, live(desktopURL, 860, 640), 860, 640),
   },
 ];
 
@@ -178,14 +176,10 @@ async function shoot(
   await tab.setViewportSize({ width: built.w, height: built.h || 1600 });
   await tab.emulateMedia({ colorScheme: t });
   await openDemo(tab, true);
+  await showDesktop(tab);
   await tab.route("**/__brand/fonts/*", (route) =>
     route.fulfill({
       path: `${fonts}/${new URL(route.request().url()).pathname.split("/").pop()}`,
-    }),
-  );
-  await tab.route("**/__brand/desktop-*.jpg", (route) =>
-    route.fulfill({
-      path: `${desktopShots}/${new URL(route.request().url()).pathname.split("/").pop()}`,
     }),
   );
   await tab.route("**/__brand", (route) =>

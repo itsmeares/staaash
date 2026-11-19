@@ -77,12 +77,13 @@ here are close conversions for tools that need hex.
 `Screenshots/` holds each screen in a dark and a light version, taken from a
 demo drive with made-up people and files. Every photo in it is public domain.
 `pnpm --filter web brand` retakes them, the banners, and the feature cards
-from the frontend preview. The desktop app screenshot is taken by hand.
+from the frontend preview, and the desktop app's window with sample sync
+activity.
 
 | Screen        | Shows                                         |
 | ------------- | --------------------------------------------- |
 | `home`        | Home with recent files, pins, and share links |
-| `lisbon`      | A trip folder with photos and a video         |
+| `renovation`  | A renovation folder with photos and plans     |
 | `photo`       | A photo open in the viewer                    |
 | `video`       | A video playing in the viewer                 |
 | `pdf`         | A PDF open in the viewer                      |
@@ -91,4 +92,5 @@ from the frontend preview. The desktop app screenshot is taken by hand.
 | `share`       | A shared folder as a visitor sees it          |
 | `share-phone` | The same shared folder on a phone             |
 | `members`     | The owner's list of members                   |
+| `upload`      | An upload part way through                    |
 | `desktop`     | The desktop app syncing folders               |

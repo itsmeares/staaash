@@ -5,6 +5,7 @@ import type { api } from "../../lib/api";
 import { createNodePreviewApp } from "./node";
 import { SETTINGS_DEFAULTS } from "../../server/admin/settings-schema";
 import { demoAccount, demoShareToken } from "../../lib/demo";
+import { demoPeople } from "./demo";
 
 vi.mock("pg", () => {
   throw new Error("The UI preview must not import a database driver.");
@@ -1496,7 +1497,7 @@ describe("public demo drive", () => {
       resolution: { listing: { files: Array<{ id: string; name: string }> } };
     }>(`/s/${demoShareToken}/view`);
     const photo = share.resolution.listing.files.find(
-      (entry) => entry.name === "IMG_4228.jpg",
+      (entry) => entry.name === "Kitchen idea.jpg",
     )!;
     for (const action of ["thumbnail", "content"]) {
       const response = await client.request(
@@ -1504,6 +1505,38 @@ describe("public demo drive", () => {
       );
       expect(response.status, action).toBe(200);
     }
+  });
+
+  it("puts the newest changes first on Home, like the server", async () => {
+    const client = browser();
+    await client.scenario("demo");
+    await client.post("/api/auth/sign-in", demoAccount);
+    const home = await client.read<{
+      recent: Array<{ at: string }>;
+      pickUp: Array<{ kind: string; at: string }>;
+    }>("/api/views/home");
+    for (const list of [home.recent, home.pickUp]) {
+      const times = list.map((item) => Date.parse(item.at));
+      expect(times).toEqual([...times].sort((a, b) => b - a));
+    }
+    expect(home.pickUp.every((item) => item.kind === "file")).toBe(true);
+  });
+
+  it("lists the household with storage use the admin pages can read", async () => {
+    const client = browser();
+    await client.scenario("demo");
+    await client.post("/api/auth/sign-in", demoAccount);
+    const { users } = await client.read<{
+      users: Array<{ displayName: string; storageUsedBytes: string }>;
+    }>("/api/views/admin/users");
+    expect(users.map((user) => user.displayName)).toEqual(
+      demoPeople.map((person) => person.displayName),
+    );
+    for (const [index, { backup }] of demoPeople.entries())
+      if (backup)
+        expect(
+          BigInt(users[index].storageUsedBytes) >= BigInt(backup.sizeBytes),
+        ).toBe(true);
   });
 
   it("accepts files up to 100 MiB and up to 500 MiB in total", async () => {

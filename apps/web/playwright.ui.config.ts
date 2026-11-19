@@ -2,19 +2,21 @@ import { createServer } from "node:net";
 import path from "node:path";
 import { defineConfig } from "@playwright/test";
 
-const selectedPort = await new Promise<number>((resolve, reject) => {
-  const server = createServer();
-  server.once("error", reject);
-  server.listen(0, "127.0.0.1", () => {
-    const address = server.address();
-    if (!address || typeof address === "string") {
-      reject(new Error("Could not choose a preview port."));
-      return;
-    }
-    server.close((error) => (error ? reject(error) : resolve(address.port)));
+/** A free local port, for a preview server. */
+export const freePort = () =>
+  new Promise<number>((resolve, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        reject(new Error("Could not choose a preview port."));
+        return;
+      }
+      server.close((error) => (error ? reject(error) : resolve(address.port)));
+    });
   });
-});
-const port = (process.env.STAAASH_UI_TEST_PORT ??= String(selectedPort));
+const port = (process.env.STAAASH_UI_TEST_PORT ??= String(await freePort()));
 const baseURL = `http://127.0.0.1:${port}`;
 export default defineConfig({
   testDir: "ui-tests",

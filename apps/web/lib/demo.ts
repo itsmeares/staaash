@@ -2,9 +2,9 @@
 export const isDemo = import.meta.env.MODE === "demo";
 
 export const demoAccount = {
-  email: "sam@rivera.home",
+  email: "jesse@devries.home",
   password: "staaash-demo",
 };
 
 /** Opened from the demo bar to show what a share link visitor sees. */
-export const demoShareToken = "lisbon-2026";
+export const demoShareToken = "home-renovation";
