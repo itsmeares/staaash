@@ -2,10 +2,6 @@
 title: Windows Server
 ---
 
-:::note[Coming in 2.0]
-The Windows server installer ships with Staaash 2.0, which is in testing. The latest stable release is 1.2.1. To try it now, use a [2.0 release candidate](https://github.com/itsmeares/staaash/releases).
-:::
-
 Staaash runs on Windows without Docker. One installer sets up the web app,
 the worker, and PostgreSQL 18 as Windows services on the same computer.
 
@@ -14,7 +10,7 @@ It supports 64-bit Windows Server 2019 and newer, and Windows 10 and 11.
 ## Install
 
 1. Download `Staaash-Server-<version>-win-x64.exe` from the
-   [newest 2.0 release](https://github.com/itsmeares/staaash/releases).
+   [latest release](https://github.com/itsmeares/staaash/releases/latest).
    It is the server. `Staaash-Desktop-<version>-win-x64.exe` is the sync app.
 2. Run it as an administrator. The installer is not code signed, so Windows
    may show "Windows protected your PC". Click More info, then Run anyway.

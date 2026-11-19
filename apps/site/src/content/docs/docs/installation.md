@@ -6,7 +6,7 @@ This page sets up Staaash with Docker. It takes a few minutes.
 
 ## What you need
 
-- A Linux computer or server (Intel/AMD or ARM), or a Windows computer with Docker Desktop. To run it on Windows without Docker, which comes with 2.0, see [Windows Server](/docs/windows-server/).
+- A Linux computer or server (Intel/AMD or ARM), or a Windows computer with Docker Desktop. To run it on Windows without Docker, see [Windows Server](/docs/windows-server/).
 - Docker with the Compose plugin. Run `docker compose version`. If you see a version number, you are ready.
 
 ## Step 1. Download two files

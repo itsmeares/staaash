@@ -61,6 +61,6 @@ Things to know before you rely on it:
 
 Your router sends ports 80 and 443 to your server, where a reverse proxy adds HTTPS and passes visits on to Staaash. This needs a domain name pointing at your home's public address.
 
-From 2.0, each release ships a ready setup with Caddy. The [Reverse Proxy](/docs/reverse-proxy/) guide covers it, and examples for Traefik and Nginx Proxy Manager if you already run one.
+Each release ships a ready setup with Caddy. The [Reverse Proxy](/docs/reverse-proxy/) guide covers it, and examples for Traefik and Nginx Proxy Manager if you already run one.
 
 If your internet provider changes your public address from time to time, use a dynamic DNS service to keep the name pointing at it. Some providers put you behind a shared address (CGNAT), where port forwarding cannot work at all. Then use Tailscale or a Cloudflare Tunnel.

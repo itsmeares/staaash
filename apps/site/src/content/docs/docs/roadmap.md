@@ -22,7 +22,7 @@ Ideas and votes go in [GitHub Discussions](https://github.com/itsmeares/staaash/
 
 ## Shipped
 
-- **2.0**, in testing as a release candidate: the desktop app that syncs folders, a new design in light and dark, a server for Windows without Docker, and an optional HTTPS setup. [Release candidates](https://github.com/itsmeares/staaash/releases)
+- **2.0**, November 2026: the desktop app that syncs folders, a new design in light and dark, a server for Windows without Docker, and an optional HTTPS setup. [v2.0.0](https://github.com/itsmeares/staaash/releases/tag/v2.0.0)
 - **1.2**, October 2026: Docker images for ARM64 servers as well as AMD64. [v1.2.0](https://github.com/itsmeares/staaash/releases/tag/v1.2.0)
 - **1.1**, September 2026: upload whole folders by drag and drop. [v1.1.0](https://github.com/itsmeares/staaash/releases/tag/v1.1.0)
 - **1.0**, August 2026: the first stable release. Upload, preview, share, trash and resumable uploads. [v1.0.0](https://github.com/itsmeares/staaash/releases/tag/v1.0.0)

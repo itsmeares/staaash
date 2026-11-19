@@ -6,6 +6,7 @@ export const links = {
   install: "/docs/installation/",
   repo,
   releases: `${repo}/releases`,
+  latestRelease: `${repo}/releases/latest`,
   composeFile: `${repo}/releases/latest/download/docker-compose.yml`,
   envFile: `${repo}/releases/latest/download/example.env`,
   discussions: `${repo}/discussions`,

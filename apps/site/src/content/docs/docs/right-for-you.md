@@ -3,7 +3,7 @@ title: Is Staaash right for you?
 description: When Staaash fits, and when a network share, Nextcloud, Syncthing or Immich fits better.
 ---
 
-Staaash is a drive: your files on your own disk, open in any browser, shared with a link, and, from 2.0, synced with the desktop app. It does that one job and stays small. Here is when it fits, and when something else fits better.
+Staaash is a drive: your files on your own disk, open in any browser, shared with a link, and synced with the desktop app. It does that one job and stays small. Here is when it fits, and when something else fits better.
 
 ## Staaash fits when
 

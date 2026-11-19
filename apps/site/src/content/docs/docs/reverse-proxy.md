@@ -15,10 +15,6 @@ Each release ships a ready setup with Caddy, which gets and renews HTTPS certifi
 
 ## HTTPS with the release files
 
-:::note[Coming in 2.0]
-`compose.https.yml` and `Caddyfile` ship with Staaash 2.0, which is in testing. On 1.2.1, use [your own proxy](#your-own-proxy). The latest stable release is 1.2.1. To try it now, use a [2.0 release candidate](https://github.com/itsmeares/staaash/releases).
-:::
-
 1. Download `compose.https.yml` and `Caddyfile` from the release **Assets**. Put them next to `docker-compose.yml`.
 2. Add or change these lines in `.env`:
 
