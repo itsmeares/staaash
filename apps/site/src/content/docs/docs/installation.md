@@ -29,6 +29,8 @@ docker compose ps
 
 Until you create your account in the next step, anyone who can reach this port can create the owner account first. Do step 4 right away, and do not forward the port to the internet before that. On a shared network, set `STAAASH_PORT=127.0.0.1:2113` in `.env` until your account exists, then remove it and run `docker compose up -d` again.
 
+On a server the internet can reach, such as a VPS, set `STAAASH_PORT=127.0.0.1:2113` before the first start and keep it. Open the setup page through an SSH tunnel: run `ssh -L 2113:localhost:2113 you@your-server` on your own computer, then open `http://localhost:2113` there. Put a [reverse proxy](/docs/reverse-proxy/) in front for everyday use.
+
 The first start downloads the images, which can take a few minutes. `docker compose ps` should list `staaash_server`, `staaash_worker` and `staaash_postgres`, all running.
 
 ## Step 4. Create your account
