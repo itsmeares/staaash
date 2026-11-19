@@ -162,7 +162,7 @@ describe("release notes", () => {
         /^https:\/\/github\.com\/itsmeares\/staaash\/releases\/download\/v2\.0\.0-rc\.2\/(?:docker-compose\.yml|example\.env|Staaash-(?:Desktop|Server)-2\.0\.0-rc\.2-)/u,
       );
     expect(body).toContain(
-      "[Windows guide](https://github.com/itsmeares/staaash/wiki/Windows-Server)",
+      "[Windows guide](https://staaash.org/docs/windows-server/)",
     );
     expect(body).toContain(
       "**Full changelog:** [v2.0.0-rc.1...v2.0.0-rc.2](https://github.com/itsmeares/staaash/compare/v2.0.0-rc.1...v2.0.0-rc.2)",

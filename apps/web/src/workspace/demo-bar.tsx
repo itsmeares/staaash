@@ -47,7 +47,7 @@ export function DemoBar() {
         className="ms-auto"
         render={
           <a
-            href="https://github.com/itsmeares/staaash#get-started"
+            href="https://staaash.org/docs/installation/"
             rel="noopener noreferrer"
             target="_blank"
           />

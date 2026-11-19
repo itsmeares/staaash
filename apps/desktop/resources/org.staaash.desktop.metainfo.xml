@@ -13,7 +13,7 @@
     which folders to sync, follow transfers, and pause syncing when you need to.</p>
   </description>
   <launchable type="desktop-id">staaash.desktop</launchable>
-  <url type="homepage">https://github.com/itsmeares/staaash</url>
+  <url type="homepage">https://staaash.org</url>
   <url type="bugtracker">https://github.com/itsmeares/staaash/issues</url>
   <provides>
     <binary>staaash</binary>

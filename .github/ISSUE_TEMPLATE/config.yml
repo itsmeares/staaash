@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: Guides
+    url: https://staaash.org/docs/
+    about: Installation, updating, backups, remote access, and answers to common questions.
   - name: Questions, ideas, and feedback
     url: https://github.com/itsmeares/staaash/discussions
     about: Ask for help, discuss ideas, and share feedback in GitHub Discussions.

@@ -24,8 +24,7 @@ function assetSizes() {
  */
 export function demoBuild(): Plugin {
   // The public demo's address. Its path becomes the app's base path.
-  const siteUrl =
-    process.env.STAAASH_DEMO_URL ?? "https://itsmeares.github.io/staaash/";
+  const siteUrl = process.env.STAAASH_DEMO_URL ?? "https://demo.staaash.org/";
   let outDir = "";
   let base = "/";
   return {
@@ -45,8 +44,8 @@ export function demoBuild(): Plugin {
       outDir = path.resolve(config.root, config.build.outDir);
       base = config.base;
     },
-    transformIndexHtml: (html) =>
-      html.replace(
+    transformIndexHtml: (html) => ({
+      html: html.replace(
         "<!--share-meta-->",
         [
           `<meta property="og:type" content="website" />`,
@@ -57,6 +56,19 @@ export function demoBuild(): Plugin {
           `<meta name="twitter:card" content="summary_large_image" />`,
         ].join("\n    "),
       ),
+      // Umami on stats.staaash.org counts visits and heatmaps, only on the
+      // public demo's own domain.
+      tags: ["script.js", "recorder.js"].map((file) => ({
+        tag: "script",
+        attrs: {
+          src: `https://stats.staaash.org/${file}`,
+          defer: true,
+          "data-website-id": "ea6c5694-5f6c-4062-96ce-b833a9dc7366",
+          "data-domains": new URL(siteUrl).hostname,
+        },
+        injectTo: "head",
+      })),
+    }),
     async closeBundle() {
       cpSync(assetsDir, path.join(outDir, "samples"), {
         recursive: true,

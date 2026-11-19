@@ -34,4 +34,4 @@ Staaash works next to the others, not instead of them.
 
 ## Still not sure
 
-[Try the demo](https://itsmeares.github.io/staaash/). It runs in your browser with sample files, so nothing you upload leaves your computer. Then follow [Installation](/docs/installation/). It takes a few minutes. To remove it again, run `docker compose down` and delete its folder.
+[Try the demo](https://demo.staaash.org/). It runs in your browser with sample files, so nothing you upload leaves your computer. Then follow [Installation](/docs/installation/). It takes a few minutes. To remove it again, run `docker compose down` and delete its folder.

@@ -1,7 +1,7 @@
 const repo = "https://github.com/itsmeares/staaash";
 
 export const links = {
-  demo: "https://itsmeares.github.io/staaash/",
+  demo: "https://demo.staaash.org/",
   docs: "/docs/",
   install: "/docs/installation/",
   repo,
