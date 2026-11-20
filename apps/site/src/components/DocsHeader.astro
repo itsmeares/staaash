@@ -8,9 +8,8 @@ import { buttonVariants } from "@staaash/ui/components/button";
 import { links, siteNav } from "../links";
 
 const path = Astro.url.pathname;
-// Docs is the section; another docs page in the bar (Roadmap) is current only on itself.
-const current = (href: string) =>
-  href === links.docs ? path.startsWith(links.docs) && path !== links.roadmap : path === href;
+// Docs is a section, so every page under it counts.
+const current = (href: string) => (href === links.docs ? path.startsWith(href) : path === href);
 ---
 
 <div class="header">

@@ -1,0 +1,132 @@
+---
+import { buttonVariants } from "@staaash/ui/components/button";
+
+import PixelField from "../components/landing/PixelField.astro";
+import SiteLayout from "../layouts/SiteLayout.astro";
+import { links } from "../links";
+
+// Only the big things. Smaller fixes live in GitHub issues. Each release
+// is a checkpoint on the line, with what it brought listed under it.
+const checkpoints = [
+  {
+    label: "Next",
+    items: [
+      ["Storage repair", "Fix storage changes that need review from the admin page."],
+      ["Scheduled backups", "Copy your files and database to another drive on a timer."],
+      ["Mobile app", "Browse, upload and share from your phone."],
+    ],
+  },
+  {
+    label: "v2.0",
+    date: "November 2026",
+    tag: "v2.0.0",
+    items: [
+      ["Desktop sync app", "Keep folders on your computer in sync with your drive."],
+      ["New design", "The whole drive rebuilt in light and dark, on desktop and phone."],
+      ["Windows server", "Run Staaash on Windows without Docker."],
+      ["Custom domains", "Open your drive at your own address over HTTPS."],
+      ["Shared folder gallery", "Shared folders show their photos as a gallery."],
+      ["Online demo", "Try Staaash in your browser before you install it."],
+    ],
+  },
+  {
+    label: "v1.2",
+    date: "October 2026",
+    tag: "v1.2.0",
+    items: [["ARM64 support", "Run Staaash on ARM64 servers as well as AMD64."]],
+  },
+  {
+    label: "v1.1",
+    date: "September 2026",
+    tag: "v1.1.0",
+    items: [
+      ["Folder uploads", "Drop in a whole folder, with every folder inside it."],
+      ["Media preview settings", "Choose when previews are made, with faster video."],
+    ],
+  },
+  {
+    label: "v1.0",
+    date: "August 2026",
+    tag: "v1.0.0",
+    items: [
+      ["Web file manager", "Upload, preview and download files in any browser."],
+      ["Password-protected share links", "Share files and folders with a password and an end date."],
+      ["Multiple users and storage quotas", "Give each person a private space and a storage limit."],
+      ["Trash and restore", "Deleted files wait in the trash for 30 days by default."],
+      ["Crash-safe storage", "Every file change survives a crash or restart."],
+    ],
+  },
+];
+---
+
+<SiteLayout title="Roadmap | Staaash" description="What is planned for Staaash next, and what already shipped.">
+  <main>
+    <header class="page-field relative isolate -mt-16 overflow-hidden pt-36 pb-20 text-center md:pt-44 md:pb-24">
+      <PixelField />
+      <div class="mx-auto w-full max-w-[1180px] px-6">
+        <h1 class="font-heading text-[clamp(2.75rem,6vw,4.5rem)] leading-[1.02] font-bold tracking-[-0.03em] text-foreground">Roadmap</h1>
+        <p class="mx-auto mt-5 max-w-[36em] text-pretty text-muted-foreground">
+          Staaash stays small on purpose, so this list stays short. There are no dates. Something ships when it is ready and safe for your files.
+        </p>
+      </div>
+    </header>
+
+    <ol class="roadmap relative mx-auto mt-6 w-full max-w-[760px] list-none px-6 md:mt-10">
+      {
+        checkpoints.map((point) => (
+          <li class="relative pb-14 pl-10 md:pl-14">
+            {point.tag ? (
+              <span
+                class="absolute top-2.5 left-[3px] grid size-4 place-items-center rounded-[4px] bg-foreground/70 text-background"
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 16 16" class="size-3">
+                  <path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.4" />
+                </svg>
+              </span>
+            ) : (
+              <span class="absolute top-2.5 left-[3px] size-4 bg-primary shadow-[0_0_12px_var(--primary)]" aria-hidden="true" />
+            )}
+            <div class="flex items-baseline gap-3">
+              <h2 class="font-heading text-[28px] leading-tight font-bold tracking-[-0.02em] text-foreground">{point.label}</h2>
+              {point.date && <span class="text-sm text-muted-foreground">{point.date}</span>}
+              {point.tag && (
+                <a
+                  href={`${links.releases}/tag/${point.tag}`}
+                  class="ml-auto text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Release notes
+                </a>
+              )}
+            </div>
+            <ul class="mt-5 grid list-none gap-5 p-0">
+              {point.items.map(([title, text]) => (
+                <li class="relative">
+                  <span
+                    class:list={[
+                      "absolute top-[11px] -left-[33px] size-2 md:-left-[49px]",
+                      point.tag ? "bg-muted-foreground/60" : "bg-primary shadow-[0_0_12px_var(--primary)]",
+                    ]}
+                    aria-hidden="true"
+                  />
+                  <h3 class="font-sans text-[17px] font-semibold text-foreground">{title}</h3>
+                  <p class="mt-0.5 text-[15px] text-muted-foreground">{text}</p>
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))
+      }
+    </ol>
+
+    <section class="mx-auto mt-6 mb-28 w-full max-w-[760px] px-6 md:mb-36">
+      <div class="flex flex-col items-start gap-5 rounded-xl border border-border p-6 sm:flex-row sm:items-center sm:justify-between md:p-8">
+        <div>
+          <h2 class="font-heading text-xl font-bold text-foreground">Missing something?</h2>
+          <p class="mt-1 text-[15px] text-muted-foreground">Ideas and votes go in GitHub Discussions.</p>
+        </div>
+        <a href={links.discussions} class={buttonVariants({ variant: "inverse", size: "lg" })}>Open Discussions</a>
+      </div>
+    </section>
+  </main>
+</SiteLayout>

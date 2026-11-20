@@ -7,7 +7,7 @@ export const links = {
   windowsServer: "/docs/windows-server/",
   desktopApp: "/docs/desktop-app/",
   backup: "/docs/backup-and-restore/",
-  roadmap: "/docs/roadmap/",
+  roadmap: "/roadmap/",
   faq: "/docs/faq/",
   repo,
   releases: `${repo}/releases`,

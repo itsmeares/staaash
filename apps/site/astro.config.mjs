@@ -9,6 +9,7 @@ import { umamiHead } from "./src/analytics.mjs";
 export default defineConfig({
   site: "https://staaash.org",
   trailingSlash: "ignore",
+  redirects: { "/docs/roadmap": "/roadmap/" },
   integrations: [
     starlight({
       title: "Staaash",
@@ -71,7 +72,7 @@ export default defineConfig({
           label: "Run it for others",
           items: ["docs/admin-guide", "docs/user-management"],
         },
-        { label: "Help", items: ["docs/faq", "docs/roadmap"] },
+        { label: "Help", items: ["docs/faq"] },
       ],
       // The guides point people at http://localhost:2113 on purpose.
       plugins: [starlightLinksValidator({ errorOnLocalLinks: false })],

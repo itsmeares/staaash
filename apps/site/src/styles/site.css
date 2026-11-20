@@ -1,6 +1,6 @@
 /*
- * The landing page: Staaash's tokens, fonts and Tailwind from packages/ui,
- * plus the few pieces Tailwind classes can't say on their own.
+ * The landing page and the roadmap: Staaash's tokens, fonts and Tailwind
+ * from packages/ui, plus the few pieces Tailwind classes can't say on their own.
  */
 @import "@staaash/ui/styles.css";
 
@@ -102,6 +102,25 @@
     color-mix(in oklab, var(--background) 55%, transparent)
   );
   pointer-events: none;
+}
+
+/* The roadmap: the field fades out under the title, and a line of bronze
+   pixels, like the one above the footer, runs down through the markers. */
+.page-field .pixel-field {
+  mask-image: linear-gradient(transparent, #000 25%, #000 55%, transparent);
+}
+
+.roadmap::before {
+  content: "";
+  position: absolute;
+  top: 1rem;
+  bottom: 4rem;
+  left: calc(1.5rem + 9px);
+  width: 4px;
+  background: repeating-linear-gradient(
+    color-mix(in oklab, var(--primary) 40%, transparent) 0 4px,
+    transparent 0 8px
+  );
 }
 
 /* Get Staaash: on hover a band of pixels sweeps across in steps, like the

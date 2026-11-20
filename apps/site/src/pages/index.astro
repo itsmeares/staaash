@@ -3,11 +3,9 @@ import { Image } from "astro:assets";
 import { buttonVariants } from "@staaash/ui/components/button";
 import { DriveGlyph } from "@staaash/ui/drive-glyph";
 
-import { umamiHead } from "../analytics.mjs";
 import PixelField from "../components/landing/PixelField.astro";
-import SiteFooter from "../components/SiteFooter.astro";
-import { links, siteNav } from "../links";
-import "../styles/landing.css";
+import SiteLayout from "../layouts/SiteLayout.astro";
+import { links } from "../links";
 
 import hero from "../../../../design/Banner/Staaash README-Dark.webp";
 import desktop from "../../../../design/Screenshots/desktop-dark.jpg";
@@ -18,7 +16,6 @@ import share from "../../../../design/Screenshots/share-dark.jpg";
 const title = "Staaash, the drive for your homelab";
 const description =
   "A free, open-source file drive you run on your own computer. Open any file in the browser, share it with a link, and keep folders in sync.";
-const canonical = new URL(Astro.url.pathname, Astro.site);
 
 const features = [
   {
@@ -87,41 +84,7 @@ const download =
   "flex flex-1 items-center gap-2.5 rounded-[10px] px-4 py-2.5 leading-tight transition-[background-color,scale] duration-150 active:scale-[0.97] motion-reduce:active:scale-100";
 ---
 
-<!doctype html>
-<html lang="en" class="dark">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title}</title>
-    <meta name="description" content={description} />
-    <link rel="canonical" href={canonical} />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Staaash" />
-    <meta property="og:title" content={title} />
-    <meta property="og:description" content={description} />
-    <meta property="og:url" content={canonical} />
-    <meta name="twitter:card" content="summary" />
-    {umamiHead("staaash.org").map(({ attrs }) => <script is:inline {...attrs}></script>)}
-  </head>
-  <body class="overflow-x-clip text-base/relaxed">
-    <header class="sticky top-0 z-10 bg-background/80 backdrop-blur-md backdrop-saturate-150">
-      <div class:list={[wrap, "flex h-16 items-center gap-8"]}>
-        <a href="/" class="flex items-center gap-2.5 font-heading text-[21px] font-bold text-foreground">
-          <DriveGlyph className="w-7" />Staaash
-        </a>
-        <nav aria-label="Site" class="hidden gap-6 text-[15px] text-muted-foreground md:flex">
-          {siteNav.map((item) => <a href={item.href} class="transition-colors hover:text-foreground">{item.label}</a>)}
-        </nav>
-        <div class="ml-auto flex items-center gap-5 text-[15px]">
-          <a href={links.repo} class="hidden items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground md:flex" data-umami-event="github">
-            <svg viewBox="0 0 24 24" class="size-[18px]" aria-hidden="true"><path fill="currentColor" d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6 0-3.2 0 0 1-.3 3.4 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.1.9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"></path></svg>
-            GitHub
-          </a>
-          <a href={links.demo} class={buttonVariants({ variant: "inverse", size: "lg" })} data-umami-event="try-demo">Try the demo</a>
-        </div>
-      </div>
-    </header>
+<SiteLayout title={title} description={description}>
 
     <main>
       <section>
@@ -298,9 +261,7 @@ const download =
       </section>
     </main>
 
-    <SiteFooter />
-  </body>
-</html>
+</SiteLayout>
 
 <script>
   // The feature list is a tab list: clicks and arrow keys pick a feature,
