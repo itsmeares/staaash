@@ -1,5 +1,6 @@
 ---
 title: Admin Guide
+description: The admin screens for health, users, storage, background jobs and settings.
 ---
 
 The admin area is where you check that your drive is healthy. Open it from the sidebar. The owner is the account that set up the instance, and only the owner can change things here. A person with **Admin access** can look but not change anything. See [User Management](/docs/user-management/).

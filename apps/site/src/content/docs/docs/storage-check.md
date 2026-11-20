@@ -1,5 +1,6 @@
 ---
 title: Storage Check
+description: What to do when a file move, rename or delete stopped halfway.
 ---
 
 Before Staaash moves, renames, trashes or restores anything on your disk, it writes the change down in the database. If a change stops halfway, for example because the power went out, Staaash reads that note and finishes the change when it starts again.
@@ -29,7 +30,7 @@ A red **Needs review** badge means Staaash found something it will not guess abo
 Do not move or delete anything in your storage folder by hand. That can turn a safe stop into a lost file.
 :::
 
-1. Click **Copy recovery details** next to the change.
+1. Click **Copy** next to the change. It copies the recovery details.
 2. Find the operation ID in the worker log:
 
    ```console

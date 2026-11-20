@@ -1,5 +1,6 @@
 ---
 title: Your Account
+description: Your profile, password, appearance, time zone, storage and signed-in devices.
 ---
 
 Click your picture in the top right corner, then **Settings**. The same menu has **Keyboard shortcuts**, **Get the desktop app** and **Sign out**.

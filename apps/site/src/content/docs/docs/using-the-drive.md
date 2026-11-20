@@ -1,5 +1,6 @@
 ---
 title: Using the Drive
+description: Upload, organize, find and preview files, and get them back from the trash.
 ---
 
 This page covers the everyday things: adding files, finding them, and getting them back.

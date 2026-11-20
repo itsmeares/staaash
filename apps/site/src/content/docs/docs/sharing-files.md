@@ -1,5 +1,6 @@
 ---
 title: Sharing Files
+description: Share a file or folder by link, with a password, an end date or downloads turned off.
 ---
 
 A share link lets someone open a file or folder without an account. You choose how long it works, and you can turn it off at any time.
@@ -26,11 +27,11 @@ People who open a folder link can browse the folder and the folders inside it. T
 
 ## See and manage your links
 
-Open **Shared** in the sidebar. It lists your links. From there you can change the expiry or turn a link off. **Settings** has a **Manage** button for share links too.
+Open **Shared** in the sidebar. It lists your links, with turned-off and expired ones folded below. Open a link's menu and choose **Manage link** to open its share window, where you can change the expiry or turn it off. A turned-off or expired link offers **Share again** or **Delete**. The **Manage** button next to **Share links** in **Settings → Storage** opens the same list.
 
 ## Turn a link off
 
-Open the file's share window and press the turn-off button, or find the link in **Shared** and turn it off. Staaash asks "Turn off this link?". After you confirm, anyone who has the link can no longer open it. Your files stay where they are.
+Open the share window, from the file's **Share** or from **Manage link** in **Shared**, and press **Turn off link**. Staaash asks "Turn off this link?". After you confirm, anyone who has the link can no longer open it. Your files stay where they are.
 
 ## What visitors see
 

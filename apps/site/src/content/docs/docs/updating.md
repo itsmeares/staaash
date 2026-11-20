@@ -1,5 +1,6 @@
 ---
 title: Updating
+description: Update to a new release, check that it worked, and go back if needed.
 ---
 
 Each Staaash release is built for one exact version of the app. To update, you point your install at the new version and restart it.

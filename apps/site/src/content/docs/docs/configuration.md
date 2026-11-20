@@ -1,5 +1,6 @@
 ---
 title: Configuration
+description: Every setting in the .env file and the admin Settings screen.
 ---
 
 Staaash has two places for settings:
@@ -53,15 +54,15 @@ If people open your drive through a domain name, set `STAAASH_PUBLIC_URL` so sha
 
 Only the owner can open these. Go to **Admin**, then **Settings**.
 
-| Section        | What you can change                                                                                                                                                                          |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Uploads        | Largest single file, how long one upload may take, how long unfinished uploads are kept, and the space unfinished uploads may use per person and in total.                                   |
-| Media previews | Small pictures of photos and videos, smaller video copies for smooth playback, and when to make them (on upload, on first play, or when shared). Video copies use a lot of processing power. |
-| Sessions       | How long people stay signed in, and the longest expiry a share link may have.                                                                                                                |
-| Downloads      | How long generated zip files are kept.                                                                                                                                                       |
-| Updates        | Whether to check for new versions, and which releases to follow: Automatic, Stable or Release candidates.                                                                                    |
-| Scheduling     | The drive time zone, and the time of daily maintenance.                                                                                                                                      |
-| Worker         | When the worker counts as down because it has not reported in.                                                                                                                               |
+| Section        | What you can change                                                                                                                                                                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Uploads        | Largest single file, how long one upload may take, how long unfinished uploads are kept, and the space unfinished uploads may use per person and in total.                                                                                             |
+| Media previews | Small pictures of photos and videos, smaller video copies for smooth playback, when to make them (on upload, on first play, or when shared), which videos get a copy, and how long unused copies are kept. Video copies use a lot of processing power. |
+| Sessions       | How long people stay signed in, and the longest expiry a share link may have.                                                                                                                                                                          |
+| Downloads      | How long generated zip files are kept.                                                                                                                                                                                                                 |
+| Updates        | Whether to check for new versions, and which releases to follow: Automatic, Stable or Release candidates.                                                                                                                                              |
+| Scheduling     | The drive time zone, and the time of daily maintenance.                                                                                                                                                                                                |
+| Worker         | When the worker counts as down because it has not reported in.                                                                                                                                                                                         |
 
 Hover or read the small text under each setting. It says what the setting does. When a section differs from the defaults, a reset button appears to put it back.
 

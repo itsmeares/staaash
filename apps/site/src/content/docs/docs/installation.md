@@ -1,5 +1,6 @@
 ---
 title: Installation
+description: Set up Staaash with Docker Compose and create the owner account.
 ---
 
 This page sets up Staaash with Docker. It takes a few minutes.

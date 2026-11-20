@@ -1,5 +1,6 @@
 ---
 title: FAQ
+description: Short answers about Windows, the phone app, where files live, backups and moving to another computer.
 ---
 
 ## Does it work on Windows?

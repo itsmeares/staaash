@@ -1,5 +1,6 @@
 ---
 title: Reverse Proxy
+description: Put Staaash behind HTTPS with the bundled Caddy setup, or with Caddy, Traefik or Nginx Proxy Manager.
 ---
 
 A reverse proxy is a small program that stands in front of Staaash. People visit a name like `https://drive.example.com`. The proxy handles the secure HTTPS part, then passes the visit to Staaash.

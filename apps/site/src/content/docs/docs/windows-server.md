@@ -1,5 +1,6 @@
 ---
 title: Windows Server
+description: Run Staaash on Windows without Docker, with one installer.
 ---
 
 Staaash runs on Windows without Docker. One installer sets up the web app,

@@ -1,5 +1,6 @@
 ---
 title: User Management
+description: Invite people, set storage limits, give admin access and reset passwords.
 ---
 
 You decide who can use your drive. This page is for the owner.

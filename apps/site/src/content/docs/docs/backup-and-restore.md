@@ -1,5 +1,6 @@
 ---
 title: Backup and Restore
+description: Back up your files, database and .env together, and practice a restore.
 ---
 
 Staaash is not a backup system. It is a drive. If the disk dies, or you delete the wrong folder, your files are gone unless you have a backup.

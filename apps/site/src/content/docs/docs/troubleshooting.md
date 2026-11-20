@@ -1,5 +1,6 @@
 ---
 title: Troubleshooting
+description: Fixes for a drive that will not open, failed sign-ins, missing previews, a full disk and more.
 ---
 
 Start with two commands. They answer most questions.
@@ -83,7 +84,7 @@ A move, rename or delete stopped halfway, and Staaash kept every byte instead of
 Two addresses answer without signing in, for tools like Uptime Kuma:
 
 - `/api/health/live` answers 200 while the web app runs. Docker's health check uses it.
-- `/api/health/ready` answers 200 when the database, the files folder and the worker are all fine. It answers 503 when one is not, or when a change needs a [Storage Check](/docs/storage-check/). Its reply lists which check failed.
+- `/api/health/ready` answers 200 when the database, the files folder and the worker are all fine. It answers 503 when one is not, when the last **Restore check** found a problem, or when a change needs a [Storage Check](/docs/storage-check/). Its reply lists which check failed.
 
 A failed preview job or another background job does not make `ready` fail. Those show in admin **Jobs**.
 

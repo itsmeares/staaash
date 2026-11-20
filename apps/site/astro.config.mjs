@@ -5,6 +5,7 @@ import { defineConfig } from "astro/config";
 import starlightLinksValidator from "starlight-links-validator";
 
 import { umamiHead } from "./src/analytics.mjs";
+import { sidebar } from "./src/docs-sidebar.mjs";
 import { previewImage } from "./src/preview-image.mjs";
 
 export default defineConfig({
@@ -56,48 +57,7 @@ export default defineConfig({
         ThemeSelect: "./src/components/ThemeSelect.astro",
         ThemeProvider: "./src/components/ThemeProvider.astro",
       },
-      sidebar: [
-        {
-          label: "Start here",
-          items: [
-            { label: "Overview", link: "/docs/" },
-            "docs/right-for-you",
-            "docs/installation",
-          ],
-        },
-        {
-          label: "Set up",
-          items: [
-            "docs/configuration",
-            "docs/remote-access",
-            "docs/reverse-proxy",
-            "docs/windows-server",
-          ],
-        },
-        {
-          label: "Use it",
-          items: [
-            "docs/using-the-drive",
-            "docs/sharing-files",
-            "docs/desktop-app",
-            "docs/your-account",
-          ],
-        },
-        {
-          label: "Look after it",
-          items: [
-            "docs/updating",
-            "docs/backup-and-restore",
-            "docs/storage-check",
-            "docs/troubleshooting",
-          ],
-        },
-        {
-          label: "Run it for others",
-          items: ["docs/admin-guide", "docs/user-management"],
-        },
-        { label: "Help", items: ["docs/faq"] },
-      ],
+      sidebar,
       // The guides point people at http://localhost:2113 on purpose, and the
       // roadmap is a site page the checker does not know about.
       plugins: [
