@@ -27,4 +27,5 @@ export const siteNav = [
 
 /** True for a link that leaves staaash.org and its subdomains, like the demo. */
 export const isExternal = (href: string) =>
-  href.startsWith("http") && !new URL(href).hostname.endsWith("staaash.org");
+  href.startsWith("http") &&
+  !/(^|\.)staaash\.org$/.test(new URL(href).hostname);
