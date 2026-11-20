@@ -193,9 +193,10 @@ export function startPixelField(canvas: HTMLCanvasElement, host: HTMLElement) {
     draw(4);
     return true;
   }
-  // Reduced motion can also be turned on after the page opened.
+  // Reduced motion can also change after the page opened.
   still.addEventListener("change", () => {
     if (still.matches) draw(4);
+    else run();
   });
 
   const at = (event: PointerEvent) => {
@@ -224,16 +225,23 @@ export function startPixelField(canvas: HTMLCanvasElement, host: HTMLElement) {
   let visible = true;
   new IntersectionObserver(([entry]) => {
     visible = entry.isIntersecting;
+    run();
   }).observe(canvas);
 
   // Start at a random point in time so the field differs on each visit.
   const start = performance.now() - Math.random() * 20000;
   let last = 0;
+  // The loop stops while the field is off screen and starts again when it
+  // scrolls back, so a hidden field costs nothing.
+  let running = false;
   const frame = (ms: number) => {
+    if (still.matches || !visible) {
+      running = false;
+      return;
+    }
     requestAnimationFrame(frame);
     // 30 frames a second is enough for pixel art and halves the work.
-    if (still.matches || document.hidden || !visible || ms - last < 1000 / 31)
-      return;
+    if (ms - last < 1000 / 31) return;
     last = ms;
     const t = (ms - start) / 1000;
     if (!pointerOver) {
@@ -246,6 +254,11 @@ export function startPixelField(canvas: HTMLCanvasElement, host: HTMLElement) {
     light.z += (aim.z - light.z) * 0.1;
     draw(t);
   };
-  requestAnimationFrame(frame);
+  function run() {
+    if (running || still.matches || !visible) return;
+    running = true;
+    requestAnimationFrame(frame);
+  }
+  run();
   return true;
 }
