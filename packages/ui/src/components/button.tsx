@@ -49,6 +49,10 @@ export const buttonVariants = cva(
         // the filled selected-pill instead.
         outline:
           "border-foreground/13 bg-transparent text-foreground hover:bg-hover data-pressed:bg-pressed *:data-[slot=button-loading-indicator]:text-foreground",
+        // Staaash: a light filled button on a dark page (dark on a light
+        // one), for a second action as strong as the first.
+        inverse:
+          "border-foreground bg-foreground text-background hover:bg-foreground/88 data-pressed:bg-foreground/88 *:data-[slot=button-loading-indicator]:text-background",
         // Staaash: a filter that is on, tinted like the badges.
         tinted:
           "border-transparent bg-primary/14 text-foreground hover:bg-primary/20 data-pressed:bg-primary/20 *:data-[slot=button-loading-indicator]:text-foreground",

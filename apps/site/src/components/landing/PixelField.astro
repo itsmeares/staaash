@@ -1,0 +1,24 @@
+---
+// A canvas for the pixel field. It fills its positioned parent, which also
+// receives the pointer so text on top of the field still lights it up.
+interface Props {
+  mark?: boolean;
+  class?: string;
+}
+
+const { mark = false, class: className } = Astro.props;
+---
+
+<canvas
+  class:list={["pixel-field", className]}
+  data-mark={mark ? "" : undefined}
+  aria-hidden="true"></canvas>
+
+<script>
+  import { startPixelField } from "../../scripts/pixel-field";
+
+  for (const canvas of document.querySelectorAll<HTMLCanvasElement>(".pixel-field")) {
+    const host = canvas.parentElement;
+    if (host && !startPixelField(canvas, host)) host.classList.add("field-off");
+  }
+</script>

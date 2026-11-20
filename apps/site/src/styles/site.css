@@ -1,0 +1,188 @@
+/*
+ * The landing page and the roadmap: Staaash's tokens, fonts and Tailwind
+ * from packages/ui, plus the few pieces Tailwind classes can't say on their own.
+ */
+@import "@staaash/ui/styles.css";
+
+/* The pixel field fills its parent, drawn small and scaled up without
+   smoothing so each field pixel stays a crisp square. */
+.pixel-field {
+  --px: 6;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+@media (width < 56rem) {
+  .pixel-field {
+    --px: 4;
+  }
+}
+
+/* The top: the field runs under the sticky bar and fades out at both ends. */
+.hero-field {
+  --mark-h: 176;
+  --mark-y: 196;
+}
+
+.hero-field .pixel-field {
+  mask-image: linear-gradient(transparent, #000 14%, #000 70%, transparent);
+}
+
+@media (width < 56rem) {
+  .hero-field {
+    --mark-h: 96;
+    --mark-y: 148;
+  }
+}
+
+/* Without WebGL the field stays blank, so the plain logo takes the mark's place. */
+.mark-fallback {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: calc(var(--mark-y) * 1px);
+  height: calc(var(--mark-h) * 28px / 26);
+  width: auto;
+  translate: -50% -50%;
+}
+
+.field-off .mark-fallback {
+  display: block;
+}
+
+/* A dark pool behind the line under the headline keeps it readable. */
+.hero-field::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  bottom: 4.5rem;
+  width: min(820px, 96vw);
+  height: 15rem;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklab, var(--background) 70%, transparent),
+    transparent
+  );
+  pointer-events: none;
+}
+
+/* A soft bronze light behind the app screenshot. */
+.hero-glow::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 18%;
+  width: min(900px, 80vw);
+  height: 60%;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklab, var(--primary) 16%, transparent),
+    transparent
+  );
+  filter: blur(30px);
+}
+
+/* The closing keeps its words on a dark middle. */
+.closing-field::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(
+    60% 70% at 50% 50%,
+    color-mix(in oklab, var(--background) 92%, transparent),
+    color-mix(in oklab, var(--background) 55%, transparent)
+  );
+  pointer-events: none;
+}
+
+/* The roadmap: the field fades out under the title, and a line of bronze
+   pixels, like the one above the footer, runs down through the markers. */
+.page-field .pixel-field {
+  mask-image: linear-gradient(transparent, #000 25%, #000 55%, transparent);
+}
+
+.roadmap::before {
+  content: "";
+  position: absolute;
+  top: 1rem;
+  bottom: 4rem;
+  left: calc(1.5rem + 9px);
+  width: 4px;
+  background: repeating-linear-gradient(
+    color-mix(in oklab, var(--primary) 40%, transparent) 0 4px,
+    transparent 0 8px
+  );
+}
+
+/* Get Staaash: on hover a band of pixels sweeps across in steps, like the
+   pixel logo above it. */
+[data-sweep] {
+  overflow: hidden;
+  isolation: isolate;
+}
+
+[data-sweep]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: repeating-conic-gradient(
+      oklch(0.98 0.01 80 / 0.7) 0 25%,
+      transparent 0 50%
+    )
+    0 0 / 4px 4px;
+  mask: linear-gradient(
+      105deg,
+      transparent 38%,
+      #000 46%,
+      #000 54%,
+      transparent 62%
+    )
+    130% 0 / 260% 100% no-repeat;
+}
+
+[data-sweep]:hover::after {
+  animation: pixel-sweep 0.56s steps(9) both;
+}
+
+@keyframes pixel-sweep {
+  to {
+    mask-position: -30% 0;
+  }
+}
+
+/* One bronze bar slides to the picked feature instead of jumping. */
+.feature-tabs::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  left: var(--tab-x, 0);
+  top: var(--tab-y, 0);
+  width: 2px;
+  height: var(--tab-h, 0);
+  background: var(--primary);
+  transition:
+    top 0.32s var(--ease-expo-out),
+    left 0.32s var(--ease-expo-out),
+    height 0.32s var(--ease-expo-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-sweep]:hover::after {
+    animation: none;
+  }
+
+  .feature-tabs::before {
+    transition: none;
+  }
+}
