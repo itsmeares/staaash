@@ -7,8 +7,9 @@
     "directory": "./dist",
     "binding": "ASSETS",
     "not_found_handling": "404-page",
-    // Only the guides answer in Markdown, so only they run the worker.
-    "run_worker_first": ["/docs", "/docs/*"],
+    // Only the home page and the guides answer in Markdown, so only they run
+    // the worker.
+    "run_worker_first": ["/", "/docs", "/docs/*"],
   },
   "previews": {},
 }
