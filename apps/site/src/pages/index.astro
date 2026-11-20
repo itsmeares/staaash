@@ -127,6 +127,7 @@ const download =
       <section>
         <div class="hero-field relative isolate -mt-16 pt-[222px] pb-16 text-center md:pt-[310px] md:pb-[110px]">
           <PixelField mark />
+          <DriveGlyph className="mark-fallback" />
           <div class={wrap}>
             <h1 class:list={[heading, "text-[clamp(3rem,7.4vw,6rem)] leading-[1.02] font-extrabold tracking-[-0.04em]"]}>
               The drive for your homelab
@@ -248,7 +249,7 @@ const download =
             <p class="mt-2.5 mb-5.5 max-w-[28em] text-muted-foreground">Set it up with Docker on Linux, macOS or Windows. On Windows, the installer works without Docker.</p>
             <div class="flex flex-wrap gap-2.5">
               <a href={links.install} class:list={[download, "flex-col items-start gap-0.5 bg-foreground text-background hover:bg-foreground/88"]} data-umami-event="get-started">
-                <b class="text-[15px] font-semibold">Installation guide</b><small class="text-xs text-background/70">Docker Compose</small>
+                <b class="text-[15px] font-semibold">Installation guide</b><small class="text-xs text-background">Docker Compose</small>
               </a>
               <a href={links.windowsServer} class:list={[download, "flex-col items-start gap-0.5 ring-1 ring-border ring-inset hover:bg-card"]}>
                 <b class="text-[15px] font-semibold">Windows installer</b><small class="text-xs text-muted-foreground">No Docker needed</small>

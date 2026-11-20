@@ -18,6 +18,7 @@ const { mark = false, class: className } = Astro.props;
   import { startPixelField } from "../../scripts/pixel-field";
 
   for (const canvas of document.querySelectorAll<HTMLCanvasElement>(".pixel-field")) {
-    if (canvas.parentElement) startPixelField(canvas, canvas.parentElement);
+    const host = canvas.parentElement;
+    if (host && !startPixelField(canvas, host)) host.classList.add("field-off");
   }
 </script>

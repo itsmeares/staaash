@@ -23,17 +23,35 @@
 }
 
 /* The top: the field runs under the sticky bar and fades out at both ends. */
-.hero-field .pixel-field {
+.hero-field {
   --mark-h: 176;
   --mark-y: 196;
+}
+
+.hero-field .pixel-field {
   mask-image: linear-gradient(transparent, #000 14%, #000 70%, transparent);
 }
 
 @media (width < 56rem) {
-  .hero-field .pixel-field {
+  .hero-field {
     --mark-h: 96;
     --mark-y: 148;
   }
+}
+
+/* Without WebGL the field stays blank, so the plain logo takes the mark's place. */
+.mark-fallback {
+  display: none;
+  position: absolute;
+  left: 50%;
+  top: calc(var(--mark-y) * 1px);
+  height: calc(var(--mark-h) * 28px / 26);
+  width: auto;
+  translate: -50% -50%;
+}
+
+.field-off .mark-fallback {
+  display: block;
 }
 
 /* A dark pool behind the line under the headline keeps it readable. */

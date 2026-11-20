@@ -120,7 +120,8 @@ function compile(gl: WebGLRenderingContext) {
 }
 
 /**
- * Draws the field into `canvas` and keeps it moving. Pointer events are read
+ * Draws the field into `canvas` and keeps it moving. Returns false when the
+ * browser can't draw it, for example with WebGL turned off. Pointer events are read
  * from `host`, so text laid over the canvas still lets them through.
  */
 export function startPixelField(canvas: HTMLCanvasElement, host: HTMLElement) {
@@ -128,11 +129,11 @@ export function startPixelField(canvas: HTMLCanvasElement, host: HTMLElement) {
     antialias: false,
     alpha: false,
   });
-  if (!context) return;
+  if (!context) return false;
   // A non-null name, so the closures below don't have to check again.
   const gl: WebGLRenderingContext = context;
   const program = compile(gl);
-  if (!program) return;
+  if (!program) return false;
   gl.useProgram(program);
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
   gl.bufferData(
@@ -190,7 +191,7 @@ export function startPixelField(canvas: HTMLCanvasElement, host: HTMLElement) {
   const still = matchMedia("(prefers-reduced-motion: reduce)");
   if (still.matches) {
     draw(4);
-    return;
+    return true;
   }
   // Reduced motion can also be turned on after the page opened.
   still.addEventListener("change", () => {
@@ -246,4 +247,5 @@ export function startPixelField(canvas: HTMLCanvasElement, host: HTMLElement) {
     draw(t);
   };
   requestAnimationFrame(frame);
+  return true;
 }
