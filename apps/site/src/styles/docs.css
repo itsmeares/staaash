@@ -104,3 +104,14 @@ starlight-menu-button button {
   box-shadow: inset 0 0 0 1px var(--input);
   color: var(--foreground);
 }
+
+/* The logo is the same size as on the landing page's top bar. */
+.site-title img {
+  height: 1.75rem;
+}
+
+/* A calmer sidebar: small, muted group titles over the page links. */
+.sidebar-content .group-label .large {
+  font-size: var(--sl-text-sm);
+  color: var(--muted-foreground);
+}

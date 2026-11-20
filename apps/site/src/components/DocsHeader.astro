@@ -3,14 +3,14 @@ import Search from "virtual:starlight/components/Search";
 import SiteTitle from "virtual:starlight/components/SiteTitle";
 import ThemeSelect from "virtual:starlight/components/ThemeSelect";
 
-import { links } from "../links";
+import { buttonVariants } from "@staaash/ui/components/button";
+
+import { links, siteNav } from "../links";
 
 const path = Astro.url.pathname;
-const nav = [
-  { label: "Docs", href: links.docs, current: path.startsWith("/docs") },
-  { label: "Demo", href: links.demo, event: "try-demo" },
-  { label: "Releases", href: links.releases },
-];
+// Docs is the section; another docs page in the bar (Roadmap) is current only on itself.
+const current = (href: string) =>
+  href === links.docs ? path.startsWith(links.docs) && path !== links.roadmap : path === href;
 ---
 
 <div class="header">
@@ -19,12 +19,8 @@ const nav = [
   <div class="right-group sl-flex print:hidden">
     <nav aria-label="Site" class="site-nav sl-flex">
       {
-        nav.map((item) => (
-          <a
-            href={item.href}
-            aria-current={item.current ? "page" : undefined}
-            data-umami-event={item.event}
-          >
+        siteNav.map((item) => (
+          <a href={item.href} aria-current={current(item.href) ? "page" : undefined}>
             {item.label}
           </a>
         ))
@@ -44,6 +40,13 @@ const nav = [
       </a>
     </nav>
     <div class="theme sl-hidden md:sl-flex"><ThemeSelect /></div>
+    <a
+      href={links.demo}
+      class:list={["demo no-underline", buttonVariants({ variant: "inverse", size: "sm" })]}
+      data-umami-event="try-demo"
+    >
+      Try the demo
+    </a>
   </div>
 </div>
 
@@ -136,7 +139,8 @@ const nav = [
   }
 
   @media (max-width: 49.99rem) {
-    .site-nav a:not(:first-child, .github) {
+    .site-nav a:not(:first-child, .github),
+    .right-group .demo {
       display: none;
     }
   }

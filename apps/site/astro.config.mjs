@@ -28,9 +28,7 @@ export default defineConfig({
       head: umamiHead("staaash.org"),
       customCss: ["./src/styles/docs.css"],
       components: {
-        Footer: "./src/components/Footer.astro",
         Header: "./src/components/DocsHeader.astro",
-        PageTitle: "./src/components/PageTitle.astro",
         ThemeProvider: "./src/components/ThemeProvider.astro",
       },
       sidebar: [
