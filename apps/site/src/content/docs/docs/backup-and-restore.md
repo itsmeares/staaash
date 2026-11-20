@@ -1,5 +1,6 @@
 ---
 title: Backup and Restore
+description: Back up your files, database and .env together, and practice a restore.
 ---
 
 Staaash is not a backup system. It is a drive. If the disk dies, or you delete the wrong folder, your files are gone unless you have a backup.
@@ -69,7 +70,11 @@ Stop everything first, so no file changes while you copy.
    docker compose ps --status running
    ```
 
-   The list must be empty. Do not copy the database folder while the database runs. The copy would be broken.
+   The list must be empty.
+
+   :::danger[Never copy a running database]
+   A copy of the `postgres` folder made while the database runs is broken, even if it looks fine.
+   :::
 
 6. Copy both folders (`library` and `postgres`) and your `.env` file to your backup place. Copy them in the same session, so they match.
 
@@ -85,7 +90,9 @@ Keep more than one copy. A good start is one copy on another disk in the same ho
 
 A backup you never tried is only a hope. Practice on a spare computer, never over your real install.
 
-A new folder on the same computer is not enough. `docker-compose.yml` always uses the project name `staaash` and the same container names, so it would take over your real install. If you have only one computer, stop the real install first with `docker compose down` in its folder, and start it again when you are done.
+:::danger[A new folder is not enough]
+`docker-compose.yml` always uses the project name `staaash` and the same container names, so a practice copy on the same computer takes over your real install. If you have only one computer, stop the real install first with `docker compose down` in its folder, and start it again when you are done.
+:::
 
 1. Make a new empty folder. Copy in `docker-compose.yml` and `.env` from your real install. Do not start anything yet. In the copied `.env`, set `UPLOAD_LOCATION=./library` and `DB_DATA_LOCATION=./postgres`, so the practice copy never touches your real files.
 2. Put your backed-up `library` and `postgres` folders where `UPLOAD_LOCATION` and `DB_DATA_LOCATION` point.

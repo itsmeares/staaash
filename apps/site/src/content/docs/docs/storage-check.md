@@ -1,5 +1,6 @@
 ---
 title: Storage Check
+description: What to do when a file move, rename or delete stopped halfway.
 ---
 
 Before Staaash moves, renames, trashes or restores anything on your disk, it writes the change down in the database. If a change stops halfway, for example because the power went out, Staaash reads that note and finishes the change when it starts again.
@@ -25,9 +26,12 @@ A change in Admin → Storage with a yellow badge, such as **Retrying**, says **
 
 A red **Needs review** badge means Staaash found something it will not guess about, such as the same file in both the old and the new place. Waiting or refreshing will not fix it.
 
-1. **Do not move or delete anything in your storage folder by hand.** That can turn a safe stop into a lost file.
-2. Click **Copy recovery details** next to the change.
-3. Find the operation ID in the worker log:
+:::danger[Do not touch the storage folder]
+Do not move or delete anything in your storage folder by hand. That can turn a safe stop into a lost file.
+:::
+
+1. Click **Copy** next to the change. It copies the recovery details.
+2. Find the operation ID in the worker log:
 
    ```console
    docker compose logs worker | grep <operation ID>
@@ -35,7 +39,7 @@ A red **Needs review** badge means Staaash found something it will not guess abo
 
    On the Windows server, search the `StaaashWorker` logs in `<data>\logs` instead.
 
-4. [Open an issue](https://github.com/itsmeares/staaash/issues/new/choose) and paste the details and the log lines. Leave out file names you do not want to share.
+3. [Open an issue](https://github.com/itsmeares/staaash/issues/new/choose) and paste the details and the log lines. Leave out file names you do not want to share.
 
 There is no button to clear a change that needs review yet. That is tracked in [issue #595](https://github.com/itsmeares/staaash/issues/595).
 

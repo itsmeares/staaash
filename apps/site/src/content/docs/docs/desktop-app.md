@@ -1,5 +1,6 @@
 ---
 title: Desktop App
+description: Keep folders on Windows, macOS or Linux in sync with your drive.
 ---
 
 The desktop app keeps folders on your computer in step with folders in your drive. It lives in the tray, near the clock. A file you save in a synced folder goes to your drive. A file that changes in your drive comes to your computer.

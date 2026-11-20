@@ -1,5 +1,6 @@
 ---
 title: Troubleshooting
+description: Fixes for a drive that will not open, failed sign-ins, missing previews, a full disk and more.
 ---
 
 Start with two commands. They answer most questions.
@@ -50,7 +51,9 @@ Thumbnails and video previews come from the worker.
 2. Ask people to empty their trash. Trash is deleted for good after the cleanup time.
 3. Add space on the disk, or move to a bigger disk. To move the library, follow the steps in [Configuration](/docs/configuration/).
 
-Do not delete files inside `library` by hand. Staaash tracks each file, and a hand delete leaves it confused.
+:::caution[Do not free space by hand]
+Do not delete files inside `library` yourself. Staaash tracks each file, and a hand delete leaves it confused.
+:::
 
 ## Big uploads slow down after a few minutes
 
@@ -81,7 +84,7 @@ A move, rename or delete stopped halfway, and Staaash kept every byte instead of
 Two addresses answer without signing in, for tools like Uptime Kuma:
 
 - `/api/health/live` answers 200 while the web app runs. Docker's health check uses it.
-- `/api/health/ready` answers 200 when the database, the files folder and the worker are all fine. It answers 503 when one is not, or when a change needs a [Storage Check](/docs/storage-check/). Its reply lists which check failed.
+- `/api/health/ready` answers 200 when the database, the files folder and the worker are all fine. It answers 503 when one is not, when the last **Restore check** could not finish, or when a change needs a [Storage Check](/docs/storage-check/). Its reply lists which check failed.
 
 A failed preview job or another background job does not make `ready` fail. Those show in admin **Jobs**.
 

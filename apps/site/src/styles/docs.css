@@ -11,6 +11,7 @@
 @import "@staaash/ui/styles/tokens.css";
 @import "@staaash/ui/styles/theme.css";
 @import "@staaash/ui/styles/utilities.css";
+@import "@staaash/ui/styles/theme-wipe.css";
 
 @source "../../../../packages/ui/src";
 
@@ -19,6 +20,11 @@
   ::before,
   ::after {
     border: 0 solid;
+  }
+
+  /* Buttons from packages/ui set their own fill, not the browser's grey. */
+  button {
+    background-color: transparent;
   }
 }
 
@@ -99,19 +105,240 @@ h1#_top {
   font-weight: 600;
 }
 
-starlight-menu-button button {
+/* The phone menu button: a quiet outline like the other top bar buttons,
+   not Starlight's solid circle. */
+.sl-menu-button {
+  border-radius: var(--radius-lg);
   background-color: transparent;
   box-shadow: inset 0 0 0 1px var(--input);
   color: var(--foreground);
 }
 
-/* The logo is the same size as on the landing page's top bar. */
-.site-title img {
-  height: 1.75rem;
+.sl-menu-button:has(~ :popover-open) {
+  background-color: var(--color-hover);
 }
 
 /* A calmer sidebar: small, muted group titles over the page links. */
 .sidebar-content .group-label .large {
   font-size: var(--sl-text-sm);
   color: var(--muted-foreground);
+}
+
+/* The top bar matches the landing page: the same height, and the page shows
+   faintly through it while scrolling. */
+:root {
+  --sl-nav-height: 4rem;
+}
+
+header.header {
+  background-color: color-mix(in oklab, var(--background) 80%, transparent);
+  backdrop-filter: blur(12px) saturate(1.5);
+}
+
+/* Numbered lists in the guides are steps, so each number sits in a small
+   bronze square, like the pixel marks on the landing page. */
+.sl-markdown-content ol:not(:where(li ol, .not-content *)) {
+  counter-reset: step;
+  list-style: none;
+  padding-inline-start: 2.375rem;
+}
+
+.sl-markdown-content ol:not(:where(li ol, .not-content *)) > li {
+  position: relative;
+  counter-increment: step;
+}
+
+.sl-markdown-content ol:not(:where(li ol, .not-content *)) > li::before {
+  content: counter(step);
+  position: absolute;
+  top: 0.125rem;
+  left: -2.375rem;
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.375rem;
+  background: color-mix(in oklab, var(--primary) 16%, transparent);
+  color: var(--color-primary-ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-markdown-content ol:not(:where(li ol, .not-content *)) > li + li {
+  margin-top: 0.75rem;
+}
+
+/* Warning boxes use the app's own warning and danger colors. */
+.starlight-aside {
+  border: 1px solid var(--sl-color-asides-border);
+  border-radius: 0.75rem;
+  padding: 0.875rem 1.125rem;
+}
+
+.starlight-aside--note,
+.starlight-aside--tip {
+  --sl-color-asides-text-accent: var(--color-primary-ink);
+  --sl-color-asides-border: color-mix(
+    in oklab,
+    var(--primary) 30%,
+    transparent
+  );
+  background-color: color-mix(in oklab, var(--primary) 7%, transparent);
+}
+
+.starlight-aside--caution {
+  --sl-color-asides-text-accent: var(--warning-foreground);
+  --sl-color-asides-border: color-mix(
+    in oklab,
+    var(--warning) 35%,
+    transparent
+  );
+  background-color: color-mix(in oklab, var(--warning) 8%, transparent);
+}
+
+.starlight-aside--danger {
+  --sl-color-asides-text-accent: var(--destructive-foreground);
+  --sl-color-asides-border: color-mix(
+    in oklab,
+    var(--destructive) 35%,
+    transparent
+  );
+  background-color: color-mix(in oklab, var(--destructive) 8%, transparent);
+}
+
+.starlight-aside__title {
+  font-size: var(--sl-text-base);
+}
+
+/* Screenshots get the same thin edge as on the landing page. */
+.sl-markdown-content img:not(:where(.not-content *)) {
+  border-radius: 0.75rem;
+  box-shadow: 0 0 0 1px var(--border);
+}
+
+/* Each screenshot comes as a -light and a -dark file. Show the one that
+   matches the page. The built file names keep that ending. */
+:root:not(.dark) .sl-markdown-content img[src*="-dark."],
+:root.dark .sl-markdown-content img[src*="-light."] {
+  display: none;
+}
+
+/* Link cards on the start page, and the next and previous links at the end
+   of each guide. */
+.sl-link-card,
+.pagination-links a {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow: none;
+  background: transparent;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+
+.sl-link-card:hover,
+.pagination-links a:hover {
+  border-color: color-mix(in oklab, var(--primary) 55%, transparent);
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+}
+
+.sl-link-card .title,
+.pagination-links .link-title {
+  color: var(--foreground);
+  font-family: var(--font-heading);
+  font-weight: 700;
+}
+
+.sl-link-card .description {
+  color: var(--muted-foreground);
+}
+
+/* On wide screens the docs keep to one centered frame, the way the landing
+   page keeps to its own width, so the top bar, the sidebar and the page stay
+   together instead of drifting to the screen edges. */
+@media (min-width: 90rem) {
+  :root {
+    --docs-gutter: calc((100vw - 90rem) / 2);
+  }
+
+  header.header {
+    padding-inline: calc(var(--sl-nav-pad-x) + var(--docs-gutter));
+  }
+
+  .sidebar-pane {
+    inset-inline-start: var(--docs-gutter);
+  }
+
+  .main-frame {
+    padding-inline: calc(
+        var(--sl-content-inline-start, 0rem) + var(--docs-gutter)
+      )
+      var(--docs-gutter);
+  }
+}
+
+/* Search opens in the app's popover look: its color, a rounded edge and a
+   light dim behind it, with matched words in bronze. */
+site-search dialog {
+  background-color: var(--popover);
+  border-color: var(--border);
+}
+
+site-search dialog::backdrop {
+  background-color: color-mix(in oklab, var(--background) 70%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+@media (min-width: 50rem) {
+  site-search dialog {
+    border-radius: 0.875rem;
+    box-shadow: 0 24px 64px -16px rgb(0 0 0 / 0.45);
+  }
+}
+
+#starlight__search {
+  --pagefind-ui-background: var(--popover);
+  --pagefind-ui-border: var(--border);
+  --pagefind-ui-tag: var(--muted);
+  --pagefind-ui-border-radius: 0.625rem;
+}
+
+#starlight__search mark {
+  background: none;
+  color: var(--color-primary-ink);
+  font-weight: 600;
+}
+
+/* A link that leaves staaash.org ends in a small arrow, so readers know a
+   click takes them to another site. */
+.sl-markdown-content
+  a[href^="http"]:not(
+    :where([href*="staaash.org"], .not-content *, .sl-link-card)
+  )::after {
+  content: "";
+  display: inline-block;
+  width: 0.75em;
+  height: 0.75em;
+  margin-inline-start: 0.15em;
+  background-color: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 7h10v10M7 17 17 7'/%3E%3C/svg%3E")
+    no-repeat center / contain;
+  opacity: 0.8;
+}
+
+/* The arrows on link cards and on the next and previous links lean the way
+   they go on hover. */
+.sl-link-card svg,
+.pagination-links svg {
+  transition: translate 0.2s var(--ease-expo-out);
+}
+
+.sl-link-card:hover svg,
+.pagination-links a[rel="next"]:hover svg {
+  translate: 3px 0;
+}
+
+.pagination-links a[rel="prev"]:hover svg {
+  translate: -3px 0;
 }

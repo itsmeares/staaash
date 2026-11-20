@@ -1,5 +1,6 @@
 ---
 title: Installation
+description: Set up Staaash with Docker Compose and create the owner account.
 ---
 
 This page sets up Staaash with Docker. It takes a few minutes.
@@ -27,7 +28,9 @@ docker compose up -d
 docker compose ps
 ```
 
-Until you create your account in the next step, anyone who can reach this port can create the owner account first. Do step 4 right away, and do not forward the port to the internet before that. On a shared network, set `STAAASH_PORT=127.0.0.1:2113` in `.env` until your account exists, then remove it and run `docker compose up -d` again.
+:::caution[Create your account right away]
+Until you do step 4, anyone who can reach this port can create the owner account first. Do not forward the port to the internet before that. On a shared network, set `STAAASH_PORT=127.0.0.1:2113` in `.env` until your account exists, then remove it and run `docker compose up -d` again.
+:::
 
 On a server the internet can reach, such as a VPS, set `STAAASH_PORT=127.0.0.1:2113` before the first start and keep it. Open the setup page through an SSH tunnel: run `ssh -L 2113:localhost:2113 you@your-server` on your own computer, then open `http://localhost:2113` there. Put a [reverse proxy](/docs/reverse-proxy/) in front for everyday use.
 
@@ -39,7 +42,11 @@ Open `http://localhost:2113` in a browser. From another computer, use the server
 
 The first account becomes the **owner**. Pick a strong password and keep it somewhere safe.
 
-Your files are now in the `library` folder and your database is in the `postgres` folder, next to `docker-compose.yml`. Do not edit or move anything inside them by hand.
+Your files are now in the `library` folder and your database is in the `postgres` folder, next to `docker-compose.yml`.
+
+:::caution[Leave these folders to Staaash]
+Do not edit or move anything inside `library` or `postgres` by hand. Staaash keeps track of every change it makes there, and a change it did not make can lose a file.
+:::
 
 ## Next
 

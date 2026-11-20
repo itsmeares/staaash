@@ -1,7 +1,8 @@
 ---
 import { DriveGlyph } from "@staaash/ui/drive-glyph";
 
-import { links } from "../links";
+import { isExternal, links } from "../links";
+import ExternalArrow from "./ExternalArrow.astro";
 
 const groups = [
   {
@@ -51,6 +52,7 @@ const groups = [
               <li>
                 <a href={item.href} class="text-sm text-muted-foreground transition-colors hover:text-foreground">
                   {item.label}
+                  {isExternal(item.href) && <ExternalArrow />}
                 </a>
               </li>
             ))}
