@@ -34,7 +34,7 @@ Open the file's share window and press the turn-off button, or find the link in 
 
 ## What visitors see
 
-A visitor sees a simple page with the file or folder. Photos and videos open inline. If a link expired or was turned off, the visitor sees a message saying so.
+A visitor sees a simple page with the file or folder. In a folder, photos and videos show as a gallery, and other files as a list below it. If a link expired or was turned off, the visitor sees a message saying so.
 
 ## Links that use your domain name
 

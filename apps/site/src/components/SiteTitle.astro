@@ -1,0 +1,24 @@
+---
+// The same mark and name as the landing page's top bar, so moving between
+// the two looks like one site.
+import { DriveGlyph } from "@staaash/ui/drive-glyph";
+---
+
+<a href="/" class="site-title">
+  <DriveGlyph className="w-7" />
+  <span translate="no">Staaash</span>
+</a>
+
+<style>
+  .site-title {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-family: var(--font-heading);
+    font-size: 21px;
+    font-weight: 700;
+    color: var(--foreground);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+</style>

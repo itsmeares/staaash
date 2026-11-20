@@ -1,0 +1,199 @@
+---
+// Starlight's "On this page" list, with a line down its side that steps in
+// for each heading level. A bright piece of the line covers the sections on
+// screen, and slides as the page scrolls.
+import Default from "@astrojs/starlight/components/TableOfContents.astro";
+---
+
+<div class="toc-track"><Default /></div>
+
+<script>
+  const SVG = "http://www.w3.org/2000/svg";
+  const STEP = 12;
+  const JOG = 8;
+  const MIN_SHOWN = 64;
+
+  for (const nav of document.querySelectorAll<HTMLElement>(".toc-track nav")) {
+    const list = nav.querySelector<HTMLElement>(":scope > ul");
+    if (!list) continue;
+    const svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("class", "toc-line");
+    svg.setAttribute("aria-hidden", "true");
+    const base = document.createElementNS(SVG, "path");
+    const lit = document.createElementNS(SVG, "path");
+    lit.setAttribute("class", "lit");
+    const main = document.createElementNS(SVG, "path");
+    main.setAttribute("class", "main");
+    svg.append(base, lit, main);
+    list.prepend(svg);
+
+    const links = [...list.querySelectorAll<HTMLAnchorElement>("a")];
+    const depth = (a: HTMLElement) => {
+      let n = 0;
+      for (let ul = a.closest("ul"); ul && ul !== list; ul = ul.parentElement?.closest("ul") ?? null) n++;
+      return n;
+    };
+
+    // One path down every link, moving over a level with a short slant
+    // wherever the heading level changes.
+    const draw = () => {
+      let d = "";
+      let x = -1;
+      for (const a of links) {
+        const nx = depth(a) * STEP + 1;
+        const top = a.offsetTop;
+        const bottom = top + a.offsetHeight;
+        if (x < 0) d = `M${nx} ${top}`;
+        else if (nx !== x) d += ` L${x} ${top} L${nx} ${top + JOG}`;
+        d += ` L${nx} ${bottom}`;
+        x = nx;
+      }
+      base.setAttribute("d", d);
+      lit.setAttribute("d", d);
+      main.setAttribute("d", d);
+      svg.setAttribute("height", String(list.offsetHeight));
+      place();
+    };
+
+    // Light up every section that is on screen, not only the one Starlight
+    // marks as current: the last sections of a page are too short to reach
+    // the top, so they would never light up otherwise.
+    const content = document.querySelector<HTMLElement>(".sl-markdown-content");
+    const headings = links.map((a) => document.getElementById(decodeURIComponent(a.hash.slice(1))));
+    const place = () => {
+      const navBottom = document.querySelector("header.header")?.getBoundingClientRect().bottom ?? 0;
+      const end = content?.getBoundingClientRect().bottom ?? Infinity;
+      const tops = headings.map((h) => h?.getBoundingClientRect().top ?? Infinity);
+      let first = -1;
+      let last = -1;
+      // The section being read is the one under a reading line. The line sits
+      // just under the top bar at the top of the page and reaches the bottom
+      // of the screen with the end of the page, moving slowly at first, so the
+      // last short sections can be read too.
+      const room = document.documentElement.scrollHeight - innerHeight;
+      const progress = room > 0 ? Math.min(1, scrollY / room) : 0;
+      // It starts a little below the bar, where a clicked heading lands.
+      const start = navBottom + 32;
+      const line = start + (innerHeight - start) * progress ** 3;
+      let read = 0;
+      links.forEach((a, i) => {
+        const top = i === 0 ? -Infinity : tops[i];
+        const bottom = Math.min(tops.slice(i + 1).find((t) => t !== Infinity) ?? end, end);
+        // A sliver at the screen edge, often just the gap before the next
+        // heading, does not count. Short sections count once all of them shows.
+        const shown = Math.min(bottom, innerHeight) - Math.max(top, navBottom);
+        if (top <= line) read = i;
+        const seen = shown >= MIN_SHOWN || (top >= navBottom && bottom <= innerHeight);
+        a.classList.toggle("in-view", seen);
+        if (seen) {
+          if (first < 0) first = i;
+          last = i;
+        }
+      });
+      if (picked >= 0) read = picked;
+      links.forEach((a, i) => a.classList.toggle("reading", i === read));
+      const from = first < 0 ? 0 : links[first].offsetTop;
+      const to = last < 0 ? 0 : links[last].offsetTop + links[last].offsetHeight;
+      svg.style.setProperty("--top", `${from}px`);
+      svg.style.setProperty("--bottom", `${list.offsetHeight - to}px`);
+      const now = links[read];
+      svg.style.setProperty("--read-top", `${now ? now.offsetTop : 0}px`);
+      svg.style.setProperty("--read-bottom", `${now ? list.offsetHeight - now.offsetTop - now.offsetHeight : list.offsetHeight}px`);
+    };
+
+    // A heading picked from a link stays the one being read until the reader
+    // scrolls by hand, even when the page is too short to bring it to the top.
+    const pick = () => {
+      picked = links.findIndex((a) => a.hash && a.hash === location.hash);
+      place();
+    };
+    let picked = -1;
+    addEventListener("hashchange", pick);
+    for (const type of ["wheel", "touchmove", "keydown", "pointerdown"]) {
+      addEventListener(type, () => {
+        if (picked < 0) return;
+        picked = -1;
+        place();
+      }, { passive: true });
+    }
+    list.addEventListener("click", () => setTimeout(pick));
+
+    let queued = false;
+    addEventListener(
+      "scroll",
+      () => {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(() => {
+          queued = false;
+          place();
+        });
+      },
+      { passive: true },
+    );
+    new ResizeObserver(draw).observe(list);
+    draw();
+    pick();
+  }
+</script>
+
+<style>
+  .toc-track :global(nav > ul) {
+    position: relative;
+  }
+
+  .toc-track :global(nav a) {
+    padding-inline-start: calc(0.75rem * var(--depth) + 1rem);
+    color: var(--muted-foreground);
+    transition: color 0.2s;
+  }
+
+  .toc-track :global(nav a.in-view) {
+    color: color-mix(in oklab, var(--foreground) 80%, transparent);
+  }
+
+  .toc-track :global(nav a:hover),
+  .toc-track :global(nav a.reading) {
+    color: var(--foreground);
+  }
+
+  .toc-track :global(.toc-line) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: calc(0.75rem * 6);
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .toc-track :global(.toc-line path) {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+  }
+
+  /* A dim copy covers every section on screen, and a full one the section
+     being read. Both slide as the page scrolls. */
+  .toc-track :global(.toc-line .lit) {
+    stroke: color-mix(in oklab, var(--primary) 40%, transparent);
+    stroke-width: 2;
+    clip-path: inset(var(--top, 0) 0 var(--bottom, 100%) 0) view-box;
+  }
+
+  .toc-track :global(.toc-line .main) {
+    stroke: var(--primary);
+    stroke-width: 2;
+    clip-path: inset(var(--read-top, 0) 0 var(--read-bottom, 100%) 0) view-box;
+  }
+
+  .toc-track :global(.toc-line :is(.lit, .main)) {
+    transition: clip-path 0.35s var(--ease-expo-out, ease-out);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toc-track :global(.toc-line :is(.lit, .main)) {
+      transition: none;
+    }
+  }
+</style>

@@ -50,7 +50,9 @@ Thumbnails and video previews come from the worker.
 2. Ask people to empty their trash. Trash is deleted for good after the cleanup time.
 3. Add space on the disk, or move to a bigger disk. To move the library, follow the steps in [Configuration](/docs/configuration/).
 
-Do not delete files inside `library` by hand. Staaash tracks each file, and a hand delete leaves it confused.
+:::caution[Do not free space by hand]
+Do not delete files inside `library` yourself. Staaash tracks each file, and a hand delete leaves it confused.
+:::
 
 ## Big uploads slow down after a few minutes
 

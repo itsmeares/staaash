@@ -14,7 +14,9 @@ At home, you open Staaash at your server's address, such as `http://192.168.1.10
 
 If only you and your family use the drive, start with Tailscale. If you send share links to people outside, you need a Cloudflare Tunnel or port forwarding.
 
-Never forward port 2113 itself on your router. Staaash expects HTTPS from a proxy in front of it when it faces the internet.
+:::caution[Never forward port 2113]
+Staaash expects HTTPS from a proxy in front of it when it faces the internet. Do not forward its own port on your router.
+:::
 
 Docker opens port 2113 on every address your server has. On a rented server with its own public address, such as a VPS, that includes the internet. The same goes for a home server with a public IPv6 address when the router lets incoming IPv6 through. In those cases, or if you are not sure, set `STAAASH_PORT=127.0.0.1:2113` and put a [reverse proxy](/docs/reverse-proxy/) in front.
 

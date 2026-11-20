@@ -2,7 +2,7 @@
 title: Admin Guide
 ---
 
-The admin area is where you check that your drive is healthy. Open it from the sidebar. The owner is the account that set up the instance, and the owner is the one who can use these screens.
+The admin area is where you check that your drive is healthy. Open it from the sidebar. The owner is the account that set up the instance, and only the owner can change things here. A person with **Admin access** can look but not change anything. See [User Management](/docs/user-management/).
 
 Being the owner means you run the box. It does not mean you can read other people's files. Members stay private.
 
@@ -10,7 +10,8 @@ The admin area has five screens.
 
 ## Overview
 
-![Admin overview](./images/admin-overview.png)
+![Admin overview](./images/admin-overview-light.png)
+![Admin overview](./images/admin-overview-dark.png)
 
 This is your daily check. It shows:
 
@@ -23,7 +24,8 @@ If a health line shows a problem, read [Troubleshooting](/docs/troubleshooting/)
 
 ## Users
 
-![Users](./images/admin-users.png)
+![Users](./images/admin-users-light.png)
+![Users](./images/admin-users-dark.png)
 
 The list of people, their role, and how much storage each person uses. Press **Invite** to add someone. Press a person to change their name, email, role or storage limit, or to reset their password. See [User Management](/docs/user-management/) for each step.
 
@@ -31,11 +33,12 @@ The list of people, their role, and how much storage each person uses. Press **I
 
 Shows how full the disk is, what each person uses, and a list called **Unfinished changes**.
 
-A file move, rename or delete is written down before it happens, so a crash cannot lose a file. **Unfinished changes** lists any that did not finish. Normally it says "Nothing unfinished". If something appears, wait a minute for the worker to finish it. If it stays, read the recovery part of [Troubleshooting](/docs/troubleshooting/).
+A file move, rename or delete is written down before it happens, so a crash cannot lose a file. **Unfinished changes** lists any that did not finish. Normally it says "Nothing unfinished". If something appears, wait a minute for the worker to finish it. If it stays, read [Storage Check](/docs/storage-check/).
 
 ## Jobs
 
-![Jobs](./images/admin-jobs.png)
+![Jobs](./images/admin-jobs-light.png)
+![Jobs](./images/admin-jobs-dark.png)
 
 Jobs are tasks the worker does in the background. The top shows how many are running, waiting or failed, and how many workers are online. If **workers online** is 0, previews and cleanup stop until the worker is back.
 
@@ -58,6 +61,7 @@ A failed preview, for example for a broken video, does not stop your files from 
 
 ## Settings
 
-![Settings](./images/admin-settings.png)
+![Settings](./images/admin-settings-light.png)
+![Settings](./images/admin-settings-dark.png)
 
 Upload limits, previews, sign-in time, update checks and more. Every setting is explained in [Configuration](/docs/configuration/).

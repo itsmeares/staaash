@@ -1,10 +1,36 @@
 ---
-title: Staaash
+title: Staaash docs
+description: Guides for running Staaash, the self-hosted drive for your homelab.
 ---
 
-Staaash is a drive that lives on your own computer. You put files in, and you get them back from any browser or from the desktop app. Nobody else holds your files.
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
 
-It is free and open source.
+Staaash is a drive that lives on your own computer. You put files in, and you get them back from any browser or from the desktop app. Nobody else holds your files. It is free and open source.
+
+<CardGrid>
+  <LinkCard
+    title="Install it"
+    description="Running with Docker in a few minutes."
+    href="/docs/installation/"
+  />
+  <LinkCard
+    title="Keep a backup"
+    description="Set this up on day one."
+    href="/docs/backup-and-restore/"
+  />
+  <LinkCard
+    title="Reach it from outside"
+    description="Tailscale, a tunnel or your own domain."
+    href="/docs/remote-access/"
+  />
+  <LinkCard
+    title="Get the desktop app"
+    description="Keep folders on your computer in sync."
+    href="/docs/desktop-app/"
+  />
+</CardGrid>
+
+Not sure yet? Read [Is Staaash right for you?](/docs/right-for-you/) or try the [demo](https://demo.staaash.org/).
 
 ## What you can do
 
@@ -18,9 +44,9 @@ It is free and open source.
 
 ## Three promises
 
-1. **Your files stay safe.** Every change to your storage survives a crash or a restart. When Staaash is not sure what happened, it keeps every file and stops.
-2. **One box to run.** Docker, a database and a disk. Nothing else to set up.
-3. **Small on purpose.** It is a drive for one person or a small group. It is not a team workspace, and it will not grow into a platform.
+- **Your files stay safe.** Every change to your storage survives a crash or a restart. When Staaash is not sure what happened, it keeps every file and stops.
+- **One box to run.** Docker, a database and a disk. Nothing else to set up.
+- **Small on purpose.** It is a drive for one person or a small group. It is not a team workspace, and it will not grow into a platform.
 
 ## What you need
 
@@ -28,32 +54,16 @@ A computer or server with Docker. That can be Linux, or Windows with Docker Desk
 
 On 64-bit Windows you can also skip Docker. See [Windows Server](/docs/windows-server/).
 
-## Where to begin
+## Already running it
 
-**New here**
-
-Not sure yet? Read [Is Staaash right for you?](/docs/right-for-you/) or try the [demo](https://demo.staaash.org/).
-
-1. [Installation](/docs/installation/). Be running in a few minutes.
-2. [Backup and Restore](/docs/backup-and-restore/). Do this on day one.
-3. [Using the Drive](/docs/using-the-drive/). Upload, find and get things back.
-4. [Sharing Files](/docs/sharing-files/) and [Desktop App](/docs/desktop-app/). The two things most people do next.
-
-**Already running it**
-
-- [Updating](/docs/updating/)
-- [Configuration](/docs/configuration/)
-- [Remote Access](/docs/remote-access/). Reach your drive from outside the house.
+- [Using the Drive](/docs/using-the-drive/) and [Sharing Files](/docs/sharing-files/). Upload, find, share and get things back.
+- [Updating](/docs/updating/) and [Configuration](/docs/configuration/).
 - [Reverse Proxy](/docs/reverse-proxy/). Your own domain name, with HTTPS.
 - [Storage Check](/docs/storage-check/). When a file says it needs a check.
-- [Troubleshooting](/docs/troubleshooting/)
-- [FAQ](/docs/faq/)
+- [Troubleshooting](/docs/troubleshooting/) and the [FAQ](/docs/faq/).
+- [Your Account](/docs/your-account/). Your own settings.
 
-**Your own settings**
-
-- [Your Account](/docs/your-account/)
-
-**Running it for other people**
+## Running it for other people
 
 - [User Management](/docs/user-management/)
 - [Admin Guide](/docs/admin-guide/)
@@ -76,4 +86,4 @@ The database and the storage folder go together. Always back up both.
 - Questions and ideas: [GitHub Discussions](https://github.com/itsmeares/staaash/discussions)
 - Bugs: [issue tracker](https://github.com/itsmeares/staaash/issues)
 - Security problems, privately: [security policy](https://github.com/itsmeares/staaash/blob/main/.github/SECURITY.md)
-- The code: https://github.com/itsmeares/staaash
+- The code: [github.com/itsmeares/staaash](https://github.com/itsmeares/staaash)

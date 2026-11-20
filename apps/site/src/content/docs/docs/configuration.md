@@ -4,10 +4,14 @@ title: Configuration
 
 Staaash has two places for settings:
 
-- The `.env` file next to your `docker-compose.yml`. It holds things that must be known when Staaash starts, like folders and the database password. After you change it, run `docker compose up -d` to apply it. `DB_PASSWORD` is the exception: the database keeps the password it was made with, so changing it later stops Staaash from connecting.
+- The `.env` file next to your `docker-compose.yml`. It holds things that must be known when Staaash starts, like folders and the database password. After you change it, run `docker compose up -d` to apply it.
 - The admin **Settings** screen inside the app. It holds everyday choices, like upload size. Changes apply right away.
 
 ## The `.env` file
+
+:::caution[Set `DB_PASSWORD` once]
+The database keeps the password it was made with. Changing `DB_PASSWORD` after the first start stops Staaash from connecting.
+:::
 
 | Setting                                  | What it does                                                                                                                         | Default      |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------ |

@@ -1,3 +1,5 @@
+@import "./theme-wipe.css";
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -32,30 +34,7 @@
     outline-offset: 4px;
   }
 
-  /* The theme switch wipes diagonally; other view transitions (list to
-     grid) morph. */
-  :root[data-theme-wipe]::view-transition-group(root) {
-    animation-duration: 0.7s;
-    animation-timing-function: var(--ease-expo-out);
-  }
-
-  :root[data-theme-wipe]::view-transition-new(root) {
-    animation-name: reveal-light;
-    animation-fill-mode: both;
-  }
-
-  :root[data-theme-wipe]::view-transition-old(root),
-  :root[data-theme-wipe].dark::view-transition-old(root) {
-    animation: none;
-    animation-fill-mode: both;
-    z-index: -1;
-  }
-
-  :root[data-theme-wipe].dark::view-transition-new(root) {
-    animation-name: reveal-dark;
-    animation-fill-mode: both;
-  }
-
+  /* View transitions other than the theme wipe (list to grid) morph. */
   :root[data-view-morph] [data-list-item] {
     view-transition-name: match-element;
   }
@@ -77,24 +56,6 @@
     height: 100%;
     object-fit: none;
     object-position: left top;
-  }
-
-  @keyframes reveal-dark {
-    from {
-      clip-path: polygon(50% -71%, -50% 71%, -50% 71%, 50% -71%);
-    }
-    to {
-      clip-path: polygon(50% -71%, -50% 71%, 50% 171%, 171% 50%);
-    }
-  }
-
-  @keyframes reveal-light {
-    from {
-      clip-path: polygon(171% 50%, 50% 171%, 50% 171%, 171% 50%);
-    }
-    to {
-      clip-path: polygon(171% 50%, 50% 171%, -50% 71%, 50% -71%);
-    }
   }
 }
 

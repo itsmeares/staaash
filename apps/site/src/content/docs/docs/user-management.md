@@ -16,7 +16,8 @@ Everyone has a private space. The owner cannot read a member's files by being th
 
 ## Invite someone
 
-![Users](./images/admin-users.png)
+![Users](./images/admin-users-light.png)
+![Users](./images/admin-users-dark.png)
 
 1. Open **Admin**, then **Users**, then press **Invite**.
 2. Type their email.

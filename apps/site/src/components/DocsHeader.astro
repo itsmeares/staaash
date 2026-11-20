@@ -5,7 +5,8 @@ import ThemeSelect from "virtual:starlight/components/ThemeSelect";
 
 import { buttonVariants } from "@staaash/ui/components/button";
 
-import { links, siteNav } from "../links";
+import { isExternal, links, siteNav } from "../links";
+import ExternalArrow from "./ExternalArrow.astro";
 
 const path = Astro.url.pathname;
 // Docs is a section, so every page under it counts.
@@ -21,6 +22,7 @@ const current = (href: string) => (href === links.docs ? path.startsWith(href) :
         siteNav.map((item) => (
           <a href={item.href} aria-current={current(item.href) ? "page" : undefined}>
             {item.label}
+            {isExternal(item.href) && <ExternalArrow />}
           </a>
         ))
       }

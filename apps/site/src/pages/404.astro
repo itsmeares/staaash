@@ -1,0 +1,29 @@
+---
+import { buttonVariants } from "@staaash/ui/components/button";
+import { DriveGlyph } from "@staaash/ui/drive-glyph";
+
+import PixelField from "../components/landing/PixelField.astro";
+import SiteLayout from "../layouts/SiteLayout.astro";
+import { links } from "../links";
+---
+
+<SiteLayout title="Page not found | Staaash" description="This page does not exist on staaash.org.">
+  <main>
+    <div class="hero-field relative isolate -mt-16 pt-[222px] pb-28 text-center md:pt-[310px] md:pb-40">
+      <PixelField mark />
+      <DriveGlyph className="mark-fallback" />
+      <div class="mx-auto w-full max-w-[1180px] px-6">
+        <h1 class="font-heading text-[clamp(2.75rem,6vw,4.5rem)] leading-[1.02] font-extrabold tracking-[-0.04em] text-balance text-foreground">
+          Page not found
+        </h1>
+        <p class="mx-auto mt-5 max-w-[34em] text-lg text-pretty text-muted-foreground">
+          The link may be old, or the page moved. The docs have a search box, or start again from the home page.
+        </p>
+        <div class="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
+          <a href={links.docs} class={buttonVariants({ variant: "inverse", size: "xl" })}>Search the docs</a>
+          <a href="/" class={buttonVariants({ variant: "outline", size: "xl" })}>Go to the home page</a>
+        </div>
+      </div>
+    </div>
+  </main>
+</SiteLayout>

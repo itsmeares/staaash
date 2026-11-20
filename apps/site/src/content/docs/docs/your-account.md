@@ -4,7 +4,8 @@ title: Your Account
 
 Click your picture in the top right corner, then **Settings**. The same menu has **Keyboard shortcuts**, **Get the desktop app** and **Sign out**.
 
-![The Appearance settings](./images/account-settings.png)
+![The Appearance settings](./images/account-settings-light.png)
+![The Appearance settings](./images/account-settings-dark.png)
 
 Changes in Appearance and Date and time wait for you to press **Save**. **Reset to defaults** puts a group back the way it started.
 

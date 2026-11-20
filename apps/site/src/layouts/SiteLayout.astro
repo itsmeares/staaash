@@ -5,8 +5,10 @@ import { buttonVariants } from "@staaash/ui/components/button";
 import { DriveGlyph } from "@staaash/ui/drive-glyph";
 
 import { umamiHead } from "../analytics.mjs";
+import { previewImage } from "../preview-image.mjs";
+import ExternalArrow from "../components/ExternalArrow.astro";
 import SiteFooter from "../components/SiteFooter.astro";
-import { links, siteNav } from "../links";
+import { isExternal, links, siteNav } from "../links";
 import "../styles/site.css";
 
 interface Props {
@@ -34,7 +36,8 @@ const wrap = "mx-auto w-full max-w-[1180px] px-6";
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
-    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:card" content="summary_large_image" />
+    {previewImage("og.png", "The drive for your homelab, with the pixel drive mark.").map(({ attrs }) => <meta {...attrs} />)}
     {umamiHead("staaash.org").map(({ attrs }) => <script is:inline {...attrs}></script>)}
   </head>
   <body class="overflow-x-clip text-base/relaxed">
@@ -52,6 +55,7 @@ const wrap = "mx-auto w-full max-w-[1180px] px-6";
                 class="transition-colors hover:text-foreground aria-[current=page]:text-foreground"
               >
                 {item.label}
+                {isExternal(item.href) && <ExternalArrow />}
               </a>
             ))
           }

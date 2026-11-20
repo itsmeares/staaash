@@ -45,7 +45,11 @@ On the Windows server installer, run the newer installer instead. See [Windows S
 
 Your old data is safe in your backup. Do not delete the backup until the new version has run well for a few days.
 
-To go back to the old version, you restore the backup you made before the update. Set `STAAASH_VERSION` back to the old tag too. Do not only change the version back: a new version may have changed the database in a way the old version cannot read.
+To go back to the old version, you restore the backup you made before the update. Set `STAAASH_VERSION` back to the old tag too.
+
+:::caution[Do not only change the version back]
+A new version may have changed the database in a way the old version cannot read.
+:::
 
 Read [Troubleshooting](/docs/troubleshooting/) if the app does not start after an update.
 

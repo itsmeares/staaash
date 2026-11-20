@@ -8,7 +8,7 @@ Yes. Use Docker Desktop and follow [Installation](/docs/installation/). You can 
 
 ## Is there a phone app?
 
-Not yet. It is planned for later. Until then, open Staaash in your phone's browser. The pages fit a small screen. For syncing folders there is a [Desktop App](/docs/desktop-app/) for Windows, macOS and Linux.
+Not yet. It is on the [roadmap](/roadmap/). Until then, open Staaash in your phone's browser. The pages fit a small screen. For syncing folders there is a [Desktop App](/docs/desktop-app/) for Windows, macOS and Linux.
 
 ## Where are my files stored?
 

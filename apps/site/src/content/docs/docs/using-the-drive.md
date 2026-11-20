@@ -4,7 +4,8 @@ title: Using the Drive
 
 This page covers the everyday things: adding files, finding them, and getting them back.
 
-![The Files page in grid view](./images/drive-files.png)
+![The Files page in grid view](./images/drive-files-light.png)
+![The Files page in grid view](./images/drive-files-dark.png)
 
 The sidebar has **Home**, **Files**, **Recent**, **Favorites**, **Shared** and **Trash**. The bar at the bottom shows how much space you use.
 

@@ -1,0 +1,67 @@
+---
+// One button in place of Starlight's browser select. The docs follow the
+// system until someone clicks; a click switches to the other theme, and
+// landing back on the system's own theme follows the system again.
+import { buttonVariants } from "@staaash/ui/components/button";
+---
+
+<button
+  type="button"
+  class:list={["theme-switch", buttonVariants({ variant: "ghost", size: "icon-sm" })]}
+  aria-label="Switch between light and dark"
+  title="Switch between light and dark"
+>
+  <!-- Icons from Lucide (ISC). -->
+  <svg class="dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="4"></circle>
+    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+  </svg>
+  <svg class="hidden dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+  </svg>
+</button>
+
+<script>
+  // Starlight's key, so ThemeProvider reads the choice before the page paints.
+  const KEY = "starlight-theme";
+  const light = matchMedia("(prefers-color-scheme: light)");
+  const system = () => (light.matches ? "light" : "dark");
+
+  const show = (theme: string) => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      // Matching the system means following it again.
+      localStorage.setItem(KEY, theme === system() ? "" : theme);
+    } catch {}
+  };
+
+  // The same diagonal wipe as the app, unless the browser can't or the
+  // reader asked for less motion.
+  const switchTheme = () => {
+    const root = document.documentElement;
+    const next = root.dataset.theme === "dark" ? "light" : "dark";
+    if (!document.startViewTransition || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      show(next);
+      return;
+    }
+    root.dataset.themeWipe = "";
+    const transition = document.startViewTransition(() => {
+      show(next);
+      root.classList.toggle("dark", next === "dark");
+    });
+    const done = () => delete root.dataset.themeWipe;
+    transition.finished.then(done, done);
+  };
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>(".theme-switch")) {
+    button.addEventListener("click", switchTheme);
+  }
+
+  light.addEventListener("change", () => {
+    let stored = null;
+    try {
+      stored = localStorage.getItem(KEY);
+    } catch {}
+    if (!stored) document.documentElement.dataset.theme = system();
+  });
+</script>
