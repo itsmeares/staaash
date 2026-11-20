@@ -79,6 +79,10 @@ const desktopApps = [
 
 const wrap = "mx-auto w-full max-w-[1180px] px-6";
 const heading = "font-heading font-bold tracking-[-0.025em] text-balance text-foreground";
+// A short aside under a block: a bold lead, one sentence, and where to read more.
+const note = "mt-5 text-[15px] text-pretty text-muted-foreground";
+const noteLink =
+  "font-medium whitespace-nowrap text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-primary";
 const download =
   "flex flex-1 items-center gap-2.5 rounded-[10px] px-4 py-2.5 leading-tight transition-[background-color,scale] duration-150 active:scale-[0.97] motion-reduce:active:scale-100";
 ---
@@ -230,10 +234,9 @@ const download =
             <p class="mt-2 text-muted-foreground">Every upload is checked before it becomes a file, so a broken upload never shows up.</p>
           </li>
         </ul>
-        <p class="mt-6 text-[15px] text-muted-foreground">
-          Still keep a backup. A dead disk takes its files with it. The{" "}
-          <a href={links.backup} class="text-foreground underline underline-offset-3">backup guide</a>{" "}
-          shows how to keep a copy somewhere else.
+        <p class={note}>
+          <strong class="font-medium text-foreground">Still keep a backup.</strong> A dead disk takes its files with it.{" "}
+          <a href={links.backup} class={noteLink}>Read the backup guide</a>
         </p>
       </section>
 
@@ -254,10 +257,7 @@ const download =
           </div>
           <div class="mt-8 border-t border-border pt-8 md:mt-0 md:border-t-0 md:border-l md:pl-10">
             <h3 class:list={[heading, "text-[26px]"]}>Install the desktop app</h3>
-            <p class="mt-2.5 mb-5.5 max-w-[28em] text-muted-foreground">
-              Keeps a folder on your computer and your drive the same. Needs Staaash 2.0 or newer on the server. The installers aren't signed yet, so the{" "}
-              <a href={links.desktopApp} class="text-foreground underline underline-offset-3">desktop app guide</a> shows how to open them the first time.
-            </p>
+            <p class="mt-2.5 mb-5.5 max-w-[28em] text-muted-foreground">Keeps a folder on your computer and your drive the same. Needs Staaash 2.0 or newer on the server.</p>
             <div class="flex flex-wrap gap-2.5">
               {
                 desktopApps.map((app) => (
@@ -276,6 +276,10 @@ const download =
                 ))
               }
             </div>
+            <p class={note}>
+              <strong class="font-medium text-foreground">Not signed yet.</strong> Your computer may stop the first launch.{" "}
+              <a href={links.desktopApp} class={noteLink}>How to open it</a>
+            </p>
           </div>
         </div>
       </section>
@@ -293,7 +297,7 @@ const download =
       </section>
     </main>
 
-    <div class={wrap}><SiteFooter /></div>
+    <SiteFooter />
   </body>
 </html>
 

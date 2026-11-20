@@ -58,18 +58,24 @@ void main() {
   vec2 p = ptr.xy * vec2(aspect, 1.);
   float light = ptr.z * .42 * exp(-dot(uv - p, uv - p) * 14.3);
 
-  float wave = 0.;
+  float wave = 0., sq = 0.;
   for (int i = 0; i < ${RINGS}; i++) {
     float age = t - rip[i].z;
     if (age > 0. && age < ${RING_LIFE.toFixed(1)}) {
       float d = length(uv - rip[i].xy * vec2(aspect, 1.));
-      wave += exp(-pow(d - age * .665, 2.) * 1020.) * (1. - age / ${RING_LIFE.toFixed(1)});
+      float e = exp(-pow(d - age * .665, 2.) * 1020.) * (1. - age / ${RING_LIFE.toFixed(1)});
+      wave += e;
+      sq += e * e;
     }
   }
+  // Where rings cross they add up, like waves: the sum of every pair of
+  // ring strengths, without comparing each pair.
+  float cross = clamp((wave * wave - sq) * .5 * 2.5, 0., 1.);
   wave = min(wave, 1.);
 
   float g = .28 * smoothstep(.38, .82, fbm(uv * 3. + vec2(t * .08, t * .04))) + light * .8 + wave;
   vec3 col = ramp(vec3(.062, .056, .05), vec3(.17, .13, .09), vec3(.38, .29, .18), g, th);
+  if (cross > .02) col = ramp(col, vec3(.72, .57, .36), vec3(.98, .87, .64), cross, th);
 
   if (showMark > .5) {
     // The mark in its own 36 by 26 units: a slate lid, a gap, a dark body, a blue light.
@@ -81,9 +87,9 @@ void main() {
     vec2 lm = m - vec2(26., 17.9);
     float halo = exp(-dot(lm, lm) * .02) * (.75 + .25 * sin(t * 2.4));
     if (!lid && !body) col = mix(col, vec3(.22, .44, .85), clamp(halo * .8 + wave * halo, 0., .85));
-    if (lid) col = ramp(vec3(.34, .36, .41), vec3(.52, .55, .61), vec3(.78, .8, .85), .7 - m.y * .035 + light + wave * 1.4, th);
+    if (lid) col = ramp(vec3(.34, .36, .41), vec3(.52, .55, .61), vec3(.78, .8, .85), .7 - m.y * .035 + light + wave * 1.4 + cross, th);
     if (body) {
-      float s = .55 - (m.y - 11.) * .03 + light + wave * 1.4;
+      float s = .55 - (m.y - 11.) * .03 + light + wave * 1.4 + cross;
       col = bd > -1.1
         ? ramp(vec3(.3, .33, .39), vec3(.44, .48, .56), vec3(.66, .7, .78), s, th)
         : ramp(vec3(.12, .15, .2), vec3(.2, .24, .31), vec3(.34, .39, .48), s, th);
