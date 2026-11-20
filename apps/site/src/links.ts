@@ -16,6 +16,9 @@ export const links = {
   issues: `${repo}/issues`,
   license: `${repo}/blob/main/LICENSE`,
   security: "mailto:security@staaash.org",
+  youtube: "https://www.youtube.com/@staaashapp",
+  bluesky: "https://bsky.app/profile/staaash.org",
+  x: "https://x.com/staaashapp",
 };
 
 /** The top bar links, the same on the landing page and in the docs. */

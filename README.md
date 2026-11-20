@@ -122,6 +122,7 @@ Want to reach your drive from outside the house? [Add HTTPS with your own domain
 - 💬 **[Discussions](https://github.com/itsmeares/staaash/discussions)**. Ask a question, share an idea or show your setup.
 - 🐞 **[Issues](https://github.com/itsmeares/staaash/issues/new/choose)**. Report a bug or ask for a feature.
 - 🔒 **[Security](https://github.com/itsmeares/staaash/blob/main/.github/SECURITY.md)**. Found a security problem? Tell us privately.
+- 📣 **Follow along** on [YouTube](https://www.youtube.com/@staaashapp), [Bluesky](https://bsky.app/profile/staaash.org) and [X](https://x.com/staaashapp) for release news and videos.
 
 Want to help build it? Start with [CONTRIBUTING.md](https://github.com/itsmeares/staaash/blob/main/.github/CONTRIBUTING.md). Writing about Staaash? Use the [brand kit](https://github.com/itsmeares/staaash/blob/main/design/README.md).
 
