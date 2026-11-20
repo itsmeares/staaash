@@ -2,7 +2,7 @@
 
 See linked GitHub release notes for full details.
 
-## [2.0.0](https://github.com/itsmeares/staaash/releases/tag/v2.0.0)
+## [2.0.0](https://github.com/itsmeares/staaash/releases/tag/v2.0.0) - 2026-11-20
 
 Staaash 2.0 adds a desktop app that syncs folders, a new design for every screen, and a new web engine.
 
