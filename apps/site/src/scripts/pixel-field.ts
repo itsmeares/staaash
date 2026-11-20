@@ -134,6 +134,12 @@ export function startPixelField(canvas: HTMLCanvasElement, host: HTMLElement) {
   const gl: WebGLRenderingContext = context;
   const program = compile(gl);
   if (!program) return false;
+  // shortcut: a lost context (a GPU reset) falls back to the plain logo for
+  // the rest of the visit, rebuild the program on webglcontextrestored if
+  // that ever matters.
+  canvas.addEventListener("webglcontextlost", () =>
+    host.classList.add("field-off"),
+  );
   gl.useProgram(program);
   gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
   gl.bufferData(
