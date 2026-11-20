@@ -189,10 +189,8 @@ export function startPixelField(canvas: HTMLCanvasElement, host: HTMLElement) {
   }).observe(canvas);
 
   const still = matchMedia("(prefers-reduced-motion: reduce)");
-  if (still.matches) {
-    draw(4);
-    return true;
-  }
+  // With reduced motion the field shows one still frame and waits.
+  if (still.matches) draw(4);
   // Reduced motion can also change after the page opened.
   still.addEventListener("change", () => {
     if (still.matches) draw(4);
