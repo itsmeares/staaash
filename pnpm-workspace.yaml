@@ -2,20 +2,20 @@ packages:
   - "apps/*"
   - "packages/*"
 overrides:
-  "@hono/node-server": 2.1.8
+  "@hono/node-server": 2.1.9
   brace-expansion: 5.0.13
   # Older minimatch calls the 1.x and 2.x API; these releases carry every fix.
   minimatch@3>brace-expansion: 1.1.22
   minimatch@5>brace-expansion: 2.1.8
   # GHSA-g3hv-75wg-m249 is only fixed in 11. The build tools that pull these in
   # use only minimatch(), Minimatch and match(), which 11 keeps.
-  minimatch@>=7.0.0 <11.0.1: 11.0.8
+  minimatch@>=7.0.0 <11.0.1: 11.0.9
   deepmerge-ts: 8.0.2
   esbuild@>=0.17.0 <0.28.1: ^0.28.2
   esbuild@>=0.27.3 <0.28.1: ^0.28.2
   fast-uri: 4.2.3
-  find-my-way: 9.10.0
-  hono: 4.13.18
+  find-my-way: 9.10.1
+  hono: 4.13.19
   ip-address: 10.7.6
   mysql2: 3.24.6
   postcss: 8.5.33
