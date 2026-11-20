@@ -187,10 +187,15 @@ export function startPixelField(canvas: HTMLCanvasElement, host: HTMLElement) {
     draw(now);
   }).observe(canvas);
 
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  const still = matchMedia("(prefers-reduced-motion: reduce)");
+  if (still.matches) {
     draw(4);
     return;
   }
+  // Reduced motion can also be turned on after the page opened.
+  still.addEventListener("change", () => {
+    if (still.matches) draw(4);
+  });
 
   const at = (event: PointerEvent) => {
     const box = canvas.getBoundingClientRect();
@@ -226,7 +231,8 @@ export function startPixelField(canvas: HTMLCanvasElement, host: HTMLElement) {
   const frame = (ms: number) => {
     requestAnimationFrame(frame);
     // 30 frames a second is enough for pixel art and halves the work.
-    if (document.hidden || !visible || ms - last < 1000 / 31) return;
+    if (still.matches || document.hidden || !visible || ms - last < 1000 / 31)
+      return;
     last = ms;
     const t = (ms - start) / 1000;
     if (!pointerOver) {
