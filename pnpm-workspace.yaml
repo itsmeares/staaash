@@ -20,8 +20,8 @@ overrides:
   mysql2: 3.24.6
   postcss: 8.5.33
   valibot: 1.5.0
-  # Same version as vite-plus in the catalog below.
-  vite@*: npm:@voidzero-dev/vite-plus-core@1.6.0
+  # Same vite-plus-core version that the vite-plus catalog version depends on.
+  vite@*: npm:@voidzero-dev/vite-plus-core@8.3.8000
   vitest@*: "catalog:"
 allowBuilds:
   "@prisma/engines": true
