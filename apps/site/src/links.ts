@@ -8,6 +8,7 @@ export const links = {
   desktopApp: "/docs/desktop-app/",
   backup: "/docs/backup-and-restore/",
   roadmap: "/docs/roadmap/",
+  faq: "/docs/faq/",
   repo,
   releases: `${repo}/releases`,
   latestRelease: `${repo}/releases/latest`,
