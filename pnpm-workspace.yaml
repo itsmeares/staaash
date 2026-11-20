@@ -34,7 +34,7 @@ allowBuilds:
   workerd: true
 catalog:
   vitest: 5.1.0
-  vite-plus: 1.6.0
+  vite-plus: 1.7.0
 peerDependencyRules:
   allowAny:
     - vite
