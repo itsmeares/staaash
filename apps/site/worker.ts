@@ -1,6 +1,7 @@
 // Agents that ask for Markdown (Accept: text/markdown) get the plain copy of
-// a guide, built next to its page as /docs/<guide>.md. Everyone else gets the
-// page. Only /docs runs through here; the rest of the site is served directly.
+// a guide, built next to its page as /docs/<guide>.md, and the home page gets
+// llms.txt, the index of every guide. Everyone else gets the page. Only / and
+// /docs run through here; the rest of the site is served directly.
 type Env = { ASSETS: { fetch: (request: Request) => Promise<Response> } };
 
 export default {
@@ -10,9 +11,17 @@ export default {
       ?.includes("text/markdown");
     if (wantsMarkdown) {
       const url = new URL(request.url);
-      url.pathname = `${url.pathname.replace(/\/+$/, "")}.md`;
+      url.pathname =
+        url.pathname === "/"
+          ? "/llms.txt"
+          : `${url.pathname.replace(/\/+$/, "")}.md`;
       const markdown = await env.ASSETS.fetch(new Request(url, request));
-      if (markdown.ok) return varyOnAccept(markdown);
+      if (markdown.ok) {
+        const copy = varyOnAccept(markdown);
+        // llms.txt is Markdown too, but is served as plain text by its name.
+        copy.headers.set("Content-Type", "text/markdown; charset=utf-8");
+        return copy;
+      }
     }
     return varyOnAccept(await env.ASSETS.fetch(request));
   },
