@@ -8,10 +8,9 @@ Staaash 2.0 adds a desktop app that syncs folders, a new design for every screen
 
 ### ⚠️ Upgrade notes
 
-- Back up your database and files together before upgrading. This release runs 19 database migrations, and four of them remove columns or tables. Going back to 1.x means restoring that backup.
-- `docker-compose.yml` changed. Download it from this release and replace your old one. Keep your own `.env` and set `STAAASH_VERSION` in it to this release. With the old version left there, the new file starts the old server and it does not come up. Migrations now run in their own `migrate` service before the server and worker start.
+- Back up your database and files together before upgrading. This release runs 19 database migrations, and four of them remove columns. Going back to 1.x means restoring that backup.
+- `docker-compose.yml` changed. Download it from this release and replace your old one. Keep your own `.env` and set `STAAASH_VERSION` in it to this release. With the old version left there, the new file starts the old server and it does not come up. If it says `latest`, run `docker compose pull` before `docker compose up -d`. Migrations now run in their own `migrate` service before the server and worker start.
 - Another member's private file, folder, zip or share now answers 404 instead of 403.
-- `/api/auth/session` no longer returns `deviceSessionId`.
 - Upload session limits are fixed at 32 per user and 128 per server, and their admin settings are gone. Two preview size settings and the video preview concurrency setting are gone too.
 
 ### ✨ New features
@@ -21,7 +20,7 @@ Staaash 2.0 adds a desktop app that syncs folders, a new design for every screen
 - **New engine.** A Vite app on a Hono server replaces Next.js. The public API is described in `openapi.json` and only gains routes and fields within 2.x.
 - **Windows server.** Run Staaash on Windows 10, 11 or Server 2019 and newer without Docker. The installer sets up the web app, worker and PostgreSQL as Windows services.
 - **HTTPS.** An optional Caddy setup gets a certificate for your own domain.
-- **Demo.** [Try Staaash](https://itsmeares.github.io/staaash/) in your browser before installing.
+- **Demo.** [Try Staaash](https://demo.staaash.org) in your browser before installing.
 - One transfers menu for uploads, zips and downloads, with speed and time left.
 - Paste a screenshot or copied file into a folder to upload it.
 - Move with a folder picker, and undo the move.
