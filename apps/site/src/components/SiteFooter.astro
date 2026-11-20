@@ -25,14 +25,15 @@ const groups = [
     ],
   },
   {
-    label: "Connect",
-    items: [
-      { label: "YouTube", href: links.youtube },
-      { label: "Bluesky", href: links.bluesky },
-      { label: "X", href: links.x },
-      { label: "security@staaash.org", href: links.security },
-    ],
+    label: "Contact",
+    items: [{ label: "security@staaash.org", href: links.security }],
   },
+];
+
+const social = [
+  { label: "YouTube", href: links.youtube, icon: "M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" },
+  { label: "Bluesky", href: links.bluesky, icon: "M12 10.8c-1.087-2.114-4.046-6.053-6.798-7.995C2.566.944 1.561 1.266.902 1.565.139 1.908 0 3.08 0 3.768c0 .69.378 5.65.624 6.479.815 2.736 3.713 3.66 6.383 3.364.136-.02.275-.039.415-.056-.138.022-.276.04-.415.056-3.912.58-7.387 2.005-2.83 7.078 5.013 5.19 6.87-1.113 7.823-4.308.953 3.195 2.05 9.271 7.733 4.308 4.267-4.308 1.172-6.498-2.74-7.078a8.741 8.741 0 0 1-.415-.056c.14.017.279.036.415.056 2.67.297 5.568-.628 6.383-3.364.246-.828.624-5.79.624-6.478 0-.69-.139-1.861-.902-2.206-.659-.298-1.664-.62-4.3 1.24C16.046 4.748 13.087 8.687 12 10.8Z" },
+  { label: "X", href: links.x, icon: "M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" },
 ];
 ---
 
@@ -47,6 +48,23 @@ const groups = [
         The drive for your homelab. Free and open source under the{" "}
         <a href={links.license} class="text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-primary">AGPL-3.0</a>.
       </p>
+      <ul class="mt-4 -ml-[9px] flex list-none gap-1 p-0">
+        {
+          social.map((item) => (
+            <li>
+              <a
+                href={item.href}
+                aria-label={`Staaash on ${item.label}`}
+                title={item.label}
+                class="flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+                data-umami-event={`footer-${item.label.toLowerCase()}`}
+              >
+                <svg viewBox="0 0 24 24" class="size-[18px] fill-current" aria-hidden="true"><path d={item.icon}></path></svg>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
     </div>
     {
       groups.map((group) => (
