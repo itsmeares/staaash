@@ -1,4 +1,12 @@
-import { Cloud, Folder, FolderOpen, Monitor, Plus, Trash2 } from "lucide-react";
+import {
+  Cloud,
+  Folder,
+  FolderOpen,
+  Monitor,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import { formatBytes } from "@/lib/format-bytes";
@@ -41,9 +49,19 @@ import { desktop } from "./state";
 
 const GB = 1024 ** 3;
 
+/**
+ * What a pair leaves out. Only a path skip can be undone here: a server folder
+ * skip may keep a nested pair from syncing the same files twice.
+ */
 const skipsOf = (pair: SyncPair) => [
-  ...(pair.skipFolders ?? []).map(({ label }) => label),
-  ...(pair.skipPaths ?? []),
+  ...(pair.skipFolders ?? []).map(({ label }) => ({ label, without: null })),
+  ...(pair.skipPaths ?? []).map((skip) => ({
+    label: skip,
+    without: {
+      ...pair,
+      skipPaths: pair.skipPaths?.filter((each) => each !== skip),
+    },
+  })),
 ];
 
 function Screen({
@@ -292,10 +310,41 @@ export function FoldersPage({ state }: { state: AppState }) {
                     title={pair.localPath}
                   >
                     {pair.localPath}
-                    {skipsOf(pair).length
-                      ? `. Skips ${skipsOf(pair).join(", ")}`
-                      : ""}
                   </span>
+                  {skipsOf(pair).length ? (
+                    <ul
+                      aria-label={`Skipped in ${pair.remoteLabel}`}
+                      className="m-0 mt-1 flex list-none flex-wrap items-center gap-1 p-0 text-label text-muted-foreground"
+                    >
+                      <li>Skips</li>
+                      {skipsOf(pair).map(({ label, without }) => (
+                        <li
+                          className="flex h-7 max-w-full min-w-0 items-center gap-0.5 rounded-md bg-hover px-2 has-[button]:pe-0.5 sm:h-6"
+                          key={label}
+                        >
+                          <span className="truncate" title={label}>
+                            {label}
+                          </span>
+                          {without ? (
+                            <Button
+                              aria-label={`Sync ${label} again`}
+                              size="icon-xs"
+                              variant="ghost-muted"
+                              onClick={() =>
+                                void save(
+                                  pairs.map((each) =>
+                                    each.id === pair.id ? without : each,
+                                  ),
+                                )
+                              }
+                            >
+                              <X />
+                            </Button>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                   <FolderState pairId={pair.id} state={state} />
                   <FolderSizes state={state} pairId={pair.id} />
                 </span>

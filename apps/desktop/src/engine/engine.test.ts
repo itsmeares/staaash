@@ -597,6 +597,16 @@ describe("unfinished uploads", () => {
     expect(left()).toEqual([]);
   });
 
+  it("cancels one whose own path the pair now leaves out", async () => {
+    const pair = { ...pairOf("a"), skipPaths: ["Videos/big.mov"] } as SyncPair;
+    mkdirSync(path.join(pair.localPath, "Videos"), { recursive: true });
+    writeFileSync(path.join(pair.localPath, "Videos", "big.mov"), "x");
+    pending("a", "Videos/big.mov", "skipped-file");
+    await syncOnce([pair]);
+    expect(cancelled).toEqual(["skipped-file"]);
+    expect(left()).toEqual([]);
+  });
+
   it("cancels one whose name an ignore rule now matches", async () => {
     const pair = pairOf("a");
     writeFileSync(path.join(pair.localPath, "big.mov"), "x");
