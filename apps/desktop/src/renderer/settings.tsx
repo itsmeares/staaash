@@ -229,11 +229,22 @@ function SkippedDialog({
   onClose,
 }: {
   pair: SyncPair;
-  onSave: (next: SyncPair) => void;
+  onSave: (next: SyncPair) => Promise<string | null>;
   onClose: () => void;
 }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const paths = pair.skipPaths ?? [];
   const folders = pair.skipFolders ?? [];
+  // One save at a time: each is built from the list the last one left.
+  const syncAgain = async (rel: string) => {
+    setSaving(true);
+    const left = paths.filter((each) => each !== rel);
+    const problem = await onSave({ ...pair, skipPaths: left });
+    setSaving(false);
+    setError(problem);
+    if (!problem && left.length + folders.length === 0) onClose();
+  };
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogPopup className="sm:max-w-120">
@@ -267,17 +278,19 @@ function SkippedDialog({
                   size="sm"
                   variant="ghost-muted"
                   aria-label={`Sync ${rel} again`}
-                  onClick={() => {
-                    const left = paths.filter((each) => each !== rel);
-                    onSave({ ...pair, skipPaths: left });
-                    if (left.length + folders.length === 0) onClose();
-                  }}
+                  disabled={saving}
+                  onClick={() => void syncAgain(rel)}
                 >
                   Sync again
                 </Button>
               </li>
             ))}
           </ul>
+          {error ? (
+            <Alert className="mt-3" variant="error">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
         </DialogPanel>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
@@ -309,8 +322,11 @@ export function FoldersPage({ state }: { state: AppState }) {
   const skippedPair = state.settings.pairs.find((pair) => pair.id === skipped);
   const [error, setError] = useState<string | null>(null);
   const { pairs } = state.settings;
-  const save = async (next: typeof pairs) =>
-    setError((await desktop.savePairs(next)).error);
+  const save = async (next: typeof pairs) => {
+    const problem = (await desktop.savePairs(next)).error;
+    setError(problem);
+    return problem;
+  };
   if (adding) {
     return (
       <div className="min-h-0 flex-1 scrollbar-thin overflow-y-auto">
@@ -420,7 +436,7 @@ export function FoldersPage({ state }: { state: AppState }) {
           pair={skippedPair}
           onClose={() => setSkipped(null)}
           onSave={(next) =>
-            void save(pairs.map((each) => (each.id === next.id ? next : each)))
+            save(pairs.map((each) => (each.id === next.id ? next : each)))
           }
         />
       ) : null}
