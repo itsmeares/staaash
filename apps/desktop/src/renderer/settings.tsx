@@ -1,17 +1,18 @@
-import {
-  Cloud,
-  Folder,
-  FolderOpen,
-  Monitor,
-  Plus,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Cloud, Folder, FolderOpen, Monitor, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import { formatBytes } from "@/lib/format-bytes";
 import { Alert, AlertDescription } from "@staaash/ui/components/alert";
 import { Avatar } from "@staaash/ui/components/avatar";
+import {
+  Dialog,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogPanel,
+  DialogPopup,
+  DialogTitle,
+} from "@staaash/ui/components/dialog";
 import { Button } from "@staaash/ui/components/button";
 import {
   Field,
@@ -38,7 +39,6 @@ import { Textarea } from "@staaash/ui/components/textarea";
 import type {
   AppState,
   Settings,
-  SizeReading,
   SyncPair,
   UpdateChannel,
 } from "../shared/types";
@@ -48,21 +48,6 @@ import { FolderChooser, ModeSelect } from "./folder-chooser";
 import { desktop } from "./state";
 
 const GB = 1024 ** 3;
-
-/**
- * What a pair leaves out. Only a path skip can be undone here: a server folder
- * skip may keep a nested pair from syncing the same files twice.
- */
-const skipsOf = (pair: SyncPair) => [
-  ...(pair.skipFolders ?? []).map(({ label }) => ({ label, without: null })),
-  ...(pair.skipPaths ?? []).map((skip) => ({
-    label: skip,
-    without: {
-      ...pair,
-      skipPaths: pair.skipPaths?.filter((each) => each !== skip),
-    },
-  })),
-];
 
 function Screen({
   title,
@@ -195,60 +180,112 @@ function FolderState({ state, pairId }: { state: AppState; pairId: string }) {
               ? ["bg-info", `Syncing ${moving}`]
               : ["bg-success", "Up to date"];
   return (
-    <span className="mt-0.5 flex items-center gap-1.5 text-label text-muted-foreground">
+    <span className="inline-flex items-center gap-1.5">
       <span className={`size-2 shrink-0 rounded-full ${tone}`} />
       {label}
     </span>
   );
 }
 
-// A stale or missing reading needs a label rather than a fresh total.
-// fallow-ignore-next-line complexity
+/** Each side's size; an old reading says when it was taken. */
 function FolderSizes({ state, pairId }: { state: AppState; pairId: string }) {
   const sizes = state.status?.folderSizes?.[pairId];
   const stale =
     (state.status?.state !== "idle" && state.status?.state !== "syncing") ||
     !!state.status?.issues.some((issue) => issue.pairId === pairId);
-  const display = (reading: SizeReading | null | undefined) =>
-    reading ? formatBytes(reading.bytes) : "Unavailable";
-  const checked = (reading: SizeReading) =>
-    new Date(reading.at).toLocaleString(undefined, {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
-  return (
-    <span className="mt-2 block">
-      <span className="inline-flex max-w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-foreground/5 px-2 py-1 text-label text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <Cloud aria-hidden className="size-3.5 shrink-0" />
-          Server{" "}
-          <span className="font-medium text-foreground">
-            {display(sizes?.server)}
-          </span>
-        </span>
-        <span className="inline-flex items-center gap-1 border-s border-border ps-3 max-sm:border-s-0 max-sm:ps-0">
-          <Monitor aria-hidden className="size-3.5 shrink-0" />
-          Computer{" "}
-          <span className="font-medium text-foreground">
-            {display(sizes?.computer)}
-          </span>
-        </span>
+  const sides = [
+    { Icon: Cloud, name: "On the server", reading: sizes?.server },
+    { Icon: Monitor, name: "On this computer", reading: sizes?.computer },
+  ];
+  return sides.map(({ Icon, name, reading }) =>
+    reading ? (
+      <span
+        className="inline-flex items-center gap-1"
+        key={name}
+        title={
+          stale
+            ? `${name}, checked ${new Date(reading.at).toLocaleString(
+                undefined,
+                { dateStyle: "short", timeStyle: "short" },
+              )}`
+            : name
+        }
+      >
+        <Icon aria-label={name} className="size-3.5 shrink-0" />
+        {formatBytes(reading.bytes)}
       </span>
-      {stale && sizes ? (
-        <span className="mt-1 block text-label text-muted-foreground">
-          {sizes.server ? (
-            <span className="block">
-              Server checked {checked(sizes.server)}
-            </span>
-          ) : null}
-          {sizes.computer ? (
-            <span className="block">
-              Computer checked {checked(sizes.computer)}
-            </span>
-          ) : null}
-        </span>
-      ) : null}
-    </span>
+    ) : null,
+  );
+}
+
+/**
+ * What a folder leaves out, in a dialog: the list grows with every file
+ * stopped from Activity. Only a path skip can be undone here; a server folder
+ * skip may keep a nested folder from syncing the same files twice.
+ */
+function SkippedDialog({
+  pair,
+  onSave,
+  onClose,
+}: {
+  pair: SyncPair;
+  onSave: (next: SyncPair) => void;
+  onClose: () => void;
+}) {
+  const paths = pair.skipPaths ?? [];
+  const folders = pair.skipFolders ?? [];
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogPopup className="sm:max-w-120">
+        <DialogHeader>
+          <DialogTitle>Skipped in {pair.remoteLabel}</DialogTitle>
+          <DialogDescription>
+            These stay as they are on this computer and on the server.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogPanel>
+          <ul className="m-0 grid list-none gap-0.5 p-0">
+            {folders.map(({ id, label }) => (
+              <li className="flex h-9 items-center px-2" key={id}>
+                <span
+                  className="min-w-0 flex-1 truncate text-body"
+                  title={label}
+                >
+                  {label}
+                </span>
+              </li>
+            ))}
+            {paths.map((rel) => (
+              <li
+                className="flex h-9 items-center gap-2 rounded-md ps-2 hover:bg-hover"
+                key={rel}
+              >
+                <span className="min-w-0 flex-1 truncate text-body" title={rel}>
+                  {rel}
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost-muted"
+                  aria-label={`Sync ${rel} again`}
+                  onClick={() => {
+                    const left = paths.filter((each) => each !== rel);
+                    onSave({ ...pair, skipPaths: left });
+                    if (left.length + folders.length === 0) onClose();
+                  }}
+                >
+                  Sync again
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </DialogPanel>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Done
+          </Button>
+        </DialogFooter>
+      </DialogPopup>
+    </Dialog>
   );
 }
 
@@ -263,8 +300,13 @@ function PageBody({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+const skipCount = (pair: SyncPair) =>
+  (pair.skipFolders?.length ?? 0) + (pair.skipPaths?.length ?? 0);
+
 export function FoldersPage({ state }: { state: AppState }) {
   const [adding, setAdding] = useState(false);
+  const [skipped, setSkipped] = useState<string | null>(null);
+  const skippedPair = state.settings.pairs.find((pair) => pair.id === skipped);
   const [error, setError] = useState<string | null>(null);
   const { pairs } = state.settings;
   const save = async (next: typeof pairs) =>
@@ -311,42 +353,19 @@ export function FoldersPage({ state }: { state: AppState }) {
                   >
                     {pair.localPath}
                   </span>
-                  {skipsOf(pair).length ? (
-                    <ul
-                      aria-label={`Skipped in ${pair.remoteLabel}`}
-                      className="m-0 mt-1 flex list-none flex-wrap items-center gap-1 p-0 text-label text-muted-foreground"
-                    >
-                      <li>Skips</li>
-                      {skipsOf(pair).map(({ label, without }) => (
-                        <li
-                          className="flex h-7 max-w-full min-w-0 items-center gap-0.5 rounded-md bg-hover px-2 has-[button]:pe-0.5 sm:h-6"
-                          key={label}
-                        >
-                          <span className="truncate" title={label}>
-                            {label}
-                          </span>
-                          {without ? (
-                            <Button
-                              aria-label={`Sync ${label} again`}
-                              size="icon-xs"
-                              variant="ghost-muted"
-                              onClick={() =>
-                                void save(
-                                  pairs.map((each) =>
-                                    each.id === pair.id ? without : each,
-                                  ),
-                                )
-                              }
-                            >
-                              <X />
-                            </Button>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  <FolderState pairId={pair.id} state={state} />
-                  <FolderSizes state={state} pairId={pair.id} />
+                  <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-muted-foreground">
+                    <FolderState pairId={pair.id} state={state} />
+                    <FolderSizes state={state} pairId={pair.id} />
+                    {skipCount(pair) ? (
+                      <button
+                        className="cursor-pointer border-0 bg-transparent p-0 text-inherit underline decoration-border underline-offset-3 hover:text-foreground focus-visible:text-foreground focus-visible:outline-none"
+                        type="button"
+                        onClick={() => setSkipped(pair.id)}
+                      >
+                        {skipCount(pair)} skipped
+                      </button>
+                    ) : null}
+                  </span>
                 </span>
                 <ModeSelect
                   label={`How ${pair.remoteLabel} syncs`}
@@ -369,6 +388,7 @@ export function FoldersPage({ state }: { state: AppState }) {
                 </Button>
                 <Button
                   aria-label={`Stop syncing ${pair.remoteLabel}`}
+                  title="Stop syncing. Files stay on this computer and on the server."
                   size="icon-sm"
                   variant="ghost-destructive"
                   onClick={() =>
@@ -381,30 +401,29 @@ export function FoldersPage({ state }: { state: AppState }) {
             ))}
           </ul>
         )}
-        {pairs.length > 0 ? (
-          <p className="m-0 text-label text-muted-foreground">
-            Sizes count files selected for sync, including subfolders. They may
-            differ from disk space used.
-          </p>
-        ) : null}
         {error ? (
           <Alert variant="error">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Button variant="outline" onClick={() => setAdding(true)}>
-            <Plus aria-hidden />
-            Add folders
-          </Button>
-          {pairs.length > 0 ? (
-            <p className="m-0 text-label text-muted-foreground">
-              Stopping a folder leaves its files on this computer and on the
-              server.
-            </p>
-          ) : null}
-        </div>
+        <Button
+          className="justify-self-start"
+          variant="outline"
+          onClick={() => setAdding(true)}
+        >
+          <Plus aria-hidden />
+          Add folders
+        </Button>
       </div>
+      {skippedPair ? (
+        <SkippedDialog
+          pair={skippedPair}
+          onClose={() => setSkipped(null)}
+          onSave={(next) =>
+            void save(pairs.map((each) => (each.id === next.id ? next : each)))
+          }
+        />
+      ) : null}
     </PageBody>
   );
 }
