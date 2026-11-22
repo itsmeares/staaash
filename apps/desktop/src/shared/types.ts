@@ -14,11 +14,18 @@ export type SyncPair = {
   /** Server folders left out of this pair, with all they hold. */
   skipFolders?: { id: string; label: string }[];
   /**
-   * Computer folders left out, by their path inside `localPath`. A server
-   * folder at the same path is left out too.
+   * Folders and files left out, by their path inside `localPath`. The same
+   * path on the server is left out too.
    */
   skipPaths?: string[];
 };
+
+/** One change to one pair, applied in the main process to the latest pairs. */
+export type PairEdit =
+  | { mode: SyncMode }
+  | { skipPath: string }
+  | { syncPath: string }
+  | { remove: true };
 
 export type UpdateChannel = "auto" | "stable" | "rc";
 
@@ -199,6 +206,7 @@ export type DesktopApi = {
     name: string,
   ) => Promise<{ folder: ServerFolder } | { error: string }>;
   savePairs: (pairs: SyncPair[]) => Promise<Result>;
+  editPair: (pairId: string, edit: PairEdit) => Promise<Result>;
   updateSettings: (patch: Partial<Settings>) => Promise<void>;
   pause: (minutes: number | null) => Promise<void>;
   openStaaash: () => Promise<Result>;

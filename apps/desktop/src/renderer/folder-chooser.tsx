@@ -43,20 +43,14 @@ export function ModeSelect({
   onChange,
   label,
   modes = Object.keys(MODE_LABELS) as SyncMode[],
-  disabled = false,
 }: {
   value: SyncMode;
   onChange: (mode: SyncMode) => void;
   label: string;
   modes?: SyncMode[];
-  disabled?: boolean;
 }) {
   return (
-    <Select
-      disabled={disabled}
-      value={value}
-      onValueChange={(mode) => onChange(mode as SyncMode)}
-    >
+    <Select value={value} onValueChange={(mode) => onChange(mode as SyncMode)}>
       <SelectTrigger aria-label={label} className="w-36" size="sm">
         <SelectValue>{(mode: SyncMode) => MODE_LABELS[mode]}</SelectValue>
       </SelectTrigger>

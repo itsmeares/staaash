@@ -318,29 +318,18 @@ function ActivityProgress({ activity }: { activity: Activity }) {
  */
 function StopSyncDialog({
   activity,
-  state,
   onClose,
 }: {
   activity: Activity;
-  state: AppState;
   onClose: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const stop = async () => {
     setSaving(true);
-    const result = await desktop.savePairs(
-      state.settings.pairs.map((pair) =>
-        pair.id === activity.pairId
-          ? {
-              ...pair,
-              skipPaths: [
-                ...new Set([...(pair.skipPaths ?? []), activity.rel]),
-              ].sort(),
-            }
-          : pair,
-      ),
-    );
+    const result = await desktop.editPair(activity.pairId, {
+      skipPath: activity.rel,
+    });
     setSaving(false);
     if (result.error) setError(result.error);
     else onClose();
@@ -649,11 +638,7 @@ export function ActivityPage({
         ) : null}
       </div>
       {stopping ? (
-        <StopSyncDialog
-          activity={stopping}
-          state={state}
-          onClose={() => setStopping(null)}
-        />
+        <StopSyncDialog activity={stopping} onClose={() => setStopping(null)} />
       ) : null}
     </>
   );

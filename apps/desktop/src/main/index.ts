@@ -24,11 +24,13 @@ import type {
   EngineCommand,
   EngineEvent,
   EngineStatus,
+  PairEdit,
   Settings,
   SyncPair,
 } from "../shared/types";
 import { FIRST_SYNC_SERVER, newer, wantsCandidates } from "../shared/version";
 import { signInWithBrowser, signOutDevice, webSessionUrl } from "./auth";
+import { editPairs } from "./pair-edit";
 import { loadSettings, loadToken, saveSettings, saveToken } from "./settings";
 import {
   foldersOverlap,
@@ -471,8 +473,11 @@ const savePairs = async (pairs: SyncPair[]) => {
   try {
     const problem = await checkPairs(pairs);
     if (problem) return { error: problem };
+    // Only a new pair's folder is made. A known pair's missing folder may be
+    // an unplugged drive, and an empty folder there would read as deleted.
+    const known = new Set(settings.pairs.map((pair) => pair.id));
     for (const pair of pairs) {
-      if (!existsSync(pair.localPath))
+      if (!known.has(pair.id) && !existsSync(pair.localPath))
         await mkdir(pair.localPath, { recursive: true });
     }
     await updateSettings({ pairs });
@@ -575,6 +580,21 @@ const registerIpc = () => {
     }
   });
   handle("save-pairs", (pairs: SyncPair[]) => serial(() => savePairs(pairs)));
+  handle("edit-pair", (pairId: string, edit: PairEdit) =>
+    serial(async () => {
+      if (!settings.pairs.some((pair) => pair.id === pairId)) {
+        return { error: "That folder is no longer synced." };
+      }
+      try {
+        await updateSettings({
+          pairs: editPairs(settings.pairs, pairId, edit),
+        });
+        return { error: null };
+      } catch (error) {
+        return { error: (error as Error).message };
+      }
+    }),
+  );
   handle("update-settings", (patch: Partial<Settings>) =>
     serial(async () => {
       await updateSettings(patch);

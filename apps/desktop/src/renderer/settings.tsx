@@ -38,6 +38,7 @@ import { Textarea } from "@staaash/ui/components/textarea";
 
 import type {
   AppState,
+  PairEdit,
   Settings,
   SyncPair,
   UpdateChannel,
@@ -225,23 +226,20 @@ function FolderSizes({ state, pairId }: { state: AppState; pairId: string }) {
  */
 function SkippedDialog({
   pair,
-  saving,
-  onSave,
+  onSyncAgain,
   onClose,
 }: {
   pair: SyncPair;
-  saving: boolean;
-  onSave: (next: SyncPair) => Promise<string | null>;
+  onSyncAgain: (rel: string) => Promise<string | null>;
   onClose: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const paths = pair.skipPaths ?? [];
   const folders = pair.skipFolders ?? [];
   const syncAgain = async (rel: string) => {
-    const left = paths.filter((each) => each !== rel);
-    const problem = await onSave({ ...pair, skipPaths: left });
+    const problem = await onSyncAgain(rel);
     setError(problem);
-    if (!problem && left.length + folders.length === 0) onClose();
+    if (!problem && paths.length + folders.length === 1) onClose();
   };
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -276,7 +274,6 @@ function SkippedDialog({
                   size="sm"
                   variant="ghost-muted"
                   aria-label={`Sync ${rel} again`}
-                  disabled={saving}
                   onClick={() => void syncAgain(rel)}
                 >
                   Sync again
@@ -319,15 +316,9 @@ export function FoldersPage({ state }: { state: AppState }) {
   const [skipped, setSkipped] = useState<string | null>(null);
   const skippedPair = state.settings.pairs.find((pair) => pair.id === skipped);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const { pairs } = state.settings;
-  // Each save sends the whole list as shown, so one at a time: a second save
-  // started before the first lands would undo it. The new state arrives
-  // before savePairs resolves.
-  const save = async (next: typeof pairs) => {
-    setSaving(true);
-    const problem = (await desktop.savePairs(next)).error;
-    setSaving(false);
+  const edit = async (pairId: string, change: PairEdit) => {
+    const problem = (await desktop.editPair(pairId, change)).error;
     setError(problem);
     return problem;
   };
@@ -388,16 +379,9 @@ export function FoldersPage({ state }: { state: AppState }) {
                   </span>
                 </span>
                 <ModeSelect
-                  disabled={saving}
                   label={`How ${pair.remoteLabel} syncs`}
                   value={pair.mode}
-                  onChange={(mode) =>
-                    void save(
-                      pairs.map((each) =>
-                        each.id === pair.id ? { ...each, mode } : each,
-                      ),
-                    )
-                  }
+                  onChange={(mode) => void edit(pair.id, { mode })}
                 />
                 <Button
                   aria-label={`Open ${pair.localPath}`}
@@ -409,13 +393,10 @@ export function FoldersPage({ state }: { state: AppState }) {
                 </Button>
                 <Button
                   aria-label={`Stop syncing ${pair.remoteLabel}`}
-                  disabled={saving}
                   title="Stop syncing. Files stay on this computer and on the server."
                   size="icon-sm"
                   variant="ghost-destructive"
-                  onClick={() =>
-                    void save(pairs.filter((each) => each.id !== pair.id))
-                  }
+                  onClick={() => void edit(pair.id, { remove: true })}
                 >
                   <Trash2 />
                 </Button>
@@ -440,11 +421,8 @@ export function FoldersPage({ state }: { state: AppState }) {
       {skippedPair ? (
         <SkippedDialog
           pair={skippedPair}
-          saving={saving}
           onClose={() => setSkipped(null)}
-          onSave={(next) =>
-            save(pairs.map((each) => (each.id === next.id ? next : each)))
-          }
+          onSyncAgain={(rel) => edit(skippedPair.id, { syncPath: rel })}
         />
       ) : null}
     </PageBody>
