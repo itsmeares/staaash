@@ -56,4 +56,22 @@ describe("single sign-on invite links", () => {
       code: "OIDC_INVITE_INVALID",
     });
   });
+
+  it("ends an invite link when the account connects another way", async () => {
+    const { issueOidcInvite, redeemOidcInvite } =
+      await import("@/server/auth/oidc");
+    const { prismaAuthRepository } = await import("@/server/auth/repository");
+    const user = await createUser("oidc-invite-settings@example.com");
+    const invite = await issueOidcInvite(oidc, user.id);
+
+    await prismaAuthRepository.setOidcLink(user.id, {
+      issuer: oidc.issuer,
+      subject: "settings-connect",
+    });
+    await prismaAuthRepository.setOidcLink(user.id, null);
+
+    await expect(
+      redeemOidcInvite(new URL(invite).searchParams.get("invite")!),
+    ).rejects.toMatchObject({ code: "OIDC_INVITE_INVALID" });
+  });
 });

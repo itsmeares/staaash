@@ -93,7 +93,13 @@ type SavePreferencesParams = {
 
 type AuthPrismaClient = Pick<
   ReturnType<typeof getPrisma>,
-  "folder" | "instance" | "session" | "user" | "userPreference" | "$transaction"
+  | "deviceAuthCode"
+  | "folder"
+  | "instance"
+  | "session"
+  | "user"
+  | "userPreference"
+  | "$transaction"
 >;
 
 export type AuthRepository = {
@@ -499,17 +505,24 @@ const createPrismaAuthRepository = (
 
     async setOidcLink(userId, link) {
       try {
-        const user = await getClient().user.update({
-          // A link only fills an empty slot, so a race never replaces one.
-          where: link ? { id: userId, oidcSubject: null } : { id: userId },
-          data: {
-            oidcIssuer: link?.issuer ?? null,
-            oidcSubject: link?.subject ?? null,
-          },
-          include: { preferences: true },
+        return await getClient().$transaction(async (tx) => {
+          const user = await tx.user.update({
+            // A link only fills an empty slot, so a race never replaces one.
+            where: link ? { id: userId, oidcSubject: null } : { id: userId },
+            data: {
+              oidcIssuer: link?.issuer ?? null,
+              oidcSubject: link?.subject ?? null,
+            },
+            include: { preferences: true },
+          });
+          // Any link change ends invites still out, so an old one cannot
+          // reconnect the account after a Disconnect.
+          await tx.deviceAuthCode.updateMany({
+            where: { userId, kind: "invite", usedAt: null },
+            data: { usedAt: new Date() },
+          });
+          return toAuthUser(user);
         });
-
-        return toAuthUser(user);
       } catch (error) {
         const authError = mapUniqueError(error);
         if (authError) throw authError;
