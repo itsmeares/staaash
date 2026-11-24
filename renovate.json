@@ -97,7 +97,8 @@
         "vitest",
         "@vitest/coverage-v8"
       ],
-      "groupName": "Vite and tests"
+      "groupName": "Vite and tests",
+      "minimumGroupSize": 4
     },
     {
       "matchManagers": ["github-actions"],
