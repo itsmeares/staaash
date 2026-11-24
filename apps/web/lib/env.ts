@@ -145,6 +145,8 @@ const parseOidc = (parsed: ParsedEnv) => {
 
 export type OidcEnv = NonNullable<ReturnType<typeof parseOidc>>;
 
+// Exported for its unit tests.
+// fallow-ignore-next-line unused-export
 export const parseWebEnv = (rawEnv: NodeJS.ProcessEnv) => {
   const parsed = envSchema.parse(rawEnv);
 

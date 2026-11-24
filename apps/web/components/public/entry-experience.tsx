@@ -113,31 +113,10 @@ export function SignIn({
   return (
     <EntryShell showBrand={false}>
       {phase !== "form" ? (
-        <section
-          className={cn(
-            "grid max-w-[clamp(22rem,50vw,44rem)] cursor-default gap-4 text-center select-none md:gap-5",
-            styles.readable,
-            phase === "leaving" && styles.introExiting,
-          )}
-        >
-          <h1
-            className={cn(
-              "font-heading text-display tracking-tighter text-foreground",
-              styles.introTitle,
-            )}
-          >
-            {instanceName}
-          </h1>
-          <button
-            className={cn(
-              "cursor-pointer rounded-xl border-0 bg-transparent p-0 text-meta text-foreground/80 outline-none focus-visible:outline-2 focus-visible:outline-offset-8 focus-visible:outline-primary/55",
-              styles.introHint,
-            )}
-            type="button"
-          >
-            Click anywhere or press any key
-          </button>
-        </section>
+        <SignInIntro
+          instanceName={instanceName}
+          leaving={phase === "leaving"}
+        />
       ) : sso && !sso.passwordLogin ? (
         <SsoOnly
           error={error}
@@ -158,6 +137,42 @@ export function SignIn({
         />
       )}
     </EntryShell>
+  );
+}
+
+function SignInIntro({
+  instanceName,
+  leaving,
+}: {
+  instanceName: string;
+  leaving: boolean;
+}) {
+  return (
+    <section
+      className={cn(
+        "grid max-w-[clamp(22rem,50vw,44rem)] cursor-default gap-4 text-center select-none md:gap-5",
+        styles.readable,
+        leaving && styles.introExiting,
+      )}
+    >
+      <h1
+        className={cn(
+          "font-heading text-display tracking-tighter text-foreground",
+          styles.introTitle,
+        )}
+      >
+        {instanceName}
+      </h1>
+      <button
+        className={cn(
+          "cursor-pointer rounded-xl border-0 bg-transparent p-0 text-meta text-foreground/80 outline-none focus-visible:outline-2 focus-visible:outline-offset-8 focus-visible:outline-primary/55",
+          styles.introHint,
+        )}
+        type="button"
+      >
+        Click anywhere or press any key
+      </button>
+    </section>
   );
 }
 

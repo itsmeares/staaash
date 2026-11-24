@@ -236,6 +236,48 @@ function SsoRow({
   );
 }
 
+function PasswordResetRow({
+  userId,
+  signInUrl,
+  onReset,
+}: {
+  userId: string;
+  signInUrl: string;
+  onReset: (details: SignInDetails) => void;
+}) {
+  const refresh = useRefresh();
+  const reset = async (form: FormData) => {
+    const body = await sendAdmin<{
+      user: { email: string };
+      temporaryPassword: string;
+    }>(
+      `/api/admin/users/${userId}/password-reset`,
+      "POST",
+      temporaryPasswordPayload(form),
+    );
+    onReset({
+      email: body.user.email,
+      temporaryPassword: body.temporaryPassword,
+      signInUrl,
+    });
+    void refresh();
+  };
+
+  return (
+    <SettingsRow hint="Signs them out everywhere" label="Password">
+      <AdminFormDialog
+        submitLabel="Reset password"
+        title="Reset password"
+        trigger={<Button size="sm" variant="outline" />}
+        triggerLabel="Reset password"
+        onSubmit={reset}
+      >
+        <TemporaryPasswordFields />
+      </AdminFormDialog>
+    </SettingsRow>
+  );
+}
+
 /** Reset password (with the result shown once) and their devices. */
 export function SignInCard({
   userId,
@@ -252,30 +294,13 @@ export function SignInCard({
   sso: Sso | null;
   oidcLinked: boolean;
 }) {
-  const refresh = useRefresh();
   const [result, setResult] = useState<SignInDetails | null>(null);
+  // With passwords off, there is nothing to reset.
   const passwords = sso?.passwordLogin ?? true;
-
-  const reset = async (form: FormData) => {
-    const body = await sendAdmin<{
-      user: { email: string };
-      temporaryPassword: string;
-    }>(
-      `/api/admin/users/${userId}/password-reset`,
-      "POST",
-      temporaryPasswordPayload(form),
-    );
-    setResult({
-      email: body.user.email,
-      temporaryPassword: body.temporaryPassword,
-      signInUrl,
-    });
-    void refresh();
-  };
 
   return (
     <div className="grid gap-3">
-      {canEdit && (sso || passwords) ? (
+      {canEdit ? (
         <SettingsCard>
           {sso ? (
             <SsoRow
@@ -287,17 +312,11 @@ export function SignInCard({
             />
           ) : null}
           {passwords ? (
-            <SettingsRow hint="Signs them out everywhere" label="Password">
-              <AdminFormDialog
-                submitLabel="Reset password"
-                title="Reset password"
-                trigger={<Button size="sm" variant="outline" />}
-                triggerLabel="Reset password"
-                onSubmit={reset}
-              >
-                <TemporaryPasswordFields />
-              </AdminFormDialog>
-            </SettingsRow>
+            <PasswordResetRow
+              signInUrl={signInUrl}
+              userId={userId}
+              onReset={setResult}
+            />
           ) : null}
         </SettingsCard>
       ) : null}
