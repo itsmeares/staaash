@@ -244,7 +244,7 @@ const oidcCookieOptions = (c: Context) => ({
   httpOnly: true,
   sameSite: "lax" as const,
   secure: resolveSecureCookie(c.req.raw),
-  path: "/api/auth/oidc",
+  path: "/",
 });
 
 /** Back to a page with the reason in `?error=`, which the page shows. */
