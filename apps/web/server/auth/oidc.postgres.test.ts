@@ -10,23 +10,30 @@ const oidc = {
   startUrl: "https://drive.example.com/api/auth/oidc/start",
 } as OidcEnv;
 
+// Other test files share this database, so only remove what this file made.
+const created: string[] = [];
+
 const reset = async () => {
   assertIsolatedPostgresTestTarget({
     databaseUrl: inject("postgresDatabaseUrl"),
     databaseName: inject("postgresDatabaseName"),
   });
-  await getPrisma().deviceAuthCode.deleteMany();
-  await getPrisma().user.deleteMany();
+  const userId = { in: created.splice(0) };
+  await getPrisma().deviceAuthCode.deleteMany({ where: { userId } });
+  await getPrisma().user.deleteMany({ where: { id: userId } });
 };
 
-const createUser = (email: string) =>
-  getPrisma().user.create({
+const createUser = async (email: string) => {
+  const user = await getPrisma().user.create({
     data: {
       email,
       storageId: email.split("@")[0]!,
       passwordHash: null,
     },
   });
+  created.push(user.id);
+  return user;
+};
 
 describe("single sign-on invite links", () => {
   afterEach(reset);
@@ -34,7 +41,7 @@ describe("single sign-on invite links", () => {
   it("redeems an invite link once, and a new link replaces the old", async () => {
     const { issueOidcInvite, redeemOidcInvite } =
       await import("@/server/auth/oidc");
-    const user = await createUser("partner@example.com");
+    const user = await createUser("oidc-invite-partner@example.com");
     const token = (url: string) => new URL(url).searchParams.get("invite")!;
 
     const first = await issueOidcInvite(oidc, user.id);

@@ -4,13 +4,19 @@ import { assertIsolatedPostgresTestTarget } from "../../vitest.postgres.global";
 
 import { getPrisma } from "@staaash/db/client";
 
+// Other test files share this database, so only remove what this file made.
+const emails = [
+  "repo-test-pat@one.example",
+  "repo-test-a@example.com",
+  "repo-test-b@example.com",
+];
+
 const reset = async () => {
   assertIsolatedPostgresTestTarget({
     databaseUrl: inject("postgresDatabaseUrl"),
     databaseName: inject("postgresDatabaseName"),
   });
-  await getPrisma().folder.deleteMany();
-  await getPrisma().user.deleteMany();
+  await getPrisma().user.deleteMany({ where: { email: { in: emails } } });
 };
 
 const newUser = {
@@ -29,23 +35,23 @@ describe("auth repository unique checks", () => {
     const { prismaAuthRepository } = await import("@/server/auth/repository");
     await prismaAuthRepository.createUser({
       ...newUser,
-      email: "pat@one.example",
-      storageId: "pat",
+      email: "repo-test-pat@one.example",
+      storageId: "repo-test-pat",
     });
 
     // The service retries with another folder name on this error.
     await expect(
       prismaAuthRepository.createUser({
         ...newUser,
-        email: "pat@two.example",
-        storageId: "pat",
+        email: "repo-test-pat@two.example",
+        storageId: "repo-test-pat",
       }),
     ).rejects.toMatchObject({ code: "STORAGE_ID_COLLISION" });
     await expect(
       prismaAuthRepository.createUser({
         ...newUser,
-        email: "pat@one.example",
-        storageId: "pat-2",
+        email: "repo-test-pat@one.example",
+        storageId: "repo-test-pat-2",
       }),
     ).rejects.toMatchObject({ code: "USER_ALREADY_EXISTS" });
   });
@@ -55,14 +61,14 @@ describe("auth repository unique checks", () => {
     const identity = { issuer: "https://id.example.com", subject: "sub-1" };
     await prismaAuthRepository.createUser({
       ...newUser,
-      email: "a@example.com",
-      storageId: "a",
+      email: "repo-test-a@example.com",
+      storageId: "repo-test-a",
       oidc: identity,
     });
     const b = await prismaAuthRepository.createUser({
       ...newUser,
-      email: "b@example.com",
-      storageId: "b",
+      email: "repo-test-b@example.com",
+      storageId: "repo-test-b",
     });
 
     await expect(
@@ -83,7 +89,7 @@ describe("auth repository unique checks", () => {
       }),
     ).rejects.toMatchObject({ code: "USER_NOT_FOUND" });
     expect(await prismaAuthRepository.findUserByOidc(identity)).toMatchObject({
-      email: "a@example.com",
+      email: "repo-test-a@example.com",
       hasPassword: false,
       oidcLinked: true,
     });
