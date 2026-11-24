@@ -21,6 +21,21 @@ await test("documentation does not start application stacks", () => {
   });
 });
 
+await test("website changes do not start application stacks", () => {
+  assert.deepEqual(
+    selectSuites([
+      "apps/site/src/components/SiteFooter.astro",
+      "apps/site/src/content/docs/docs/index.mdx",
+      "apps/site/package.json",
+    ]),
+    { app: false, upgrade: false, recovery: false, desktop: false },
+  );
+  assert.equal(
+    selectSuites(["apps/site/src/links.ts", "packages/ui/src/button.tsx"]).app,
+    true,
+  );
+});
+
 await test("stored data and startup changes require upgrade and recovery", () => {
   for (const file of [
     "packages/db/prisma/migrations/new/migration.sql",

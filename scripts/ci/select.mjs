@@ -10,7 +10,7 @@ export function selectSuites(
     full ||
     files.some(
       (file) =>
-        !/^(?:docs\/|\.github\/(?:ISSUE_TEMPLATE\/|[^/]+\.md$))|\.md$/.test(
+        !/^(?:docs\/|apps\/site\/|\.github\/(?:ISSUE_TEMPLATE\/|[^/]+\.md$))|\.md$/.test(
           file,
         ),
     );
