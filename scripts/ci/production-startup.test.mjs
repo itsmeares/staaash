@@ -25,7 +25,7 @@ test(
         migrate: {
           container_name: `${project}-migrate`,
           image,
-          command: ["sh", "-c", "sleep 200; prisma migrate deploy"],
+          command: ["sh", "-c", "sleep 25; prisma migrate deploy"],
           restart: "no",
           cpus: 0.5,
           mem_limit: "1g",
@@ -69,7 +69,7 @@ test(
     for (const [name, service] of Object.entries(config.services)) {
       const original = isolated.services[name];
       Object.assign(original, service);
-      if (name === "staaash")
+      if (name === "staaash") {
         original.ports = [
           {
             target: 2113,
@@ -78,6 +78,16 @@ test(
             protocol: "tcp",
           },
         ];
+        // A health deadline of about 8 s, well under the fake migration, so a
+        // start that waited on web health would fail here.
+        original.healthcheck = {
+          ...original.healthcheck,
+          interval: "2s",
+          timeout: "2s",
+          retries: 3,
+          start_period: "2s",
+        };
+      }
       if (name !== "migrate")
         original.volumes = [
           {
