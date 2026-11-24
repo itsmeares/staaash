@@ -15,6 +15,9 @@ import {
   upload,
 } from "./support.mjs";
 
+// Bigger than one upload piece (32 MB since v2.0.0), so the upload can resume.
+const RESUME_SIZE = 32 * 1024 * 1024 + 17;
+
 test("a populated stable installation upgrades without losing files, links, preferences or uploads", async () => {
   const owner = await signedIn();
   const state = await stack();
@@ -68,12 +71,12 @@ test("a populated stable installation upgrades without losing files, links, pref
         {
           originalName: "Resumed.txt",
           mimeType: "text/plain",
-          totalSizeBytes: 16 * 1024 * 1024 + 17,
+          totalSizeBytes: RESUME_SIZE,
           folderId: nested.id,
         },
         201,
       );
-      const resumeBytes = Buffer.alloc(16 * 1024 * 1024 + 17, 0x42);
+      const resumeBytes = Buffer.alloc(RESUME_SIZE, 0x42);
       const chunk = session.chunkSizeBytes;
       expect(Number.isInteger(chunk)).toBe(true);
       expect(chunk).toBeGreaterThan(0);
@@ -136,7 +139,7 @@ test("a populated stable installation upgrades without losing files, links, pref
     expect(
       (await owner.get(`/api/uploads/sessions/${old.session.id}`)).status(),
     ).toBe(200);
-    const bytes = Buffer.alloc(16 * 1024 * 1024 + 17, 0x42);
+    const bytes = Buffer.alloc(RESUME_SIZE, 0x42);
     for (let offset = old.chunk; offset < bytes.length; offset += old.chunk) {
       const end = Math.min(offset + old.chunk, bytes.length);
       const patch = await owner.patch(
