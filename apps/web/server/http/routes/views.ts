@@ -127,7 +127,6 @@ const loadPins = async (user: AuthUser) => {
 const instanceName = async () =>
   (await authService.getSetupState()).instanceName?.trim() || "Staaash";
 
-/** Which first-run steps a signed-in person still needs, if any. */
 const passwordLogin = () => env.oidc?.passwordLogin ?? true;
 
 /** Single sign-on, for the pages that offer it. */
@@ -136,6 +135,7 @@ const ssoView = () =>
     ? { name: env.oidc.providerName, passwordLogin: env.oidc.passwordLogin }
     : null;
 
+/** Which first-run steps a signed-in person still needs, if any. */
 const firstRunKind = (user: AuthUser): FirstRunKind | null => {
   const onboarded = Boolean(user.preferences?.onboardingCompletedAt);
   if (onboarded) return user.passwordChangeRequiredAt ? "password" : null;

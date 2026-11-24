@@ -168,6 +168,11 @@ export const createAuthService = ({
     if (!passwordLogin) throw new AuthError("PASSWORD_LOGIN_DISABLED");
   };
 
+  // With passwords off, a leftover temporary password signs no one in, so
+  // nobody owes a change to it.
+  const sessionUser = (user: AuthUser): AuthUser =>
+    passwordLogin ? user : { ...user, passwordChangeRequiredAt: null };
+
   const requireOidc = () => {
     if (!oidc) throw new AuthError("OIDC_DISABLED");
     return oidc;
@@ -292,9 +297,9 @@ export const createAuthService = ({
     });
 
     return {
-      session,
+      session: { ...session, user: sessionUser(session.user) },
       sessionToken: tokenPair.token,
-      user: session.user,
+      user: sessionUser(session.user),
     };
   };
 
@@ -472,7 +477,7 @@ export const createAuthService = ({
         deviceSessionId: session.deviceSessionId,
         createdAt: session.createdAt,
         updatedAt: session.updatedAt,
-        user: session.user,
+        user: sessionUser(session.user),
       };
     },
 
@@ -635,6 +640,7 @@ export const createAuthService = ({
       currentSessionId: string,
       input: { password: string; confirmPassword: string },
     ) {
+      requirePasswordLogin();
       const parsed = requiredPasswordChangeInputSchema.parse(input);
 
       if (parsed.password !== parsed.confirmPassword) {
@@ -811,7 +817,12 @@ export const createAuthService = ({
     /** Links the signed-in account to the identity it just proved. */
     async connectOidc(userId: string, identity: OidcIdentity) {
       requireOidc();
-      return (await resolveRepo()).setOidcLink(userId, identity);
+      const activeRepo = await resolveRepo();
+      const user = await activeRepo.findUserById(userId);
+      if (!user) throw new AuthError("USER_NOT_FOUND");
+      // Replacing a link would silently cut off the identity in use today.
+      if (user.oidcLinked) throw new AuthError("OIDC_ALREADY_LINKED");
+      return activeRepo.setOidcLink(userId, identity);
     },
 
     /** Only while a password still lets you back in. */

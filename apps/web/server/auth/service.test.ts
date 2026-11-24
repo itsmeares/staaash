@@ -996,6 +996,43 @@ describe("single sign-on", () => {
     ).rejects.toMatchObject({ code: "PASSWORD_LOGIN_DISABLED" });
   });
 
+  it("with passwords off, a leftover temporary password owes no change", async () => {
+    const { service } = setup(
+      [
+        makeUser({
+          id: "member",
+          email: "member@example.com",
+          passwordChangeRequiredAt: now,
+          ...linkedTo("sub-1"),
+        }),
+      ],
+      { passwordLogin: false },
+    );
+
+    const result = await service.signInWithOidc(identity(), null);
+    expect(result.user.passwordChangeRequiredAt).toBeNull();
+    await expect(
+      service.getSession(result.sessionToken),
+    ).resolves.toMatchObject({ user: { passwordChangeRequiredAt: null } });
+    await expect(
+      service.changeRequiredPassword("member", result.session.id, {
+        password: "a-new-long-password",
+        confirmPassword: "a-new-long-password",
+      }),
+    ).rejects.toMatchObject({ code: "PASSWORD_LOGIN_DISABLED" });
+  });
+
+  it("does not replace a connected identity with another", async () => {
+    const { service, user } = setup([
+      makeUser({ id: "partner", ...linkedTo("sub-1") }),
+    ]);
+
+    await expect(
+      service.connectOidc("partner", identity("sub-2")),
+    ).rejects.toMatchObject({ code: "OIDC_ALREADY_LINKED" });
+    expect(user("partner").oidcSubject).toBe("sub-1");
+  });
+
   it("disconnects only while a password still lets you back in", async () => {
     const { service, user } = setup([
       makeUser({ id: "no-password", passwordHash: null, ...linkedTo("sub-1") }),

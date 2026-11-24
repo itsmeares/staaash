@@ -58,4 +58,4 @@ By default people stay signed in for a while and then sign in again. Change the 
 
 ## Removing a person
 
-The admin screens have no button to delete an account. If someone should lose access today, reset their password and keep the new password to yourself. They are signed out everywhere. If they sign in with single sign-on, also press **Disconnect** next to the provider's name. Ask in [GitHub Discussions](https://github.com/itsmeares/staaash/discussions) if you need the account fully removed.
+The admin screens have no button to delete an account. If someone should lose access today, reset their password and keep the new password to yourself. They are signed out everywhere. If they sign in with single sign-on, press **Disconnect** next to the provider's name, then sign out their devices under **Signed in**. With passwords turned off there is no reset, so those two steps are all you need. Ask in [GitHub Discussions](https://github.com/itsmeares/staaash/discussions) if you need the account fully removed.
