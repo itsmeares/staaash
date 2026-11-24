@@ -37,21 +37,26 @@ export const startUpdates = (
     return true;
   };
 
+  /** Throws when GitHub cannot be reached. */
+  const newestOnGitHub = async () => {
+    // The list's first page always holds the newest release, but a long
+    // run of candidates can push every stable one past it.
+    const response = await fetch(
+      `https://api.github.com/repos/itsmeares/staaash/releases${includeCandidates ? "" : "/latest"}`,
+      { headers: { accept: "application/vnd.github+json" } },
+    );
+    if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
+    const body = (await response.json()) as Release | Release[];
+    return newestRelease(
+      Array.isArray(body) ? body : [body],
+      includeCandidates,
+    );
+  };
+
   if (manual) {
     const check = async (): Promise<UpdateCheck> => {
       try {
-        // The list's first page always holds the newest release, but a long
-        // run of candidates can push every stable one past it.
-        const response = await fetch(
-          `https://api.github.com/repos/itsmeares/staaash/releases${includeCandidates ? "" : "/latest"}`,
-          { headers: { accept: "application/vnd.github+json" } },
-        );
-        if (!response.ok) return "failed";
-        const body = (await response.json()) as Release | Release[];
-        const version = newestRelease(
-          Array.isArray(body) ? body : [body],
-          includeCandidates,
-        );
+        const version = await newestOnGitHub();
         if (!version || !newerRelease(version, app.getVersion()))
           return "current";
         latest = version;
@@ -80,10 +85,9 @@ export const startUpdates = (
 
   const { autoUpdater } = electronUpdater;
   autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.allowPrerelease = includeCandidates;
   // A candidate found before the channel changed can still finish later.
   const unwanted = (version: string) =>
-    version.includes("-") && !autoUpdater.allowPrerelease;
+    version.includes("-") && !includeCandidates;
   autoUpdater.on("update-available", (info) => {
     if (unwanted(info.version)) return;
     latest = info.version;
@@ -102,6 +106,12 @@ export const startUpdates = (
   });
   const check = async (): Promise<UpdateCheck> => {
     try {
+      // With prereleases on, electron-updater only accepts releases tagged
+      // like the install (rc), so a candidate would never see its stable
+      // release. Pick the newest release here and turn prereleases on only
+      // when that release is a candidate.
+      autoUpdater.allowPrerelease =
+        includeCandidates && Boolean((await newestOnGitHub())?.includes("-"));
       const result = await autoUpdater.checkForUpdates();
       return result?.isUpdateAvailable ? "found" : "current";
     } catch {
@@ -114,7 +124,7 @@ export const startUpdates = (
     install: async () => autoUpdater.quitAndInstall(),
     check,
     setReleaseCandidates: (on: boolean) => {
-      autoUpdater.allowPrerelease = on;
+      includeCandidates = on;
       // The downloaded candidate stays on disk; it just must not install.
       if (!on && dropCandidate()) autoUpdater.autoInstallOnAppQuit = false;
       void check();

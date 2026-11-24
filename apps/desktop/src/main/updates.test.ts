@@ -120,6 +120,49 @@ it("on macOS, leaving candidates clears a candidate offer", async () => {
   );
 });
 
+const releases = (...tags: string[]) =>
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Response.json(
+        tags.map((tag) => ({
+          tag_name: tag,
+          draft: false,
+          prerelease: tag.includes("-"),
+        })),
+      ),
+    ),
+  );
+
+it("a candidate install asks for the stable release once it is out", async () => {
+  setPlatform("linux");
+  releases("v2.0.0", "v2.0.0-rc.9", "v2.0.0-rc.8");
+  const updates = startUpdates(vi.fn(), true);
+  await updates.check();
+  expect(updater.allowPrerelease).toBe(false);
+  expect(updater.checkForUpdates).toHaveBeenCalled();
+});
+
+it("a candidate install keeps asking for candidates newer than any release", async () => {
+  setPlatform("linux");
+  releases("v2.0.0-rc.9", "v1.2.1");
+  const updates = startUpdates(vi.fn(), true);
+  await updates.check();
+  expect(updater.allowPrerelease).toBe(true);
+});
+
+it("a failed release lookup fails the check instead of guessing", async () => {
+  setPlatform("linux");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response(null, { status: 403 })),
+  );
+  updater.checkForUpdates.mockClear();
+  const updates = startUpdates(vi.fn(), true);
+  await expect(updates.check()).resolves.toBe("failed");
+  expect(updater.checkForUpdates).not.toHaveBeenCalled();
+});
+
 it("reports where the AppImage went when an update saved it under a new name", () => {
   setPlatform("linux");
   const moved = vi.fn();
