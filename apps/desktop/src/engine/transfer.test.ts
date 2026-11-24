@@ -14,6 +14,7 @@ import path from "node:path";
 
 import { ApiError } from "./api";
 import { statLocal, UNKNOWN_INO } from "./local";
+import type { PendingUpload } from "./store";
 import {
   pool,
   SMALL_UPLOAD_BYTES,
@@ -752,6 +753,125 @@ describe("uploadFile", () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+
+  describe("a retry in the same run", () => {
+    const chunk = 1024 * 1024;
+    // A server that keeps the chunks it got, and fails one chunk once.
+    const resumable = (input: { size: number }, failAt: number) => {
+      const received = Buffer.alloc(input.size);
+      const done = new Set<number>();
+      let failed = false;
+      const session = () => ({
+        id: "session",
+        chunkSizeBytes: chunk,
+        completedChunks: [...done].map((startByte) => ({ startByte })),
+        receivedBytes: done.size * chunk,
+      });
+      return {
+        received,
+        api: {
+          startUpload: async () => session(),
+          uploadStatus: async () => session(),
+          uploadChunk: async (_id: string, start: number, body: Buffer) => {
+            if (start === failAt && !failed) {
+              failed = true;
+              throw new ApiError(503, "Try again.");
+            }
+            body.copy(received, start);
+            done.add(start);
+          },
+          completeUpload: vi.fn(async () => ({ id: "remote" })),
+          cancelUpload: async () => {},
+        },
+      };
+    };
+    const store = (target: string) => {
+      let pending: PendingUpload | null = null;
+      return {
+        pendingUpload: () => pending,
+        putUpload: (upload: PendingUpload) => {
+          pending = { ...upload, target };
+        },
+        deleteUpload: () => {
+          pending = null;
+        },
+      };
+    };
+    // A whole second, so a time put back on the file matches exactly.
+    const settle = async (dir: string, file: string) => {
+      await utimes(file, 1_700_000_000, 1_700_000_000);
+      return (await statLocal(dir, "notes.txt"))!;
+    };
+
+    it("carries on the checksum without reading the sent part again", async () => {
+      const { dir, input } = await base(SMALL_UPLOAD_BYTES + 8 * chunk);
+      try {
+        const { mtimeMs, ino } = await settle(dir, input.file);
+        const scanned = { ...input, mtimeMs, ino, replace: null };
+        const server = resumable(input, 12 * chunk);
+        const saved = store(JSON.stringify(["folder", "notes.txt", false]));
+        const send = () =>
+          uploadFile({
+            ...scanned,
+            api: server.api as never,
+            store: saved as never,
+          });
+        await expect(send()).rejects.toThrow("Try again.");
+        // An in-place edit that keeps the size and time, the one change only
+        // a full read could see. The retry does not read byte 0 again.
+        const edit = await open(input.file, "r+");
+        await edit.write(Buffer.from([9]), 0, 1, 0);
+        await edit.close();
+        await utimes(input.file, mtimeMs / 1000, mtimeMs / 1000);
+        await send();
+        const original = sha256(Buffer.alloc(input.size, 7));
+        expect(server.api.completeUpload).toHaveBeenCalledWith(
+          "session",
+          original,
+          null,
+        );
+        expect(sha256(server.received)).toBe(original);
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("reads the whole file again when another file took its place", async () => {
+      const { dir, input } = await base(SMALL_UPLOAD_BYTES + 8 * chunk);
+      try {
+        const first = await settle(dir, input.file);
+        const server = resumable(input, 12 * chunk);
+        const saved = store(JSON.stringify(["folder", "notes.txt", false]));
+        const send = (scan: { mtimeMs: number; ino: string }) =>
+          uploadFile({
+            ...input,
+            ...scan,
+            replace: null,
+            api: server.api as never,
+            store: saved as never,
+          });
+        await expect(
+          send({ mtimeMs: first.mtimeMs, ino: first.ino }),
+        ).rejects.toThrow("Try again.");
+        // Same size and time, new file id: the saved checksum is not used.
+        const swapped = Buffer.alloc(input.size, 7);
+        swapped[0] = 9;
+        const next = path.join(dir, "next");
+        await writeFile(next, swapped);
+        await rename(next, input.file);
+        const second = await settle(dir, input.file);
+        expect(second.ino).not.toBe(first.ino);
+        await send({ mtimeMs: second.mtimeMs, ino: second.ino });
+        expect(server.api.completeUpload).toHaveBeenCalledWith(
+          "session",
+          sha256(swapped),
+          null,
+        );
+      } finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
   });
 });
 
