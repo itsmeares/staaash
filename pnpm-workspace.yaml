@@ -21,8 +21,7 @@ overrides:
   postcss: 8.5.33
   valibot: 1.5.0
   # Same vite-plus-core version that the vite-plus catalog version depends on.
-  vite@*: npm:@voidzero-dev/vite-plus-core@8.3.8000
-  vitest@*: "catalog:"
+  vite@*: npm:@voidzero-dev/vite-plus-core@8.3.8001
 allowBuilds:
   "@prisma/engines": true
   "@parcel/watcher": false
@@ -34,7 +33,7 @@ allowBuilds:
   workerd: true
 catalog:
   vitest: 5.1.1
-  vite-plus: 1.7.0
+  vite-plus: 1.8.0
 peerDependencyRules:
   allowAny:
     - vite
@@ -51,3 +50,13 @@ minimumReleaseAgeExclude:
   - miniflare@5.20261117.0-beta
   - workerd@1.20261117.1
   - wrangler@4.164.0
+  - "@voidzero-dev/vite-plus-core@8.3.8001"
+  - "@voidzero-dev/vite-plus-darwin-arm64@1.8.0"
+  - "@voidzero-dev/vite-plus-darwin-x64@1.8.0"
+  - "@voidzero-dev/vite-plus-linux-arm64-gnu@1.8.0"
+  - "@voidzero-dev/vite-plus-linux-arm64-musl@1.8.0"
+  - "@voidzero-dev/vite-plus-linux-x64-gnu@1.8.0"
+  - "@voidzero-dev/vite-plus-linux-x64-musl@1.8.0"
+  - "@voidzero-dev/vite-plus-win32-arm64-msvc@1.8.0"
+  - "@voidzero-dev/vite-plus-win32-x64-msvc@1.8.0"
+  - vite-plus@1.8.0

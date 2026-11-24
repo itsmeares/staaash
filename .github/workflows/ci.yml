@@ -62,6 +62,10 @@ jobs:
           cache: true
       - name: Check test-stack isolation
         run: node --test scripts/ci/isolation.test.mjs
+      - name: Check vite-plus pins
+        run: |
+          node --test scripts/ci/vite-plus-versions.test.mjs
+          node scripts/ci/vite-plus-versions.mjs
       - name: Generate Prisma client
         run: vp run db:generate
       - name: Check formatting
