@@ -42,7 +42,7 @@ HTTP/3 is off in this `Caddyfile`. In our tests it used about 2.5 times more pro
 
 ## Your own proxy
 
-Point your proxy at port 2113 and set `STAAASH_PUBLIC_URL` to the public address. The examples below were tested with sign-in and a 40 MB upload. The browser sends files under 100 MiB in one request and bigger ones in pieces of up to 32 MiB, so the proxy must accept request bodies of at least 128 MiB.
+Point your proxy at port 2113 and set `STAAASH_PUBLIC_URL` to the public address. The examples below were tested with sign-in and a 40 MB upload. The server accepts single uploads of up to 128 MiB, so the proxy must accept request bodies of at least 128 MiB.
 
 ### Caddy
 

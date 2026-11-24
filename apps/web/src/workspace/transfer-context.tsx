@@ -100,8 +100,9 @@ const clearActiveDownloadPointer = (archiveId: string) => {
   }
   localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
 };
+// One resumable piece: no browser request goes over Cloudflare's 100 MiB cap.
 // fallow-ignore-next-line unused-export
-export const CHUNKED_UPLOAD_THRESHOLD = 100 * 1024 * 1024;
+export const CHUNKED_UPLOAD_THRESHOLD = 32 * 1024 * 1024;
 const CHUNK_SIZE = 10 * 1024 * 1024;
 const PARALLEL_UPLOAD_CHUNKS = 3;
 
