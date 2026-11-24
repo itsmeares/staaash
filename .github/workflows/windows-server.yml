@@ -46,6 +46,8 @@ jobs:
         run: node --test scripts/windows/setup.test.mjs
       - name: Build the installer
         if: hashFiles('scripts/windows/staaash-server.nsi') != ''
+        env:
+          STAAASH_FAST_INSTALLER: ${{ github.event_name == 'pull_request' }}
         run: node scripts/windows/build.mjs
       - name: Keep the installer
         if: hashFiles('scripts/windows/staaash-server.nsi') != ''

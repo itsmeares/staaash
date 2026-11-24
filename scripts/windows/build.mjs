@@ -214,6 +214,11 @@ writeIcon(path.join(repo, "design", "App", "Staaash App Icon@0.25.png"), icon);
 
 const outFile = path.join(output, `Staaash-Server-${version}-win-x64.exe`);
 run("makensis", [
+  // Solid LZMA takes about 5 minutes. Pull request installers are never
+  // shipped, so they trade size for speed; main and releases keep LZMA.
+  ...(process.env.STAAASH_FAST_INSTALLER === "true"
+    ? ["-XSetCompressor /FINAL zlib"]
+    : []),
   "-V2",
   `-DVERSION=${version}`,
   `-DVERSION_NUMBER=${version.split("-")[0]}`,
