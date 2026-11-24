@@ -36,6 +36,8 @@ const session: AuthSession = {
     temporaryPasswordIssuedAt: null,
     temporaryPasswordIssuedByUserId: null,
     storageLimitBytes: 123n,
+    hasPassword: true,
+    oidcLinked: false,
     preferences: null,
     createdAt,
     updatedAt: createdAt,

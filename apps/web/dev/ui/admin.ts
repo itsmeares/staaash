@@ -273,6 +273,7 @@ export function adminStorage(state: State, mutationId?: string) {
 export function adminUsers(state: State, origin: string) {
   return {
     canInvite: state.userId === "owner",
+    sso: null,
     signInUrl: `${origin}/`,
     users: state.users.map((u) => ({
       ...u,

@@ -1,5 +1,8 @@
 import { randomInt } from "node:crypto";
 
+import { z } from "zod";
+
+import { env, type OidcEnv } from "@/lib/env";
 import { canAccessAdminSurface } from "@/server/access";
 import {
   authCrypto,
@@ -21,6 +24,8 @@ import type {
   AuthSession,
   AuthUser,
   BootstrapInput,
+  CreatedUserResult,
+  OidcIdentity,
   SessionMetadata,
   SetupState,
   SignInInput,
@@ -45,7 +50,7 @@ import {
 } from "@staaash/db/storage-mutation-executor";
 
 import { runOrAwaitProvisioning } from "./provision-wait";
-import type { AuthRepository } from "./repository";
+import type { AuthRepository, CreateUserParams } from "./repository";
 
 type AuthResult = {
   session: AuthSession;
@@ -58,6 +63,7 @@ type CreateAuthServiceOptions = {
   crypto?: AuthCrypto;
   now?: () => Date;
   sessionMaxAgeDays?: number;
+  oidc?: OidcEnv | null;
 };
 
 const TEMP_PASSWORD_SYMBOLS = "!@#$%?*-_";
@@ -154,7 +160,19 @@ export const createAuthService = ({
   crypto = authCrypto,
   now = () => new Date(),
   sessionMaxAgeDays,
+  oidc = env.oidc,
 }: CreateAuthServiceOptions = {}) => {
+  const passwordLogin = oidc?.passwordLogin ?? true;
+
+  const requirePasswordLogin = () => {
+    if (!passwordLogin) throw new AuthError("PASSWORD_LOGIN_DISABLED");
+  };
+
+  const requireOidc = () => {
+    if (!oidc) throw new AuthError("OIDC_DISABLED");
+    return oidc;
+  };
+
   const resolveRepo = async (): Promise<AuthRepository> =>
     repo ?? (await import("./repository")).prismaAuthRepository;
 
@@ -283,12 +301,7 @@ export const createAuthService = ({
   // Retries on storage id collisions; each branch is one outcome.
   // fallow-ignore-next-line complexity
   const createUserWithStorageId = async (
-    params: Omit<AdminCreateUserInput, "temporaryPassword"> & {
-      passwordHash: string;
-      temporaryPasswordIssuedAt: Date;
-      temporaryPasswordIssuedByUserId: string;
-      passwordChangeRequiredAt: Date | null;
-    },
+    params: Omit<CreateUserParams, "storageId">,
   ) => {
     const activeRepo = await resolveRepo();
     let lastError: unknown = null;
@@ -296,15 +309,8 @@ export const createAuthService = ({
     for (let attempt = 0; attempt < 5; attempt += 1) {
       try {
         return await activeRepo.createUser({
-          email: params.email,
+          ...params,
           storageId: generateStorageId(params.email, attempt),
-          passwordHash: params.passwordHash,
-          isAdmin: params.isAdmin ?? false,
-          storageLimitBytes: params.storageLimitBytes ?? null,
-          passwordChangeRequiredAt: params.passwordChangeRequiredAt,
-          temporaryPasswordIssuedAt: params.temporaryPasswordIssuedAt,
-          temporaryPasswordIssuedByUserId:
-            params.temporaryPasswordIssuedByUserId,
         });
       } catch (error) {
         if (
@@ -320,6 +326,37 @@ export const createAuthService = ({
     }
 
     throw lastError ?? new AuthError("STORAGE_ID_COLLISION");
+  };
+
+  /** A first sign-in with no account yet, when OIDC_AUTO_REGISTER allows it. */
+  const registerFromOidc = async (config: OidcEnv, identity: OidcIdentity) => {
+    const activeRepo = await resolveRepo();
+    const email = z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email()
+      .safeParse(identity.email ?? "");
+    if (email.success && (await activeRepo.findUserByEmail(email.data))) {
+      throw new AuthError("OIDC_CONNECT_FIRST");
+    }
+    if (!config.autoRegister) throw new AuthError("OIDC_NOT_INVITED");
+    if (!email.success) throw new AuthError("OIDC_EMAIL_REQUIRED");
+
+    await assertUserStorageProvisioningReady();
+    const user = await createUserWithStorageId({
+      email: email.data,
+      displayName: identity.name?.trim().slice(0, 80) || null,
+      passwordHash: null,
+      isAdmin: false,
+      storageLimitBytes: config.defaultStorageLimitBytes,
+      passwordChangeRequiredAt: null,
+      temporaryPasswordIssuedAt: null,
+      temporaryPasswordIssuedByUserId: null,
+      oidc: identity,
+    });
+    await provisionUserStorage(user);
+    return user;
   };
 
   return {
@@ -368,6 +405,7 @@ export const createAuthService = ({
       input: SignInInput,
       metadata?: SessionMetadata,
     ): Promise<AuthResult> {
+      requirePasswordLogin();
       const parsed = signInInputSchema.parse(input);
       const activeRepo = await resolveRepo();
       const setupState = await activeRepo.getSetupState();
@@ -379,7 +417,7 @@ export const createAuthService = ({
       const user = await activeRepo.findUserByEmail(parsed.email);
 
       if (
-        !user ||
+        !user?.passwordHash ||
         !(await crypto.verifyPassword(parsed.password, user.passwordHash))
       ) {
         throw new AuthError("INVALID_CREDENTIALS");
@@ -467,24 +505,41 @@ export const createAuthService = ({
     async createUser(
       actorUserId: string,
       input: AdminCreateUserInput,
-    ): Promise<TemporaryPasswordResult> {
+    ): Promise<CreatedUserResult> {
       await requireOwner(actorUserId);
       await assertUserStorageProvisioningReady();
       const parsed = adminCreateUserInputSchema.parse(input);
+      // With passwords off, everyone joins through the provider.
+      const viaOidc = parsed.signInWith === "oidc" || !passwordLogin;
+      if (viaOidc) requireOidc();
 
       if (await (await resolveRepo()).findUserByEmail(parsed.email)) {
         throw new AuthError("USER_ALREADY_EXISTS");
       }
 
+      const base = {
+        email: parsed.email,
+        isAdmin: parsed.isAdmin ?? false,
+        storageLimitBytes: parsed.storageLimitBytes,
+      };
+      if (viaOidc) {
+        const user = await createUserWithStorageId({
+          ...base,
+          passwordHash: null,
+          passwordChangeRequiredAt: null,
+          temporaryPasswordIssuedAt: null,
+          temporaryPasswordIssuedByUserId: null,
+        });
+        await provisionUserStorage(user);
+        return { user, temporaryPassword: null };
+      }
+
       const { password, requirePasswordChange } =
         normalizeTemporaryPasswordInput(parsed);
       const issuedAt = now();
-      const passwordHash = await crypto.hashPassword(password);
       const user = await createUserWithStorageId({
-        email: parsed.email,
-        passwordHash,
-        isAdmin: parsed.isAdmin ?? false,
-        storageLimitBytes: parsed.storageLimitBytes,
+        ...base,
+        passwordHash: await crypto.hashPassword(password),
         temporaryPasswordIssuedAt: issuedAt,
         temporaryPasswordIssuedByUserId: actorUserId,
         passwordChangeRequiredAt: requirePasswordChange ? issuedAt : null,
@@ -550,6 +605,7 @@ export const createAuthService = ({
       input: TemporaryPasswordInput,
     ): Promise<TemporaryPasswordResult> {
       await requireOwner(actorUserId);
+      requirePasswordLogin();
       const activeRepo = await resolveRepo();
       const existing = await activeRepo.findUserById(targetUserId);
 
@@ -688,11 +744,12 @@ export const createAuthService = ({
         confirmPassword: string;
       },
     ) {
+      requirePasswordLogin();
       const activeRepo = await resolveRepo();
       const user = await activeRepo.findUserById(userId);
       const stored = user ? await activeRepo.findUserByEmail(user.email) : null;
       if (
-        !stored ||
+        !stored?.passwordHash ||
         !(await crypto.verifyPassword(
           input.currentPassword,
           stored.passwordHash,
@@ -710,6 +767,78 @@ export const createAuthService = ({
         passwordHash: await crypto.hashPassword(parsed.password),
         now: now(),
       });
+    },
+
+    /**
+     * Someone came back from the OIDC provider. Matched by issuer and subject,
+     * never by email: an invite link, an existing link, or a new account when
+     * OIDC_AUTO_REGISTER is on. Everyone else is turned away.
+     */
+    async signInWithOidc(
+      identity: OidcIdentity,
+      invitedUserId: string | null,
+      metadata?: SessionMetadata,
+    ): Promise<AuthResult> {
+      const config = requireOidc();
+      const activeRepo = await resolveRepo();
+      if (!(await activeRepo.getSetupState()).isBootstrapped) {
+        throw new AuthError("SETUP_REQUIRED");
+      }
+
+      let user = await activeRepo.findUserByOidc(identity);
+      if (invitedUserId && user?.id !== invitedUserId) {
+        if (user) throw new AuthError("OIDC_ALREADY_LINKED");
+        const invited = await activeRepo.findUserById(invitedUserId);
+        if (!invited || invited.oidcLinked) {
+          throw new AuthError("OIDC_INVITE_INVALID");
+        }
+        user = await activeRepo.setOidcLink(invited.id, identity);
+      }
+      user ??= await registerFromOidc(config, identity);
+
+      // The group decides on every sign-in, so removing someone from it works.
+      const isAdmin = config.adminGroup
+        ? identity.groups.includes(config.adminGroup)
+        : user.isAdmin;
+      if (!user.isOwner && isAdmin !== user.isAdmin) {
+        user =
+          (await activeRepo.updateUser({ userId: user.id, isAdmin })) ?? user;
+      }
+
+      return createSessionForUser(user, metadata);
+    },
+
+    /** Links the signed-in account to the identity it just proved. */
+    async connectOidc(userId: string, identity: OidcIdentity) {
+      requireOidc();
+      return (await resolveRepo()).setOidcLink(userId, identity);
+    },
+
+    /** Only while a password still lets you back in. */
+    async disconnectOwnOidc(userId: string) {
+      const activeRepo = await resolveRepo();
+      const user = await activeRepo.findUserById(userId);
+      if (!user) throw new AuthError("USER_NOT_FOUND");
+      if (!user.hasPassword || !passwordLogin) {
+        throw new AuthError("OIDC_LAST_SIGN_IN");
+      }
+      return activeRepo.setOidcLink(userId, null);
+    },
+
+    /** The owner can unlink anyone; a new invite link connects them again. */
+    async disconnectUserOidc(actorUserId: string, targetUserId: string) {
+      await requireOwner(actorUserId);
+      await requireUser(actorUserId, targetUserId);
+      return (await resolveRepo()).setOidcLink(targetUserId, null);
+    },
+
+    /** An invite link is only for an account that is not linked yet. */
+    async requireOidcInvitable(actorUserId: string, targetUserId: string) {
+      requireOidc();
+      await requireOwner(actorUserId);
+      const user = await requireUser(actorUserId, targetUserId);
+      if (user.oidcLinked) throw new AuthError("OIDC_ALREADY_LINKED");
+      return user;
     },
 
     /** The browsers signed in to your own account. */

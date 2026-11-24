@@ -15,7 +15,16 @@ export type AuthErrorCode =
   | "USER_IS_OWNER"
   | "CURRENT_SESSION_REVOKE_BLOCKED"
   | "DEVICE_CODE_INVALID"
-  | "DEVICE_REQUEST_INVALID";
+  | "DEVICE_REQUEST_INVALID"
+  | "PASSWORD_LOGIN_DISABLED"
+  | "OIDC_DISABLED"
+  | "OIDC_FAILED"
+  | "OIDC_ALREADY_LINKED"
+  | "OIDC_CONNECT_FIRST"
+  | "OIDC_NOT_INVITED"
+  | "OIDC_INVITE_INVALID"
+  | "OIDC_EMAIL_REQUIRED"
+  | "OIDC_LAST_SIGN_IN";
 
 const authErrorMessages: Record<AuthErrorCode, string> = {
   ACCESS_DENIED: "You do not have access to that surface.",
@@ -36,6 +45,20 @@ const authErrorMessages: Record<AuthErrorCode, string> = {
   CURRENT_SESSION_REVOKE_BLOCKED: "You cannot revoke the current session.",
   DEVICE_CODE_INVALID: "That sign-in code is invalid, used, or expired.",
   DEVICE_REQUEST_INVALID: "That device sign-in request is invalid.",
+  PASSWORD_LOGIN_DISABLED: "Passwords are turned off. Use single sign-on.",
+  OIDC_DISABLED: "Single sign-on is not set up.",
+  OIDC_FAILED: "Single sign-on did not finish. Try again.",
+  OIDC_ALREADY_LINKED:
+    "That single sign-on account is already connected to another account.",
+  OIDC_CONNECT_FIRST:
+    "An account with that email already exists. Sign in with your password, then press Connect in Settings.",
+  OIDC_NOT_INVITED:
+    "You don't have an account here. Ask the owner to invite you.",
+  OIDC_INVITE_INVALID: "That invite link is used, expired, or replaced.",
+  OIDC_EMAIL_REQUIRED:
+    "Single sign-on did not share an email address, which a new account needs.",
+  OIDC_LAST_SIGN_IN:
+    "Set a password first, or this account would have no way to sign in.",
 };
 
 const authErrorStatuses: Record<AuthErrorCode, number> = {
@@ -56,6 +79,15 @@ const authErrorStatuses: Record<AuthErrorCode, number> = {
   CURRENT_SESSION_REVOKE_BLOCKED: 400,
   DEVICE_CODE_INVALID: 400,
   DEVICE_REQUEST_INVALID: 400,
+  PASSWORD_LOGIN_DISABLED: 403,
+  OIDC_DISABLED: 404,
+  OIDC_FAILED: 400,
+  OIDC_ALREADY_LINKED: 409,
+  OIDC_CONNECT_FIRST: 409,
+  OIDC_NOT_INVITED: 403,
+  OIDC_INVITE_INVALID: 400,
+  OIDC_EMAIL_REQUIRED: 400,
+  OIDC_LAST_SIGN_IN: 409,
 };
 
 export class AuthError extends Error {

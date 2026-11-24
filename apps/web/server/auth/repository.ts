@@ -12,6 +12,7 @@ import { AuthError } from "@/server/auth/errors";
 import type {
   AuthSession,
   AuthUser,
+  OidcIdentity,
   SessionMetadata,
   SetupState,
   StoredAuthSession,
@@ -29,16 +30,20 @@ type CreateBootstrapParams = {
   createdAt: Date;
 };
 
-type CreateUserParams = {
+export type CreateUserParams = {
   email: string;
   storageId: string;
-  passwordHash: string;
+  displayName?: string | null;
+  passwordHash: string | null;
   isAdmin: boolean;
   storageLimitBytes: bigint | null;
   passwordChangeRequiredAt: Date | null;
-  temporaryPasswordIssuedAt: Date;
-  temporaryPasswordIssuedByUserId: string;
+  temporaryPasswordIssuedAt: Date | null;
+  temporaryPasswordIssuedByUserId: string | null;
+  oidc?: OidcLink;
 };
+
+type OidcLink = Pick<OidcIdentity, "issuer" | "subject">;
 
 type UpdateUserParams = {
   userId: string;
@@ -98,6 +103,9 @@ export type AuthRepository = {
   updateUser(params: UpdateUserParams): Promise<AuthUser | null>;
   findUserByEmail(email: string): Promise<StoredAuthUser | null>;
   findUserById(id: string): Promise<AuthUser | null>;
+  findUserByOidc(link: OidcLink): Promise<AuthUser | null>;
+  /** Null unlinks. Throws OIDC_ALREADY_LINKED when another account has it. */
+  setOidcLink(userId: string, link: OidcLink | null): Promise<AuthUser>;
   listUsers(): Promise<AuthUser[]>;
   setUserStorageLimit(
     userId: string,
@@ -169,6 +177,8 @@ const toAuthUser = (
     | "temporaryPasswordIssuedAt"
     | "temporaryPasswordIssuedByUserId"
     | "storageLimitBytes"
+    | "passwordHash"
+    | "oidcSubject"
     | "createdAt"
     | "updatedAt"
   > & { preferences?: UserPreference | null },
@@ -185,6 +195,8 @@ const toAuthUser = (
   temporaryPasswordIssuedAt: user.temporaryPasswordIssuedAt,
   temporaryPasswordIssuedByUserId: user.temporaryPasswordIssuedByUserId,
   storageLimitBytes: user.storageLimitBytes,
+  hasPassword: user.passwordHash !== null,
+  oidcLinked: user.oidcSubject !== null,
   preferences: user.preferences
     ? {
         theme: user.preferences.theme,
@@ -265,6 +277,10 @@ const mapUniqueError = (error: unknown) => {
 
   if (targets.includes("storageId")) {
     return new AuthError("STORAGE_ID_COLLISION");
+  }
+
+  if (targets.includes("oidcSubject")) {
+    return new AuthError("OIDC_ALREADY_LINKED");
   }
 
   return new AuthError("USER_ALREADY_EXISTS");
@@ -360,7 +376,10 @@ const createPrismaAuthRepository = (
               data: {
                 email: params.email,
                 storageId: params.storageId,
+                displayName: params.displayName ?? null,
                 passwordHash: params.passwordHash,
+                oidcIssuer: params.oidc?.issuer ?? null,
+                oidcSubject: params.oidc?.subject ?? null,
                 isAdmin: params.isAdmin,
                 storageLimitBytes: params.storageLimitBytes,
                 passwordChangeRequiredAt: params.passwordChangeRequiredAt,
@@ -458,6 +477,37 @@ const createPrismaAuthRepository = (
       });
 
       return user ? toAuthUser(user) : null;
+    },
+
+    async findUserByOidc({ issuer, subject }) {
+      const user = await getClient().user.findUnique({
+        where: {
+          oidcIssuer_oidcSubject: { oidcIssuer: issuer, oidcSubject: subject },
+        },
+        include: { preferences: true },
+      });
+
+      return user ? toAuthUser(user) : null;
+    },
+
+    async setOidcLink(userId, link) {
+      try {
+        const user = await getClient().user.update({
+          where: { id: userId },
+          data: {
+            oidcIssuer: link?.issuer ?? null,
+            oidcSubject: link?.subject ?? null,
+          },
+          include: { preferences: true },
+        });
+
+        return toAuthUser(user);
+      } catch (error) {
+        const authError = mapUniqueError(error);
+        if (authError) throw authError;
+        if (isMissingRecord(error)) throw new AuthError("USER_NOT_FOUND");
+        throw error;
+      }
     },
 
     async listUsers() {

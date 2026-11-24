@@ -75,7 +75,10 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
         ...user,
         isOwner: user.role === "owner",
         isAdmin: user.role !== "member",
+        hasPassword: true,
+        oidcLinked: false,
       },
+      sso: null,
       storage: {
         used: row.retainedBytes,
         files: row.retainedFileCount,

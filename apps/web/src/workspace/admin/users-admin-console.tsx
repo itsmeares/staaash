@@ -17,8 +17,9 @@ import { AdminToggleField } from "./admin-toggle-field";
 import {
   AdminFormDialog,
   sendAdmin,
-  type TemporaryPassword,
-  TemporaryPasswordDialog,
+  type SignInDetails,
+  SignInDetailsDialog,
+  type Sso,
   TemporaryPasswordFields,
   temporaryPasswordPayload,
 } from "./temporary-password";
@@ -94,24 +95,34 @@ function UserRow({ user }: { user: AdminUserRow }) {
   );
 }
 
-function InviteDialog({ signInUrl }: { signInUrl: string }) {
+function InviteDialog({
+  signInUrl,
+  sso,
+}: {
+  signInUrl: string;
+  sso: Sso | null;
+}) {
   const refresh = useRefresh();
   const [limit, setLimit] = useState("");
-  const [result, setResult] = useState<TemporaryPassword | null>(null);
+  // With single sign-on set up, inviting through it is the usual choice.
+  const [viaSso, setViaSso] = useState(sso !== null);
+  const [result, setResult] = useState<SignInDetails | null>(null);
 
   const invite = async (form: FormData) => {
     const body = await sendAdmin<{
       user: { email: string };
-      temporaryPassword: string;
+      temporaryPassword: string | null;
+      inviteUrl: string | null;
     }>("/api/admin/users", "POST", {
       email: String(form.get("email") ?? ""),
-      ...temporaryPasswordPayload(form),
+      ...(viaSso ? { signInWith: "oidc" } : temporaryPasswordPayload(form)),
       storageLimitBytes: limit || null,
       isAdmin: form.get("isAdmin") === "on",
     });
     setResult({
       email: body.user.email,
       temporaryPassword: body.temporaryPassword,
+      inviteUrl: body.inviteUrl,
       signInUrl,
     });
     setLimit("");
@@ -154,13 +165,17 @@ function InviteDialog({ signInUrl }: { signInUrl: string }) {
             onChange={setLimit}
           />
         </Field>
-        <TemporaryPasswordFields />
+        {sso?.passwordLogin ? (
+          <AdminToggleField
+            checked={viaSso}
+            label={`Signs in with ${sso.name}`}
+            onChange={setViaSso}
+          />
+        ) : null}
+        {viaSso ? null : <TemporaryPasswordFields />}
         <AdminToggleField label="Admin access" name="isAdmin" />
       </AdminFormDialog>
-      <TemporaryPasswordDialog
-        result={result}
-        onClose={() => setResult(null)}
-      />
+      <SignInDetailsDialog result={result} onClose={() => setResult(null)} />
     </>
   );
 }
@@ -168,16 +183,20 @@ function InviteDialog({ signInUrl }: { signInUrl: string }) {
 export function UsersAdminConsole({
   users,
   signInUrl,
+  sso,
   canInvite,
 }: {
   users: AdminUserRow[];
   signInUrl: string;
+  sso: Sso | null;
   canInvite: boolean;
 }) {
   return (
     <div className="grid w-full max-w-3xl content-start gap-6">
       <PageHeader
-        actions={canInvite ? <InviteDialog signInUrl={signInUrl} /> : null}
+        actions={
+          canInvite ? <InviteDialog signInUrl={signInUrl} sso={sso} /> : null
+        }
         title="Users"
       />
       <div className="overflow-hidden rounded-2xl border border-border bg-card">

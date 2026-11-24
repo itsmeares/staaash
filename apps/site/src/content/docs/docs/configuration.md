@@ -27,6 +27,7 @@ The database keeps the password it was made with. Changing `DB_PASSWORD` after t
 | `DB_DATABASE_NAME`                       | The database name. Leave it alone.                                                                                                   | `staaash`    |
 | `SECURE_COOKIES`                         | `true` or `false`. Usually you do not need it. Staaash already uses secure cookies on HTTPS and normal cookies on plain HTTP.        | not set      |
 | `UPLOAD_STAGING_RETENTION_HOURS`         | How many hours a half-finished upload is kept before cleanup. When set, it wins over the admin setting.                              | 2 hours      |
+| `OIDC_*`                                 | Single sign-on with Pocket ID or another OIDC provider. See [Single Sign-On](/docs/single-sign-on/).                                 | not set      |
 
 `DB_USERNAME`, `DB_DATABASE_NAME`, `SECURE_COOKIES` and `UPLOAD_STAGING_RETENTION_HOURS` are under **Advanced** in `example.env`, with a `#` in front. Remove the `#` only if you need one.
 

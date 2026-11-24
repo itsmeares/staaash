@@ -193,6 +193,12 @@
               "null"
             ]
           },
+          "hasPassword": {
+            "type": "boolean"
+          },
+          "oidcLinked": {
+            "type": "boolean"
+          },
           "preferences": {
             "$ref": "#/components/schemas/Preferences"
           },
@@ -218,6 +224,8 @@
           "temporaryPasswordIssuedAt",
           "temporaryPasswordIssuedByUserId",
           "storageLimitBytes",
+          "hasPassword",
+          "oidcLinked",
           "preferences",
           "createdAt",
           "updatedAt"

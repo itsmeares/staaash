@@ -37,6 +37,8 @@ import {
   getAdminUpdateCheckJob,
   getUpdateState,
 } from "@/server/admin/updates";
+import { env } from "@/lib/env";
+import { issueOidcInvite } from "@/server/auth/oidc";
 import { adminUpdateUserInputSchema } from "@/server/auth/schema";
 import { authService } from "@/server/auth/service";
 import {
@@ -79,6 +81,7 @@ const OptionalString = z
 
 const CreateUserBody = z.object({
   email: z.string().default(""),
+  signInWith: z.enum(["password", "oidc"]).default("password"),
   temporaryPassword: OptionalString,
   confirmTemporaryPassword: OptionalString,
   generateTemporaryPassword: z.boolean().default(false),
@@ -293,9 +296,31 @@ export const adminRoutes = admin
       {
         user: userView(result.user),
         temporaryPassword: result.temporaryPassword,
+        // No password means the account joins through a one-time link.
+        inviteUrl:
+          env.oidc && !result.user.hasPassword
+            ? await issueOidcInvite(env.oidc, result.user.id)
+            : null,
       },
       201,
     );
+  })
+  .post("/users/:userId/oidc-invite", async (c) => {
+    const user = await authService.requireOidcInvitable(
+      c.var.session.user.id,
+      c.req.param("userId"),
+    );
+    return c.json({
+      email: user.email,
+      inviteUrl: await issueOidcInvite(env.oidc!, user.id),
+    });
+  })
+  .post("/users/:userId/oidc-disconnect", async (c) => {
+    await authService.disconnectUserOidc(
+      c.var.session.user.id,
+      c.req.param("userId"),
+    );
+    return c.json({ ok: true as const });
   })
   .patch("/users/:userId", json(UpdateUserBody), async (c) => {
     const user = await authService.updateUser(

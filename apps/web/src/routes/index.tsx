@@ -10,7 +10,7 @@ import { getSafeLocalPath } from "@/src/auth-ui";
 import { entryQuery } from "@/src/queries";
 
 function EntryPage() {
-  const { next } = Route.useSearch();
+  const { next, error } = Route.useSearch();
   const { data } = useSuspenseQuery(entryQuery);
 
   if (data.state === "signed-in") {
@@ -27,13 +27,22 @@ function EntryPage() {
   if (data.state === "setup") {
     return <FirstRun instanceName={data.instanceName} kind="owner-setup" />;
   }
-  return <SignIn instanceName={data.instanceName} next={next} />;
+  return (
+    <SignIn
+      initialError={error}
+      instanceName={data.instanceName}
+      next={next}
+      sso={data.sso}
+    />
+  );
 }
 
 export const Route = createFileRoute("/")({
   // Without ?next, sign-in goes to the person's start page.
   validateSearch: z.object({
     next: z.string().optional().transform(getSafeLocalPath),
+    // Why single sign-on sent them back, such as having no account.
+    error: z.string().max(300).optional(),
   }),
   loaderDeps: ({ search }) => search,
   loader: async ({ context, deps }) => {

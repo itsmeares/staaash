@@ -7,6 +7,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import type { Handler } from "hono";
 import { getCookie } from "hono/cookie";
 
+import { env } from "@/lib/env";
 import { app } from "@/server/http/app";
 import { getShareBaseUrl } from "@/server/request";
 import { SHARE_ACCESS_COOKIE_NAME } from "@/server/sharing/access-cookie";
@@ -106,4 +107,9 @@ const fetch = failed
   : app.fetch;
 serve({ fetch, port, hostname }, () => {
   console.log(`Staaash is listening on http://${hostname}:${port}`);
+  if (env.oidc) {
+    console.log(
+      `Single sign-on with ${env.oidc.issuer}. Callback URL to register: ${env.oidc.callbackUrl}`,
+    );
+  }
 });

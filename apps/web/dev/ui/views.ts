@@ -400,6 +400,8 @@ export function settingsView(state: State) {
           : user.role === "admin"
             ? "Admin"
             : "Member",
+      canChangePassword: true,
+      sso: null,
     },
   } satisfies InferResponseType<typeof api.api.views.settings.$get, 200>;
 }

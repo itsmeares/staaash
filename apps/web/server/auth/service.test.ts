@@ -11,6 +11,7 @@ import type {
   UserPreferences,
 } from "@/server/auth/types";
 import type { AuthRepository } from "@/server/auth/repository";
+import type { OidcEnv } from "@/lib/env";
 
 vi.mock("@/server/storage", () => ({
   ensureUserCommittedStorageDirectories: vi.fn(),
@@ -18,8 +19,13 @@ vi.mock("@/server/storage", () => ({
 
 const now = new Date("2026-06-16T10:00:00.000Z");
 
+type FakeUser = Omit<StoredAuthUser, "hasPassword" | "oidcLinked"> & {
+  oidcIssuer: string | null;
+  oidcSubject: string | null;
+};
+
 type State = {
-  users: StoredAuthUser[];
+  users: FakeUser[];
   sessions: StoredAuthSession[];
 };
 
@@ -38,12 +44,16 @@ const prefs: UserPreferences = {
 let idCounter = 0;
 const nextId = (prefix: string) => `${prefix}-${++idCounter}`;
 
-const toAuthUser = (user: StoredAuthUser): AuthUser => {
-  const { passwordHash: _passwordHash, ...authUser } = user;
-  return authUser;
+const toAuthUser = (user: FakeUser): AuthUser => {
+  const { passwordHash, oidcIssuer: _issuer, oidcSubject, ...authUser } = user;
+  return {
+    ...authUser,
+    hasPassword: passwordHash !== null,
+    oidcLinked: oidcSubject !== null,
+  };
 };
 
-const makeUser = (overrides: Partial<StoredAuthUser>): StoredAuthUser => {
+const makeUser = (overrides: Partial<FakeUser>): FakeUser => {
   const isOwner = overrides.isOwner ?? false;
   const isAdmin = overrides.isAdmin ?? isOwner;
 
@@ -62,7 +72,10 @@ const makeUser = (overrides: Partial<StoredAuthUser>): StoredAuthUser => {
       overrides.temporaryPasswordIssuedByUserId ?? null,
     storageLimitBytes: overrides.storageLimitBytes ?? null,
     preferences: overrides.preferences ?? prefs,
-    passwordHash: overrides.passwordHash ?? "hash",
+    passwordHash:
+      overrides.passwordHash === undefined ? "hash" : overrides.passwordHash,
+    oidcIssuer: overrides.oidcIssuer ?? null,
+    oidcSubject: overrides.oidcSubject ?? null,
     createdAt: overrides.createdAt ?? now,
     updatedAt: overrides.updatedAt ?? now,
   };
@@ -98,7 +111,10 @@ const createRepo = (state: State): AuthRepository => ({
     const user = makeUser({
       email: params.email,
       storageId: params.storageId,
+      displayName: params.displayName ?? null,
       passwordHash: params.passwordHash,
+      oidcIssuer: params.oidc?.issuer ?? null,
+      oidcSubject: params.oidc?.subject ?? null,
       isAdmin: params.isAdmin,
       preferences: null,
       storageLimitBytes: params.storageLimitBytes,
@@ -128,7 +144,32 @@ const createRepo = (state: State): AuthRepository => ({
     return toAuthUser(user);
   },
   async findUserByEmail(email) {
-    return state.users.find((user) => user.email === email) ?? null;
+    const user = state.users.find((candidate) => candidate.email === email);
+    return user
+      ? { ...toAuthUser(user), passwordHash: user.passwordHash }
+      : null;
+  },
+  async findUserByOidc({ issuer, subject }) {
+    const user = state.users.find(
+      (candidate) =>
+        candidate.oidcIssuer === issuer && candidate.oidcSubject === subject,
+    );
+    return user ? toAuthUser(user) : null;
+  },
+  async setOidcLink(userId, link) {
+    const taken = state.users.some(
+      (candidate) =>
+        candidate.id !== userId &&
+        link !== null &&
+        candidate.oidcIssuer === link.issuer &&
+        candidate.oidcSubject === link.subject,
+    );
+    if (taken) throw new AuthError("OIDC_ALREADY_LINKED");
+    const user = state.users.find((candidate) => candidate.id === userId);
+    if (!user) throw new AuthError("USER_NOT_FOUND");
+    user.oidcIssuer = link?.issuer ?? null;
+    user.oidcSubject = link?.subject ?? null;
+    return toAuthUser(user);
   },
   async findUserById(id) {
     const user = state.users.find((candidate) => candidate.id === id);
@@ -759,5 +800,218 @@ describe("auth service", () => {
     ).rejects.toMatchObject({ code: "USER_NOT_FOUND" });
     expect(member.passwordHash).toBe("unchanged-password-hash");
     expect(member.passwordChangeRequiredAt).toEqual(now);
+  });
+});
+
+describe("single sign-on", () => {
+  const oidc: OidcEnv = {
+    issuer: "https://id.example.com",
+    clientId: "staaash",
+    clientSecret: null,
+    providerName: "Pocket ID",
+    autoRegister: false,
+    defaultStorageLimitBytes: null,
+    adminGroup: null,
+    passwordLogin: true,
+    startUrl: "https://drive.example.com/api/auth/oidc/start",
+    callbackUrl: "https://drive.example.com/api/auth/oidc/callback",
+  };
+  const identity = (subject = "sub-1", overrides = {}) => ({
+    issuer: oidc.issuer,
+    subject,
+    email: "partner@example.com" as string | null,
+    name: "Partner",
+    groups: [] as string[],
+    ...overrides,
+  });
+  const linkedTo = (subject: string) => ({
+    oidcIssuer: oidc.issuer,
+    oidcSubject: subject,
+  });
+  const setup = (users: FakeUser[] = [], config: Partial<OidcEnv> = {}) => {
+    const state: State = {
+      users: [
+        makeUser({ id: "owner-1", email: "owner@example.com", isOwner: true }),
+        ...users,
+      ],
+      sessions: [],
+    };
+    const service = createAuthService({
+      repo: createRepo(state),
+      now: () => now,
+      sessionMaxAgeDays: 30,
+      oidc: { ...oidc, ...config },
+    });
+    const user = (id: string) => state.users.find((u) => u.id === id)!;
+    return { state, service, user };
+  };
+
+  beforeEach(() => {
+    idCounter = 0;
+    vi.mocked(ensureUserCommittedStorageDirectories).mockReset();
+  });
+
+  it("turns away someone with no account, and never links by email", async () => {
+    const { service, user } = setup([
+      makeUser({ id: "partner", email: "partner@example.com" }),
+    ]);
+
+    await expect(
+      service.signInWithOidc(identity(), null),
+    ).rejects.toMatchObject({ code: "OIDC_CONNECT_FIRST" });
+    expect(user("partner").oidcSubject).toBeNull();
+    await expect(
+      service.signInWithOidc(
+        identity("sub-2", { email: "else@example.com" }),
+        null,
+      ),
+    ).rejects.toMatchObject({ code: "OIDC_NOT_INVITED" });
+  });
+
+  it("links an invited account once, then signs in by issuer and subject", async () => {
+    const { service, user } = setup([
+      makeUser({ id: "partner", passwordHash: null }),
+    ]);
+
+    const first = await service.signInWithOidc(
+      identity("sub-1", { email: "a-different-email@example.com" }),
+      "partner",
+    );
+    expect(first.user).toMatchObject({ id: "partner", oidcLinked: true });
+    expect(user("partner")).toMatchObject(linkedTo("sub-1"));
+
+    const again = await service.signInWithOidc(identity(), null);
+    expect(again.user.id).toBe("partner");
+    await expect(
+      service.signInWithOidc(identity("sub-2"), "partner"),
+    ).rejects.toMatchObject({ code: "OIDC_INVITE_INVALID" });
+  });
+
+  it("does not move an identity that is linked to someone else", async () => {
+    const { service } = setup([
+      makeUser({ id: "a", email: "a@example.com", ...linkedTo("sub-1") }),
+      makeUser({ id: "b", email: "b@example.com", passwordHash: null }),
+    ]);
+
+    await expect(service.signInWithOidc(identity(), "b")).rejects.toMatchObject(
+      { code: "OIDC_ALREADY_LINKED" },
+    );
+    await expect(service.connectOidc("b", identity())).rejects.toMatchObject({
+      code: "OIDC_ALREADY_LINKED",
+    });
+  });
+
+  it("creates a member on first sign-in when auto create is on", async () => {
+    const { service, state } = setup([], {
+      autoRegister: true,
+      defaultStorageLimitBytes: 5n,
+    });
+
+    const result = await service.signInWithOidc(identity(), null);
+
+    expect(result.user).toMatchObject({
+      email: "partner@example.com",
+      displayName: "Partner",
+      role: "member",
+      storageLimitBytes: 5n,
+      hasPassword: false,
+      oidcLinked: true,
+    });
+    expect(state.users).toHaveLength(2);
+    expect(ensureUserCommittedStorageDirectories).toHaveBeenCalledWith(
+      result.user.storageId,
+    );
+    await expect(
+      service.signInWithOidc(identity("sub-2", { email: null }), null),
+    ).rejects.toMatchObject({ code: "OIDC_EMAIL_REQUIRED" });
+  });
+
+  it("follows the admin group on every sign-in, except for the owner", async () => {
+    const { service, user } = setup(
+      [
+        makeUser({ id: "partner", ...linkedTo("sub-1") }),
+        makeUser({
+          id: "owner-2",
+          email: "o@example.com",
+          isOwner: true,
+          ...linkedTo("sub-owner"),
+        }),
+      ],
+      { adminGroup: "staaash-admins" },
+    );
+
+    await service.signInWithOidc(
+      identity("sub-1", { groups: ["staaash-admins"] }),
+      null,
+    );
+    expect(user("partner")).toMatchObject({ isAdmin: true, role: "admin" });
+    await service.signInWithOidc(identity("sub-1"), null);
+    expect(user("partner")).toMatchObject({ isAdmin: false, role: "member" });
+    await service.signInWithOidc(identity("sub-owner"), null);
+    expect(user("owner-2")).toMatchObject({ isAdmin: true, role: "owner" });
+  });
+
+  it("keeps an account with no password out of the password form", async () => {
+    const { service } = setup([
+      makeUser({ email: "partner@example.com", passwordHash: null }),
+    ]);
+
+    await expect(
+      service.signIn({
+        email: "partner@example.com",
+        password: "anything-long",
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_CREDENTIALS" });
+  });
+
+  it("with passwords off, invites through the provider and refuses password changes", async () => {
+    const { service } = setup(
+      [makeUser({ id: "member", email: "member@example.com" })],
+      { passwordLogin: false },
+    );
+
+    await expect(
+      service.signIn({ email: "owner@example.com", password: "long-password" }),
+    ).rejects.toMatchObject({ code: "PASSWORD_LOGIN_DISABLED" });
+    await expect(
+      service.createUser("owner-1", {
+        email: "new@example.com",
+        generateTemporaryPassword: true,
+      }),
+    ).resolves.toMatchObject({
+      temporaryPassword: null,
+      user: { hasPassword: false, oidcLinked: false },
+    });
+    await expect(
+      service.resetTemporaryPassword("owner-1", "member", {
+        generateTemporaryPassword: true,
+      }),
+    ).rejects.toMatchObject({ code: "PASSWORD_LOGIN_DISABLED" });
+    await expect(
+      service.changeOwnPassword("member", "session", {
+        currentPassword: "x",
+        password: "a-new-long-password",
+        confirmPassword: "a-new-long-password",
+      }),
+    ).rejects.toMatchObject({ code: "PASSWORD_LOGIN_DISABLED" });
+  });
+
+  it("disconnects only while a password still lets you back in", async () => {
+    const { service, user } = setup([
+      makeUser({ id: "no-password", passwordHash: null, ...linkedTo("sub-1") }),
+      makeUser({ id: "with-password", email: "b@x.com", ...linkedTo("sub-2") }),
+    ]);
+
+    await expect(
+      service.disconnectOwnOidc("no-password"),
+    ).rejects.toMatchObject({ code: "OIDC_LAST_SIGN_IN" });
+    await service.disconnectOwnOidc("with-password");
+    expect(user("with-password").oidcSubject).toBeNull();
+    // The owner can, and a new invite link connects them again.
+    await service.disconnectUserOidc("owner-1", "no-password");
+    expect(user("no-password").oidcSubject).toBeNull();
+    await expect(
+      service.requireOidcInvitable("owner-1", "no-password"),
+    ).resolves.toMatchObject({ id: "no-password" });
   });
 });

@@ -19,11 +19,28 @@ import { toastManager } from "@staaash/ui/components/toast";
 import { AdminToggleField } from "./admin-toggle-field";
 import { copyText } from "@/lib/clipboard";
 
-export type TemporaryPassword = {
+/** Single sign-on, when the server has it set up. */
+export type Sso = { name: string; passwordLogin: boolean };
+
+/** A temporary password, or a one-time invite link for single sign-on. */
+export type SignInDetails = {
   email: string;
-  temporaryPassword: string;
   signInUrl: string;
+  temporaryPassword?: string | null;
+  inviteUrl?: string | null;
 };
+
+const detailRows = (details: SignInDetails) =>
+  details.inviteUrl
+    ? [
+        ["Invite link", details.inviteUrl],
+        ["Email", details.email],
+      ]
+    : [
+        ["Sign in at", details.signInUrl],
+        ["Email", details.email],
+        ["Password", details.temporaryPassword ?? ""],
+      ];
 
 /** JSON to an admin route; the server's error message on failure. */
 export const sendAdmin = async <T,>(
@@ -104,12 +121,12 @@ export const temporaryPasswordPayload = (form: FormData) =>
         requirePasswordChange: form.get("requirePasswordChange") === "on",
       };
 
-/** Shown once, right after the server makes the password. */
-export function TemporaryPasswordDialog({
+/** Shown once, right after the server makes the password or the link. */
+export function SignInDetailsDialog({
   result,
   onClose,
 }: {
-  result: TemporaryPassword | null;
+  result: SignInDetails | null;
   onClose: () => void;
 }) {
   return (
@@ -121,11 +138,7 @@ export function TemporaryPasswordDialog({
         {result ? (
           <DialogPanel className="grid gap-2">
             <dl className="m-0 grid gap-2 rounded-xl bg-hover/60 p-3.5 text-body">
-              {[
-                ["Sign in at", result.signInUrl],
-                ["Email", result.email],
-                ["Password", result.temporaryPassword],
-              ].map(([label, value]) => (
+              {detailRows(result).map(([label, value]) => (
                 <div
                   className="grid grid-cols-[6rem_minmax(0,1fr)] gap-3"
                   key={label}
@@ -136,7 +149,9 @@ export function TemporaryPasswordDialog({
               ))}
             </dl>
             <p className="m-0 text-label text-muted-foreground">
-              The password is only shown now.
+              {result.inviteUrl
+                ? "The link works once, for 7 days. Opening it connects their single sign-on account."
+                : "The password is only shown now."}
             </p>
           </DialogPanel>
         ) : null}
@@ -148,7 +163,9 @@ export function TemporaryPasswordDialog({
             onClick={async () => {
               if (!result) return;
               await copyText(
-                `Sign in at: ${result.signInUrl}\nEmail: ${result.email}\nPassword: ${result.temporaryPassword}`,
+                detailRows(result)
+                  .map(([label, value]) => `${label}: ${value}`)
+                  .join("\n"),
               );
               toastManager.add({
                 title: "Copied",

@@ -43,6 +43,8 @@ export type UserMinAggregateOutputType = {
   displayName: string | null
   avatarUrl: string | null
   passwordHash: string | null
+  oidcIssuer: string | null
+  oidcSubject: string | null
   isOwner: boolean | null
   isAdmin: boolean | null
   passwordChangeRequiredAt: Date | null
@@ -61,6 +63,8 @@ export type UserMaxAggregateOutputType = {
   displayName: string | null
   avatarUrl: string | null
   passwordHash: string | null
+  oidcIssuer: string | null
+  oidcSubject: string | null
   isOwner: boolean | null
   isAdmin: boolean | null
   passwordChangeRequiredAt: Date | null
@@ -79,6 +83,8 @@ export type UserCountAggregateOutputType = {
   displayName: number
   avatarUrl: number
   passwordHash: number
+  oidcIssuer: number
+  oidcSubject: number
   isOwner: number
   isAdmin: number
   passwordChangeRequiredAt: number
@@ -109,6 +115,8 @@ export type UserMinAggregateInputType = {
   displayName?: true
   avatarUrl?: true
   passwordHash?: true
+  oidcIssuer?: true
+  oidcSubject?: true
   isOwner?: true
   isAdmin?: true
   passwordChangeRequiredAt?: true
@@ -127,6 +135,8 @@ export type UserMaxAggregateInputType = {
   displayName?: true
   avatarUrl?: true
   passwordHash?: true
+  oidcIssuer?: true
+  oidcSubject?: true
   isOwner?: true
   isAdmin?: true
   passwordChangeRequiredAt?: true
@@ -145,6 +155,8 @@ export type UserCountAggregateInputType = {
   displayName?: true
   avatarUrl?: true
   passwordHash?: true
+  oidcIssuer?: true
+  oidcSubject?: true
   isOwner?: true
   isAdmin?: true
   passwordChangeRequiredAt?: true
@@ -249,7 +261,9 @@ export type UserGroupByOutputType = {
   storageId: string
   displayName: string | null
   avatarUrl: string | null
-  passwordHash: string
+  passwordHash: string | null
+  oidcIssuer: string | null
+  oidcSubject: string | null
   isOwner: boolean
   isAdmin: boolean
   passwordChangeRequiredAt: Date | null
@@ -290,7 +304,9 @@ export type UserWhereInput = {
   storageId?: Prisma.StringFilter<"User"> | string
   displayName?: Prisma.StringNullableFilter<"User"> | string | null
   avatarUrl?: Prisma.StringNullableFilter<"User"> | string | null
-  passwordHash?: Prisma.StringFilter<"User"> | string
+  passwordHash?: Prisma.StringNullableFilter<"User"> | string | null
+  oidcIssuer?: Prisma.StringNullableFilter<"User"> | string | null
+  oidcSubject?: Prisma.StringNullableFilter<"User"> | string | null
   isOwner?: Prisma.BoolFilter<"User"> | boolean
   isAdmin?: Prisma.BoolFilter<"User"> | boolean
   passwordChangeRequiredAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
@@ -321,7 +337,9 @@ export type UserOrderByWithRelationInput = {
   storageId?: Prisma.SortOrder
   displayName?: Prisma.SortOrderInput | Prisma.SortOrder
   avatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder
-  passwordHash?: Prisma.SortOrder
+  passwordHash?: Prisma.SortOrderInput | Prisma.SortOrder
+  oidcIssuer?: Prisma.SortOrderInput | Prisma.SortOrder
+  oidcSubject?: Prisma.SortOrderInput | Prisma.SortOrder
   isOwner?: Prisma.SortOrder
   isAdmin?: Prisma.SortOrder
   passwordChangeRequiredAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -350,12 +368,15 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   id?: string
   email?: string
   storageId?: string
+  oidcIssuer_oidcSubject?: Prisma.UserOidcIssuerOidcSubjectCompoundUniqueInput
   AND?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   OR?: Prisma.UserWhereInput[]
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   displayName?: Prisma.StringNullableFilter<"User"> | string | null
   avatarUrl?: Prisma.StringNullableFilter<"User"> | string | null
-  passwordHash?: Prisma.StringFilter<"User"> | string
+  passwordHash?: Prisma.StringNullableFilter<"User"> | string | null
+  oidcIssuer?: Prisma.StringNullableFilter<"User"> | string | null
+  oidcSubject?: Prisma.StringNullableFilter<"User"> | string | null
   isOwner?: Prisma.BoolFilter<"User"> | boolean
   isAdmin?: Prisma.BoolFilter<"User"> | boolean
   passwordChangeRequiredAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
@@ -378,7 +399,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   zipArchives?: Prisma.ZipArchiveListRelationFilter
   storageMutations?: Prisma.StorageMutationListRelationFilter
   trashEntries?: Prisma.TrashEntryListRelationFilter
-}, "id" | "email" | "storageId">
+}, "id" | "email" | "storageId" | "oidcIssuer_oidcSubject">
 
 export type UserOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -386,7 +407,9 @@ export type UserOrderByWithAggregationInput = {
   storageId?: Prisma.SortOrder
   displayName?: Prisma.SortOrderInput | Prisma.SortOrder
   avatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder
-  passwordHash?: Prisma.SortOrder
+  passwordHash?: Prisma.SortOrderInput | Prisma.SortOrder
+  oidcIssuer?: Prisma.SortOrderInput | Prisma.SortOrder
+  oidcSubject?: Prisma.SortOrderInput | Prisma.SortOrder
   isOwner?: Prisma.SortOrder
   isAdmin?: Prisma.SortOrder
   passwordChangeRequiredAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -412,7 +435,9 @@ export type UserScalarWhereWithAggregatesInput = {
   storageId?: Prisma.StringWithAggregatesFilter<"User"> | string
   displayName?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   avatarUrl?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
-  passwordHash?: Prisma.StringWithAggregatesFilter<"User"> | string
+  passwordHash?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  oidcIssuer?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  oidcSubject?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   isOwner?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
   isAdmin?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
   passwordChangeRequiredAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
@@ -430,7 +455,9 @@ export type UserCreateInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -461,7 +488,9 @@ export type UserUncheckedCreateInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -492,7 +521,9 @@ export type UserUpdateInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -523,7 +554,9 @@ export type UserUncheckedUpdateInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -554,7 +587,9 @@ export type UserCreateManyInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -572,7 +607,9 @@ export type UserUpdateManyMutationInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -590,7 +627,9 @@ export type UserUncheckedUpdateManyInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -602,6 +641,11 @@ export type UserUncheckedUpdateManyInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
+export type UserOidcIssuerOidcSubjectCompoundUniqueInput = {
+  oidcIssuer: string
+  oidcSubject: string
+}
+
 export type UserCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   email?: Prisma.SortOrder
@@ -609,6 +653,8 @@ export type UserCountOrderByAggregateInput = {
   displayName?: Prisma.SortOrder
   avatarUrl?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
+  oidcIssuer?: Prisma.SortOrder
+  oidcSubject?: Prisma.SortOrder
   isOwner?: Prisma.SortOrder
   isAdmin?: Prisma.SortOrder
   passwordChangeRequiredAt?: Prisma.SortOrder
@@ -632,6 +678,8 @@ export type UserMaxOrderByAggregateInput = {
   displayName?: Prisma.SortOrder
   avatarUrl?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
+  oidcIssuer?: Prisma.SortOrder
+  oidcSubject?: Prisma.SortOrder
   isOwner?: Prisma.SortOrder
   isAdmin?: Prisma.SortOrder
   passwordChangeRequiredAt?: Prisma.SortOrder
@@ -650,6 +698,8 @@ export type UserMinOrderByAggregateInput = {
   displayName?: Prisma.SortOrder
   avatarUrl?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
+  oidcIssuer?: Prisma.SortOrder
+  oidcSubject?: Prisma.SortOrder
   isOwner?: Prisma.SortOrder
   isAdmin?: Prisma.SortOrder
   passwordChangeRequiredAt?: Prisma.SortOrder
@@ -874,7 +924,9 @@ export type UserCreateWithoutPreferencesInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -904,7 +956,9 @@ export type UserUncheckedCreateWithoutPreferencesInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -950,7 +1004,9 @@ export type UserUpdateWithoutPreferencesInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -980,7 +1036,9 @@ export type UserUncheckedUpdateWithoutPreferencesInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1010,7 +1068,9 @@ export type UserCreateWithoutSessionsInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -1040,7 +1100,9 @@ export type UserUncheckedCreateWithoutSessionsInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -1086,7 +1148,9 @@ export type UserUpdateWithoutSessionsInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1116,7 +1180,9 @@ export type UserUncheckedUpdateWithoutSessionsInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1146,7 +1212,9 @@ export type UserCreateWithoutFoldersInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -1176,7 +1244,9 @@ export type UserUncheckedCreateWithoutFoldersInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -1222,7 +1292,9 @@ export type UserUpdateWithoutFoldersInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1252,7 +1324,9 @@ export type UserUncheckedUpdateWithoutFoldersInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1282,7 +1356,9 @@ export type UserCreateWithoutFilesInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -1312,7 +1388,9 @@ export type UserUncheckedCreateWithoutFilesInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -1358,7 +1436,9 @@ export type UserUpdateWithoutFilesInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1388,7 +1468,9 @@ export type UserUncheckedUpdateWithoutFilesInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1418,7 +1500,9 @@ export type UserCreateWithoutFavoriteFilesInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -1448,7 +1532,9 @@ export type UserUncheckedCreateWithoutFavoriteFilesInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -1494,7 +1580,9 @@ export type UserUpdateWithoutFavoriteFilesInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1524,7 +1612,9 @@ export type UserUncheckedUpdateWithoutFavoriteFilesInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1554,7 +1644,9 @@ export type UserCreateWithoutFavoriteFoldersInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -1584,7 +1676,9 @@ export type UserUncheckedCreateWithoutFavoriteFoldersInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -1630,7 +1724,9 @@ export type UserUpdateWithoutFavoriteFoldersInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1660,7 +1756,9 @@ export type UserUncheckedUpdateWithoutFavoriteFoldersInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1690,7 +1788,9 @@ export type UserCreateWithoutRecentFilesInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -1720,7 +1820,9 @@ export type UserUncheckedCreateWithoutRecentFilesInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -1766,7 +1868,9 @@ export type UserUpdateWithoutRecentFilesInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1796,7 +1900,9 @@ export type UserUncheckedUpdateWithoutRecentFilesInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1826,7 +1932,9 @@ export type UserCreateWithoutRecentFoldersInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -1856,7 +1964,9 @@ export type UserUncheckedCreateWithoutRecentFoldersInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -1902,7 +2012,9 @@ export type UserUpdateWithoutRecentFoldersInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1932,7 +2044,9 @@ export type UserUncheckedUpdateWithoutRecentFoldersInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1962,7 +2076,9 @@ export type UserCreateWithoutShareLinksInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -1992,7 +2108,9 @@ export type UserUncheckedCreateWithoutShareLinksInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -2038,7 +2156,9 @@ export type UserUpdateWithoutShareLinksInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2068,7 +2188,9 @@ export type UserUncheckedUpdateWithoutShareLinksInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2098,7 +2220,9 @@ export type UserCreateWithoutRestoreReconciliationRunsInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -2128,7 +2252,9 @@ export type UserUncheckedCreateWithoutRestoreReconciliationRunsInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -2174,7 +2300,9 @@ export type UserUpdateWithoutRestoreReconciliationRunsInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2204,7 +2332,9 @@ export type UserUncheckedUpdateWithoutRestoreReconciliationRunsInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2234,7 +2364,9 @@ export type UserCreateWithoutZipArchivesInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -2264,7 +2396,9 @@ export type UserUncheckedCreateWithoutZipArchivesInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -2310,7 +2444,9 @@ export type UserUpdateWithoutZipArchivesInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2340,7 +2476,9 @@ export type UserUncheckedUpdateWithoutZipArchivesInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2370,7 +2508,9 @@ export type UserCreateWithoutStorageMutationsInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -2400,7 +2540,9 @@ export type UserUncheckedCreateWithoutStorageMutationsInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -2446,7 +2588,9 @@ export type UserUpdateWithoutStorageMutationsInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2476,7 +2620,9 @@ export type UserUncheckedUpdateWithoutStorageMutationsInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2506,7 +2652,9 @@ export type UserCreateWithoutTrashEntriesInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -2536,7 +2684,9 @@ export type UserUncheckedCreateWithoutTrashEntriesInput = {
   storageId: string
   displayName?: string | null
   avatarUrl?: string | null
-  passwordHash: string
+  passwordHash?: string | null
+  oidcIssuer?: string | null
+  oidcSubject?: string | null
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: Date | string | null
@@ -2582,7 +2732,9 @@ export type UserUpdateWithoutTrashEntriesInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2612,7 +2764,9 @@ export type UserUncheckedUpdateWithoutTrashEntriesInput = {
   storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcIssuer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  oidcSubject?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
   isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -2773,6 +2927,8 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   displayName?: boolean
   avatarUrl?: boolean
   passwordHash?: boolean
+  oidcIssuer?: boolean
+  oidcSubject?: boolean
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: boolean
@@ -2805,6 +2961,8 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   displayName?: boolean
   avatarUrl?: boolean
   passwordHash?: boolean
+  oidcIssuer?: boolean
+  oidcSubject?: boolean
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: boolean
@@ -2823,6 +2981,8 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   displayName?: boolean
   avatarUrl?: boolean
   passwordHash?: boolean
+  oidcIssuer?: boolean
+  oidcSubject?: boolean
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: boolean
@@ -2841,6 +3001,8 @@ export type UserSelectScalar = {
   displayName?: boolean
   avatarUrl?: boolean
   passwordHash?: boolean
+  oidcIssuer?: boolean
+  oidcSubject?: boolean
   isOwner?: boolean
   isAdmin?: boolean
   passwordChangeRequiredAt?: boolean
@@ -2852,7 +3014,7 @@ export type UserSelectScalar = {
   updatedAt?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "storageId" | "displayName" | "avatarUrl" | "passwordHash" | "isOwner" | "isAdmin" | "passwordChangeRequiredAt" | "temporaryPasswordIssuedAt" | "temporaryPasswordIssuedByUserId" | "storageLimitBytes" | "committedStorageBytes" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "storageId" | "displayName" | "avatarUrl" | "passwordHash" | "oidcIssuer" | "oidcSubject" | "isOwner" | "isAdmin" | "passwordChangeRequiredAt" | "temporaryPasswordIssuedAt" | "temporaryPasswordIssuedByUserId" | "storageLimitBytes" | "committedStorageBytes" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
   preferences?: boolean | Prisma.User$preferencesArgs<ExtArgs>
@@ -2895,7 +3057,12 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     storageId: string
     displayName: string | null
     avatarUrl: string | null
-    passwordHash: string
+    /**
+     * Null for an account that only signs in through the OIDC provider.
+     */
+    passwordHash: string | null
+    oidcIssuer: string | null
+    oidcSubject: string | null
     isOwner: boolean
     isAdmin: boolean
     passwordChangeRequiredAt: Date | null
@@ -3347,6 +3514,8 @@ export interface UserFieldRefs {
   readonly displayName: Prisma.FieldRef<"User", 'String'>
   readonly avatarUrl: Prisma.FieldRef<"User", 'String'>
   readonly passwordHash: Prisma.FieldRef<"User", 'String'>
+  readonly oidcIssuer: Prisma.FieldRef<"User", 'String'>
+  readonly oidcSubject: Prisma.FieldRef<"User", 'String'>
   readonly isOwner: Prisma.FieldRef<"User", 'Boolean'>
   readonly isAdmin: Prisma.FieldRef<"User", 'Boolean'>
   readonly passwordChangeRequiredAt: Prisma.FieldRef<"User", 'DateTime'>

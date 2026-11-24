@@ -37,7 +37,7 @@ export const sidebar = [
   },
   {
     label: "Run it for others",
-    items: ["docs/admin-guide", "docs/user-management"],
+    items: ["docs/admin-guide", "docs/user-management", "docs/single-sign-on"],
   },
   { label: "Help", items: ["docs/faq"] },
 ];

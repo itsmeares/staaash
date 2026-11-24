@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { raiseCurtain } from "@/components/curtain";
 import { Button } from "@staaash/ui/components/button";
 import { Input } from "@staaash/ui/components/input";
+import { Separator } from "@staaash/ui/components/separator";
 import { demoAccount, isDemo } from "@/lib/demo";
 import { startPath } from "@/lib/start-page";
 import { applyTheme, type Theme } from "@/lib/theme";
@@ -42,21 +43,31 @@ function enterDrive(json: SignInResponse, next: string | undefined) {
   raiseCurtain("Welcome back.", next ?? startPath(prefs.startPage), 900);
 }
 
+/** Single sign-on, when the server has it set up. */
+type Sso = { name: string; passwordLogin: boolean };
+
 /**
  * The drive's name, then two fields straight on the halftone. A wrong
- * password shakes the field once, says so under it and clears it.
+ * password shakes the field once, says so under it and clears it. With
+ * single sign-on, its button sits under the fields, or alone when
+ * passwords are off.
  */
 export function SignIn({
   instanceName = "Staaash",
   next,
+  sso = null,
+  initialError,
 }: {
   instanceName?: string;
   next?: string;
+  sso?: Sso | null;
+  /** A reason from the single sign-on trip, such as no account. */
+  initialError?: string;
 }) {
   const [phase, setPhase] = useState<"intro" | "leaving" | "form">(
-    isDemo ? "form" : "intro",
+    isDemo || initialError ? "form" : "intro",
   );
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
   const [pending, setPending] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -127,13 +138,22 @@ export function SignIn({
             Click anywhere or press any key
           </button>
         </section>
+      ) : sso && !sso.passwordLogin ? (
+        <SsoOnly
+          error={error}
+          instanceName={instanceName}
+          next={next}
+          sso={sso}
+        />
       ) : (
         <SignInForm
           emailRef={emailRef}
           error={error}
           instanceName={instanceName}
+          next={next}
           passwordRef={passwordRef}
           pending={pending}
+          sso={sso}
           onSubmit={handleSubmit}
         />
       )}
@@ -150,17 +170,83 @@ const demoNote = isDemo ? (
 const field =
   "border-white/18 bg-black/30 backdrop-blur-sm placeholder:text-white/40";
 
+const ssoHref = (next: string | undefined) =>
+  appPath(
+    `/api/auth/oidc/start${next ? `?next=${encodeURIComponent(next)}` : ""}`,
+  );
+
+function SsoButton({
+  sso,
+  next,
+  primary,
+}: {
+  sso: Sso;
+  next: string | undefined;
+  primary?: boolean;
+}) {
+  return (
+    <Button
+      className="w-full"
+      render={<a href={ssoHref(next)} />}
+      size="lg"
+      variant={primary ? "default" : "outline"}
+    >
+      Sign in with {sso.name}
+    </Button>
+  );
+}
+
+function SsoOnly({
+  instanceName,
+  sso,
+  next,
+  error,
+}: {
+  instanceName: string;
+  sso: Sso;
+  next: string | undefined;
+  error: string | null;
+}) {
+  return (
+    <div
+      data-entry-form
+      className={cn(
+        "grid w-[min(100%,340px)] gap-4",
+        styles.readable,
+        styles.formEntering,
+      )}
+    >
+      <h1 className="mb-3 text-center font-heading text-[clamp(2.25rem,6vw,3.25rem)] leading-none font-normal tracking-tight">
+        {instanceName}
+      </h1>
+      <SsoButton next={next} primary sso={sso} />
+      {error ? (
+        <span
+          className="text-center text-label text-destructive-foreground"
+          role="alert"
+        >
+          {error}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function SignInForm({
   instanceName,
   error,
   pending,
   emailRef,
   passwordRef,
+  sso,
+  next,
   onSubmit,
 }: {
   instanceName: string;
   error: string | null;
   pending: boolean;
+  sso: Sso | null;
+  next: string | undefined;
   emailRef: React.RefObject<HTMLInputElement | null>;
   passwordRef: React.RefObject<HTMLInputElement | null>;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
@@ -232,6 +318,16 @@ function SignInForm({
       >
         {pending ? "Signing in…" : submitLabel}
       </Button>
+      {sso ? (
+        <>
+          <div className="flex items-center gap-3 text-label text-foreground/80">
+            <Separator className="flex-1 bg-white/18" />
+            or
+            <Separator className="flex-1 bg-white/18" />
+          </div>
+          <SsoButton next={next} sso={sso} />
+        </>
+      ) : null}
       {demoNote}
     </form>
   );
