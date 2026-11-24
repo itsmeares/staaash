@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, type Hash, randomUUID } from "node:crypto";
 import { constants, createWriteStream } from "node:fs";
 import {
   type FileHandle,
@@ -352,6 +352,37 @@ const sendFile = async (
   }
 };
 
+/**
+ * How far a stopped upload got with its checksum, so a pause or retry in the
+ * same run carries on instead of reading the sent part again. It is used only
+ * for the same session and the same file id, size and modified time, the
+ * checks a send with no pause relies on too. An app restart starts it over.
+ */
+const checksums = new Map<
+  string,
+  {
+    sessionId: string;
+    ino: string;
+    size: number;
+    mtimeMs: number;
+    hash: Hash;
+    hashedBytes: number;
+  }
+>();
+
+const checksumKey = (input: UploadInput) => `${input.pairId}\0${input.rel}`;
+
+const takeChecksum = (input: UploadInput, sessionId: string) => {
+  const saved = checksums.get(checksumKey(input));
+  checksums.delete(checksumKey(input));
+  const fits =
+    saved?.sessionId === sessionId &&
+    saved.ino === input.ino &&
+    saved.size === input.size &&
+    saved.mtimeMs === input.mtimeMs;
+  return fits ? saved : { hash: createHash("sha256"), hashedBytes: 0 };
+};
+
 // Resume, restart and chunk send share one session.
 // fallow-ignore-next-line complexity
 const sendOpened = async (
@@ -366,7 +397,8 @@ const sendOpened = async (
   const done = new Set(session.completedChunks.map((chunk) => chunk.startByte));
   input.onBytes(session.receivedBytes);
   completed(session.receivedBytes);
-  const hash = createHash("sha256");
+  const { hash, hashedBytes: resumedAt } = takeChecksum(input, session.id);
+  let hashedBytes = resumedAt;
   // A failed chunk stops the rest, even those waiting on the speed limit.
   // Sent chunks stay, so a retry sends only what is missing.
   const stop = new AbortController();
@@ -379,16 +411,21 @@ const sendOpened = async (
   };
   try {
     // One reader in file order, so a hard disk reads without seeking between
-    // chunks. Chunks the server already has are read only for the checksum.
+    // chunks. Chunks the server already has are read only for the checksum,
+    // and not at all when an earlier try already hashed them.
     for (let start = 0; start < input.size && !failure; start += chunkSize) {
       signal.throwIfAborted();
       const length = Math.min(chunkSize, input.size - start);
+      if (start < hashedBytes && done.has(start)) continue;
       const buffer = Buffer.alloc(length);
       const { bytesRead } = await handle.read(buffer, 0, length, start);
       if (bytesRead !== length) {
         throw new ApiError(0, "The file changed while it was uploading.");
       }
-      hash.update(buffer);
+      if (start >= hashedBytes) {
+        hash.update(buffer);
+        hashedBytes = start + length;
+      }
       if (done.has(start)) continue;
       while (sending.size >= CHUNKS_AT_ONCE) await Promise.race(sending);
       if (failure) break;
@@ -414,17 +451,28 @@ const sendOpened = async (
     // Nothing still sending outlives the call, so a retry never overlaps it.
     await Promise.all(sending);
   }
+  // Kept until the server takes the file, so a failed completion retries
+  // without reading the file again either.
+  checksums.set(checksumKey(input), {
+    sessionId: session.id,
+    ino: input.ino,
+    size: input.size,
+    mtimeMs: input.mtimeMs,
+    hash,
+    hashedBytes,
+  });
   if (failure) throw (failure as { error: unknown }).error;
   // Stopped while the last chunks were sending: the session keeps them, and
   // the next start only finishes it.
   input.signal.throwIfAborted();
-  const checksum = hash.digest("hex");
+  const checksum = hash.copy().digest("hex");
   input.onSent?.();
   const file = (await api.completeUpload(
     session.id,
     checksum,
     input.replace,
   )) as unknown as UploadedFile;
+  checksums.delete(checksumKey(input));
   store.deleteUpload(input.pairId, input.rel);
   return { file, checksum };
 };
