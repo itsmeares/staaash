@@ -149,6 +149,7 @@ describe("admin users routes", () => {
       storageLimitBytes: null,
       isAdmin: false,
       requirePasswordChange: true,
+      signInWith: "password",
     });
   });
 
