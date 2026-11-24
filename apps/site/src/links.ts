@@ -15,6 +15,7 @@ export const links = {
   discussions: `${repo}/discussions`,
   issues: `${repo}/issues`,
   license: `${repo}/blob/main/LICENSE`,
+  hello: "mailto:hello@staaash.org",
   security: "mailto:security@staaash.org",
   youtube: "https://www.youtube.com/@staaashapp",
   bluesky: "https://bsky.app/profile/staaash.org",
