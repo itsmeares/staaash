@@ -173,6 +173,12 @@ export const createAuthService = ({
   const sessionUser = (user: AuthUser): AuthUser =>
     passwordLogin ? user : { ...user, passwordChangeRequiredAt: null };
 
+  const requireAnotherSignIn = (user: AuthUser) => {
+    if (!user.hasPassword || !passwordLogin) {
+      throw new AuthError("OIDC_LAST_SIGN_IN");
+    }
+  };
+
   const requireOidc = () => {
     if (!oidc) throw new AuthError("OIDC_DISABLED");
     return oidc;
@@ -817,12 +823,7 @@ export const createAuthService = ({
     /** Links the signed-in account to the identity it just proved. */
     async connectOidc(userId: string, identity: OidcIdentity) {
       requireOidc();
-      const activeRepo = await resolveRepo();
-      const user = await activeRepo.findUserById(userId);
-      if (!user) throw new AuthError("USER_NOT_FOUND");
-      // Replacing a link would silently cut off the identity in use today.
-      if (user.oidcLinked) throw new AuthError("OIDC_ALREADY_LINKED");
-      return activeRepo.setOidcLink(userId, identity);
+      return (await resolveRepo()).setOidcLink(userId, identity);
     },
 
     /** Only while a password still lets you back in. */
@@ -830,16 +831,15 @@ export const createAuthService = ({
       const activeRepo = await resolveRepo();
       const user = await activeRepo.findUserById(userId);
       if (!user) throw new AuthError("USER_NOT_FOUND");
-      if (!user.hasPassword || !passwordLogin) {
-        throw new AuthError("OIDC_LAST_SIGN_IN");
-      }
+      requireAnotherSignIn(user);
       return activeRepo.setOidcLink(userId, null);
     },
 
     /** The owner can unlink anyone; a new invite link connects them again. */
     async disconnectUserOidc(actorUserId: string, targetUserId: string) {
       await requireOwner(actorUserId);
-      await requireUser(actorUserId, targetUserId);
+      const user = await requireUser(actorUserId, targetUserId);
+      if (actorUserId === targetUserId) requireAnotherSignIn(user);
       return (await resolveRepo()).setOidcLink(targetUserId, null);
     },
 

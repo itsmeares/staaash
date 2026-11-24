@@ -68,6 +68,20 @@ describe("auth repository unique checks", () => {
     await expect(
       prismaAuthRepository.setOidcLink(b.id, identity),
     ).rejects.toMatchObject({ code: "OIDC_ALREADY_LINKED" });
+    await prismaAuthRepository.setOidcLink(b.id, {
+      ...identity,
+      subject: "sub-2",
+    });
+    // A second link never replaces the first, even when it races a check.
+    await expect(
+      prismaAuthRepository.setOidcLink(b.id, { ...identity, subject: "sub-3" }),
+    ).rejects.toMatchObject({ code: "OIDC_ALREADY_LINKED" });
+    await expect(
+      prismaAuthRepository.setOidcLink("missing", {
+        ...identity,
+        subject: "sub-4",
+      }),
+    ).rejects.toMatchObject({ code: "USER_NOT_FOUND" });
     expect(await prismaAuthRepository.findUserByOidc(identity)).toMatchObject({
       email: "a@example.com",
       hasPassword: false,

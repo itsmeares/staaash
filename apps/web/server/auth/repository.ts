@@ -500,7 +500,8 @@ const createPrismaAuthRepository = (
     async setOidcLink(userId, link) {
       try {
         const user = await getClient().user.update({
-          where: { id: userId },
+          // A link only fills an empty slot, so a race never replaces one.
+          where: link ? { id: userId, oidcSubject: null } : { id: userId },
           data: {
             oidcIssuer: link?.issuer ?? null,
             oidcSubject: link?.subject ?? null,
@@ -512,8 +513,10 @@ const createPrismaAuthRepository = (
       } catch (error) {
         const authError = mapUniqueError(error);
         if (authError) throw authError;
-        if (isMissingRecord(error)) throw new AuthError("USER_NOT_FOUND");
-        throw error;
+        if (!isMissingRecord(error)) throw error;
+        const exists =
+          link && (await getClient().user.count({ where: { id: userId } }));
+        throw new AuthError(exists ? "OIDC_ALREADY_LINKED" : "USER_NOT_FOUND");
       }
     },
 

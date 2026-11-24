@@ -169,20 +169,22 @@ export const finishOidc = async (
 export const issueOidcInvite = async (oidc: OidcEnv, userId: string) => {
   const { token, tokenHash } = await issueCode();
   const now = new Date();
-  await getPrisma().$transaction([
-    getPrisma().deviceAuthCode.updateMany({
+  await getPrisma().$transaction(async (db) => {
+    // Two clicks at once must still leave only the newest link working.
+    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`invite:${userId}`}, 0))`;
+    await db.deviceAuthCode.updateMany({
       where: { userId, kind: "invite", usedAt: null },
       data: { usedAt: now },
-    }),
-    getPrisma().deviceAuthCode.create({
+    });
+    await db.deviceAuthCode.create({
       data: {
         codeHash: tokenHash,
         kind: "invite",
         userId,
         expiresAt: new Date(now.getTime() + INVITE_TTL_MS),
       },
-    }),
-  ]);
+    });
+  });
   const url = new URL(oidc.startUrl);
   url.searchParams.set("invite", token);
   return url.toString();

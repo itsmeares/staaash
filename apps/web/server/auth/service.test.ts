@@ -167,6 +167,7 @@ const createRepo = (state: State): AuthRepository => ({
     if (taken) throw new AuthError("OIDC_ALREADY_LINKED");
     const user = state.users.find((candidate) => candidate.id === userId);
     if (!user) throw new AuthError("USER_NOT_FOUND");
+    if (link && user.oidcSubject) throw new AuthError("OIDC_ALREADY_LINKED");
     user.oidcIssuer = link?.issuer ?? null;
     user.oidcSubject = link?.subject ?? null;
     return toAuthUser(user);
@@ -1050,5 +1051,15 @@ describe("single sign-on", () => {
     await expect(
       service.requireOidcInvitable("owner-1", "no-password"),
     ).resolves.toMatchObject({ id: "no-password" });
+  });
+
+  it("keeps the owner from disconnecting their own last way in", async () => {
+    const { service, state, user } = setup([], { passwordLogin: false });
+    Object.assign(state.users[0]!, linkedTo("sub-owner"));
+
+    await expect(
+      service.disconnectUserOidc("owner-1", "owner-1"),
+    ).rejects.toMatchObject({ code: "OIDC_LAST_SIGN_IN" });
+    expect(user("owner-1").oidcSubject).toBe("sub-owner");
   });
 });
