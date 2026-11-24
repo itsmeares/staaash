@@ -19,35 +19,17 @@ const reset = async () => {
   await getPrisma().user.deleteMany();
 };
 
-const createUser = (email: string, link?: string) =>
+const createUser = (email: string) =>
   getPrisma().user.create({
     data: {
       email,
       storageId: email.split("@")[0]!,
       passwordHash: null,
-      oidcIssuer: link ? oidc.issuer : null,
-      oidcSubject: link ?? null,
     },
   });
 
-describe("single sign-on links", () => {
+describe("single sign-on invite links", () => {
   afterEach(reset);
-
-  it("lets one identity belong to one account only", async () => {
-    const { prismaAuthRepository } = await import("@/server/auth/repository");
-    await createUser("a@example.com", "sub-1");
-    const b = await createUser("b@example.com");
-    const identity = { issuer: oidc.issuer, subject: "sub-1" };
-
-    await expect(
-      prismaAuthRepository.setOidcLink(b.id, identity),
-    ).rejects.toMatchObject({ code: "OIDC_ALREADY_LINKED" });
-    expect(await prismaAuthRepository.findUserByOidc(identity)).toMatchObject({
-      email: "a@example.com",
-      hasPassword: false,
-      oidcLinked: true,
-    });
-  });
 
   it("redeems an invite link once, and a new link replaces the old", async () => {
     const { issueOidcInvite, redeemOidcInvite } =

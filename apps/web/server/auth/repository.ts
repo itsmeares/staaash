@@ -252,34 +252,41 @@ const isUniqueConstraintError = (error: unknown) => {
   return error.code === "P2002";
 };
 
-const getUniqueConstraintTargets = (error: unknown): string[] => {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
-    return [];
-  }
-
-  if (error.code !== "P2002") {
-    return [];
-  }
-
-  const target = error.meta?.target;
-
-  if (Array.isArray(target)) {
-    return target.filter((value): value is string => typeof value === "string");
-  }
-
-  return typeof target === "string" ? [target] : [];
+type UniqueErrorMeta = {
+  target?: unknown;
+  driverAdapterError?: {
+    cause?: { constraint?: { fields?: unknown; index?: unknown } };
+  };
 };
+
+/**
+ * The columns or index a unique violation names. The pg driver adapter names
+ * the index, such as `User_storageId_key`, instead of `meta.target`.
+ */
+const getUniqueConstraintTargets = (error: unknown): string[] => {
+  if (!isUniqueConstraintError(error)) return [];
+  const meta = (error as Prisma.PrismaClientKnownRequestError).meta as
+    | UniqueErrorMeta
+    | undefined;
+  const constraint = meta?.driverAdapterError?.cause?.constraint;
+  return [meta?.target, constraint?.fields, constraint?.index]
+    .flat()
+    .filter((value): value is string => typeof value === "string");
+};
+
+const violates = (targets: string[], column: string) =>
+  targets.some((target) => target === column || target.includes(`_${column}_`));
 
 const mapUniqueError = (error: unknown) => {
   if (!isUniqueConstraintError(error)) return null;
 
   const targets = getUniqueConstraintTargets(error);
 
-  if (targets.includes("storageId")) {
+  if (violates(targets, "storageId")) {
     return new AuthError("STORAGE_ID_COLLISION");
   }
 
-  if (targets.includes("oidcSubject")) {
+  if (violates(targets, "oidcSubject")) {
     return new AuthError("OIDC_ALREADY_LINKED");
   }
 
