@@ -153,6 +153,7 @@ export async function showDesktop(page: Page) {
         localFolders: async () => [],
         createServerFolder: async () => ({ error: "Not in the brand kit." }),
         savePairs: async () => ({ error: null }),
+        editPair: async () => ({ error: null }),
         updateSettings: done,
         pause: done,
         openStaaash: async () => ({ error: null }),

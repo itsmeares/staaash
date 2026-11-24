@@ -202,6 +202,21 @@ it("leaves a skipped path alone on both sides and syncs the rest", async () => {
   ).toBe("mine");
 });
 
+it("leaves a synced file alone once its path is skipped", async () => {
+  const r = await rig(["a.txt", "b.txt"]);
+  await syncPair(r.ctx);
+  const uploads = r.start.mock.calls.length;
+  await writeFile(path.join(r.directory, "a.txt"), "changed");
+  const ctx = { ...r.ctx, pair: { ...r.ctx.pair, skipPaths: ["a.txt"] } };
+  const result = await syncPair(ctx);
+  expect(result.issues).toEqual([]);
+  // The trash in the rig throws, so nothing was deleted on either side.
+  expect(r.start.mock.calls.length).toBe(uploads);
+  expect(await readFile(path.join(r.directory, "a.txt"), "utf8")).toBe(
+    "changed",
+  );
+});
+
 it("shows one server-full issue per folder when both limits refuse", async () => {
   const r = await rig(["a.txt", "b.txt"]);
   r.failures.set("a.txt", [quota()]);

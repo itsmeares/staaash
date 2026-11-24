@@ -25,6 +25,7 @@ const api: DesktopApi = {
     "create-server-folder",
   ) as DesktopApi["createServerFolder"],
   savePairs: call("save-pairs") as DesktopApi["savePairs"],
+  editPair: call("edit-pair") as DesktopApi["editPair"],
   updateSettings: call("update-settings") as DesktopApi["updateSettings"],
   pause: call("pause") as DesktopApi["pause"],
   openStaaash: call("open-staaash") as DesktopApi["openStaaash"],

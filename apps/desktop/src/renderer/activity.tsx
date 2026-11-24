@@ -11,7 +11,9 @@ import {
   RotateCw,
   TriangleAlert,
   WifiOff,
+  X,
 } from "lucide-react";
+import { useState } from "react";
 
 import { formatBytes } from "@/lib/format-bytes";
 import { Button } from "@staaash/ui/components/button";
@@ -21,6 +23,14 @@ import {
   ContextMenuPopup,
   ContextMenuTrigger,
 } from "@staaash/ui/components/context-menu";
+import {
+  Dialog,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogPopup,
+  DialogTitle,
+} from "@staaash/ui/components/dialog";
 import {
   Popover,
   PopoverPopup,
@@ -147,10 +157,12 @@ function ActivityRow({
   activity,
   folder,
   paused = false,
+  onStop,
 }: {
   activity: Activity;
   folder: string;
   paused?: boolean;
+  onStop: () => void;
 }) {
   const Direction = activity.direction === "up" ? ArrowUp : ArrowDown;
   const name = fileName(activity.rel);
@@ -186,7 +198,17 @@ function ActivityRow({
           </span>
         </button>
         {activity.state === "active" ? (
-          <ActivityProgress activity={activity} />
+          <>
+            <ActivityProgress activity={activity} />
+            <Button
+              aria-label={`Stop syncing ${name}`}
+              size="icon-sm"
+              variant="ghost-muted"
+              onClick={onStop}
+            >
+              <X />
+            </Button>
+          </>
         ) : (
           <ActivityEnd activity={activity} />
         )}
@@ -204,6 +226,10 @@ function ActivityRow({
         <ContextMenuItem onClick={open}>
           <FolderOpen aria-hidden />
           Show in folder
+        </ContextMenuItem>
+        <ContextMenuItem onClick={onStop}>
+          <X aria-hidden />
+          Stop syncing this file
         </ContextMenuItem>
       </ContextMenuPopup>
     </ContextMenu>
@@ -283,6 +309,57 @@ function ActivityProgress({ activity }: { activity: Activity }) {
         )}
       </span>
     </span>
+  );
+}
+
+/**
+ * Leaves one file out of its pair by path, as the folder chooser leaves out
+ * folders. The engine then cancels its upload and forgets it on both sides.
+ */
+function StopSyncDialog({
+  activity,
+  onClose,
+}: {
+  activity: Activity;
+  onClose: () => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const stop = async () => {
+    setSaving(true);
+    const result = await desktop.editPair(activity.pairId, {
+      skipPath: activity.rel,
+    });
+    setSaving(false);
+    if (result.error) setError(result.error);
+    else onClose();
+  };
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogPopup className="sm:max-w-100">
+        <DialogHeader>
+          <DialogTitle>Stop syncing this file?</DialogTitle>
+          <DialogDescription className="wrap-anywhere">
+            <span className="font-medium text-foreground">
+              {fileName(activity.rel)}
+            </span>{" "}
+            stays as it is now, on this computer and on the server. To sync it
+            again, remove it from the skipped list in Folders.
+          </DialogDescription>
+          {error ? (
+            <p className="m-0 text-meta text-destructive-foreground">{error}</p>
+          ) : null}
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button loading={saving} onClick={() => void stop()}>
+            Stop syncing
+          </Button>
+        </DialogFooter>
+      </DialogPopup>
+    </Dialog>
   );
 }
 
@@ -441,6 +518,7 @@ export function ActivityPage({
     )?.remoteLabel;
     return label === "Your whole drive" ? "Your drive" : (label ?? "");
   };
+  const [stopping, setStopping] = useState<Activity | null>(null);
   const group =
     "m-0 px-5 pt-3.5 pb-1.5 text-label font-medium text-muted-foreground";
 
@@ -523,6 +601,7 @@ export function ActivityPage({
                   activity={each}
                   folder={folderOf(each.pairId)}
                   key={`${each.pairId}:${each.rel}`}
+                  onStop={() => setStopping(each)}
                 />
               ))}
               {waiting > 0 ? (
@@ -546,6 +625,7 @@ export function ActivityPage({
                   activity={each}
                   folder={folderOf(each.pairId)}
                   key={`${each.pairId}:${each.rel}`}
+                  onStop={() => setStopping(each)}
                   paused={state.status?.state === "paused"}
                 />
               ))}
@@ -557,6 +637,9 @@ export function ActivityPage({
           </p>
         ) : null}
       </div>
+      {stopping ? (
+        <StopSyncDialog activity={stopping} onClose={() => setStopping(null)} />
+      ) : null}
     </>
   );
 }
