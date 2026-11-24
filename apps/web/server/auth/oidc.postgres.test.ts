@@ -68,8 +68,8 @@ describe("single sign-on invite links", () => {
       issuer: oidc.issuer,
       subject: "settings-connect",
     });
-    await prismaAuthRepository.setOidcLink(user.id, null);
 
+    // Connecting alone ends it, so a later Disconnect cannot revive it.
     await expect(
       redeemOidcInvite(new URL(invite).searchParams.get("invite")!),
     ).rejects.toMatchObject({ code: "OIDC_INVITE_INVALID" });
