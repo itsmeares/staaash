@@ -54,7 +54,11 @@ Cloudflare handles HTTPS and tells Staaash the visit was secure, so sign-in work
 
 Things to know before you rely on it:
 
-- On its Free plan, Cloudflare rejects any request bigger than 100 MB. The browser sends files of 100 MiB and up in pieces of up to 32 MiB, which fit. A file just under 100 MiB goes in one request and can go over the limit. If such a file fails, upload it at home or over Tailscale.
+- On its Free plan, Cloudflare rejects any request bigger than 100 MiB. The browser sends files of 100 MiB and up in pieces of up to 32 MiB, which fit. A file just under 100 MiB goes in one request and can go over the limit. If such a file fails, upload it at home or over Tailscale.
+
+  :::note[Coming in 2.1]
+  The browser sends files of 32 MiB and up in pieces, so every upload fits.
+  :::
 
 - Every file passes through Cloudflare's servers on its way to you. Staaash still runs on your disk, but you are trusting Cloudflare with the traffic.
 - Cloudflare's terms for its free network limit sites that mostly serve video or other large files. They do not say plainly how that applies to tunnels. If your drive is mostly video, Tailscale or port forwarding avoids the question.
