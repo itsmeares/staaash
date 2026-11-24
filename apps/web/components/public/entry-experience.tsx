@@ -67,7 +67,7 @@ export function SignIn({
   const [phase, setPhase] = useState<"intro" | "leaving" | "form">(
     isDemo || initialError ? "form" : "intro",
   );
-  const [error, setError] = useState<string | null>(initialError ?? null);
+  const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
@@ -119,7 +119,7 @@ export function SignIn({
         />
       ) : sso && !sso.passwordLogin ? (
         <SsoOnly
-          error={error}
+          error={initialError}
           instanceName={instanceName}
           next={next}
           sso={sso}
@@ -133,6 +133,7 @@ export function SignIn({
           passwordRef={passwordRef}
           pending={pending}
           sso={sso}
+          ssoError={initialError}
           onSubmit={handleSubmit}
         />
       )}
@@ -190,24 +191,37 @@ const ssoHref = (next: string | undefined) =>
     `/api/auth/oidc/start${next ? `?next=${encodeURIComponent(next)}` : ""}`,
   );
 
+/** The provider's button, with why the last trip there failed under it. */
 function SsoButton({
   sso,
   next,
   primary,
+  error,
 }: {
   sso: Sso;
   next: string | undefined;
   primary?: boolean;
+  error?: string;
 }) {
   return (
-    <Button
-      className="w-full"
-      render={<a href={ssoHref(next)} />}
-      size="lg"
-      variant={primary ? "default" : "outline"}
-    >
-      Sign in with {sso.name}
-    </Button>
+    <>
+      <Button
+        className="w-full"
+        render={<a href={ssoHref(next)} />}
+        size="lg"
+        variant={primary ? "default" : "outline"}
+      >
+        Sign in with {sso.name}
+      </Button>
+      {error ? (
+        <span
+          className="text-center text-label text-destructive-foreground"
+          role="alert"
+        >
+          {error}
+        </span>
+      ) : null}
+    </>
   );
 }
 
@@ -220,7 +234,7 @@ function SsoOnly({
   instanceName: string;
   sso: Sso;
   next: string | undefined;
-  error: string | null;
+  error?: string;
 }) {
   return (
     <div
@@ -234,15 +248,7 @@ function SsoOnly({
       <h1 className="mb-3 text-center font-heading text-[clamp(2.25rem,6vw,3.25rem)] leading-none font-normal tracking-tight">
         {instanceName}
       </h1>
-      <SsoButton next={next} primary sso={sso} />
-      {error ? (
-        <span
-          className="text-center text-label text-destructive-foreground"
-          role="alert"
-        >
-          {error}
-        </span>
-      ) : null}
+      <SsoButton error={error} next={next} primary sso={sso} />
     </div>
   );
 }
@@ -254,6 +260,7 @@ function SignInForm({
   emailRef,
   passwordRef,
   sso,
+  ssoError,
   next,
   onSubmit,
 }: {
@@ -261,6 +268,7 @@ function SignInForm({
   error: string | null;
   pending: boolean;
   sso: Sso | null;
+  ssoError?: string;
   next: string | undefined;
   emailRef: React.RefObject<HTMLInputElement | null>;
   passwordRef: React.RefObject<HTMLInputElement | null>;
@@ -340,7 +348,7 @@ function SignInForm({
             or
             <Separator className="flex-1 bg-white/18" />
           </div>
-          <SsoButton next={next} sso={sso} />
+          <SsoButton error={ssoError} next={next} sso={sso} />
         </>
       ) : null}
       {demoNote}
