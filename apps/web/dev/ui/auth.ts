@@ -41,6 +41,7 @@ export function mountAuth(app: Hono<PreviewEnv>) {
         : {
             state: state.scenario === "setup" ? "setup" : "sign-in",
             instanceName: state.instanceName,
+            sso: null,
           },
     );
   });

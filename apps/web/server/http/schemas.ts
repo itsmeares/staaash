@@ -33,6 +33,9 @@ export const UserSchema = z
     temporaryPasswordIssuedByUserId: z.string().nullable(),
     /** Bytes as a decimal string, or null for no limit. */
     storageLimitBytes: z.string().nullable(),
+    /** False for an account that only signs in through single sign-on. */
+    hasPassword: z.boolean(),
+    oidcLinked: z.boolean(),
     preferences: PreferencesSchema.nullable(),
     createdAt: z.date(),
     updatedAt: z.date(),

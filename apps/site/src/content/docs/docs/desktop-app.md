@@ -25,7 +25,7 @@ The installers are not code signed yet, so your computer may stop the first laun
 ## Connect to your drive
 
 1. Open the app and type your **Server address**, for example `drive.example.com`.
-2. Press **Sign in with browser**, and approve this computer in the browser that opens.
+2. Press **Sign in with browser**, and approve this computer in the browser that opens. If your drive uses [single sign-on](/docs/single-sign-on/), sign in there with its button first.
 3. Pick the folders to sync.
 
 ## Pick a sync mode

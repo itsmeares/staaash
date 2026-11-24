@@ -25,13 +25,25 @@ export type AuthUser = {
   temporaryPasswordIssuedAt: Date | null;
   temporaryPasswordIssuedByUserId: string | null;
   storageLimitBytes: bigint | null;
+  /** False for an account that only signs in through the OIDC provider. */
+  hasPassword: boolean;
+  oidcLinked: boolean;
   preferences: UserPreferences | null;
   createdAt: Date;
   updatedAt: Date;
 };
 
 export type StoredAuthUser = AuthUser & {
-  passwordHash: string;
+  passwordHash: string | null;
+};
+
+/** Who the OIDC provider says signed in. `issuer` + `subject` is the identity. */
+export type OidcIdentity = {
+  issuer: string;
+  subject: string;
+  email: string | null;
+  name: string | null;
+  groups: string[];
 };
 
 export type AuthSession = {
@@ -80,6 +92,8 @@ export type SignInInput = {
 
 export type AdminCreateUserInput = {
   email: string;
+  /** "oidc": no password; they connect through a one-time sign-in link. */
+  signInWith?: "password" | "oidc";
   temporaryPassword?: string;
   confirmTemporaryPassword?: string;
   generateTemporaryPassword?: boolean;
@@ -105,4 +119,9 @@ export type TemporaryPasswordInput = {
 export type TemporaryPasswordResult = {
   user: AuthUser;
   temporaryPassword: string;
+};
+
+export type CreatedUserResult = {
+  user: AuthUser;
+  temporaryPassword: string | null;
 };

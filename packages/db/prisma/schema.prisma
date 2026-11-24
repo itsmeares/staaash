@@ -86,7 +86,10 @@ model User {
   storageId                       String                     @unique
   displayName                     String?
   avatarUrl                       String?
-  passwordHash                    String
+  /// Null for an account that only signs in through the OIDC provider.
+  passwordHash                    String?
+  oidcIssuer                      String?
+  oidcSubject                     String?
   isOwner                         Boolean                    @default(false)
   isAdmin                         Boolean                    @default(false)
   passwordChangeRequiredAt        DateTime?
@@ -110,6 +113,7 @@ model User {
   storageMutations                StorageMutation[]
   trashEntries                    TrashEntry[]
 
+  @@unique([oidcIssuer, oidcSubject])
   @@index([isOwner])
   @@index([isAdmin])
 }

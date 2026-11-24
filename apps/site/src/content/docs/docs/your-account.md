@@ -14,6 +14,7 @@ Changes in Appearance and Date and time wait for you to press **Save**. **Reset 
 
 - **Edit** changes your name and photo. **Upload photo** picks a picture, and **Remove photo** goes back to your initials.
 - **Change** next to **Password** sets a new password of at least 12 characters. All your other devices are signed out when you do.
+- If your drive uses [single sign-on](/docs/single-sign-on/), **Connect** next to the provider's name lets you sign in with it. **Disconnect** shows only while you also have a password.
 - **Role** shows whether you are the owner or a member.
 
 Your email address is your sign-in name. Only the owner can change it, in **Admin → Users**.

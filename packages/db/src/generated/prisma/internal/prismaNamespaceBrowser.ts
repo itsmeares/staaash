@@ -151,6 +151,8 @@ export const UserScalarFieldEnum = {
   displayName: 'displayName',
   avatarUrl: 'avatarUrl',
   passwordHash: 'passwordHash',
+  oidcIssuer: 'oidcIssuer',
+  oidcSubject: 'oidcSubject',
   isOwner: 'isOwner',
   isAdmin: 'isAdmin',
   passwordChangeRequiredAt: 'passwordChangeRequiredAt',

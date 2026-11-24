@@ -12,6 +12,7 @@ import { AuthError } from "@/server/auth/errors";
 import type {
   AuthSession,
   AuthUser,
+  OidcIdentity,
   SessionMetadata,
   SetupState,
   StoredAuthSession,
@@ -29,16 +30,20 @@ type CreateBootstrapParams = {
   createdAt: Date;
 };
 
-type CreateUserParams = {
+export type CreateUserParams = {
   email: string;
   storageId: string;
-  passwordHash: string;
+  displayName?: string | null;
+  passwordHash: string | null;
   isAdmin: boolean;
   storageLimitBytes: bigint | null;
   passwordChangeRequiredAt: Date | null;
-  temporaryPasswordIssuedAt: Date;
-  temporaryPasswordIssuedByUserId: string;
+  temporaryPasswordIssuedAt: Date | null;
+  temporaryPasswordIssuedByUserId: string | null;
+  oidc?: OidcLink;
 };
+
+type OidcLink = Pick<OidcIdentity, "issuer" | "subject">;
 
 type UpdateUserParams = {
   userId: string;
@@ -88,7 +93,13 @@ type SavePreferencesParams = {
 
 type AuthPrismaClient = Pick<
   ReturnType<typeof getPrisma>,
-  "folder" | "instance" | "session" | "user" | "userPreference" | "$transaction"
+  | "deviceAuthCode"
+  | "folder"
+  | "instance"
+  | "session"
+  | "user"
+  | "userPreference"
+  | "$transaction"
 >;
 
 export type AuthRepository = {
@@ -98,6 +109,9 @@ export type AuthRepository = {
   updateUser(params: UpdateUserParams): Promise<AuthUser | null>;
   findUserByEmail(email: string): Promise<StoredAuthUser | null>;
   findUserById(id: string): Promise<AuthUser | null>;
+  findUserByOidc(link: OidcLink): Promise<AuthUser | null>;
+  /** Null unlinks. Throws OIDC_ALREADY_LINKED when another account has it. */
+  setOidcLink(userId: string, link: OidcLink | null): Promise<AuthUser>;
   listUsers(): Promise<AuthUser[]>;
   setUserStorageLimit(
     userId: string,
@@ -169,6 +183,8 @@ const toAuthUser = (
     | "temporaryPasswordIssuedAt"
     | "temporaryPasswordIssuedByUserId"
     | "storageLimitBytes"
+    | "passwordHash"
+    | "oidcSubject"
     | "createdAt"
     | "updatedAt"
   > & { preferences?: UserPreference | null },
@@ -185,6 +201,8 @@ const toAuthUser = (
   temporaryPasswordIssuedAt: user.temporaryPasswordIssuedAt,
   temporaryPasswordIssuedByUserId: user.temporaryPasswordIssuedByUserId,
   storageLimitBytes: user.storageLimitBytes,
+  hasPassword: user.passwordHash !== null,
+  oidcLinked: user.oidcSubject !== null,
   preferences: user.preferences
     ? {
         theme: user.preferences.theme,
@@ -240,31 +258,42 @@ const isUniqueConstraintError = (error: unknown) => {
   return error.code === "P2002";
 };
 
-const getUniqueConstraintTargets = (error: unknown): string[] => {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
-    return [];
-  }
-
-  if (error.code !== "P2002") {
-    return [];
-  }
-
-  const target = error.meta?.target;
-
-  if (Array.isArray(target)) {
-    return target.filter((value): value is string => typeof value === "string");
-  }
-
-  return typeof target === "string" ? [target] : [];
+type UniqueErrorMeta = {
+  target?: unknown;
+  driverAdapterError?: {
+    cause?: { constraint?: { fields?: unknown; index?: unknown } };
+  };
 };
+
+/**
+ * The columns or index a unique violation names. The pg driver adapter names
+ * the index, such as `User_storageId_key`, instead of `meta.target`.
+ */
+const getUniqueConstraintTargets = (error: unknown): string[] => {
+  if (!isUniqueConstraintError(error)) return [];
+  const meta = (error as Prisma.PrismaClientKnownRequestError).meta as
+    | UniqueErrorMeta
+    | undefined;
+  const constraint = meta?.driverAdapterError?.cause?.constraint;
+  return [meta?.target, constraint?.fields, constraint?.index]
+    .flat()
+    .filter((value): value is string => typeof value === "string");
+};
+
+const violates = (targets: string[], column: string) =>
+  targets.some((target) => target === column || target.includes(`_${column}_`));
 
 const mapUniqueError = (error: unknown) => {
   if (!isUniqueConstraintError(error)) return null;
 
   const targets = getUniqueConstraintTargets(error);
 
-  if (targets.includes("storageId")) {
+  if (violates(targets, "storageId")) {
     return new AuthError("STORAGE_ID_COLLISION");
+  }
+
+  if (violates(targets, "oidcSubject")) {
+    return new AuthError("OIDC_ALREADY_LINKED");
   }
 
   return new AuthError("USER_ALREADY_EXISTS");
@@ -360,7 +389,10 @@ const createPrismaAuthRepository = (
               data: {
                 email: params.email,
                 storageId: params.storageId,
+                displayName: params.displayName ?? null,
                 passwordHash: params.passwordHash,
+                oidcIssuer: params.oidc?.issuer ?? null,
+                oidcSubject: params.oidc?.subject ?? null,
                 isAdmin: params.isAdmin,
                 storageLimitBytes: params.storageLimitBytes,
                 passwordChangeRequiredAt: params.passwordChangeRequiredAt,
@@ -458,6 +490,47 @@ const createPrismaAuthRepository = (
       });
 
       return user ? toAuthUser(user) : null;
+    },
+
+    async findUserByOidc({ issuer, subject }) {
+      const user = await getClient().user.findUnique({
+        where: {
+          oidcIssuer_oidcSubject: { oidcIssuer: issuer, oidcSubject: subject },
+        },
+        include: { preferences: true },
+      });
+
+      return user ? toAuthUser(user) : null;
+    },
+
+    async setOidcLink(userId, link) {
+      try {
+        return await getClient().$transaction(async (tx) => {
+          const user = await tx.user.update({
+            // A link only fills an empty slot, so a race never replaces one.
+            where: link ? { id: userId, oidcSubject: null } : { id: userId },
+            data: {
+              oidcIssuer: link?.issuer ?? null,
+              oidcSubject: link?.subject ?? null,
+            },
+            include: { preferences: true },
+          });
+          // Any link change ends invites still out, so an old one cannot
+          // reconnect the account after a Disconnect.
+          await tx.deviceAuthCode.updateMany({
+            where: { userId, kind: "invite", usedAt: null },
+            data: { usedAt: new Date() },
+          });
+          return toAuthUser(user);
+        });
+      } catch (error) {
+        const authError = mapUniqueError(error);
+        if (authError) throw authError;
+        if (!isMissingRecord(error)) throw error;
+        const exists =
+          link && (await getClient().user.count({ where: { id: userId } }));
+        throw new AuthError(exists ? "OIDC_ALREADY_LINKED" : "USER_NOT_FOUND");
+      }
     },
 
     async listUsers() {

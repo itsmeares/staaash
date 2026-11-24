@@ -7,6 +7,7 @@ import { ALL_SUPPORTED_JOB_KINDS } from "@staaash/db/jobs";
 import { getStorageMutationHealth } from "@staaash/db/storage-mutations";
 
 import { plain } from "@/lib/plain";
+import { env } from "@/lib/env";
 import { accountNote, getInitials, roleLabel } from "@/lib/user";
 import type { FirstRunKind } from "@/components/public/first-run";
 import { toDevice } from "@/lib/user-agent";
@@ -125,6 +126,14 @@ const loadPins = async (user: AuthUser) => {
 
 const instanceName = async () =>
   (await authService.getSetupState()).instanceName?.trim() || "Staaash";
+
+const passwordLogin = () => env.oidc?.passwordLogin ?? true;
+
+/** Single sign-on, for the pages that offer it. */
+const ssoView = () =>
+  env.oidc
+    ? { name: env.oidc.providerName, passwordLogin: env.oidc.passwordLogin }
+    : null;
 
 /** Which first-run steps a signed-in person still needs, if any. */
 const firstRunKind = (user: AuthUser): FirstRunKind | null => {
@@ -547,6 +556,15 @@ const userViews = user
           email: session.user.email,
           avatarUrl: session.user.avatarUrl,
           role: roleLabel(session.user.role),
+          canChangePassword: session.user.hasPassword && passwordLogin(),
+          sso: env.oidc
+            ? {
+                name: env.oidc.providerName,
+                linked: session.user.oidcLinked,
+                // Disconnecting must leave a way back in.
+                canDisconnect: session.user.hasPassword && passwordLogin(),
+              }
+            : null,
         },
       }),
     );
@@ -588,6 +606,7 @@ const adminViews = admin
     return c.json(
       plain({
         canInvite: session.user.isOwner,
+        sso: ssoView(),
         signInUrl: new URL("/", getBaseUrl(c.req.raw.headers)).toString(),
         users: users.map((user, index) => ({
           id: user.id,
@@ -625,8 +644,11 @@ const adminViews = admin
           storageId: user.storageId,
           storageLimitBytes: user.storageLimitBytes,
           createdAt: user.createdAt,
+          hasPassword: user.hasPassword,
+          oidcLinked: user.oidcLinked,
           note: accountNote(user),
         },
+        sso: ssoView(),
         storage: {
           used: usage.usedBytes,
           files: row?.retainedFileCount ?? 0,
@@ -689,6 +711,7 @@ const entryView = router().get("/api/views/entry", async (c) => {
   return c.json({
     state: setup.isBootstrapped ? ("sign-in" as const) : ("setup" as const),
     instanceName: name,
+    sso: ssoView(),
   });
 });
 

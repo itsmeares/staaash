@@ -117,6 +117,7 @@ describe("view routes", () => {
       await expect((await get("/api/views/entry")).json()).resolves.toEqual({
         state: "setup",
         instanceName: "Staaash",
+        sso: null,
       });
     });
 

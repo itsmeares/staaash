@@ -3,7 +3,20 @@ import { preferencesInputSchema } from "@/server/auth/schema";
 import { createRoute, z } from "@hono/zod-openapi";
 
 import type { Context } from "hono";
+import { deleteCookie, getCookie } from "hono/cookie";
 import { validator } from "hono/validator";
+
+import { env } from "@/lib/env";
+import { getAuthSecret } from "@/server/auth/crypto";
+import { getRequestSession } from "@/server/auth/guards";
+import {
+  finishOidc,
+  OIDC_FLOW_COOKIE_NAME,
+  OIDC_FLOW_MAX_AGE_SECONDS,
+  redeemOidcInvite,
+  startOidc,
+} from "@/server/auth/oidc";
+import { resolveSecureCookie } from "@/server/cookie-security";
 
 import { canAccessAdminSurface } from "@/server/access";
 import { saveOwnerOnboardingSettings } from "@/server/admin/settings";
@@ -227,6 +240,51 @@ const setSignedInCookies = (
   }
 };
 
+const oidcCookieOptions = (c: Context) => ({
+  httpOnly: true,
+  sameSite: "lax" as const,
+  secure: resolveSecureCookie(c.req.raw),
+  path: "/",
+});
+
+/** Back to a page with the reason in `?error=`, which the page shows. */
+const failedOidc = (
+  c: Context,
+  path: string,
+  error: unknown,
+  next?: string | null,
+) => {
+  if (!(error instanceof AuthError)) console.error("[oidc]", error);
+  const params = new URLSearchParams({
+    error:
+      error instanceof AuthError
+        ? error.message
+        : "Single sign-on is not reachable right now. Try again.",
+  });
+  if (next) params.set("next", next);
+  return c.redirect(`${path}?${params}`, 303);
+};
+
+/** Off to the provider, remembering the trip in a short-lived cookie. */
+const goToProvider = async (
+  c: Context,
+  options: Parameters<typeof startOidc>[2],
+) => {
+  if (!env.oidc) throw new AuthError("OIDC_DISABLED");
+  const { url, cookie } = await startOidc(
+    env.oidc,
+    await getAuthSecret(),
+    options,
+  );
+  applyCookie(c, {
+    name: OIDC_FLOW_COOKIE_NAME,
+    value: cookie,
+    maxAge: OIDC_FLOW_MAX_AGE_SECONDS,
+    ...oidcCookieOptions(c),
+  });
+  return c.redirect(url, 303);
+};
+
 /** Any session, onboarded or not. Onboarding and password changes need it. */
 const anySession = async (token: string | null) => {
   const session = await authService.getSession(token);
@@ -365,6 +423,80 @@ export const authRoutes = router()
       );
     },
   )
+  // Browser redirects for single sign-on, not JSON, so they stay out of
+  // openapi.json. An invite link from the owner starts here too.
+  .get("/api/auth/oidc/start", async (c) => {
+    const next = c.req.query("next") ? localPath(c.req.query("next")) : null;
+    return goToProvider(c, {
+      next,
+      connectUserId: null,
+      invite: c.req.query("invite") || null,
+    }).catch((error: unknown) => failedOidc(c, "/", error, next));
+  })
+  // Settings' Connect button, a same-origin form post.
+  .post("/api/auth/oidc/connect", requireUser, async (c) => {
+    const { session } = c.var;
+    if (session.deviceName) throw new AuthError("ACCESS_DENIED");
+    return goToProvider(c, {
+      next: null,
+      connectUserId: session.user.id,
+      invite: null,
+    }).catch((error: unknown) => failedOidc(c, "/settings", error));
+  })
+  .get("/api/auth/oidc/callback", async (c) => {
+    const cookie = getCookie(c, OIDC_FLOW_COOKIE_NAME);
+    deleteCookie(c, OIDC_FLOW_COOKIE_NAME, oidcCookieOptions(c));
+    if (!env.oidc) return c.redirect("/", 303);
+    const { providerName } = env.oidc;
+    let finished: Awaited<ReturnType<typeof finishOidc>>;
+    try {
+      finished = await finishOidc(
+        env.oidc,
+        await getAuthSecret(),
+        cookie,
+        new URL(c.req.url).search,
+      );
+    } catch (error) {
+      return failedOidc(c, "/", error);
+    }
+    const { identity, flow } = finished;
+
+    if (flow.connectUserId) {
+      try {
+        const session = await getRequestSession(sessionToken(c));
+        if (session?.user.id !== flow.connectUserId) {
+          throw new AuthError("NOT_SIGNED_IN");
+        }
+        await authService.connectOidc(session.user.id, identity);
+      } catch (error) {
+        return failedOidc(c, "/settings", error);
+      }
+      const done = new URLSearchParams({
+        success: `Connected to ${providerName}`,
+      });
+      return c.redirect(`/settings?${done}`, 303);
+    }
+
+    try {
+      const invitedUserId = flow.invite
+        ? await redeemOidcInvite(flow.invite)
+        : null;
+      const result = await authService.signInWithOidc(
+        identity,
+        invitedUserId,
+        getRequestSessionMetadata(c.req.raw.headers),
+      );
+      setSignedInCookies(c, result);
+    } catch (error) {
+      return failedOidc(c, "/", error, flow.next);
+    }
+    return c.redirect(localPath(flow.next ?? undefined), 303);
+  })
+  // Settings' Disconnect. Only while a password still lets them back in.
+  .post("/api/user/oidc/disconnect", requireUser, async (c) => {
+    await authService.disconnectOwnOidc(c.var.session.user.id);
+    return c.json({ ok: true as const });
+  })
   // The app window lands here with its one-time code and leaves signed in.
   .get("/auth/device-callback", async (c) => {
     const code = c.req.query("code");

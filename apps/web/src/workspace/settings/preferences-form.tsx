@@ -9,6 +9,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { AppLink } from "@/components/app-link";
+import { appPath } from "@/lib/app-path";
 import { useEffect, useRef, useState } from "react";
 
 import { AUTO_TIME_ZONE } from "@staaash/config/time-zone";
@@ -93,6 +94,8 @@ type Profile = {
   email: string;
   avatarUrl: string | null;
   role: string;
+  canChangePassword: boolean;
+  sso: { name: string; linked: boolean; canDisconnect: boolean } | null;
 };
 
 const post = async (url: string, body: unknown) => {
@@ -368,6 +371,46 @@ function PasswordEditor({ onDone }: { onDone: () => void }) {
   );
 }
 
+/** Connect goes through the provider and back; Disconnect only while a password is left. */
+function SsoRow({ sso }: { sso: NonNullable<Profile["sso"]> }) {
+  const refresh = useRefresh();
+  if (!sso.linked) {
+    return (
+      <SettingsRow
+        hint="Sign in with it instead of a password"
+        label={sso.name}
+      >
+        <form action={appPath("/api/auth/oidc/connect")} method="post">
+          <Button size="sm" type="submit" variant="outline">
+            Connect
+          </Button>
+        </form>
+      </SettingsRow>
+    );
+  }
+  return (
+    <SettingsRow hint="Connected" label={sso.name}>
+      {sso.canDisconnect ? (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={async () => {
+            try {
+              await post("/api/user/oidc/disconnect", {});
+              toast.success(`Disconnected from ${sso.name}`);
+              void refresh();
+            } catch (caught) {
+              failed(caught, "Could not disconnect.");
+            }
+          }}
+        >
+          Disconnect
+        </Button>
+      ) : null}
+    </SettingsRow>
+  );
+}
+
 // Carries the row border so the row inside keeps its own first-child rule.
 const expandRow = "border-t border-border first:border-t-0";
 
@@ -406,20 +449,23 @@ function ProfileSettings({ profile }: { profile: Profile }) {
           <ProfileEditor profile={profile} onDone={done} />
         </CollapsiblePanel>
       </Collapsible>
-      <Collapsible
-        className={expandRow}
-        open={editing === "password"}
-        onOpenChange={toggle("password")}
-      >
-        <SettingsRow label="Password">
-          <CollapsibleTrigger render={<Button size="sm" variant="outline" />}>
-            Change
-          </CollapsibleTrigger>
-        </SettingsRow>
-        <CollapsiblePanel>
-          <PasswordEditor onDone={done} />
-        </CollapsiblePanel>
-      </Collapsible>
+      {profile.canChangePassword ? (
+        <Collapsible
+          className={expandRow}
+          open={editing === "password"}
+          onOpenChange={toggle("password")}
+        >
+          <SettingsRow label="Password">
+            <CollapsibleTrigger render={<Button size="sm" variant="outline" />}>
+              Change
+            </CollapsibleTrigger>
+          </SettingsRow>
+          <CollapsiblePanel>
+            <PasswordEditor onDone={done} />
+          </CollapsiblePanel>
+        </Collapsible>
+      ) : null}
+      {profile.sso ? <SsoRow sso={profile.sso} /> : null}
       <SettingsRow label="Role">
         <Badge variant="neutral">{profile.role}</Badge>
       </SettingsRow>

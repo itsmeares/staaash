@@ -653,7 +653,7 @@ export const handleStagingCleanup = async (
   });
   if (stagingSettings.warning) warnings.unshift(stagingSettings.warning);
   try {
-    // The sync change log keeps 90 days; device sign-in codes live minutes.
+    // The sync change log keeps 90 days; sign-in codes and invite links go once expired.
     await pruneStorageChanges(getPrisma());
     await getPrisma().deviceAuthCode.deleteMany({
       where: { expiresAt: { lt: new Date() } },

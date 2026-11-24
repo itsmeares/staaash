@@ -1,6 +1,7 @@
 import { useRefresh } from "@/lib/use-refresh";
 import { useRef, useState } from "react";
 
+import { confirmAction } from "@/components/confirm-dialog";
 import { DeviceList } from "@/components/device-list";
 import type { Device } from "@/lib/user-agent";
 import {
@@ -23,8 +24,9 @@ import { formatBytes } from "@/lib/format-bytes";
 import {
   AdminFormDialog,
   sendAdmin,
-  type TemporaryPassword,
-  TemporaryPasswordDialog,
+  type SignInDetails,
+  SignInDetailsDialog,
+  type Sso,
   TemporaryPasswordFields,
   temporaryPasswordPayload,
 } from "./temporary-password";
@@ -168,21 +170,82 @@ function AccountEditor({ account }: { account: Account }) {
   );
 }
 
-/** Reset password (with the result shown once) and their devices. */
-export function SignInCard({
+/** Their single sign-on link: disconnect it, or send a new invite link. */
+function SsoRow({
+  sso,
+  userId,
+  linked,
+  signInUrl,
+  onInvite,
+}: {
+  sso: Sso;
+  userId: string;
+  linked: boolean;
+  signInUrl: string;
+  onInvite: (details: SignInDetails) => void;
+}) {
+  const refresh = useRefresh();
+  const act = async (run: () => Promise<void>) => {
+    try {
+      await run();
+      void refresh();
+    } catch (caught) {
+      toastManager.add({
+        title: caught instanceof Error ? caught.message : "Request failed.",
+        type: "error",
+      });
+    }
+  };
+  const disconnect = () =>
+    act(async () => {
+      const ok = await confirmAction({
+        title: `Disconnect from ${sso.name}?`,
+        description:
+          "They can't sign in with it until you send a new invite link.",
+        confirmLabel: "Disconnect",
+        destructive: true,
+      });
+      if (!ok) return;
+      await sendAdmin(`/api/admin/users/${userId}/oidc-disconnect`, "POST");
+      toastManager.add({ title: "Disconnected", type: "success" });
+    });
+  const invite = () =>
+    act(async () => {
+      const body = await sendAdmin<{ email: string; inviteUrl: string }>(
+        `/api/admin/users/${userId}/oidc-invite`,
+        "POST",
+      );
+      onInvite({ email: body.email, inviteUrl: body.inviteUrl, signInUrl });
+    });
+
+  return (
+    <SettingsRow
+      hint={linked ? "Connected" : "Not connected yet"}
+      label={sso.name}
+    >
+      {linked ? (
+        <Button size="sm" variant="outline" onClick={() => void disconnect()}>
+          Disconnect
+        </Button>
+      ) : (
+        <Button size="sm" variant="outline" onClick={() => void invite()}>
+          New invite link
+        </Button>
+      )}
+    </SettingsRow>
+  );
+}
+
+function PasswordResetRow({
   userId,
   signInUrl,
-  devices,
-  canEdit,
+  onReset,
 }: {
   userId: string;
   signInUrl: string;
-  devices: Device[];
-  canEdit: boolean;
+  onReset: (details: SignInDetails) => void;
 }) {
   const refresh = useRefresh();
-  const [result, setResult] = useState<TemporaryPassword | null>(null);
-
   const reset = async (form: FormData) => {
     const body = await sendAdmin<{
       user: { email: string };
@@ -192,7 +255,7 @@ export function SignInCard({
       "POST",
       temporaryPasswordPayload(form),
     );
-    setResult({
+    onReset({
       email: body.user.email,
       temporaryPassword: body.temporaryPassword,
       signInUrl,
@@ -201,20 +264,60 @@ export function SignInCard({
   };
 
   return (
+    <SettingsRow hint="Signs them out everywhere" label="Password">
+      <AdminFormDialog
+        submitLabel="Reset password"
+        title="Reset password"
+        trigger={<Button size="sm" variant="outline" />}
+        triggerLabel="Reset password"
+        onSubmit={reset}
+      >
+        <TemporaryPasswordFields />
+      </AdminFormDialog>
+    </SettingsRow>
+  );
+}
+
+/** Reset password (with the result shown once) and their devices. */
+export function SignInCard({
+  userId,
+  signInUrl,
+  devices,
+  canEdit,
+  sso,
+  oidcLinked,
+}: {
+  userId: string;
+  signInUrl: string;
+  devices: Device[];
+  canEdit: boolean;
+  sso: Sso | null;
+  oidcLinked: boolean;
+}) {
+  const [result, setResult] = useState<SignInDetails | null>(null);
+  // With passwords off, there is nothing to reset.
+  const passwords = sso?.passwordLogin ?? true;
+
+  return (
     <div className="grid gap-3">
       {canEdit ? (
         <SettingsCard>
-          <SettingsRow hint="Signs them out everywhere" label="Password">
-            <AdminFormDialog
-              submitLabel="Reset password"
-              title="Reset password"
-              trigger={<Button size="sm" variant="outline" />}
-              triggerLabel="Reset password"
-              onSubmit={reset}
-            >
-              <TemporaryPasswordFields />
-            </AdminFormDialog>
-          </SettingsRow>
+          {sso ? (
+            <SsoRow
+              linked={oidcLinked}
+              signInUrl={signInUrl}
+              sso={sso}
+              userId={userId}
+              onInvite={setResult}
+            />
+          ) : null}
+          {passwords ? (
+            <PasswordResetRow
+              signInUrl={signInUrl}
+              userId={userId}
+              onReset={setResult}
+            />
+          ) : null}
         </SettingsCard>
       ) : null}
       <DeviceList
@@ -236,10 +339,7 @@ export function SignInCard({
             : undefined
         }
       />
-      <TemporaryPasswordDialog
-        result={result}
-        onClose={() => setResult(null)}
-      />
+      <SignInDetailsDialog result={result} onClose={() => setResult(null)} />
     </div>
   );
 }

@@ -56,6 +56,7 @@ export const adminCreateUserInputSchema = z.object({
     .trim()
     .email("Enter an email like name@example.com.")
     .transform(normalizeEmail),
+  signInWith: z.enum(["password", "oidc"]).optional(),
   temporaryPassword: z.string().optional(),
   confirmTemporaryPassword: z.string().optional(),
   generateTemporaryPassword: z.boolean().optional(),

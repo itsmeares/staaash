@@ -31,13 +31,16 @@ const isLoopbackRedirect = (value: string) => {
 const s256 = (verifier: string) =>
   createHash("sha256").update(verifier).digest("base64url");
 
-const issueCode = async () => {
+export const issueCode = async () => {
   await getAuthSecret();
   return authCrypto.issueOpaqueToken();
 };
 
 /** Consumes a code once. A second use, or a late one, fails. */
-const consumeCode = async (code: string, kind: "device" | "web") => {
+export const consumeCode = async (
+  code: string,
+  kind: "device" | "web" | "invite",
+) => {
   await getAuthSecret();
   const codeHash = authCrypto.hashOpaqueToken(code);
   const now = new Date();
