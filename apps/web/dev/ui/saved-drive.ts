@@ -42,14 +42,32 @@ async function readSaved(db: IDBDatabase) {
   return { saved, blobs: new Map(ids.map((id, i) => [id, blobs[i]!])) };
 }
 
+/**
+ * A new release, new samples, or a week away starts a fresh drive, so old saved
+ * data never meets code that does not expect it. A new build keeps the visitor
+ * signed in, so reloading into it does not send them back to the sign-in page.
+ * Exported for its unit tests.
+ */
+// fallow-ignore-next-line unused-export
+export function restoreDrive(
+  saved: Saved | undefined,
+  version: string,
+  seed: () => State,
+  now = Date.now(),
+) {
+  const recent = saved !== undefined && now - saved.seenAt < IDLE_LIMIT;
+  if (recent && saved.version === version)
+    return { state: saved.state, kept: true };
+  const state = seed();
+  const userId = recent ? saved.state.userId : null;
+  if (state.users.some((user) => user.id === userId)) state.userId = userId;
+  return { state, kept: false };
+}
+
 export async function openSavedDrive(version: string, seed: () => State) {
   const db = await open();
   const { saved, blobs } = await readSaved(db);
-  // A new release, new samples, or a week away starts a fresh drive, so old saved data
-  // never meets code that does not expect it.
-  const kept =
-    saved?.version === version && Date.now() - saved.seenAt < IDLE_LIMIT;
-  const state = kept ? saved.state : seed();
+  const { state, kept } = restoreDrive(saved, version, seed);
   state.blobs = kept ? blobs : new Map();
   state.uploads = new Map();
   let stored = new Set(blobs.keys());

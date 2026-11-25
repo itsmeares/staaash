@@ -19,7 +19,7 @@ const assets: Assets = {
 /** The dev preview: one sample drive per browser cookie, kept in memory. */
 export function createNodePreviewApp() {
   const sessions = new Map<string, { state: State; lastSeen: number }>();
-  const preview = createPreviewApp(async (c, next) => {
+  return createPreviewApp(async (c, next) => {
     for (const [id, session] of sessions)
       if (Date.now() - session.lastSeen > 2 * 60 * 60 * 1000)
         sessions.delete(id);
@@ -41,11 +41,4 @@ export function createNodePreviewApp() {
     c.set("site", new URL(c.req.url).origin);
     await next();
   });
-  return {
-    app: preview.app,
-    close: () => {
-      preview.close();
-      sessions.clear();
-    },
-  };
 }

@@ -42,7 +42,6 @@ export function seedState(assets: Assets, scenario?: Scenario) {
  * the demo.
  */
 export function createPreviewApp(session: MiddlewareHandler<PreviewEnv>) {
-  const streams = new Set<() => void>();
   const app = new Hono<PreviewEnv>();
   app.onError((error, c) => {
     if (error instanceof PreviewError)
@@ -123,7 +122,7 @@ export function createPreviewApp(session: MiddlewareHandler<PreviewEnv>) {
   });
   mountViews(app);
   mountFiles(app);
-  mountAdmin(app, streams);
+  mountAdmin(app);
   mountUploads(app);
   mountShares(app);
   app.notFound((c) => {
@@ -136,5 +135,5 @@ export function createPreviewApp(session: MiddlewareHandler<PreviewEnv>) {
       404,
     );
   });
-  return { app, close: () => streams.forEach((stop) => stop()) };
+  return { app };
 }
