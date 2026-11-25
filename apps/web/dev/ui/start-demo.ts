@@ -3,7 +3,6 @@ export type DemoUpdate = "ready" | "switched";
 
 let registration: ServiceWorkerRegistration | undefined;
 let notify: ((update: DemoUpdate) => void) | undefined;
-let reloading = false;
 
 const controllerChange = () =>
   new Promise((resolve) =>
@@ -59,7 +58,12 @@ async function switchToNewest(current: ServiceWorkerRegistration) {
   if (!next || !(await installed(next))) return;
   const switched = controllerChange();
   next.postMessage("update");
-  await switched;
+  // A tab on an older build can keep the old worker busy, or a newer release
+  // can replace `next`. Show the page anyway; a late switch reloads or asks.
+  await Promise.race([
+    switched,
+    new Promise((resolve) => setTimeout(resolve, 3000)),
+  ]);
 }
 
 function watchForUpdates(current: ServiceWorkerRegistration) {
@@ -70,7 +74,7 @@ function watchForUpdates(current: ServiceWorkerRegistration) {
   // From here a new worker means a new build, and this page's code is old.
   // Nobody sees a hidden tab reload, and the sign-in page has nothing to lose.
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (reloading || document.hidden || !notify) window.location.reload();
+    if (document.hidden || !notify) window.location.reload();
     else notify("switched");
   });
 }
@@ -82,12 +86,4 @@ export function onDemoUpdate(listener: (update: DemoUpdate) => void) {
   return () => {
     if (notify === listener) notify = undefined;
   };
-}
-
-/** Switches to the waiting build, or reloads into the one already running. */
-export function applyDemoUpdate() {
-  reloading = true;
-  const waiting = registration?.waiting;
-  if (waiting) waiting.postMessage("update");
-  else window.location.reload();
 }
