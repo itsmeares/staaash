@@ -31,27 +31,31 @@ export const startUpdates = (
   let latest: string | null = null;
   /** Leaving candidates drops a candidate already found, so the channel wins. */
   const dropCandidate = () => {
-    if (!latest?.includes("-")) return false;
+    if (!latest?.includes("-")) return;
     latest = null;
     onChange(null);
-    return true;
+  };
+
+  /** Throws when GitHub cannot be reached. */
+  const newestOnGitHub = async () => {
+    // The list's first page always holds the newest release, but a long
+    // run of candidates can push every stable one past it.
+    const response = await fetch(
+      `https://api.github.com/repos/itsmeares/staaash/releases${includeCandidates ? "" : "/latest"}`,
+      { headers: { accept: "application/vnd.github+json" } },
+    );
+    if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
+    const body = (await response.json()) as Release | Release[];
+    return newestRelease(
+      Array.isArray(body) ? body : [body],
+      includeCandidates,
+    );
   };
 
   if (manual) {
     const check = async (): Promise<UpdateCheck> => {
       try {
-        // The list's first page always holds the newest release, but a long
-        // run of candidates can push every stable one past it.
-        const response = await fetch(
-          `https://api.github.com/repos/itsmeares/staaash/releases${includeCandidates ? "" : "/latest"}`,
-          { headers: { accept: "application/vnd.github+json" } },
-        );
-        if (!response.ok) return "failed";
-        const body = (await response.json()) as Release | Release[];
-        const version = newestRelease(
-          Array.isArray(body) ? body : [body],
-          includeCandidates,
-        );
+        const version = await newestOnGitHub();
         if (!version || !newerRelease(version, app.getVersion()))
           return "current";
         latest = version;
@@ -80,16 +84,18 @@ export const startUpdates = (
 
   const { autoUpdater } = electronUpdater;
   autoUpdater.autoInstallOnAppQuit = true;
-  autoUpdater.allowPrerelease = includeCandidates;
+  // What quitting installs, which can differ from the version on offer.
+  let downloaded: string | null = null;
   // A candidate found before the channel changed can still finish later.
   const unwanted = (version: string) =>
-    version.includes("-") && !autoUpdater.allowPrerelease;
+    version.includes("-") && !includeCandidates;
   autoUpdater.on("update-available", (info) => {
     if (unwanted(info.version)) return;
     latest = info.version;
     onChange({ version: info.version, ready: false, manual });
   });
   autoUpdater.on("update-downloaded", (info) => {
+    downloaded = info.version;
     // Decided here, not when the check started, since the channel may change.
     autoUpdater.autoInstallOnAppQuit = !unwanted(info.version);
     if (unwanted(info.version)) return;
@@ -102,6 +108,12 @@ export const startUpdates = (
   });
   const check = async (): Promise<UpdateCheck> => {
     try {
+      // With prereleases on, electron-updater only accepts releases tagged
+      // like the install (rc), so a candidate would never see its stable
+      // release. Pick the newest release here and turn prereleases on only
+      // when that release is a candidate.
+      autoUpdater.allowPrerelease =
+        includeCandidates && Boolean((await newestOnGitHub())?.includes("-"));
       const result = await autoUpdater.checkForUpdates();
       return result?.isUpdateAvailable ? "found" : "current";
     } catch {
@@ -114,9 +126,11 @@ export const startUpdates = (
     install: async () => autoUpdater.quitAndInstall(),
     check,
     setReleaseCandidates: (on: boolean) => {
-      autoUpdater.allowPrerelease = on;
+      includeCandidates = on;
+      if (!on) dropCandidate();
       // The downloaded candidate stays on disk; it just must not install.
-      if (!on && dropCandidate()) autoUpdater.autoInstallOnAppQuit = false;
+      if (!on && downloaded?.includes("-"))
+        autoUpdater.autoInstallOnAppQuit = false;
       void check();
     },
   };

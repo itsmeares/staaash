@@ -34,9 +34,24 @@ const platform = process.platform;
 const setPlatform = (value: NodeJS.Platform) =>
   Object.defineProperty(process, "platform", { value });
 
+const releases = (...tags: string[]) =>
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Response.json(
+        tags.map((tag) => ({
+          tag_name: tag,
+          draft: false,
+          prerelease: tag.includes("-"),
+        })),
+      ),
+    ),
+  );
+
 beforeEach(() => {
   vi.useFakeTimers();
   updater.reset();
+  releases("v2.0.0");
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -90,6 +105,19 @@ it("leaving candidates keeps a stable update that is ready", () => {
   expect(updater.autoInstallOnAppQuit).toBe(true);
 });
 
+it("leaving candidates while a stable update downloads keeps the candidate from installing", () => {
+  setPlatform("linux");
+  const updates = startUpdates(vi.fn(), true);
+  updater.emit("update-downloaded", { version: "2.0.0-rc.9" });
+  updater.emit("update-available", { version: "2.0.0" });
+
+  updates.setReleaseCandidates(false);
+  expect(updater.autoInstallOnAppQuit).toBe(false);
+
+  updater.emit("update-downloaded", { version: "2.0.0" });
+  expect(updater.autoInstallOnAppQuit).toBe(true);
+});
+
 it("on macOS, leaving candidates clears a candidate offer", async () => {
   setPlatform("darwin");
   vi.stubGlobal(
@@ -118,6 +146,59 @@ it("on macOS, leaving candidates clears a candidate offer", async () => {
     "https://api.github.com/repos/itsmeares/staaash/releases/latest",
     expect.anything(),
   );
+});
+
+it("a candidate install asks for the stable release once it is out", async () => {
+  setPlatform("linux");
+  releases("v2.0.0", "v2.0.0-rc.9", "v2.0.0-rc.8");
+  const updates = startUpdates(vi.fn(), true);
+  await updates.check();
+  expect(updater.allowPrerelease).toBe(false);
+  expect(updater.checkForUpdates).toHaveBeenCalled();
+});
+
+it("a candidate install keeps asking for candidates newer than any release", async () => {
+  setPlatform("linux");
+  releases("v2.0.0-rc.9", "v1.2.1");
+  const updates = startUpdates(vi.fn(), true);
+  await updates.check();
+  expect(updater.allowPrerelease).toBe(true);
+});
+
+it("switching to Stable during a lookup keeps candidates off", async () => {
+  setPlatform("linux");
+  let answer = (_response: Response) => {};
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          answer = resolve;
+        }),
+    ),
+  );
+  const updates = startUpdates(vi.fn(), true);
+  const pending = updates.check();
+  updates.setReleaseCandidates(false);
+  answer(
+    Response.json([
+      { tag_name: "v2.1.0-rc.1", draft: false, prerelease: true },
+    ]),
+  );
+  await pending;
+  expect(updater.allowPrerelease).toBe(false);
+});
+
+it("a failed release lookup fails the check instead of guessing", async () => {
+  setPlatform("linux");
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response(null, { status: 403 })),
+  );
+  updater.checkForUpdates.mockClear();
+  const updates = startUpdates(vi.fn(), true);
+  await expect(updates.check()).resolves.toBe("failed");
+  expect(updater.checkForUpdates).not.toHaveBeenCalled();
 });
 
 it("reports where the AppImage went when an update saved it under a new name", () => {
