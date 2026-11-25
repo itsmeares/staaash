@@ -51,13 +51,15 @@ const { app } = createPreviewApp(async (c, next) => {
   });
 });
 
-self.addEventListener("install", () => void self.skipWaiting());
+// A new build waits until a page asks for it (start-demo.ts), so an open page
+// never talks to a sample API from another build.
 self.addEventListener("activate", (event) =>
   event.waitUntil(self.clients.claim()),
 );
-// A hard reload opens the page without a worker; the page asks to be claimed.
 self.addEventListener("message", (event) => {
+  // A hard reload opens the page without a worker; the page asks to be claimed.
   if (event.data === "claim") event.waitUntil(self.clients.claim());
+  if (event.data === "update") event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("fetch", (event) => {

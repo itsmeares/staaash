@@ -3,7 +3,6 @@ import { getRequestListener } from "@hono/node-server";
 import { handlesRequest } from "./requests";
 
 export function uiPreview(): Plugin {
-  let close = () => {};
   return {
     name: "staaash-ui-preview",
     apply: "serve",
@@ -11,9 +10,7 @@ export function uiPreview(): Plugin {
       const { createNodePreviewApp } = (await server.ssrLoadModule(
         "/dev/ui/node.ts",
       )) as typeof import("./node");
-      const preview = createNodePreviewApp();
-      close = preview.close;
-      const app = preview.app;
+      const { app } = createNodePreviewApp();
       const listener = getRequestListener(app.fetch);
       server.middlewares.use((request, response, next) => {
         const path = new URL(request.url ?? "/", "http://preview.invalid")
@@ -25,8 +22,6 @@ export function uiPreview(): Plugin {
           void listener(request, response);
         } else next();
       });
-      server.httpServer?.once("close", close);
     },
-    closeBundle: () => close(),
   };
 }

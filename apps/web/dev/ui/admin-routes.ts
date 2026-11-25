@@ -42,7 +42,7 @@ function editableUser(state: State, id: string) {
   if (!user) throw new PreviewError(404, "User not found.");
   return user;
 }
-export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
+export function mountAdmin(app: Hono<PreviewEnv>) {
   app.use("/api/views/admin/*", async (c, next) => {
     if (requireUser(c.var.state).role === "member")
       throw new PreviewError(403, "Admin access required.");
@@ -199,36 +199,26 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
       status: job.status,
     });
   });
+  // One reply per request, and the browser asks again after `retry`. A stream
+  // held open keeps the demo's service worker busy, so a new build could never
+  // take over.
   app.get("/api/admin/live", (c) =>
     streamSSE(c, async (stream) => {
-      let stopped = false;
-      const stop = () => {
-        stopped = true;
-        stream.abort();
-      };
-      streams.add(stop);
-      stream.onAbort(stop);
-      try {
-        while (!stopped) {
-          const data = jobsView(c.var.state);
-          await stream.writeSSE({
-            event: "update",
-            data: JSON.stringify(updateView(c.var.state)),
-          });
-          if (c.req.query("jobs") === "1")
-            await stream.writeSSE({
-              event: "state",
-              data: JSON.stringify({
-                lastRuns: data.initialLastRuns,
-                problems: data.initialProblems,
-                summary: data.initialSummary,
-              }),
-            });
-          await stream.sleep(1000);
-        }
-      } finally {
-        streams.delete(stop);
-      }
+      await stream.writeSSE({
+        event: "update",
+        data: JSON.stringify(updateView(c.var.state)),
+        retry: 1000,
+      });
+      if (c.req.query("jobs") !== "1") return;
+      const data = jobsView(c.var.state);
+      await stream.writeSSE({
+        event: "state",
+        data: JSON.stringify({
+          lastRuns: data.initialLastRuns,
+          problems: data.initialProblems,
+          summary: data.initialSummary,
+        }),
+      });
     }),
   );
   app.get("/api/admin/updates", (c) => c.json(updateView(c.var.state)));

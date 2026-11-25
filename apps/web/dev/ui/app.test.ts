@@ -15,14 +15,10 @@ vi.mock("@staaash/db/client", () => {
 });
 
 type Files = InferResponseType<typeof api.api.views.files.$get, 200>;
-const previews: ReturnType<typeof createNodePreviewApp>[] = [];
 afterEach(() => {
   vi.restoreAllMocks();
-  for (const preview of previews) preview.close();
-  previews.length = 0;
 });
 function browser(preview = createNodePreviewApp()) {
-  previews.push(preview);
   let cookie = "";
   const request = async (path: string, options: RequestInit = {}) => {
     const headers = new Headers(options.headers);
@@ -1259,16 +1255,13 @@ describe("database-free sample drive", () => {
       ).status,
     ).toBe(200);
   });
-  it("streams fake job state and closes the stream when the preview stops", async () => {
-    const preview = createNodePreviewApp();
-    const client = browser(preview);
-    const response = await client.request("/api/admin/live?jobs=1");
+  it("answers live job state once and has the browser ask again", async () => {
+    const response = await browser().request("/api/admin/live?jobs=1");
     expect(response.headers.get("content-type")).toContain("text/event-stream");
-    const reader = response.body!.getReader();
-    const first = await reader.read();
-    expect(new TextDecoder().decode(first.value)).toContain("event: update");
-    preview.close();
-    await reader.cancel();
+    const body = await response.text();
+    expect(body).toContain("event: update");
+    expect(body).toContain("retry: 1000");
+    expect(body).toContain("event: state");
   });
   it("provides a sample archive for an anonymous folder share", async () => {
     const client = browser();

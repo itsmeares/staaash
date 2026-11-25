@@ -4,7 +4,7 @@ import { Suspense, type ReactNode } from "react";
 
 import { ConfirmHost } from "@/components/confirm-dialog";
 import { isDemo } from "@/lib/demo";
-import { DemoBar } from "@/src/workspace/demo-bar";
+import { DemoBar, DemoUpdates } from "@/src/workspace/demo-bar";
 import { DriveGlyph } from "@staaash/ui/drive-glyph";
 import { DefaultViewProvider } from "@/components/file-list/use-view-mode";
 import { FlashToasts } from "@/components/flash-toasts";
@@ -91,6 +91,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
           <Suspense>
             <FlashToasts />
           </Suspense>
+          {isDemo ? <DemoUpdates /> : null}
           <ConfirmHost />
           <MoveHost />
         </UpdatesProvider>
