@@ -151,6 +151,30 @@ it("a candidate install keeps asking for candidates newer than any release", asy
   expect(updater.allowPrerelease).toBe(true);
 });
 
+it("switching to Stable during a lookup keeps candidates off", async () => {
+  setPlatform("linux");
+  let answer = (_response: Response) => {};
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          answer = resolve;
+        }),
+    ),
+  );
+  const updates = startUpdates(vi.fn(), true);
+  const pending = updates.check();
+  updates.setReleaseCandidates(false);
+  answer(
+    Response.json([
+      { tag_name: "v2.1.0-rc.1", draft: false, prerelease: true },
+    ]),
+  );
+  await pending;
+  expect(updater.allowPrerelease).toBe(false);
+});
+
 it("a failed release lookup fails the check instead of guessing", async () => {
   setPlatform("linux");
   vi.stubGlobal(
