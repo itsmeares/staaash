@@ -34,9 +34,24 @@ const platform = process.platform;
 const setPlatform = (value: NodeJS.Platform) =>
   Object.defineProperty(process, "platform", { value });
 
+const releases = (...tags: string[]) =>
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Response.json(
+        tags.map((tag) => ({
+          tag_name: tag,
+          draft: false,
+          prerelease: tag.includes("-"),
+        })),
+      ),
+    ),
+  );
+
 beforeEach(() => {
   vi.useFakeTimers();
   updater.reset();
+  releases("v2.0.0");
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -90,6 +105,19 @@ it("leaving candidates keeps a stable update that is ready", () => {
   expect(updater.autoInstallOnAppQuit).toBe(true);
 });
 
+it("leaving candidates while a stable update downloads keeps the candidate from installing", () => {
+  setPlatform("linux");
+  const updates = startUpdates(vi.fn(), true);
+  updater.emit("update-downloaded", { version: "2.0.0-rc.9" });
+  updater.emit("update-available", { version: "2.0.0" });
+
+  updates.setReleaseCandidates(false);
+  expect(updater.autoInstallOnAppQuit).toBe(false);
+
+  updater.emit("update-downloaded", { version: "2.0.0" });
+  expect(updater.autoInstallOnAppQuit).toBe(true);
+});
+
 it("on macOS, leaving candidates clears a candidate offer", async () => {
   setPlatform("darwin");
   vi.stubGlobal(
@@ -119,20 +147,6 @@ it("on macOS, leaving candidates clears a candidate offer", async () => {
     expect.anything(),
   );
 });
-
-const releases = (...tags: string[]) =>
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () =>
-      Response.json(
-        tags.map((tag) => ({
-          tag_name: tag,
-          draft: false,
-          prerelease: tag.includes("-"),
-        })),
-      ),
-    ),
-  );
 
 it("a candidate install asks for the stable release once it is out", async () => {
   setPlatform("linux");

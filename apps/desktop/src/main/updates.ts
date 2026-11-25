@@ -31,10 +31,9 @@ export const startUpdates = (
   let latest: string | null = null;
   /** Leaving candidates drops a candidate already found, so the channel wins. */
   const dropCandidate = () => {
-    if (!latest?.includes("-")) return false;
+    if (!latest?.includes("-")) return;
     latest = null;
     onChange(null);
-    return true;
   };
 
   /** Throws when GitHub cannot be reached. */
@@ -85,6 +84,8 @@ export const startUpdates = (
 
   const { autoUpdater } = electronUpdater;
   autoUpdater.autoInstallOnAppQuit = true;
+  // What quitting installs, which can differ from the version on offer.
+  let downloaded: string | null = null;
   // A candidate found before the channel changed can still finish later.
   const unwanted = (version: string) =>
     version.includes("-") && !includeCandidates;
@@ -94,6 +95,7 @@ export const startUpdates = (
     onChange({ version: info.version, ready: false, manual });
   });
   autoUpdater.on("update-downloaded", (info) => {
+    downloaded = info.version;
     // Decided here, not when the check started, since the channel may change.
     autoUpdater.autoInstallOnAppQuit = !unwanted(info.version);
     if (unwanted(info.version)) return;
@@ -125,8 +127,10 @@ export const startUpdates = (
     check,
     setReleaseCandidates: (on: boolean) => {
       includeCandidates = on;
+      if (!on) dropCandidate();
       // The downloaded candidate stays on disk; it just must not install.
-      if (!on && dropCandidate()) autoUpdater.autoInstallOnAppQuit = false;
+      if (!on && downloaded?.includes("-"))
+        autoUpdater.autoInstallOnAppQuit = false;
       void check();
     },
   };
