@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 
 import { resolveUploadMimeType } from "@staaash/config/media-types";
@@ -120,6 +120,8 @@ export type StorageReviewKeptItem = {
 };
 
 export type StorageReviewFix = {
+  /** Shared by the keep's write and the rewrite, so each finds its own. */
+  id: string;
   choice: StorageReviewChoice;
   automatic: boolean;
   byUserId: string | null;
@@ -1917,7 +1919,8 @@ const rewrittenIntent = (mutation: Mutation, rewrite: StepRewrite) => {
 };
 
 // Adds a fix to what the row holds now, not to an earlier read of it, so a
-// fix another request recorded meanwhile stays. The same fix replaces itself.
+// fix another request recorded meanwhile stays. A fix with the same id (the
+// keep's early write) is replaced.
 const recordFix = async (
   tx: Prisma.TransactionClient,
   mutationId: string,
@@ -1930,7 +1933,7 @@ const recordFix = async (
   const { fixes } = readStorageReviewRecord(row?.reviewJson ?? null);
   const record: StorageReviewRecord = {
     ...(inspection ? { inspection } : {}),
-    fixes: [...fixes.filter((known) => known.at !== fix.at), fix],
+    fixes: [...fixes.filter((known) => known.id !== fix.id), fix],
   };
   await tx.storageMutation.update({
     where: { id: mutationId },
@@ -2110,6 +2113,7 @@ export const applyStorageReviewChoice = async ({
     return { outcome: "changed", inspection: inspected.inspection };
   }
   const fix: StorageReviewFix = {
+    id: randomUUID(),
     choice,
     automatic,
     byUserId,

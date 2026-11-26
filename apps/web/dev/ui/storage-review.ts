@@ -255,6 +255,7 @@ const fixedView = (
   inspection: null,
   fixes: [
     {
+      id: `${fixed.id}-fix`,
       choice: fixed.choice ?? "finish",
       automatic: fixed.automatic,
       byUserId: fixed.byUserId,
