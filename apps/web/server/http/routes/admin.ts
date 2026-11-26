@@ -32,6 +32,7 @@ import {
   getAdminStorageSummary,
   toJsonAdminStorageSummary,
 } from "@/server/admin/storage";
+import { startStorageReviewChoice } from "@/server/admin/storage-review";
 import {
   enqueueAdminUpdateCheck,
   getAdminUpdateCheckJob,
@@ -149,6 +150,23 @@ export const adminRoutes = admin
     await retryStorageMutationNow(c.req.param("mutationId"));
     return c.json({ ok: true as const });
   })
+  .post(
+    "/storage/mutations/:mutationId/review",
+    json(
+      z.object({
+        choice: z.enum(["finish", "keep", "undo", "remove", "retry"]),
+        seen: z.string().max(100).nullable(),
+      }),
+    ),
+    async (c) =>
+      c.json({
+        result: await startStorageReviewChoice(
+          c.req.param("mutationId"),
+          c.req.valid("json"),
+          c.var.session.user.id,
+        ),
+      }),
+  )
   .get("/jobs", async (c) =>
     c.json(
       await getAdminJobListResponse(

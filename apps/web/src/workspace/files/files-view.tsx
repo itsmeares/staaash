@@ -501,6 +501,7 @@ export function FilesView({
 
   // ---- Paste animation ----
   const [justMovedIds, setJustMovedIds] = useState<Set<string>>(new Set());
+  const [shownId, setShownId] = useState<string>();
 
   // ---- Share dialog ----
   const [shareDialogTarget, setShareDialogTarget] = useState<{
@@ -550,6 +551,43 @@ export function FilesView({
   ].filter(
     (item) => !storageMutationItemIds.has(item.id) && !movingIds.has(item.id),
   );
+
+  // `?show=<id>` (from a link such as the recovered-copy toast) loads pages
+  // until the item is listed, scrolls to it and flashes it, then leaves the
+  // address.
+  const show = rawSearchParams.get("show");
+  const showLoaded = allItems.some((item) => item.id === show);
+  const revealShown = useEffectEvent((id: string) => {
+    selection.revealItem(id);
+    setShownId(id);
+    setTimeout(() => setShownId(undefined), 2000);
+    const next = new URLSearchParams(rawSearchParams.toString());
+    next.delete("show");
+    const qs = next.toString();
+    void navigate({ replace: true, href: `${pathname}${qs ? `?${qs}` : ""}` });
+  });
+  const loadTowardShown = useEffectEvent(() => void continuous.loadMore());
+  const showEverything = useEffectEvent(() => {
+    setFilterType("all");
+    finder.clear();
+  });
+  useEffect(() => {
+    if (!show) return;
+    if (showLoaded) revealShown(show);
+    // A type filter or a search could hide the item for good.
+    else if (continuous.filtered) showEverything();
+    // A failed page stops here; the list shows its own retry.
+    else if (continuous.hasMore && !continuous.loading && !continuous.error) {
+      loadTowardShown();
+    }
+  }, [
+    show,
+    showLoaded,
+    continuous.filtered,
+    continuous.hasMore,
+    continuous.loading,
+    continuous.error,
+  ]);
 
   const itemData = new Map<string, FolderSummary | FileSummary>(
     [...visibleFolders, ...visibleFiles].map((item) => [item.id, item]),
@@ -2131,7 +2169,9 @@ export function FilesView({
                 ? "bg-primary/14 ring-1 ring-primary/50"
                 : justMovedIds.has(item.id)
                   ? styles.justMoved
-                  : undefined
+                  : shownId === item.id
+                    ? styles.shown
+                    : undefined
             }
             itemProps={(item) => ({
               draggable: !isCoarsePointer && renamingId !== item.id,

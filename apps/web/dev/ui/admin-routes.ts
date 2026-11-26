@@ -24,6 +24,7 @@ import {
   storageSummary,
   updateView,
 } from "./admin";
+import { reviewStorageChange, storageChangeView } from "./storage-review";
 import {
   settingsSchema,
   toSettingsValues,
@@ -96,6 +97,25 @@ export function mountAdmin(app: Hono<PreviewEnv>) {
     return c.json({
       settings: c.var.state.settings,
       updateState: updateView(c.var.state),
+    });
+  });
+  app.get("/api/views/admin/storage/changes/:id", (c) => {
+    const change = storageChangeView(c.var.state, c.req.param("id"));
+    if (!change)
+      throw new PreviewError(
+        404,
+        "Change not found.",
+        "STORAGE_MUTATION_NOT_FOUND",
+      );
+    return c.json({
+      ...change,
+      isOwner: c.var.state.userId === "owner",
+    });
+  });
+  app.post("/api/admin/storage/mutations/:id/review", async (c) => {
+    const { choice } = (await c.req.json()) as { choice: string };
+    return c.json({
+      result: reviewStorageChange(c.var.state, c.req.param("id"), choice),
     });
   });
   app.get("/api/admin/health", (c) => c.json(healthView(c.var.state)));

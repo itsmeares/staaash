@@ -15,6 +15,7 @@ import { ToastProvider } from "@staaash/ui/components/toast";
 
 import { AppRail, AppSidebar } from "./app-sidebar";
 import { MoveHost } from "./move-dialog";
+import { RecoveredNotice } from "./recovered-notice";
 import { ShortcutsDialog } from "./shortcuts-dialog";
 import { TopbarActions } from "./topbar-actions";
 import { UpdatesProvider } from "./updates";
@@ -37,6 +38,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
           notify={person.notify}
         >
           <SkipLink />
+          <RecoveredNotice />
           <div className="grid h-dvh w-full grid-cols-1 overflow-hidden bg-background rail:grid-cols-[var(--spacing-rail)_minmax(0,1fr)] desk:grid-cols-[var(--spacing-sidebar)_minmax(0,1fr)]">
             <AppSidebar info={info} />
             <AppRail info={info} />

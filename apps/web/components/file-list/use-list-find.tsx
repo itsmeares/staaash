@@ -13,6 +13,11 @@ export function useListFind(label: string) {
   const origin = useRef<HTMLElement | null>(null);
   return {
     find: query,
+    clear: () => {
+      setFind("");
+      setQuery("");
+      setOpen(false);
+    },
     show: () => {
       origin.current =
         document.activeElement?.closest<HTMLElement>("[data-file-list]") ??

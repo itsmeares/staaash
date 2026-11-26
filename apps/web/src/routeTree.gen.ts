@@ -37,6 +37,7 @@ import { Route as WorkspaceFilesFFolderIdRouteImport } from './routes/_workspace
 import { Route as WorkspaceFilesViewFileIdRouteImport } from './routes/_workspace/files.view.$fileId'
 import { Route as STokenFFolderIdRouteImport } from './routes/s.$token.f.$folderId'
 import { Route as STokenFilesFileIdRouteImport } from './routes/s.$token.files.$fileId'
+import { Route as WorkspaceAdminStorageChangesMutationIdRouteImport } from './routes/_workspace/admin.storage_.changes.$mutationId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -181,6 +182,12 @@ const STokenFilesFileIdRoute = STokenFilesFileIdRouteImport.update({
   path: '/files/$fileId',
   getParentRoute: () => STokenRoute,
 } as any)
+const WorkspaceAdminStorageChangesMutationIdRoute =
+  WorkspaceAdminStorageChangesMutationIdRouteImport.update({
+    id: '/storage_/changes/$mutationId',
+    path: '/storage/changes/$mutationId',
+    getParentRoute: () => WorkspaceAdminRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -210,6 +217,7 @@ export interface FileRoutesByFullPath {
   '/s/$token/f/$folderId': typeof STokenFFolderIdRoute
   '/s/$token/files/$fileId': typeof STokenFilesFileIdRoute
   '/admin/users/': typeof WorkspaceAdminUsersIndexRoute
+  '/admin/storage/changes/$mutationId': typeof WorkspaceAdminStorageChangesMutationIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -237,6 +245,7 @@ export interface FileRoutesByTo {
   '/s/$token/f/$folderId': typeof STokenFFolderIdRoute
   '/s/$token/files/$fileId': typeof STokenFilesFileIdRoute
   '/admin/users': typeof WorkspaceAdminUsersIndexRoute
+  '/admin/storage/changes/$mutationId': typeof WorkspaceAdminStorageChangesMutationIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -268,6 +277,7 @@ export interface FileRoutesById {
   '/s/$token/f/$folderId': typeof STokenFFolderIdRoute
   '/s/$token/files/$fileId': typeof STokenFilesFileIdRoute
   '/_workspace/admin/users/': typeof WorkspaceAdminUsersIndexRoute
+  '/_workspace/admin/storage_/changes/$mutationId': typeof WorkspaceAdminStorageChangesMutationIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -299,6 +309,7 @@ export interface FileRouteTypes {
     | '/s/$token/f/$folderId'
     | '/s/$token/files/$fileId'
     | '/admin/users/'
+    | '/admin/storage/changes/$mutationId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -326,6 +337,7 @@ export interface FileRouteTypes {
     | '/s/$token/f/$folderId'
     | '/s/$token/files/$fileId'
     | '/admin/users'
+    | '/admin/storage/changes/$mutationId'
   id:
     | '__root__'
     | '/'
@@ -356,6 +368,7 @@ export interface FileRouteTypes {
     | '/s/$token/f/$folderId'
     | '/s/$token/files/$fileId'
     | '/_workspace/admin/users/'
+    | '/_workspace/admin/storage_/changes/$mutationId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -566,6 +579,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof STokenFilesFileIdRouteImport
       parentRoute: typeof STokenRoute
     }
+    '/_workspace/admin/storage_/changes/$mutationId': {
+      id: '/_workspace/admin/storage_/changes/$mutationId'
+      path: '/storage/changes/$mutationId'
+      fullPath: '/admin/storage/changes/$mutationId'
+      preLoaderRoute: typeof WorkspaceAdminStorageChangesMutationIdRouteImport
+      parentRoute: typeof WorkspaceAdminRoute
+    }
   }
 }
 
@@ -576,6 +596,7 @@ interface WorkspaceAdminRouteChildren {
   WorkspaceAdminIndexRoute: typeof WorkspaceAdminIndexRoute
   WorkspaceAdminUsersUserIdRoute: typeof WorkspaceAdminUsersUserIdRoute
   WorkspaceAdminUsersIndexRoute: typeof WorkspaceAdminUsersIndexRoute
+  WorkspaceAdminStorageChangesMutationIdRoute: typeof WorkspaceAdminStorageChangesMutationIdRoute
 }
 
 const WorkspaceAdminRouteChildren: WorkspaceAdminRouteChildren = {
@@ -585,6 +606,8 @@ const WorkspaceAdminRouteChildren: WorkspaceAdminRouteChildren = {
   WorkspaceAdminIndexRoute: WorkspaceAdminIndexRoute,
   WorkspaceAdminUsersUserIdRoute: WorkspaceAdminUsersUserIdRoute,
   WorkspaceAdminUsersIndexRoute: WorkspaceAdminUsersIndexRoute,
+  WorkspaceAdminStorageChangesMutationIdRoute:
+    WorkspaceAdminStorageChangesMutationIdRoute,
 }
 
 const WorkspaceAdminRouteWithChildren = WorkspaceAdminRoute._addFileChildren(

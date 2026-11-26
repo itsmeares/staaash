@@ -90,8 +90,10 @@ with a reason that beats the one given.
 2. Every rename, move, trash, restore and upload commit goes through the
    mutation journal.
    Why: a crash at any step leaves a state recovery can finish.
-3. An ambiguous outcome keeps every possible byte and fails closed until an
-   operator investigates.
+3. An ambiguous outcome keeps every possible byte and fails closed. Staaash
+   resolves it alone only when one answer keeps every byte, and then only by
+   renaming to an unused name or removing empty folders. Every other case
+   waits for the instance owner to choose on the review page.
    Why: guessing can destroy a file, and stopping only delays it.
 4. Newly trashed roots use isolated readable paths below `.trash/<storageId>/`.
    Why: trashed bytes never collide with active files, and restore knows

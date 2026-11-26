@@ -32,6 +32,27 @@ export function mountViews(app: Hono<PreviewEnv>) {
     c.json(shellView(c.var.state, updateView(c.var.state))),
   );
   app.get("/api/views/home", (c) => c.json(homeView(c.var.state, c.var.site)));
+  app.get("/api/views/recovered-notice", (c) =>
+    c.json(
+      c.var.state.recoveredNotice
+        ? {
+            ids: ["member-recovered-change"],
+            items: [
+              {
+                id: "member-recovered",
+                kind: "folder" as const,
+                name: "Photos (recovered, 2026-11-25 14-09)",
+                folderId: null,
+              },
+            ],
+          }
+        : null,
+    ),
+  );
+  app.post("/api/views/recovered-notice/seen", (c) => {
+    c.var.state.recoveredNotice = false;
+    return c.json({ ok: true as const });
+  });
   app.get("/api/views/settings", (c) => c.json(settingsView(c.var.state)));
   app.get("/api/views/files", (c) =>
     c.json(filesView(c.var.state, c.var.site)),

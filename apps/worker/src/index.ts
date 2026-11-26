@@ -7,6 +7,7 @@ import {
   recoverOrphanedDerivativeGenerations,
 } from "@staaash/db/jobs";
 import { pruneSucceededStorageMutationResults } from "@staaash/db/storage-mutations";
+import { reviewStoppedStorageMutations } from "@staaash/db/storage-review";
 import { verifyCommittedStorageUsage } from "@staaash/db/reconciliation";
 
 import {
@@ -45,6 +46,8 @@ const runMaintenance = async () => {
   });
   await initializeStorageProtocol({ storagePaths });
   await recoverUnjournaledUserStorageProvisioning({ storagePaths });
+  // Fixes stopped changes that have one right answer; recovery then runs them.
+  await reviewStoppedStorageMutations({ filesRoot: storagePaths.filesRoot });
   await recoverStorageMutations({
     storagePaths,
     // The runner's storage lanes poll these every second.

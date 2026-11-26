@@ -117,6 +117,23 @@ export const adminStorageQuery = (mutationId?: string) =>
     staleTime: 0,
   });
 
+export const adminStorageChangeQuery = (mutationId: string) =>
+  queryOptions({
+    queryKey: ["admin", "storage", "change", mutationId],
+    queryFn: () =>
+      read(
+        admin.storage.changes[":mutationId"].$get({ param: { mutationId } }),
+      ),
+    staleTime: 0,
+  });
+
+export const recoveredNoticeQuery = queryOptions({
+  queryKey: ["recovered-notice"],
+  queryFn: () => read(views["recovered-notice"].$get()),
+  // The worker can keep a copy while the page is open; focus checks again.
+  staleTime: 5 * 60_000,
+});
+
 export const adminUsersQuery = queryOptions({
   queryKey: ["admin", "users"],
   queryFn: () => read(admin.users.$get()),

@@ -32,8 +32,34 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** One line that says whether anything needs the owner, and what. */
-function StatusLine({ summary }: { summary: Summary }) {
+function ReviewLine({ count }: { count: number }) {
+  const one = count === 1;
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/8 px-4 py-3">
+      <AlertTriangle
+        aria-hidden
+        className="size-4 text-destructive-foreground"
+      />
+      <span className="flex-1 text-body">
+        <b className="font-semibold">
+          {plural(count, "storage change")} {one ? "needs" : "need"} review.
+        </b>{" "}
+        <span className="text-muted-foreground">
+          {one ? "Its files are" : "Their files are"} locked until then.
+        </span>
+      </span>
+      <Button
+        render={<AppLink href="/admin/storage" />}
+        size="sm"
+        variant="outline"
+      >
+        Review
+      </Button>
+    </div>
+  );
+}
+
+function JobsLine({ summary }: { summary: Summary }) {
   const { failed, dead } = summary.jobs;
   if (failed + dead === 0) return null;
   const safe = summary.health.ok ? " Files are safe." : "";
@@ -62,6 +88,33 @@ function StatusLine({ summary }: { summary: Summary }) {
   );
 }
 
+/** One line that says whether anything needs the owner, and what. */
+function StatusLine({ summary }: { summary: Summary }) {
+  const review = summary.health.storageMutations.counts.recovery_required ?? 0;
+  return review > 0 ? (
+    <ReviewLine count={review} />
+  ) : (
+    <JobsLine summary={summary} />
+  );
+}
+
+const storageChangesRow = (health: Summary["health"]) => {
+  const { counts } = health.storageMutations;
+  const review = counts.recovery_required ?? 0;
+  const unfinished = Object.values(counts).reduce((sum, n) => sum + n, 0);
+  return [
+    "Storage changes",
+    review || unfinished === 0
+      ? health.checks.storageMutations.status
+      : "warning",
+    review
+      ? `${review} to review`
+      : unfinished
+        ? `${unfinished} finishing on their own`
+        : "All finished",
+  ] as const;
+};
+
 const healthRows = ({ health }: Summary) =>
   [
     [
@@ -75,6 +128,7 @@ const healthRows = ({ health }: Summary) =>
       health.checks.storage.message ?? "Writable",
     ],
     ["Worker", health.worker.status, health.worker.message],
+    storageChangesRow(health),
     [
       "Disk space",
       health.storageWarnings.status,
