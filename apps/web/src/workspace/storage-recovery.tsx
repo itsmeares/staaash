@@ -37,13 +37,13 @@ export function StorageRecoveryHelp({
             <AppLink
               href={
                 mutationId
-                  ? `/admin/storage?mutationId=${encodeURIComponent(mutationId)}`
+                  ? `/admin/storage/changes/${encodeURIComponent(mutationId)}`
                   : "/admin/storage"
               }
             />
           }
         >
-          View recovery details
+          Review this change
         </Button>
       ) : (
         <p className="m-0 text-muted-foreground">
@@ -63,9 +63,11 @@ function StorageRecoveryStatus({ mutationId }: { mutationId?: string }) {
       onKeyDown={(event) => event.stopPropagation()}
     >
       <Popover>
+        {/* Plain text, so it sits in the row's second line like the
+            other status labels. */}
         <PopoverTrigger
           aria-disabled={false}
-          render={<Button size="xs" variant="link" />}
+          className="cursor-pointer underline decoration-dotted underline-offset-2 hover:text-foreground"
         >
           Needs a storage check
         </PopoverTrigger>

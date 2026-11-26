@@ -28,6 +28,7 @@ export default defineConfig({
       "storage-transactions": "src/storage-transactions.ts",
       "storage-changes": "src/storage-changes.ts",
       "storage-mutations": "src/storage-mutations.ts",
+      "storage-review": "src/storage-review.ts",
       "storage-mutation-executor": "src/storage-mutation-executor.ts",
     },
     format: ["esm"],

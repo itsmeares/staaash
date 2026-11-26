@@ -63,6 +63,10 @@
       "types": "./dist/storage-mutation-executor.d.ts",
       "default": "./dist/storage-mutation-executor.js"
     },
+    "./storage-review": {
+      "types": "./dist/storage-review.d.ts",
+      "default": "./dist/storage-review.js"
+    },
     "./storage-transactions": {
       "types": "./dist/storage-transactions.d.ts",
       "default": "./dist/storage-transactions.js"

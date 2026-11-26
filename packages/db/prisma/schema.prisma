@@ -566,6 +566,12 @@ model StorageMutation {
   metadataOperationsApplied Int                  @default(0)
   completedAt          DateTime?
   recoveryRequiredAt   DateTime?
+  /// What the last review found on disk and every fix applied to this change.
+  reviewJson           Json?
+  /// When a fix last resumed this change after it stopped for review.
+  reviewedAt           DateTime?
+  /// When the owner of the change saw the notice about copies Staaash kept.
+  reviewNoticeSeenAt   DateTime?
   reservedBytes        BigInt?
   /// The device session that asked for this change, so it can skip its echo.
   originDeviceId       String?
@@ -584,6 +590,7 @@ model StorageMutation {
   @@index([ownerUserId], map: "StorageMutation_reserved_owner_idx", where: raw("\"reservedBytes\" IS NOT NULL"))
   @@index([leaseExpiresAt])
   @@index([parentId])
+  @@index([reviewedAt])
 }
 
 model StorageMutationStep {

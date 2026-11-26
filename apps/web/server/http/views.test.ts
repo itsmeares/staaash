@@ -54,6 +54,11 @@ vi.mock("@staaash/db/storage-mutations", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@staaash/db/storage-mutations")>()),
   getStorageMutationHealth: mocks.getStorageMutationHealth,
 }));
+vi.mock("@staaash/db/storage-review", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/storage-review")>()),
+  listReviewedStorageMutations: async () => [],
+  readStorageReviewSummaries: async () => new Map(),
+}));
 
 import { createApp } from "@/server/http/core";
 import { viewRoutes } from "@/server/http/routes/views";

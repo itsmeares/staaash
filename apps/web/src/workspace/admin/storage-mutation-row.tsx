@@ -53,7 +53,6 @@ export function MutationRow({
   owner: string;
   isOwner: boolean;
 }) {
-  const recovery = mutation.status === "recovery_required";
   const diagnostics = [
     `Operation: ${mutation.id}`,
     `Kind: ${mutation.kind}`,
@@ -67,27 +66,13 @@ export function MutationRow({
         <span className="min-w-0 flex-1 text-body font-medium">
           {words(mutation.kind)} · {owner}
         </span>
-        <Badge variant={recovery ? "error" : "warning"}>
-          {recovery ? "Needs review" : words(mutation.status)}
-        </Badge>
-        {!recovery && mutation.canRetryNow && isOwner ? (
+        <Badge variant="warning">{words(mutation.status)}</Badge>
+        {mutation.canRetryNow && isOwner ? (
           <RetryButton mutationId={mutation.id} />
         ) : null}
       </div>
       <div className="grid min-w-0 gap-3 text-body">
-        {recovery ? (
-          <>
-            <p className="m-0 text-muted-foreground">
-              Staaash stopped this change to avoid risking your files. It needs
-              manual review and will not finish by waiting or refreshing.
-            </p>
-            <p className="m-0 break-words whitespace-pre-wrap">
-              {mutation.lastError || "No error was recorded."}
-            </p>
-          </>
-        ) : (
-          <p className="m-0 text-muted-foreground">Finishing on its own</p>
-        )}
+        <p className="m-0 text-muted-foreground">Finishing on its own</p>
         {mutation.safePathLabels.length ? (
           <p className="m-0 text-label break-words text-muted-foreground">
             {mutation.safePathLabels.join(", ")}
@@ -99,21 +84,6 @@ export function MutationRow({
           </code>
           <UserDetailCopyButton label="recovery details" value={diagnostics} />
         </div>
-        {recovery ? (
-          <p className="m-0 text-muted-foreground">
-            {isOwner
-              ? "Check the worker logs for this operation ID and follow the storage recovery guide. Copy these details if you need help. Do not move or delete storage files by hand."
-              : "Give these details to the instance owner. They need to check the worker logs and follow the storage recovery guide. Do not move or delete storage files by hand."}{" "}
-            <a
-              className="underline underline-offset-4"
-              href="https://staaash.org/docs/storage-check/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Storage recovery guide
-            </a>
-          </p>
-        ) : null}
       </div>
     </div>
   );

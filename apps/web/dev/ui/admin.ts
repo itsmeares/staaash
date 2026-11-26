@@ -12,6 +12,11 @@ import {
   sampleDisk,
 } from "./state";
 import { storageView } from "./views";
+import {
+  activeReviewSamples,
+  fixedChangesView,
+  reviewSummary,
+} from "./storage-review";
 
 function updateStatus(state: State): UpdateState["status"] {
   if (!state.settings.updateCheckEnabled) return "off";
@@ -158,27 +163,28 @@ export function jobsView(state: State) {
 function mutationHealth(
   state: State,
 ): Plain<InstanceHealthSummary>["storageMutations"] {
-  if (!state.recovering) return { counts: {}, oldest: null, active: [] };
-  const mutation = {
-    id: "sample-move",
-    kind: "folder_move",
+  const active = activeReviewSamples(state).map((sample) => ({
+    id: sample.id,
+    kind: sample.kind,
     status: "recovery_required" as const,
-    ownerUserId: "owner",
+    ownerUserId: sample.ownerUserId,
     createdAt: timestamp,
     ageMs: 120000,
-  };
+    lastError: sample.lastError,
+    canRetryNow: false,
+    safePathLabels: sample.inspection.places.map((place) => place.label),
+  }));
+  if (!active.length) return { counts: {}, oldest: null, active: [] };
+  const {
+    lastError: _error,
+    canRetryNow: _retry,
+    safePathLabels: _labels,
+    ...oldest
+  } = active[0]!;
   return {
-    counts: { recovery_required: 1 },
-    oldest: mutation,
-    active: [
-      {
-        ...mutation,
-        lastError:
-          "Both rename source and target exist. Staaash cannot confirm which copy matches the saved change.",
-        canRetryNow: false,
-        safePathLabels: ["Files / Photos"],
-      },
-    ],
+    counts: { recovery_required: active.length },
+    oldest,
+    active,
   };
 }
 const checkStatus = (failed: boolean) =>
@@ -186,7 +192,8 @@ const checkStatus = (failed: boolean) =>
 export function healthView(state: State): Plain<InstanceHealthSummary> {
   const failed = state.scenario === "error";
   const incidents = failed ? ["Sample job needs attention."] : [];
-  if (state.recovering) incidents.push("STORAGE_RECOVERY_REQUIRED");
+  const reviewing = activeReviewSamples(state).length > 0;
+  if (reviewing) incidents.push("STORAGE_RECOVERY_REQUIRED");
   const counts = jobsView(state).initialSummary.statusCounts;
   return {
     ok: incidents.length === 0,
@@ -200,7 +207,7 @@ export function healthView(state: State): Plain<InstanceHealthSummary> {
       database: { status: "healthy" },
       storage: { status: checkStatus(failed) },
       settings: { status: "healthy" },
-      storageMutations: { status: checkStatus(state.recovering) },
+      storageMutations: { status: checkStatus(reviewing) },
       queue: { status: "healthy" },
     },
     worker: {
@@ -264,10 +271,13 @@ export function adminOverview(state: State) {
 export function adminStorage(state: State, mutationId?: string) {
   return {
     summary: storageSummary(state),
-    mutations: healthView(state).storageMutations.active.filter(
-      (mutation) => !mutationId || mutation.id === mutationId,
-    ),
+    mutations: healthView(state)
+      .storageMutations.active.filter(
+        (mutation) => !mutationId || mutation.id === mutationId,
+      )
+      .map((mutation) => ({ ...mutation, review: reviewSummary(mutation.id) })),
     disk,
+    fixed: fixedChangesView(state),
   } satisfies InferResponseType<typeof api.api.views.admin.storage.$get, 200>;
 }
 export function adminUsers(state: State, origin: string) {

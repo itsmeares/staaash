@@ -50,6 +50,7 @@ const STORAGE_MUTATION_KINDS = [
   "archive_publish",
   "archive_purge",
   "legacy_recovery",
+  "storage_review_keep",
 ] as const;
 
 export const buildStorageMutationChildRequestHashPayload = ({
@@ -126,7 +127,9 @@ type StorageMutationAction =
   | "rename"
   | "delete_file"
   | "delete_tree"
-  | "remove_empty_directory";
+  | "remove_empty_directory"
+  | "set_aside"
+  | "remove_empty_tree";
 
 export type StorageMutationStepInput = {
   action: StorageMutationAction;
@@ -270,6 +273,12 @@ type PrepareStorageMutationInput = {
   uploadSessionId?: string | null;
   /** The device session that asked; children inherit their parent's. */
   originDeviceId?: string | null;
+  /**
+   * A stopped change whose locks and entity guards this one may share. A
+   * review keeps copies at paths that change still holds, and that change
+   * waits until it is done.
+   */
+  sharedWithMutationId?: string;
 };
 
 const mutationInclude = {
@@ -879,6 +888,7 @@ const applyMetadataOperations = async (
 const validatePreparedEntityRevisions = async (
   tx: Prisma.TransactionClient,
   entities: StorageMutationEntityInput[],
+  sharedWithMutationId?: string,
 ) => {
   if (entities.length === 0) return;
   const idsFor = (entityType: StorageMutationEntityInput["entityType"]) =>
@@ -892,7 +902,10 @@ const validatePreparedEntityRevisions = async (
       OR: [...new Set(entities.map((entity) => entity.entityType))].map(
         (entityType) => ({ entityType, entityId: { in: idsFor(entityType) } }),
       ),
-      mutation: { status: "recovery_required" },
+      mutation: {
+        status: "recovery_required",
+        ...(sharedWithMutationId ? { id: { not: sharedWithMutationId } } : {}),
+      },
     },
     select: { mutationId: true },
   });
@@ -959,6 +972,7 @@ const validatePreparedEntityRevisions = async (
 const validatePreparedFolderGuards = (
   tx: Prisma.TransactionClient,
   guards: PrepareStorageMutationInput["folderGuards"] = [],
+  sharedWithMutationId?: string,
 ) =>
   validatePreparedEntityRevisions(
     tx,
@@ -970,6 +984,7 @@ const validatePreparedFolderGuards = (
       beforeJson: null,
       afterJson: null,
     })),
+    sharedWithMutationId,
   );
 
 type NamespaceTarget = {
@@ -1368,7 +1383,7 @@ const resourceKeyAndAncestors = (resourceKey: string) => {
 const assertNoOverlappingOwnerResources = async (
   tx: Prisma.TransactionClient,
   resourceKeys: string[],
-  selfMutationId?: string,
+  selfMutationIds: string[] = [],
 ) => {
   const ownerKeys = resourceKeys.filter((key) => ownerOfResourceKey(key));
   const owners = Array.from(
@@ -1390,7 +1405,7 @@ const assertNoOverlappingOwnerResources = async (
     SELECT "mutationId"
       FROM "StorageMutationResource"
      WHERE "releasedAt" IS NULL
-       AND "mutationId" <> ${selfMutationId ?? ""}
+       AND NOT ("mutationId" = ANY(${selfMutationIds}::text[]))
        -- Also folded here: a lock taken before keys were folded may still be
        -- held. The plain match stays, so this only ever finds more.
        AND EXISTS (
@@ -1414,7 +1429,7 @@ const assertNoOverlappingOwnerResources = async (
 const acquireStorageMutationResources = async (
   tx: Prisma.TransactionClient,
   resourceKeys: string[],
-  selfMutationId?: string,
+  selfMutationIds: string[] = [],
 ) => {
   if (resourceKeys.length === 0) return;
   const globalRequested = resourceKeys.includes("storage:global-recovery");
@@ -1427,6 +1442,7 @@ const acquireStorageMutationResources = async (
   const conflictingResource = await tx.storageMutationResource.findFirst({
     where: {
       releasedAt: null,
+      mutationId: { notIn: selfMutationIds },
       ...(globalRequested ? {} : { resourceKey: "storage:global-recovery" }),
     },
     select: { mutationId: true },
@@ -1437,7 +1453,7 @@ const acquireStorageMutationResources = async (
       conflictingResource.mutationId,
     );
   }
-  await assertNoOverlappingOwnerResources(tx, resourceKeys, selfMutationId);
+  await assertNoOverlappingOwnerResources(tx, resourceKeys, selfMutationIds);
 };
 
 /** A child mutation counts as the same device's change as its parent. */
@@ -1571,13 +1587,25 @@ const prepareStorageMutationTransaction = async (
   if (input.reservedBytes) {
     await assertOwnerQuotaAvailable(tx, input.ownerUserId, input.reservedBytes);
   }
-  await acquireStorageMutationResources(tx, resourceKeys);
+  await acquireStorageMutationResources(
+    tx,
+    resourceKeys,
+    input.sharedWithMutationId ? [input.sharedWithMutationId] : [],
+  );
   // After the path locks: nothing can rename a guarded folder from here on.
-  await validatePreparedFolderGuards(tx, input.folderGuards);
+  await validatePreparedFolderGuards(
+    tx,
+    input.folderGuards,
+    input.sharedWithMutationId,
+  );
   const created = await createPreparingStorageMutation(tx, input, resourceKeys);
   const entities = input.entities ?? [];
   await insertStorageMutationEntities(tx, created.id, entities);
-  await validatePreparedEntityRevisions(tx, entities);
+  await validatePreparedEntityRevisions(
+    tx,
+    entities,
+    input.sharedWithMutationId,
+  );
   await validatePreparedNamespaces(
     tx,
     input.ownerUserId,
@@ -1647,8 +1675,16 @@ const prepareChunkedStorageMutation = async (
         input.reservedBytes,
       );
     }
-    await acquireStorageMutationResources(tx, resourceKeys);
-    await validatePreparedFolderGuards(tx, input.folderGuards);
+    await acquireStorageMutationResources(
+      tx,
+      resourceKeys,
+      input.sharedWithMutationId ? [input.sharedWithMutationId] : [],
+    );
+    await validatePreparedFolderGuards(
+      tx,
+      input.folderGuards,
+      input.sharedWithMutationId,
+    );
     return createPreparingStorageMutation(tx, input, resourceKeys);
   }, options);
   try {
@@ -1657,7 +1693,11 @@ const prepareChunkedStorageMutation = async (
       const chunk = entities.slice(at, at + STORAGE_MUTATION_CHUNK_SIZE);
       await runPreparationChunk(created.id, async (tx) => {
         await insertStorageMutationEntities(tx, created.id, chunk);
-        await validatePreparedEntityRevisions(tx, chunk);
+        await validatePreparedEntityRevisions(
+          tx,
+          chunk,
+          input.sharedWithMutationId,
+        );
       });
     }
     const operations = getPreparedMetadataOperations(input.intentJson) ?? [];
@@ -1708,12 +1748,32 @@ const resolvePreparationConflict = async (
   );
 };
 
+// A review fix runs beside the stopped change it repairs. Paths that change
+// still holds stay locked by it, so the fix does not lock them twice.
+const withoutSharedKeys = async (
+  resourceKeys: string[],
+  sharedWithMutationId: string | undefined,
+) => {
+  if (!sharedWithMutationId) return resourceKeys;
+  const held = await getPrisma().storageMutationResource.findMany({
+    where: {
+      mutationId: sharedWithMutationId,
+      releasedAt: null,
+      resourceKey: { in: resourceKeys },
+    },
+    select: { resourceKey: true },
+  });
+  const heldKeys = new Set(held.map((resource) => resource.resourceKey));
+  return resourceKeys.filter((key) => !heldKeys.has(key));
+};
+
 export const prepareStorageMutation = async (
   input: PrepareStorageMutationInput,
   options: StorageTransactionOptions = {},
 ): Promise<PrepareStorageMutationResult> => {
-  const resourceKeys = lockKeys(
-    input.resourceKeys ?? deriveStorageMutationResourceKeys(input),
+  const resourceKeys = await withoutSharedKeys(
+    lockKeys(input.resourceKeys ?? deriveStorageMutationResourceKeys(input)),
+    input.sharedWithMutationId,
   );
   const replay = await findPreparedMutationReplay(input);
   if (replay) return replay;
@@ -1907,7 +1967,7 @@ export const claimStorageMutation = async ({
     // fallow-ignore-next-line complexity
     claimed = await runStorageTransaction(async (tx) => {
       if (uniqueResources.length > 0) {
-        await acquireStorageMutationResources(tx, uniqueResources, id);
+        await acquireStorageMutationResources(tx, uniqueResources, [id]);
         const held = await tx.storageMutationResource.findFirst({
           where: {
             resourceKey: { in: uniqueResources },
@@ -2342,16 +2402,30 @@ const redactStorageMutationEntities = async ({
   }
 };
 
+/**
+ * Set on a change a review rewrote: "undone" when the owner chose Undo, so it
+ * ends aborted like a rollback even though it committed the review's metadata.
+ */
+export const storageReviewOutcomeOf = (intentJson: unknown) => {
+  const review = (intentJson as { review?: { outcome?: unknown } } | null)
+    ?.review;
+  if (!review || typeof review !== "object") return null;
+  return review.outcome === "undone" ? ("undone" as const) : ("fixed" as const);
+};
+
 export const completeStorageMutation = async ({
   mutationId,
   leaseOwner,
   leaseToken,
   resultJson,
+  undone = false,
 }: {
   mutationId: string;
   leaseOwner: string;
   leaseToken: bigint;
   resultJson?: Prisma.InputJsonValue;
+  /** The change was undone after review: it ends aborted and frees its key. */
+  undone?: boolean;
 }) => {
   await redactStorageMutationEntities({ mutationId, leaseOwner, leaseToken });
   return runStorageTransaction(async (tx) => {
@@ -2365,10 +2439,14 @@ export const completeStorageMutation = async ({
         leaseExpiresAt: { gt: completedAt },
       },
       data: {
-        status: "succeeded",
-        resultJson,
+        ...(undone
+          ? abortedStorageMutationData(
+              new StorageMutationRejectedError("STORAGE_MUTATION_ABORTED"),
+              "Undone after review.",
+              completedAt,
+            )
+          : { status: "succeeded", resultJson, completedAt }),
         intentJson: { redacted: true },
-        completedAt,
         leaseOwner: null,
         leaseExpiresAt: null,
         lastError: null,
@@ -2377,6 +2455,8 @@ export const completeStorageMutation = async ({
     if (completed.count !== 1) {
       throw new StorageMutationFenceError();
     }
+    if (undone)
+      await releaseAbortedStorageMutation(tx, mutationId, completedAt);
     await tx.$executeRaw`
       WITH redacted_steps AS (
         UPDATE "StorageMutationStep"

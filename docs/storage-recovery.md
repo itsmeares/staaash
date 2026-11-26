@@ -142,12 +142,61 @@ recursively delete a shared legacy trash prefix.
 Admin health shows mutation ID, kind, owner, phase, oldest age, retrying count,
 and recovery-required count. Correct transient database, permission, mount, or
 space failures and let the worker retry. Admin retry is safe for transient
-states. There is deliberately no automatic destructive resolution for
-ambiguity, and no guided resolution yet either (#595).
+states.
+
+## Review
+
+`storage-review.ts` resolves `recovery_required` mutations. A read-only disk
+check compares each path of the stopped step with the recorded fingerprints
+and stores what it found in `reviewJson`. The check refuses to look past a
+symlink, special file, unreadable path, or path outside the files root; those
+cases wait until the operator fixes them on the server.
+
+Each worker maintenance pass applies a fix by itself only when one answer keeps
+every byte:
+
+- the item matches at the target and the source holds only empty folders:
+  remove the empty folders;
+- the item matches at the target and the source still holds other files: keep
+  the source as a recovered copy;
+- the item matches at the source and an unknown item sits at the target: keep
+  the unknown item as a recovered copy and finish;
+- both paths hold identical copies: keep the second one as a recovered copy;
+- a post-commit cleanup step finds bytes that differ from the plan: keep them
+  as a recovered copy instead of deleting them.
+
+Automatic fixes only rename to an unused name (`set_aside`) and remove empty
+folders deepest first (`remove_empty_tree`). `set_aside` links the file at the
+new name and then unlinks the old one, so it never replaces a file that
+appeared at the target. A folder that gains a file fails `remove_empty_tree`
+closed.
+
+The instance owner resolves every other case on the review page: Finish, Keep
+it as it is now, Undo, Remove the lost item, and Check again. The page offers a
+choice only when the disk check says it fits. Admins can read the page.
+
+A fix runs through the journal in two parts. A `storage_review_keep` mutation
+first moves leftovers aside and creates their metadata rows in the change
+owner's drive. Then the stopped mutation is rewritten in place and resumes as
+`retrying` before commit or `finalizing` after it. Both parts are idempotent,
+so a crash during a fix resumes like any other mutation. A choice is refused
+when the stopped step or the disk changed since the check.
+
+Recovered copies sit next to the original as
+`<name> (recovered, YYYY-MM-DD HH-mm)`, using the time the change stopped,
+with ` 2` and up added when the name is taken. They count toward quota and may
+exceed it. Leftovers of a permanent delete go back to the drive, not to Trash.
+The change owner gets a one-time notice with a link to the copy.
+
+Undo is offered only before any metadata committed. It moves landed steps back
+and ends the mutation as `aborted`.
+
+`reviewJson` keeps the last check and every fix, automatic or chosen, on the
+journal row for good.
 
 Completed mutation path and fingerprint detail is redacted. Replay results stay
 available for seven days; `recovery_required` records and their artifacts remain
-until an operator resolves them with external evidence.
+until the worker or the instance owner resolves them.
 
 Run restore reconciliation only after journal recovery. It classifies current
 originals, derivatives, archives, mutation-owned transition paths, unexplained

@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
+  link,
   lstat,
   mkdir,
   open,
@@ -8,6 +9,7 @@ import {
   rename,
   rm,
   rmdir,
+  unlink,
   type FileHandle,
 } from "node:fs/promises";
 import type { BigIntStats } from "node:fs";
@@ -35,6 +37,7 @@ import {
   StorageMutationIntentError,
   StorageMutationRejectedError,
   type StorageMutationRecord,
+  storageReviewOutcomeOf,
   USER_STORAGE_MUTATION_KINDS,
 } from "./storage-mutations";
 
@@ -872,10 +875,7 @@ const isCaseOnlyRename = async (source: string, target: string) => {
   return sourceInfo.dev === targetInfo.dev && sourceInfo.ino === targetInfo.ino;
 };
 
-const resolveRenameState = async (
-  filesRoot: string,
-  step: StorageMutationStep,
-) => {
+const readStepPaths = async (filesRoot: string, step: StorageMutationStep) => {
   const source = resolveMutationStoragePath(filesRoot, step.sourceKey!);
   const target = resolveMutationStoragePath(filesRoot, step.targetKey!);
   await Promise.all([
@@ -886,6 +886,17 @@ const resolveRenameState = async (
     pathState(source),
     pathState(target),
   ]);
+  return { source, target, sourceState, targetState };
+};
+
+const resolveRenameState = async (
+  filesRoot: string,
+  step: StorageMutationStep,
+) => {
+  const { source, target, sourceState, targetState } = await readStepPaths(
+    filesRoot,
+    step,
+  );
   if (sourceState.exists && targetState.exists) {
     if (!(await isCaseOnlyRename(source, target))) {
       throw new StorageMutationAmbiguityError(
@@ -994,6 +1005,165 @@ const applyMkdir = async (
     );
   }
   await syncDirectory(target);
+};
+
+const isSameNode = async (left: string, right: string) => {
+  const [leftInfo, rightInfo] = await Promise.all([
+    lstat(left, { bigint: true }),
+    lstat(right, { bigint: true }),
+  ]);
+  return leftInfo.dev === rightInfo.dev && leftInfo.ino === rightInfo.ino;
+};
+
+// Filesystems without hard links refuse `link` with one of these.
+const LINK_UNSUPPORTED_CODES = new Set([
+  "EPERM",
+  "ENOTSUP",
+  "EOPNOTSUPP",
+  "EXDEV",
+  "EMLINK",
+]);
+
+const assertTargetStillFree = async (target: string) => {
+  if ((await pathState(target)).exists) {
+    throw new StorageMutationAmbiguityError(
+      "Set-aside target appeared before the move.",
+    );
+  }
+};
+
+// A file moves by link then unlink: `link` refuses to replace anything at the
+// new name. A folder rename refuses to replace a folder that holds anything.
+const moveWithoutReplacing = async (
+  source: string,
+  target: string,
+  state: StoragePathState,
+) => {
+  if (state.type === "file") {
+    try {
+      await link(source, target);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code ?? "";
+      if (code === "EEXIST") await assertTargetStillFree(target);
+      if (!LINK_UNSUPPORTED_CODES.has(code)) throw error;
+      await assertTargetStillFree(target);
+      await renameWhenFree(source, target);
+      return;
+    }
+    await syncDirectory(path.dirname(target));
+    await unlink(source);
+    return;
+  }
+  await assertTargetStillFree(target);
+  await renameWhenFree(source, target);
+};
+
+/**
+ * Moves a copy Staaash keeps to a name nobody uses. Like a rename it checks the
+ * captured fingerprint first and is safe to repeat; unlike one it never
+ * replaces anything at the new name. A crash between link and unlink leaves
+ * one file under both names, which the next attempt finishes.
+ */
+const applySetAside = async (
+  filesRoot: string,
+  step: StorageMutationStep,
+  assertLease: () => Promise<void>,
+  trustStats: boolean,
+) => {
+  assertRenameStepIntent(step);
+  const { source, target, sourceState, targetState } = await readStepPaths(
+    filesRoot,
+    step,
+  );
+  if (sourceState.exists && targetState.exists) {
+    if (sourceState.type !== "file" || !(await isSameNode(source, target))) {
+      throw new StorageMutationAmbiguityError(
+        "Both set-aside source and target exist.",
+      );
+    }
+    await validateExpectedNode(target, step, false);
+    await assertLease();
+    await unlink(source);
+    await syncParents(source, target);
+    return;
+  }
+  if (!sourceState.exists && !targetState.exists) {
+    throw new StorageMutationAmbiguityError(
+      "Both set-aside source and target are missing.",
+    );
+  }
+  if (!sourceState.exists) {
+    await validateExpectedNode(target, step, false);
+    return;
+  }
+  await validateExpectedNode(source, step, trustStats);
+  await syncRenameSource(source, sourceState);
+  await syncDirectory(path.dirname(source));
+  await durableMkdirWithinRoot({
+    filesRoot,
+    target: path.dirname(target),
+    beforeCreate: assertLease,
+  });
+  await assertLease();
+  await moveWithoutReplacing(source, target, sourceState);
+  await syncParents(source, target);
+};
+
+// Parents first; anything but a plain folder stops the walk.
+const listOnlyFolders = async (root: string) => {
+  const folders = [root];
+  for (let index = 0; index < folders.length; index += 1) {
+    for (const entry of await readdir(folders[index]!, {
+      withFileTypes: true,
+    })) {
+      if (!entry.isDirectory() || entry.isSymbolicLink()) {
+        throw new StorageMutationAmbiguityError(
+          "Leftover folder to remove holds files.",
+        );
+      }
+      folders.push(path.resolve(folders[index]!, entry.name));
+    }
+  }
+  return folders;
+};
+
+/**
+ * Removes a leftover tree that holds only folders, deepest first. `rmdir`
+ * refuses a folder that holds anything, so no byte can be lost this way.
+ */
+const applyRemoveEmptyTree = async (
+  filesRoot: string,
+  step: StorageMutationStep,
+  assertLease: () => Promise<void>,
+) => {
+  if (!step.targetKey) {
+    throw new StorageMutationAmbiguityError("Remove step lacks target.");
+  }
+  const target = resolveMutationStoragePath(filesRoot, step.targetKey);
+  await assertSafeStorageAncestors(filesRoot, target);
+  const state = await pathState(target);
+  if (state.exists) {
+    if (state.type !== "directory") {
+      throw new StorageMutationAmbiguityError(
+        "Leftover to remove is not a folder.",
+      );
+    }
+    const folders = await listOnlyFolders(target);
+    await assertLease();
+    for (const folder of folders.reverse()) {
+      try {
+        await rmdir(folder);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOTEMPTY") {
+          throw new StorageMutationAmbiguityError(
+            "Leftover folder to remove holds files.",
+          );
+        }
+        throw error;
+      }
+    }
+  }
+  await syncParents(target);
 };
 
 const deleteMutationFile = async (
@@ -1182,6 +1352,14 @@ const applyFilesystemStep = async ({
     await applyMkdir(filesRoot, step, assertLease);
     return;
   }
+  if (step.action === "set_aside") {
+    await applySetAside(filesRoot, step, assertLease, trustStats);
+    return;
+  }
+  if (step.action === "remove_empty_tree") {
+    await applyRemoveEmptyTree(filesRoot, step, assertLease);
+    return;
+  }
   await applyDelete(
     filesRoot,
     step,
@@ -1331,9 +1509,12 @@ const permanentRejectionOf = (error: unknown) => {
 };
 
 // Batch children, other kinds, and fail-closed errors keep today's handling.
+// A change a review rewrote only goes forward: rolling it back would reverse
+// the owner's choice.
 const mayAbort = (error: unknown, mutation: StorageMutationRecord) =>
   mutation.parentId === null &&
   USER_STORAGE_MUTATION_KINDS.has(mutation.kind) &&
+  !storageReviewOutcomeOf(mutation.intentJson) &&
   !(error instanceof StorageMutationAmbiguityError) &&
   !(error instanceof StorageMutationIntentError) &&
   !(error instanceof StorageMutationFenceError);
@@ -1561,6 +1742,7 @@ const executeStorageMutationPhases = async <T>({
     leaseOwner,
     leaseToken,
     resultJson: resultJsonForCompletion(mutation, result, resultJson),
+    undone: storageReviewOutcomeOf(mutation.intentJson) === "undone",
   });
   await hook("completed");
   return result;
@@ -1695,6 +1877,7 @@ export const recoverStorageMutationCleanup = async ({
         mutation.resultJson === null
           ? undefined
           : (mutation.resultJson as Prisma.InputJsonValue),
+      undone: storageReviewOutcomeOf(mutation.intentJson) === "undone",
     });
     return true;
   } catch (error) {
@@ -1719,3 +1902,169 @@ export const recoverStorageMutationCleanup = async ({
     throw error;
   }
 };
+
+export type StorageNodeUnsafeReason =
+  | "shortcut_or_special_file"
+  | "shortcut_inside"
+  | "special_file_inside"
+  | "unsafe_path"
+  | "unreadable";
+
+export type StorageNodeReport =
+  | { state: "missing" }
+  | { state: "unsafe"; reason: StorageNodeUnsafeReason }
+  | {
+      state: "file" | "directory";
+      sizeBytes: bigint;
+      fileCount: number;
+      modifiedAt: Date;
+      /** A folder tree with no file anywhere in it. */
+      onlyFolders: boolean;
+      /** Whether it is what the step captured; null when it captured nothing. */
+      matches: boolean | null;
+      /** Device and inode, to tell one entry seen under two names. */
+      identity: string;
+    };
+
+const nodeMatchesStep = async (
+  candidate: string,
+  step: StorageMutationStep,
+) => {
+  if (!step.expectedChecksum && !step.treeManifestDigest) return null;
+  try {
+    await validateExpectedNode(candidate, step, false);
+    return true;
+  } catch (error) {
+    if (error instanceof StorageMutationAmbiguityError) return false;
+    throw error;
+  }
+};
+
+const treeTotals = async (treeRoot: string, folderModifiedAt: bigint) => {
+  let sizeBytes = 0n;
+  let fileCount = 0;
+  let modifiedAt = folderModifiedAt;
+  for (const entry of await readTreeStatEntries(treeRoot)) {
+    if (entry.kind !== "file") continue;
+    fileCount += 1;
+    sizeBytes += entry.sizeBytes;
+    const entryMs = entry.modifiedAtNs / 1_000_000n;
+    if (entryMs > modifiedAt) modifiedAt = entryMs;
+  }
+  return { sizeBytes, fileCount, modifiedAt };
+};
+
+const UNSAFE_REASONS: Array<[RegExp, StorageNodeUnsafeReason]> = [
+  [/symbolic link/, "shortcut_inside"],
+  [/unsupported node/, "special_file_inside"],
+  [/escapes|outside|ancestor/, "unsafe_path"],
+];
+
+const unsafeReasonOf = (error: Error): StorageNodeUnsafeReason =>
+  UNSAFE_REASONS.find(([pattern]) => pattern.test(error.message))?.[1] ??
+  "unreadable";
+
+/**
+ * Reads what sits at a storage key without changing anything: its type, size,
+ * file count, newest change, and whether every byte is what the step captured.
+ * Shortcuts, special files and paths that leave the storage folder report as
+ * unsafe instead of throwing.
+ */
+export const inspectStorageNode = async (
+  filesRoot: string,
+  storageKey: string,
+  step?: StorageMutationStep | null,
+): Promise<StorageNodeReport> => {
+  try {
+    const candidate = resolveMutationStoragePath(filesRoot, storageKey);
+    await assertSafeStorageAncestors(filesRoot, candidate);
+    const state = await pathState(candidate);
+    if (!state.exists) return { state: "missing" };
+    if (state.type === "other") {
+      return { state: "unsafe", reason: "shortcut_or_special_file" };
+    }
+    const info = await lstat(candidate, { bigint: true });
+    const totals =
+      state.type === "directory"
+        ? await treeTotals(candidate, info.mtimeMs)
+        : { sizeBytes: state.size, fileCount: 1, modifiedAt: info.mtimeMs };
+    return {
+      state: state.type,
+      sizeBytes: totals.sizeBytes,
+      fileCount: totals.fileCount,
+      modifiedAt: new Date(Number(totals.modifiedAt)),
+      onlyFolders: state.type === "directory" && totals.fileCount === 0,
+      matches: step ? await nodeMatchesStep(candidate, step) : null,
+      identity: `${info.dev}:${info.ino}`,
+    };
+  } catch (error) {
+    if (error instanceof StorageMutationAmbiguityError) {
+      return { state: "unsafe", reason: unsafeReasonOf(error) };
+    }
+    throw error;
+  }
+};
+
+const readCapturedTreeEntries = async (treeRoot: string) => {
+  const entries: CapturedTreeEntry[] = [];
+  // One file at a time: a large leftover folder must not exhaust file handles.
+  for (const entry of await readTreeStatEntries(treeRoot)) {
+    entries.push(
+      entry.kind === "directory"
+        ? entry
+        : {
+            kind: "file",
+            relativeKey: entry.relativeKey,
+            sizeBytes: entry.sizeBytes,
+            checksum: await computeFileSha256(
+              path.join(treeRoot, ...entry.relativeKey.split("/")),
+            ),
+          },
+    );
+  }
+  return entries;
+};
+
+export type CapturedStorageNode =
+  | { type: "file"; sizeBytes: bigint; checksum: string }
+  | {
+      type: "directory";
+      entries: CapturedTreeEntry[];
+      treeManifestDigest: string;
+    };
+
+/**
+ * Reads every byte of a file or folder so a step can move exactly this and
+ * the metadata can describe it. Execution checks the same fingerprint again
+ * right before it acts.
+ */
+export const captureStorageNode = async (
+  filesRoot: string,
+  storageKey: string,
+): Promise<CapturedStorageNode> => {
+  const candidate = resolveMutationStoragePath(filesRoot, storageKey);
+  await assertSafeStorageAncestors(filesRoot, candidate);
+  const state = await pathState(candidate);
+  if (state.exists && state.type === "file") {
+    return {
+      type: "file",
+      checksum: await computeFileSha256(candidate),
+      sizeBytes: (await lstat(candidate, { bigint: true })).size,
+    };
+  }
+  if (state.exists && state.type === "directory") {
+    const entries = await readCapturedTreeEntries(candidate);
+    return {
+      type: "directory",
+      entries,
+      treeManifestDigest: calculateCapturedTreeManifestDigest(entries),
+    };
+  }
+  throw new StorageMutationAmbiguityError(
+    "Item to capture is missing or unsupported.",
+  );
+};
+
+/** Whether a storage key names nothing yet, for picking an unused name. */
+export const storageKeyIsFree = async (filesRoot: string, storageKey: string) =>
+  !(await pathState(resolveMutationStoragePath(filesRoot, storageKey))).exists;

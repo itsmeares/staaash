@@ -5,6 +5,12 @@ import { z } from "zod";
 
 import { ALL_SUPPORTED_JOB_KINDS } from "@staaash/db/jobs";
 import { getStorageMutationHealth } from "@staaash/db/storage-mutations";
+import {
+  listReviewedStorageMutations,
+  markRecoveredNoticeSeen,
+  readRecoveredNotice,
+  readStorageReviewSummaries,
+} from "@staaash/db/storage-review";
 
 import { plain } from "@/lib/plain";
 import { env } from "@/lib/env";
@@ -21,6 +27,7 @@ import {
 } from "@/server/admin/media-derivatives";
 import { getAdminOverviewSummary } from "@/server/admin/overview";
 import { getAdminStorageSummary } from "@/server/admin/storage";
+import { getStorageChangeView } from "@/server/admin/storage-review";
 import { getUpdateState } from "@/server/admin/updates";
 import { resolveAppVersion } from "@/server/app-version";
 import { canAccessAdminSurface } from "@/server/access";
@@ -34,6 +41,7 @@ import { getViewerWindow } from "@/server/files/viewer-window";
 import { FilesError } from "@/server/files/errors";
 import {
   actorOf,
+  httpError,
   requireAdmin,
   requireOwner,
   requireUser,
@@ -216,6 +224,14 @@ const userViews = user
         person: personOf(user),
       }),
     );
+  })
+  // Copies Staaash kept in this person's drive while fixing a stopped change.
+  .get("/recovered-notice", async (c) =>
+    c.json(plain(await readRecoveredNotice(c.var.session.user.id))),
+  )
+  .post("/recovered-notice/seen", async (c) => {
+    await markRecoveredNoticeSeen(c.var.session.user.id);
+    return c.json({ ok: true as const });
   })
   .get("/home", async (c) => {
     const { session } = c.var;
@@ -589,14 +605,37 @@ const adminViews = admin
         .parse(value),
     ),
     async (c) => {
-      const [summary, mutations, disk] = await Promise.all([
+      const [summary, mutations, disk, fixed] = await Promise.all([
         getAdminStorageSummary(),
         getStorageMutationHealth(new Date(), c.req.valid("query").mutationId),
         getInstanceDiskInfo(),
+        listReviewedStorageMutations(),
       ]);
-      return c.json(plain({ summary, mutations: mutations.active, disk }));
+      const reviews = await readStorageReviewSummaries(
+        mutations.active
+          .filter((mutation) => mutation.status === "recovery_required")
+          .map((mutation) => mutation.id),
+      );
+      return c.json(
+        plain({
+          summary,
+          mutations: mutations.active.map((mutation) => ({
+            ...mutation,
+            review: reviews.get(mutation.id) ?? null,
+          })),
+          disk,
+          fixed,
+        }),
+      );
     },
   )
+  .get("/storage/changes/:mutationId", async (c) => {
+    const change = await getStorageChangeView(c.req.param("mutationId"));
+    if (!change) {
+      throw httpError(404, "STORAGE_MUTATION_NOT_FOUND", "Change not found.");
+    }
+    return c.json(plain(change));
+  })
   .get("/users", async (c) => {
     const { session } = c.var;
     const users = await authService.listUsers(session.user.id);

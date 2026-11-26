@@ -62,6 +62,8 @@ export type StorageMutationMinAggregateOutputType = {
   metadataOperationsApplied: number | null
   completedAt: Date | null
   recoveryRequiredAt: Date | null
+  reviewedAt: Date | null
+  reviewNoticeSeenAt: Date | null
   reservedBytes: bigint | null
   originDeviceId: string | null
   createdAt: Date | null
@@ -88,6 +90,8 @@ export type StorageMutationMaxAggregateOutputType = {
   metadataOperationsApplied: number | null
   completedAt: Date | null
   recoveryRequiredAt: Date | null
+  reviewedAt: Date | null
+  reviewNoticeSeenAt: Date | null
   reservedBytes: bigint | null
   originDeviceId: string | null
   createdAt: Date | null
@@ -116,6 +120,9 @@ export type StorageMutationCountAggregateOutputType = {
   metadataOperationsApplied: number
   completedAt: number
   recoveryRequiredAt: number
+  reviewJson: number
+  reviewedAt: number
+  reviewNoticeSeenAt: number
   reservedBytes: number
   originDeviceId: number
   createdAt: number
@@ -160,6 +167,8 @@ export type StorageMutationMinAggregateInputType = {
   metadataOperationsApplied?: true
   completedAt?: true
   recoveryRequiredAt?: true
+  reviewedAt?: true
+  reviewNoticeSeenAt?: true
   reservedBytes?: true
   originDeviceId?: true
   createdAt?: true
@@ -186,6 +195,8 @@ export type StorageMutationMaxAggregateInputType = {
   metadataOperationsApplied?: true
   completedAt?: true
   recoveryRequiredAt?: true
+  reviewedAt?: true
+  reviewNoticeSeenAt?: true
   reservedBytes?: true
   originDeviceId?: true
   createdAt?: true
@@ -214,6 +225,9 @@ export type StorageMutationCountAggregateInputType = {
   metadataOperationsApplied?: true
   completedAt?: true
   recoveryRequiredAt?: true
+  reviewJson?: true
+  reviewedAt?: true
+  reviewNoticeSeenAt?: true
   reservedBytes?: true
   originDeviceId?: true
   createdAt?: true
@@ -329,6 +343,9 @@ export type StorageMutationGroupByOutputType = {
   metadataOperationsApplied: number
   completedAt: Date | null
   recoveryRequiredAt: Date | null
+  reviewJson: runtime.JsonValue | null
+  reviewedAt: Date | null
+  reviewNoticeSeenAt: Date | null
   reservedBytes: bigint | null
   originDeviceId: string | null
   createdAt: Date
@@ -380,6 +397,9 @@ export type StorageMutationWhereInput = {
   metadataOperationsApplied?: Prisma.IntFilter<"StorageMutation"> | number
   completedAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   recoveryRequiredAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
+  reviewJson?: Prisma.JsonNullableFilter<"StorageMutation">
+  reviewedAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
+  reviewNoticeSeenAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   reservedBytes?: Prisma.BigIntNullableFilter<"StorageMutation"> | bigint | number | null
   originDeviceId?: Prisma.StringNullableFilter<"StorageMutation"> | string | null
   createdAt?: Prisma.DateTimeFilter<"StorageMutation"> | Date | string
@@ -415,6 +435,9 @@ export type StorageMutationOrderByWithRelationInput = {
   metadataOperationsApplied?: Prisma.SortOrder
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   recoveryRequiredAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  reviewJson?: Prisma.SortOrderInput | Prisma.SortOrder
+  reviewedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  reviewNoticeSeenAt?: Prisma.SortOrderInput | Prisma.SortOrder
   reservedBytes?: Prisma.SortOrderInput | Prisma.SortOrder
   originDeviceId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -453,6 +476,9 @@ export type StorageMutationWhereUniqueInput = Prisma.AtLeast<{
   metadataOperationsApplied?: Prisma.IntFilter<"StorageMutation"> | number
   completedAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   recoveryRequiredAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
+  reviewJson?: Prisma.JsonNullableFilter<"StorageMutation">
+  reviewedAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
+  reviewNoticeSeenAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   reservedBytes?: Prisma.BigIntNullableFilter<"StorageMutation"> | bigint | number | null
   originDeviceId?: Prisma.StringNullableFilter<"StorageMutation"> | string | null
   createdAt?: Prisma.DateTimeFilter<"StorageMutation"> | Date | string
@@ -488,6 +514,9 @@ export type StorageMutationOrderByWithAggregationInput = {
   metadataOperationsApplied?: Prisma.SortOrder
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   recoveryRequiredAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  reviewJson?: Prisma.SortOrderInput | Prisma.SortOrder
+  reviewedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  reviewNoticeSeenAt?: Prisma.SortOrderInput | Prisma.SortOrder
   reservedBytes?: Prisma.SortOrderInput | Prisma.SortOrder
   originDeviceId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -524,6 +553,9 @@ export type StorageMutationScalarWhereWithAggregatesInput = {
   metadataOperationsApplied?: Prisma.IntWithAggregatesFilter<"StorageMutation"> | number
   completedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"StorageMutation"> | Date | string | null
   recoveryRequiredAt?: Prisma.DateTimeNullableWithAggregatesFilter<"StorageMutation"> | Date | string | null
+  reviewJson?: Prisma.JsonNullableWithAggregatesFilter<"StorageMutation">
+  reviewedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"StorageMutation"> | Date | string | null
+  reviewNoticeSeenAt?: Prisma.DateTimeNullableWithAggregatesFilter<"StorageMutation"> | Date | string | null
   reservedBytes?: Prisma.BigIntNullableWithAggregatesFilter<"StorageMutation"> | bigint | number | null
   originDeviceId?: Prisma.StringNullableWithAggregatesFilter<"StorageMutation"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"StorageMutation"> | Date | string
@@ -550,6 +582,9 @@ export type StorageMutationCreateInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -585,6 +620,9 @@ export type StorageMutationUncheckedCreateInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -616,6 +654,9 @@ export type StorageMutationUpdateInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -651,6 +692,9 @@ export type StorageMutationUncheckedUpdateInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -684,6 +728,9 @@ export type StorageMutationCreateManyInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -710,6 +757,9 @@ export type StorageMutationUpdateManyMutationInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -738,6 +788,9 @@ export type StorageMutationUncheckedUpdateManyInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -781,6 +834,9 @@ export type StorageMutationCountOrderByAggregateInput = {
   metadataOperationsApplied?: Prisma.SortOrder
   completedAt?: Prisma.SortOrder
   recoveryRequiredAt?: Prisma.SortOrder
+  reviewJson?: Prisma.SortOrder
+  reviewedAt?: Prisma.SortOrder
+  reviewNoticeSeenAt?: Prisma.SortOrder
   reservedBytes?: Prisma.SortOrder
   originDeviceId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -815,6 +871,8 @@ export type StorageMutationMaxOrderByAggregateInput = {
   metadataOperationsApplied?: Prisma.SortOrder
   completedAt?: Prisma.SortOrder
   recoveryRequiredAt?: Prisma.SortOrder
+  reviewedAt?: Prisma.SortOrder
+  reviewNoticeSeenAt?: Prisma.SortOrder
   reservedBytes?: Prisma.SortOrder
   originDeviceId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -841,6 +899,8 @@ export type StorageMutationMinOrderByAggregateInput = {
   metadataOperationsApplied?: Prisma.SortOrder
   completedAt?: Prisma.SortOrder
   recoveryRequiredAt?: Prisma.SortOrder
+  reviewedAt?: Prisma.SortOrder
+  reviewNoticeSeenAt?: Prisma.SortOrder
   reservedBytes?: Prisma.SortOrder
   originDeviceId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -1038,6 +1098,9 @@ export type StorageMutationCreateWithoutOwnerInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -1071,6 +1134,9 @@ export type StorageMutationUncheckedCreateWithoutOwnerInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -1133,6 +1199,9 @@ export type StorageMutationScalarWhereInput = {
   metadataOperationsApplied?: Prisma.IntFilter<"StorageMutation"> | number
   completedAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   recoveryRequiredAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
+  reviewJson?: Prisma.JsonNullableFilter<"StorageMutation">
+  reviewedAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
+  reviewNoticeSeenAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   reservedBytes?: Prisma.BigIntNullableFilter<"StorageMutation"> | bigint | number | null
   originDeviceId?: Prisma.StringNullableFilter<"StorageMutation"> | string | null
   createdAt?: Prisma.DateTimeFilter<"StorageMutation"> | Date | string
@@ -1159,6 +1228,9 @@ export type StorageMutationCreateWithoutUploadSessionsInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -1193,6 +1265,9 @@ export type StorageMutationUncheckedCreateWithoutUploadSessionsInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -1239,6 +1314,9 @@ export type StorageMutationUpdateWithoutUploadSessionsInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1273,6 +1351,9 @@ export type StorageMutationUncheckedUpdateWithoutUploadSessionsInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1303,6 +1384,9 @@ export type StorageMutationCreateWithoutChildrenInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -1337,6 +1421,9 @@ export type StorageMutationUncheckedCreateWithoutChildrenInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -1372,6 +1459,9 @@ export type StorageMutationCreateWithoutParentInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -1405,6 +1495,9 @@ export type StorageMutationUncheckedCreateWithoutParentInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -1457,6 +1550,9 @@ export type StorageMutationUpdateWithoutChildrenInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1491,6 +1587,9 @@ export type StorageMutationUncheckedUpdateWithoutChildrenInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1537,6 +1636,9 @@ export type StorageMutationCreateWithoutStepsInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -1571,6 +1673,9 @@ export type StorageMutationUncheckedCreateWithoutStepsInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -1617,6 +1722,9 @@ export type StorageMutationUpdateWithoutStepsInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1651,6 +1759,9 @@ export type StorageMutationUncheckedUpdateWithoutStepsInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1681,6 +1792,9 @@ export type StorageMutationCreateWithoutEntitiesInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -1715,6 +1829,9 @@ export type StorageMutationUncheckedCreateWithoutEntitiesInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -1761,6 +1878,9 @@ export type StorageMutationUpdateWithoutEntitiesInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1795,6 +1915,9 @@ export type StorageMutationUncheckedUpdateWithoutEntitiesInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1825,6 +1948,9 @@ export type StorageMutationCreateWithoutResourcesInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -1859,6 +1985,9 @@ export type StorageMutationUncheckedCreateWithoutResourcesInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -1905,6 +2034,9 @@ export type StorageMutationUpdateWithoutResourcesInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1939,6 +2071,9 @@ export type StorageMutationUncheckedUpdateWithoutResourcesInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1970,6 +2105,9 @@ export type StorageMutationCreateManyOwnerInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -1996,6 +2134,9 @@ export type StorageMutationUpdateWithoutOwnerInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2029,6 +2170,9 @@ export type StorageMutationUncheckedUpdateWithoutOwnerInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2061,6 +2205,9 @@ export type StorageMutationUncheckedUpdateManyWithoutOwnerInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2088,6 +2235,9 @@ export type StorageMutationCreateManyParentInput = {
   metadataOperationsApplied?: number
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
   reservedBytes?: bigint | number | null
   originDeviceId?: string | null
   createdAt?: Date | string
@@ -2114,6 +2264,9 @@ export type StorageMutationUpdateWithoutParentInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2147,6 +2300,9 @@ export type StorageMutationUncheckedUpdateWithoutParentInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2179,6 +2335,9 @@ export type StorageMutationUncheckedUpdateManyWithoutParentInput = {
   metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2274,6 +2433,9 @@ export type StorageMutationSelect<ExtArgs extends runtime.Types.Extensions.Inter
   metadataOperationsApplied?: boolean
   completedAt?: boolean
   recoveryRequiredAt?: boolean
+  reviewJson?: boolean
+  reviewedAt?: boolean
+  reviewNoticeSeenAt?: boolean
   reservedBytes?: boolean
   originDeviceId?: boolean
   createdAt?: boolean
@@ -2310,6 +2472,9 @@ export type StorageMutationSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   metadataOperationsApplied?: boolean
   completedAt?: boolean
   recoveryRequiredAt?: boolean
+  reviewJson?: boolean
+  reviewedAt?: boolean
+  reviewNoticeSeenAt?: boolean
   reservedBytes?: boolean
   originDeviceId?: boolean
   createdAt?: boolean
@@ -2340,6 +2505,9 @@ export type StorageMutationSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   metadataOperationsApplied?: boolean
   completedAt?: boolean
   recoveryRequiredAt?: boolean
+  reviewJson?: boolean
+  reviewedAt?: boolean
+  reviewNoticeSeenAt?: boolean
   reservedBytes?: boolean
   originDeviceId?: boolean
   createdAt?: boolean
@@ -2370,13 +2538,16 @@ export type StorageMutationSelectScalar = {
   metadataOperationsApplied?: boolean
   completedAt?: boolean
   recoveryRequiredAt?: boolean
+  reviewJson?: boolean
+  reviewedAt?: boolean
+  reviewNoticeSeenAt?: boolean
   reservedBytes?: boolean
   originDeviceId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type StorageMutationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "parentId" | "kind" | "status" | "ownerUserId" | "idempotencyKey" | "requestHash" | "intentJson" | "resultJson" | "leaseOwner" | "leaseToken" | "leaseExpiresAt" | "attemptCount" | "claimFailureCount" | "lastAttemptAt" | "nextAttemptAt" | "lastError" | "metadataCommittedAt" | "metadataOperationsApplied" | "completedAt" | "recoveryRequiredAt" | "reservedBytes" | "originDeviceId" | "createdAt" | "updatedAt", ExtArgs["result"]["storageMutation"]>
+export type StorageMutationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "parentId" | "kind" | "status" | "ownerUserId" | "idempotencyKey" | "requestHash" | "intentJson" | "resultJson" | "leaseOwner" | "leaseToken" | "leaseExpiresAt" | "attemptCount" | "claimFailureCount" | "lastAttemptAt" | "nextAttemptAt" | "lastError" | "metadataCommittedAt" | "metadataOperationsApplied" | "completedAt" | "recoveryRequiredAt" | "reviewJson" | "reviewedAt" | "reviewNoticeSeenAt" | "reservedBytes" | "originDeviceId" | "createdAt" | "updatedAt", ExtArgs["result"]["storageMutation"]>
 export type StorageMutationInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   parent?: boolean | Prisma.StorageMutation$parentArgs<ExtArgs>
   children?: boolean | Prisma.StorageMutation$childrenArgs<ExtArgs>
@@ -2435,6 +2606,18 @@ export type $StorageMutationPayload<ExtArgs extends runtime.Types.Extensions.Int
     metadataOperationsApplied: number
     completedAt: Date | null
     recoveryRequiredAt: Date | null
+    /**
+     * What the last review found on disk and every fix applied to this change.
+     */
+    reviewJson: runtime.JsonValue | null
+    /**
+     * When a fix last resumed this change after it stopped for review.
+     */
+    reviewedAt: Date | null
+    /**
+     * When the owner of the change saw the notice about copies Staaash kept.
+     */
+    reviewNoticeSeenAt: Date | null
     reservedBytes: bigint | null
     /**
      * The device session that asked for this change, so it can skip its echo.
@@ -2893,6 +3076,9 @@ export interface StorageMutationFieldRefs {
   readonly metadataOperationsApplied: Prisma.FieldRef<"StorageMutation", 'Int'>
   readonly completedAt: Prisma.FieldRef<"StorageMutation", 'DateTime'>
   readonly recoveryRequiredAt: Prisma.FieldRef<"StorageMutation", 'DateTime'>
+  readonly reviewJson: Prisma.FieldRef<"StorageMutation", 'Json'>
+  readonly reviewedAt: Prisma.FieldRef<"StorageMutation", 'DateTime'>
+  readonly reviewNoticeSeenAt: Prisma.FieldRef<"StorageMutation", 'DateTime'>
   readonly reservedBytes: Prisma.FieldRef<"StorageMutation", 'BigInt'>
   readonly originDeviceId: Prisma.FieldRef<"StorageMutation", 'String'>
   readonly createdAt: Prisma.FieldRef<"StorageMutation", 'DateTime'>

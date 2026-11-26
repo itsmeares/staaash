@@ -501,6 +501,7 @@ export function FilesView({
 
   // ---- Paste animation ----
   const [justMovedIds, setJustMovedIds] = useState<Set<string>>(new Set());
+  const [shownId, setShownId] = useState<string>();
 
   // ---- Share dialog ----
   const [shareDialogTarget, setShareDialogTarget] = useState<{
@@ -550,6 +551,23 @@ export function FilesView({
   ].filter(
     (item) => !storageMutationItemIds.has(item.id) && !movingIds.has(item.id),
   );
+
+  // `?show=<id>` (from a link such as the recovered-copy toast) scrolls to
+  // the item and flashes it once it has loaded, then leaves the address.
+  const show = rawSearchParams.get("show");
+  const showLoaded = allItems.some((item) => item.id === show);
+  const revealShown = useEffectEvent((id: string) => {
+    selection.revealItem(id);
+    setShownId(id);
+    setTimeout(() => setShownId(undefined), 2000);
+    const next = new URLSearchParams(rawSearchParams.toString());
+    next.delete("show");
+    const qs = next.toString();
+    void navigate({ replace: true, href: `${pathname}${qs ? `?${qs}` : ""}` });
+  });
+  useEffect(() => {
+    if (show && showLoaded) revealShown(show);
+  }, [show, showLoaded]);
 
   const itemData = new Map<string, FolderSummary | FileSummary>(
     [...visibleFolders, ...visibleFiles].map((item) => [item.id, item]),
@@ -2131,7 +2149,9 @@ export function FilesView({
                 ? "bg-primary/14 ring-1 ring-primary/50"
                 : justMovedIds.has(item.id)
                   ? styles.justMoved
-                  : undefined
+                  : shownId === item.id
+                    ? styles.shown
+                    : undefined
             }
             itemProps={(item) => ({
               draggable: !isCoarsePointer && renamingId !== item.id,

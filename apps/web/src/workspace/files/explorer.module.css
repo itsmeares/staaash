@@ -1,5 +1,5 @@
-/* Drag preview is built with DOM APIs in files-view.tsx, and the paste
-   highlight is a one-off keyframe, so both live here. */
+/* Drag preview is built with DOM APIs in files-view.tsx, and the paste and
+   Show highlights are one-off keyframes, so they live here. */
 
 .justMoved {
   animation: paste-highlight 700ms cubic-bezier(0.25, 1, 0.5, 1) both;
@@ -14,8 +14,23 @@
   }
 }
 
+/* Show starts in the selected look, holds while the list scrolls, then fades
+   back to whatever the item would look like (hover included). */
+.shown {
+  animation: show-highlight 2s ease-out;
+}
+
+@keyframes show-highlight {
+  0%,
+  40% {
+    border-color: color-mix(in oklab, var(--primary) 45%, transparent);
+    background: var(--color-selected);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .justMoved {
+  .justMoved,
+  .shown {
     animation: none;
   }
 }

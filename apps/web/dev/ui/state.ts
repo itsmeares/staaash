@@ -28,6 +28,8 @@ export const scenarios = {
   error: "Failed jobs and unavailable admin health",
   busy: "Storage recovery and generating previews",
   update: "An update is available",
+  review: "Storage changes that need review",
+  recovered: "Member with a copy Staaash kept",
   demo: "The public demo drive",
 } as const;
 export type Scenario = keyof typeof scenarios;
@@ -145,7 +147,9 @@ export function createState(scenario: Scenario = "owner") {
     scenario,
     userId: ["signed-out", "setup", "demo"].includes(scenario)
       ? (null as string | null)
-      : ["member", "onboarding", "password", "invited"].includes(scenario)
+      : ["member", "onboarding", "password", "invited", "recovered"].includes(
+            scenario,
+          )
         ? "member"
         : scenario === "admin"
           ? "admin"
@@ -181,6 +185,8 @@ export function createState(scenario: Scenario = "owner") {
       updatedAt: timestamp,
     },
     recovering: scenario === "busy",
+    fixedChanges: [] as import("./storage-review").FixedChange[],
+    recoveredNotice: scenario === "recovered",
     jobs: jobKinds.map((kind, index) =>
       sampleJob(
         kind,
@@ -340,6 +346,12 @@ function seedDrive(state: State, user: User) {
     folder("archive", "Photo archive", root.id, "amber"),
     folder("holiday", "Summer trip", `${user.id}-photos`, "green"),
   );
+  if (state.scenario === "recovered" && user.id === "member") {
+    state.folders.push({
+      ...folder("recovered", "Photos (recovered, 2026-11-25 14-09)", root.id),
+      updatedAt: "2026-11-25T14:20:00.000Z",
+    });
+  }
   sampleFiles.forEach((sample, index) => {
     const updatedAt = new Date(
       Date.parse(timestamp) - index * 36 * 60 * 60 * 1000,

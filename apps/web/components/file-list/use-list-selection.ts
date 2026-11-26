@@ -102,10 +102,10 @@ export function useListSelection({
     setState(next);
   }, []);
 
-  const focusItem = useCallback((id: string) => {
+  const reach = useCallback((id: string, focus: boolean) => {
     const container = listRef.current;
     let attempts = 0;
-    const focus = () => {
+    const step = () => {
       container?.dispatchEvent(
         new CustomEvent("staaash:list-focus", { detail: id }),
       );
@@ -113,11 +113,15 @@ export function useListSelection({
       const item = container?.querySelector<HTMLElement>(
         `[data-list-item="${CSS.escape(id)}"]`,
       );
-      if (item) item.focus({ preventScroll: false });
-      else if (++attempts < 10) requestAnimationFrame(focus);
+      if (item && focus) item.focus({ preventScroll: false });
+      else if (item) item.scrollIntoView({ block: "nearest" });
+      else if (++attempts < 10) requestAnimationFrame(step);
     };
-    requestAnimationFrame(focus);
+    requestAnimationFrame(step);
   }, []);
+  const focusItem = useCallback((id: string) => reach(id, true), [reach]);
+  /** Scrolls to an item without focusing it, so no focus ring shows. */
+  const revealItem = useCallback((id: string) => reach(id, false), [reach]);
 
   const clear = useCallback(() => select(emptySelection), [select]);
   const selectOnly = useCallback(
@@ -420,6 +424,7 @@ export function useListSelection({
     /** The latest selection, for async callbacks. */
     getSelected: () => stateRef.current.selected,
     focusItem,
+    revealItem,
   };
 }
 
