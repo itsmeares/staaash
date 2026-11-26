@@ -757,9 +757,10 @@ const inspectRename = async (context: ReviewContext, step: Step) => {
   }
   const sourceMatches = "matches" in source && source.matches === true;
   const targetMatches = "matches" in target && target.matches === true;
-  // Exactly one side matching is the item; the other is in the way. Two
-  // matching copies leave the owner to say which one is the item.
-  if (targetMatches !== sourceMatches) {
+  // The side that matches is the item; the other is in the way. When both
+  // match, the bytes are the same either way: the new place is the item and
+  // the old one is kept as a copy.
+  if (targetMatches || sourceMatches) {
     const [itemKey, otherKey, otherReport] = targetMatches
       ? [step.targetKey, step.sourceKey, source]
       : [step.sourceKey, step.targetKey, target];

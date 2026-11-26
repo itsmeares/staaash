@@ -850,18 +850,20 @@ describe("storage review", () => {
     expect(inspection?.auto).not.toBe("retry");
   });
 
-  it("leaves two matching copies of one file to the owner", async () => {
+  it("keeps the old one of two identical copies as a recovered copy", async () => {
     const drive = await createDrive();
     const stopped = await stopFileMove(drive, async ({ source, target }) => {
       await writeAt(target, await readFile(storagePath(source)));
     });
 
-    const inspection = await refreshStorageReviewInspection({
-      mutationId: stopped.mutationId,
-      filesRoot: storageRoot(),
-    });
+    await autoFix();
 
-    expect(inspection).toMatchObject({ group: "two_copies", auto: null });
+    expect(await statusOf(stopped.mutationId)).toBe("succeeded");
+    await expectMissing(stopped.source);
+    await expectBytes(stopped.target, stopped.bytes);
+    const { files } = await recoveredCopiesIn(drive.source.id);
+    expect(files).toHaveLength(1);
+    await expectBytes(files[0]!.storageKey, stopped.bytes);
   });
 
   it("offers no Keep for a folder where the file was", async () => {
