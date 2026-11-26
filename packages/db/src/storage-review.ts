@@ -141,12 +141,12 @@ const MOVE_KINDS = new Set([
   "folder_restore",
 ]);
 const UPLOAD_KINDS = new Set(["upload_create", "upload_replace"]);
+// Only deletes can skip a missing item. A publish without its file must not
+// commit ready metadata, so it waits for Check again.
 const SKIPPABLE_KINDS = new Set([
   "file_purge",
   "folder_purge",
-  "derivative_publish",
   "derivative_purge",
-  "archive_publish",
   "archive_purge",
 ]);
 const GENERATED_KINDS = new Set([

@@ -785,6 +785,50 @@ describe("storage review", () => {
     );
     await expectBytes(files[0]!.storageKey, changed);
   });
+
+  it("never lets a preview publish finish without its file", async () => {
+    const drive = await createDrive();
+    const bytes = Buffer.from("preview");
+    const mutationId = randomUUID();
+    const tmpKey = `tmp/derivatives/${mutationId}.webp`;
+    const storageKey = `derivatives/${drive.user.storageId}/thumb.webp`;
+    await writeAt(tmpKey, bytes);
+    const intentJson = intent([]);
+    await prepareStorageMutation({
+      id: mutationId,
+      kind: "derivative_publish",
+      ownerUserId: drive.user.id,
+      idempotencyKey: randomUUID(),
+      requestHash: randomUUID(),
+      intentJson: intentJson as unknown as Prisma.InputJsonValue,
+      steps: [
+        {
+          action: "rename",
+          sourceKey: tmpKey,
+          targetKey: storageKey,
+          expectedNodeType: "file",
+          expectedSizeBytes: BigInt(bytes.length),
+          expectedChecksum: checksumOf(bytes),
+        },
+      ],
+      entities: [],
+    });
+    await rm(storagePath(tmpKey));
+    await expect(run(mutationId, intentJson)).rejects.toMatchObject(stop);
+
+    await refreshStorageReviewInspection({
+      mutationId,
+      filesRoot: storageRoot(),
+    });
+    const review = await readStorageReview(mutationId);
+    expect(review?.review.inspection?.group).toBe("no_copy");
+    expect(review?.review.inspection?.choices.map((c) => c.id)).toEqual([
+      "retry",
+    ]);
+
+    await autoFix();
+    expect(await statusOf(mutationId)).toBe("recovery_required");
+  });
 });
 
 describe("review steps", () => {
