@@ -1,7 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { getPrisma } from "@staaash/db/client";
+import { Client } from "pg";
+import { getPrisma, type Prisma } from "@staaash/db/client";
+import { findStoredMediaDerivatives } from "@staaash/db/media-derivatives";
 import {
   calculateTreeManifestDigest,
   claimAndExecuteStorageMutation,
@@ -17,7 +19,7 @@ import {
   StorageMutationConflictError,
   type StorageMetadataOperation,
 } from "@staaash/db/storage-mutations";
-import { beforeAll, expect, it, vi } from "vite-plus/test";
+import { beforeAll, expect, inject, it, vi } from "vite-plus/test";
 
 import { recoverStorageMutations } from "../../../worker/src/handlers/storage-mutation-recovery.js";
 import { assertStorageEntityReadable } from "../storage-read-guard";
@@ -188,6 +190,11 @@ it("trashes, restores, renames and deletes a folder of 1,531 items a chunk at a 
       WHERE "mutationId" = ${trash.id}
         AND ("beforeJson" <> 'null'::jsonb OR "afterJson" <> 'null'::jsonb)`,
   ).toEqual([{ count: 0n }]);
+  expect(
+    await db.storageMutationOperation.count({
+      where: { mutationId: trash.id },
+    }),
+  ).toBe(0);
 
   await service.restoreFolder({ ...actor, folderId: folder.id });
   const restore = await latestMutation(id, "folder_restore");
@@ -250,10 +257,15 @@ it("empties a trashed folder of 1,531 items in the worker", async () => {
 }, 120_000);
 
 // A rename journaled by hand, so the test can stop it between chunks.
-const prepareLargeRename = async (ownerUserId: string, rootId: string) => {
+const prepareLargeRename = async (
+  ownerUserId: string,
+  rootId: string,
+  filesPerSubfolder = FILES_PER_SUBFOLDER,
+) => {
   const { folder, subfolders, files } = await seedLargeFolder(
     ownerUserId,
     rootId,
+    filesPerSubfolder,
   );
   const sourceKey = `files/${ownerUserId}/Big`;
   const targetKey = `files/${ownerUserId}/Renamed`;
@@ -346,6 +358,17 @@ it("only finishes forward once a chunk has landed, and recovery completes it", a
     metadataCommittedAt: null,
     metadataOperationsApplied: STORAGE_MUTATION_CHUNK_SIZE,
   });
+  // The items' operations wait as rows; the plan keeps only the folder's own.
+  expect(stopped.intentJson).toMatchObject({ bulkOperationCount: 1530 });
+  expect(
+    (stopped.intentJson as { metadataOperations: unknown[] })
+      .metadataOperations,
+  ).toHaveLength(1);
+  expect(
+    await db.storageMutationOperation.count({
+      where: { mutationId: mutation.id },
+    }),
+  ).toBe(1530);
   // Half the rows already point at the new path; nobody can read them yet.
   expect(
     (await db.file.findUniqueOrThrow({ where: { id: sample.id } })).storageKey,
@@ -426,6 +449,11 @@ it("only finishes forward once a chunk has landed, and recovery completes it", a
   expect(
     await db.storageMutation.findUniqueOrThrow({ where: { id: mutation.id } }),
   ).toMatchObject({ status: "succeeded", metadataOperationsApplied: 1530 });
+  expect(
+    await db.storageMutationOperation.count({
+      where: { mutationId: mutation.id },
+    }),
+  ).toBe(0);
   expect(
     await db.file.count({
       where: { ownerUserId: id, storageKey: { startsWith: `${targetKey}/` } },
@@ -893,3 +921,249 @@ it("keeps a partial restore asynchronous when the accepted request is retried", 
     totalCount: 2131,
   });
 }, 120_000);
+
+const runSql = async (sql: string) => {
+  const client = new Client({
+    connectionString: inject("postgresDatabaseUrl"),
+  });
+  await client.connect();
+  try {
+    return await client.query(sql);
+  } finally {
+    await client.end();
+  }
+};
+
+it("finishes a large change while another connection holds its row for a moment", async () => {
+  const { id, root } = await createOwner();
+  const { mutation, files, targetKey } = await prepareLargeRename(id, root.id);
+  // A commit on a slow disk keeps the change's row locked for seconds.
+  const holder = new Client({
+    connectionString: inject("postgresDatabaseUrl"),
+  });
+  await holder.connect();
+  let released: Promise<unknown> | undefined;
+  try {
+    const result = await claimAndExecuteStorageMutation({
+      mutationId: mutation.id,
+      filesRoot: getStorageRoot(),
+      leaseOwner: "slow-disk",
+      commitMetadata: (tx) =>
+        applyStorageMutationIntentMetadata(tx, mutation.intentJson),
+      executionHook: async (boundary) => {
+        if (boundary !== "cleanup_steps_applied") return;
+        await holder.query("BEGIN");
+        await holder.query(
+          `SELECT id FROM "StorageMutation" WHERE id = $1 FOR UPDATE`,
+          [mutation.id],
+        );
+        released = new Promise((resolve) => setTimeout(resolve, 1_000)).then(
+          () => holder.query("COMMIT"),
+        );
+      },
+    });
+    expect(result).not.toBeNull();
+  } finally {
+    await released;
+    await holder.end();
+  }
+  expect(
+    await db.storageMutation.findUniqueOrThrow({ where: { id: mutation.id } }),
+  ).toMatchObject({ status: "succeeded" });
+  expect(
+    await db.file.count({
+      where: { ownerUserId: id, storageKey: { startsWith: `${targetKey}/` } },
+    }),
+  ).toBe(files.length);
+}, 120_000);
+
+const operationRowsMigration = new URL(
+  "../../../../packages/db/prisma/migrations/20261126120000_storage_mutation_operations/migration.sql",
+  import.meta.url,
+);
+
+it("moves a change stopped by v2.0.0 into operation rows, and it resumes at the next chunk", async () => {
+  const { id, root } = await createOwner();
+  const { mutation, files, targetKey } = await prepareLargeRename(
+    id,
+    root.id,
+    70,
+  );
+  let chunks = 0;
+  await expect(
+    claimAndExecuteStorageMutation({
+      mutationId: mutation.id,
+      filesRoot: getStorageRoot(),
+      leaseOwner: "crashed",
+      commitMetadata: (tx) =>
+        applyStorageMutationIntentMetadata(tx, mutation.intentJson),
+      executionHook: async (boundary) => {
+        if (boundary === "metadata_chunk_applied" && ++chunks === 2) {
+          throw new StorageMutationAbruptInterruptionError(boundary);
+        }
+      },
+    }),
+  ).rejects.toBeInstanceOf(StorageMutationAbruptInterruptionError);
+
+  // Put the change back the way v2.0.0 stored it: one list and its range.
+  const stopped = await db.storageMutation.findUniqueOrThrow({
+    where: { id: mutation.id },
+    include: { operations: { orderBy: { ordinal: "asc" } } },
+  });
+  expect(stopped.metadataOperationsApplied).toBe(
+    2 * STORAGE_MUTATION_CHUNK_SIZE,
+  );
+  const { bulkOperationCount, metadataOperations, ...intent } =
+    stopped.intentJson as {
+      bulkOperationCount: number;
+      metadataOperations: Prisma.InputJsonValue[];
+    };
+  await db.storageMutation.update({
+    where: { id: mutation.id },
+    data: {
+      intentJson: {
+        ...intent,
+        metadataOperations: [
+          ...stopped.operations.map(
+            (row) => row.operation as Prisma.InputJsonValue,
+          ),
+          ...metadataOperations,
+        ],
+        bulkOperationsEnd: bulkOperationCount,
+      },
+    },
+  });
+  // A small plan never used its range, a broken one must stay broken, and a
+  // finished one is never read again.
+  const legacy = (
+    intentJson: Prisma.InputJsonValue,
+    status = "recovery_required",
+  ) =>
+    db.storageMutation.create({
+      data: { kind: "folder_rename", status, ownerUserId: id, intentJson },
+    });
+  const small = await legacy({
+    version: 1,
+    metadataOperations: [{ action: "delete_trash_entry", entityId: "a" }],
+    bulkOperationsEnd: 1,
+  });
+  const broken = await legacy({
+    version: 1,
+    metadataOperations: [],
+    bulkOperationsEnd: "later",
+  });
+  const notAList = await legacy({
+    version: 1,
+    metadataOperations: {},
+    bulkOperationsEnd: 1,
+  });
+  const finishedIntent = {
+    version: 1,
+    metadataOperations: Array.from({ length: 1001 }, (_, index) => ({
+      action: "delete_trash_entry",
+      entityId: `t${index}`,
+    })),
+    bulkOperationsEnd: 1001,
+  };
+  const finished = await legacy(finishedIntent, "succeeded");
+
+  // One query, so a failed migration rolls the drop back too.
+  const migration = await readFile(operationRowsMigration, "utf8");
+  await runSql(`DROP TABLE "StorageMutationOperation";\n${migration}`);
+
+  const migrated = await db.storageMutation.findUniqueOrThrow({
+    where: { id: mutation.id },
+  });
+  expect(migrated.intentJson).toMatchObject({
+    bulkOperationCount: 2130,
+    metadataOperations: metadataOperations,
+  });
+  expect(migrated.intentJson).not.toHaveProperty("bulkOperationsEnd");
+  expect(
+    (
+      await db.storageMutationOperation.findMany({
+        where: { mutationId: mutation.id },
+        orderBy: { ordinal: "asc" },
+      })
+    ).map((row) => row.operation),
+  ).toEqual(stopped.operations.map((row) => row.operation));
+  expect(
+    (await db.storageMutation.findUniqueOrThrow({ where: { id: small.id } }))
+      .intentJson,
+  ).toEqual({
+    version: 1,
+    metadataOperations: [{ action: "delete_trash_entry", entityId: "a" }],
+  });
+  expect(
+    (await db.storageMutation.findUniqueOrThrow({ where: { id: broken.id } }))
+      .intentJson,
+  ).toMatchObject({ bulkOperationsEnd: "later" });
+  expect(
+    (await db.storageMutation.findUniqueOrThrow({ where: { id: notAList.id } }))
+      .intentJson,
+  ).toEqual({ version: 1, metadataOperations: {}, bulkOperationsEnd: 1 });
+  expect(
+    (await db.storageMutation.findUniqueOrThrow({ where: { id: finished.id } }))
+      .intentJson,
+  ).toEqual(finishedIntent);
+  const others = [small.id, broken.id, notAList.id, finished.id];
+  expect(
+    await db.storageMutationOperation.count({
+      where: { mutationId: { in: others } },
+    }),
+  ).toBe(0);
+  await db.storageMutation.deleteMany({ where: { id: { in: others } } });
+
+  // A chunk applied twice would fail its revision check and stop for review.
+  await db.storageMutation.update({
+    where: { id: mutation.id },
+    data: { leaseExpiresAt: new Date(0) },
+  });
+  await recoverStorageMutations({ storagePaths: storagePaths() });
+  expect(
+    await db.storageMutation.findUniqueOrThrow({ where: { id: mutation.id } }),
+  ).toMatchObject({ status: "succeeded", metadataOperationsApplied: 2130 });
+  expect(
+    await db.file.count({
+      where: { ownerUserId: id, storageKey: { startsWith: `${targetKey}/` } },
+    }),
+  ).toBe(files.length);
+  expect(
+    await db.storageMutationOperation.count({
+      where: { mutationId: mutation.id },
+    }),
+  ).toBe(0);
+}, 120_000);
+
+it("finds stored previews among more files than PostgreSQL takes as separate values", async () => {
+  const { id, root } = await createOwner();
+  const file = await db.file.create({
+    data: {
+      ownerUserId: id,
+      folderId: root.id,
+      originalName: "photo.jpg",
+      storageKey: `files/${id}/photo.jpg`,
+      mimeType: "image/jpeg",
+      sizeBytes: 3,
+    },
+  });
+  const derivative = await db.mediaDerivative.create({
+    data: {
+      fileId: file.id,
+      kind: "thumbnail",
+      profile: "thumb-480",
+      status: "ready",
+      storageKey: `derivatives/${file.id}.webp`,
+      sizeBytes: 2,
+    },
+  });
+  const ids = Array.from({ length: 40_000 }, () => randomUUID());
+  expect(await findStoredMediaDerivatives([...ids, file.id])).toEqual([
+    {
+      id: derivative.id,
+      storageKey: derivative.storageKey,
+      sizeBytes: 2n,
+      storageRevision: 0,
+    },
+  ]);
+});

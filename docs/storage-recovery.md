@@ -43,20 +43,27 @@ is longer than 1,000, the journal prepares entities and applies descendant
 metadata in chunks of at most 1,000:
 
 - **Preparation.** The first transaction takes the locks and writes the
-  mutation as `preparing`. Entities and their revision checks follow a chunk
-  per transaction, then the namespace checks, and the last transaction marks
-  it `prepared`. No executor runs a `preparing` mutation and nothing on disk
+  mutation as `preparing`, with only the folder's own operations in its
+  intent. Entities and their revision checks follow a chunk per transaction,
+  then the operations for items inside the folder as
+  `StorageMutationOperation` rows, then the namespace checks, and the last
+  transaction marks it `prepared`. No transaction handles more than one chunk,
+  so preparing a large folder fits the transaction limit on a slow server too.
+  No executor runs a `preparing` mutation and nothing on disk
   has moved, so a failed preparation deletes its rows and locks. One left for
   60 seconds belongs to a request that stopped: worker recovery deletes it,
   and a retry with the same idempotency key starts over.
-- **Commit.** After the disk steps, the operations for items inside the folder
-  commit a chunk per transaction. `metadataOperationsApplied` moves in the
+- **Commit.** After the disk steps, the operation rows commit a chunk per
+  transaction, in order. `metadataOperationsApplied` moves in the
   same transaction as each chunk, so a retry resumes where the last attempt
   stopped. The folder's own change and any trash-entry removal commit last
   with the change feed. Creating a trash entry happens in the first chunk.
   From the first chunk on, the mutation only goes forward: it is
   never rolled back or aborted, because committed rows already point at the
-  moved bytes.
+  moved bytes. The rows name paths, so completion deletes them a chunk at a
+  time, as it clears entity snapshots. Until the metadata commit, a mutation
+  that stops keeps every row, and a review Finish continues from them. Once
+  completion has started deleting rows, no step reads them again.
 - **Visibility.** Every item in the folder stays hidden behind its journal
   entity until the mutation finishes, so nobody reads a folder that is half
   moved. Sync refuses the whole snapshot while unfinished journal work affects
@@ -267,6 +274,9 @@ deadline ends the database session; it is not treated as a retryable lock refusa
 waits are limited to 100 ms. These settings do not change unrelated database
 transactions or pool sessions.
 
+Every step of a claimed mutation first locks the mutation's row without
+waiting. When another transaction holds it, such as a lease renewal whose
+commit waits on a slow disk, the step retries only its database transaction.
 A busy metadata commit retries only its database transaction while the existing
 journal retains ownership. Its five-second admission window limits contention
 retries, while each admitted attempt keeps the separate five-second transaction

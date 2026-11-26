@@ -410,6 +410,7 @@ export type StorageMutationWhereInput = {
   steps?: Prisma.StorageMutationStepListRelationFilter
   entities?: Prisma.StorageMutationEntityListRelationFilter
   resources?: Prisma.StorageMutationResourceListRelationFilter
+  operations?: Prisma.StorageMutationOperationListRelationFilter
   uploadSessions?: Prisma.UploadSessionListRelationFilter
 }
 
@@ -448,6 +449,7 @@ export type StorageMutationOrderByWithRelationInput = {
   steps?: Prisma.StorageMutationStepOrderByRelationAggregateInput
   entities?: Prisma.StorageMutationEntityOrderByRelationAggregateInput
   resources?: Prisma.StorageMutationResourceOrderByRelationAggregateInput
+  operations?: Prisma.StorageMutationOperationOrderByRelationAggregateInput
   uploadSessions?: Prisma.UploadSessionOrderByRelationAggregateInput
 }
 
@@ -489,6 +491,7 @@ export type StorageMutationWhereUniqueInput = Prisma.AtLeast<{
   steps?: Prisma.StorageMutationStepListRelationFilter
   entities?: Prisma.StorageMutationEntityListRelationFilter
   resources?: Prisma.StorageMutationResourceListRelationFilter
+  operations?: Prisma.StorageMutationOperationListRelationFilter
   uploadSessions?: Prisma.UploadSessionListRelationFilter
 }, "id" | "idempotencyKey">
 
@@ -595,6 +598,7 @@ export type StorageMutationCreateInput = {
   steps?: Prisma.StorageMutationStepCreateNestedManyWithoutMutationInput
   entities?: Prisma.StorageMutationEntityCreateNestedManyWithoutMutationInput
   resources?: Prisma.StorageMutationResourceCreateNestedManyWithoutMutationInput
+  operations?: Prisma.StorageMutationOperationCreateNestedManyWithoutMutationInput
   uploadSessions?: Prisma.UploadSessionCreateNestedManyWithoutStorageMutationInput
 }
 
@@ -631,6 +635,7 @@ export type StorageMutationUncheckedCreateInput = {
   steps?: Prisma.StorageMutationStepUncheckedCreateNestedManyWithoutMutationInput
   entities?: Prisma.StorageMutationEntityUncheckedCreateNestedManyWithoutMutationInput
   resources?: Prisma.StorageMutationResourceUncheckedCreateNestedManyWithoutMutationInput
+  operations?: Prisma.StorageMutationOperationUncheckedCreateNestedManyWithoutMutationInput
   uploadSessions?: Prisma.UploadSessionUncheckedCreateNestedManyWithoutStorageMutationInput
 }
 
@@ -667,6 +672,7 @@ export type StorageMutationUpdateInput = {
   steps?: Prisma.StorageMutationStepUpdateManyWithoutMutationNestedInput
   entities?: Prisma.StorageMutationEntityUpdateManyWithoutMutationNestedInput
   resources?: Prisma.StorageMutationResourceUpdateManyWithoutMutationNestedInput
+  operations?: Prisma.StorageMutationOperationUpdateManyWithoutMutationNestedInput
   uploadSessions?: Prisma.UploadSessionUpdateManyWithoutStorageMutationNestedInput
 }
 
@@ -703,6 +709,7 @@ export type StorageMutationUncheckedUpdateInput = {
   steps?: Prisma.StorageMutationStepUncheckedUpdateManyWithoutMutationNestedInput
   entities?: Prisma.StorageMutationEntityUncheckedUpdateManyWithoutMutationNestedInput
   resources?: Prisma.StorageMutationResourceUncheckedUpdateManyWithoutMutationNestedInput
+  operations?: Prisma.StorageMutationOperationUncheckedUpdateManyWithoutMutationNestedInput
   uploadSessions?: Prisma.UploadSessionUncheckedUpdateManyWithoutStorageMutationNestedInput
 }
 
@@ -1064,6 +1071,20 @@ export type StorageMutationUpdateOneRequiredWithoutEntitiesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.StorageMutationUpdateToOneWithWhereWithoutEntitiesInput, Prisma.StorageMutationUpdateWithoutEntitiesInput>, Prisma.StorageMutationUncheckedUpdateWithoutEntitiesInput>
 }
 
+export type StorageMutationCreateNestedOneWithoutOperationsInput = {
+  create?: Prisma.XOR<Prisma.StorageMutationCreateWithoutOperationsInput, Prisma.StorageMutationUncheckedCreateWithoutOperationsInput>
+  connectOrCreate?: Prisma.StorageMutationCreateOrConnectWithoutOperationsInput
+  connect?: Prisma.StorageMutationWhereUniqueInput
+}
+
+export type StorageMutationUpdateOneRequiredWithoutOperationsNestedInput = {
+  create?: Prisma.XOR<Prisma.StorageMutationCreateWithoutOperationsInput, Prisma.StorageMutationUncheckedCreateWithoutOperationsInput>
+  connectOrCreate?: Prisma.StorageMutationCreateOrConnectWithoutOperationsInput
+  upsert?: Prisma.StorageMutationUpsertWithoutOperationsInput
+  connect?: Prisma.StorageMutationWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.StorageMutationUpdateToOneWithWhereWithoutOperationsInput, Prisma.StorageMutationUpdateWithoutOperationsInput>, Prisma.StorageMutationUncheckedUpdateWithoutOperationsInput>
+}
+
 export type StorageMutationCreateNestedOneWithoutResourcesInput = {
   create?: Prisma.XOR<Prisma.StorageMutationCreateWithoutResourcesInput, Prisma.StorageMutationUncheckedCreateWithoutResourcesInput>
   connectOrCreate?: Prisma.StorageMutationCreateOrConnectWithoutResourcesInput
@@ -1110,6 +1131,7 @@ export type StorageMutationCreateWithoutOwnerInput = {
   steps?: Prisma.StorageMutationStepCreateNestedManyWithoutMutationInput
   entities?: Prisma.StorageMutationEntityCreateNestedManyWithoutMutationInput
   resources?: Prisma.StorageMutationResourceCreateNestedManyWithoutMutationInput
+  operations?: Prisma.StorageMutationOperationCreateNestedManyWithoutMutationInput
   uploadSessions?: Prisma.UploadSessionCreateNestedManyWithoutStorageMutationInput
 }
 
@@ -1145,6 +1167,7 @@ export type StorageMutationUncheckedCreateWithoutOwnerInput = {
   steps?: Prisma.StorageMutationStepUncheckedCreateNestedManyWithoutMutationInput
   entities?: Prisma.StorageMutationEntityUncheckedCreateNestedManyWithoutMutationInput
   resources?: Prisma.StorageMutationResourceUncheckedCreateNestedManyWithoutMutationInput
+  operations?: Prisma.StorageMutationOperationUncheckedCreateNestedManyWithoutMutationInput
   uploadSessions?: Prisma.UploadSessionUncheckedCreateNestedManyWithoutStorageMutationInput
 }
 
@@ -1241,6 +1264,7 @@ export type StorageMutationCreateWithoutUploadSessionsInput = {
   steps?: Prisma.StorageMutationStepCreateNestedManyWithoutMutationInput
   entities?: Prisma.StorageMutationEntityCreateNestedManyWithoutMutationInput
   resources?: Prisma.StorageMutationResourceCreateNestedManyWithoutMutationInput
+  operations?: Prisma.StorageMutationOperationCreateNestedManyWithoutMutationInput
 }
 
 export type StorageMutationUncheckedCreateWithoutUploadSessionsInput = {
@@ -1276,6 +1300,7 @@ export type StorageMutationUncheckedCreateWithoutUploadSessionsInput = {
   steps?: Prisma.StorageMutationStepUncheckedCreateNestedManyWithoutMutationInput
   entities?: Prisma.StorageMutationEntityUncheckedCreateNestedManyWithoutMutationInput
   resources?: Prisma.StorageMutationResourceUncheckedCreateNestedManyWithoutMutationInput
+  operations?: Prisma.StorageMutationOperationUncheckedCreateNestedManyWithoutMutationInput
 }
 
 export type StorageMutationCreateOrConnectWithoutUploadSessionsInput = {
@@ -1327,6 +1352,7 @@ export type StorageMutationUpdateWithoutUploadSessionsInput = {
   steps?: Prisma.StorageMutationStepUpdateManyWithoutMutationNestedInput
   entities?: Prisma.StorageMutationEntityUpdateManyWithoutMutationNestedInput
   resources?: Prisma.StorageMutationResourceUpdateManyWithoutMutationNestedInput
+  operations?: Prisma.StorageMutationOperationUpdateManyWithoutMutationNestedInput
 }
 
 export type StorageMutationUncheckedUpdateWithoutUploadSessionsInput = {
@@ -1362,6 +1388,7 @@ export type StorageMutationUncheckedUpdateWithoutUploadSessionsInput = {
   steps?: Prisma.StorageMutationStepUncheckedUpdateManyWithoutMutationNestedInput
   entities?: Prisma.StorageMutationEntityUncheckedUpdateManyWithoutMutationNestedInput
   resources?: Prisma.StorageMutationResourceUncheckedUpdateManyWithoutMutationNestedInput
+  operations?: Prisma.StorageMutationOperationUncheckedUpdateManyWithoutMutationNestedInput
 }
 
 export type StorageMutationCreateWithoutChildrenInput = {
@@ -1396,6 +1423,7 @@ export type StorageMutationCreateWithoutChildrenInput = {
   steps?: Prisma.StorageMutationStepCreateNestedManyWithoutMutationInput
   entities?: Prisma.StorageMutationEntityCreateNestedManyWithoutMutationInput
   resources?: Prisma.StorageMutationResourceCreateNestedManyWithoutMutationInput
+  operations?: Prisma.StorageMutationOperationCreateNestedManyWithoutMutationInput
   uploadSessions?: Prisma.UploadSessionCreateNestedManyWithoutStorageMutationInput
 }
 
@@ -1431,6 +1459,7 @@ export type StorageMutationUncheckedCreateWithoutChildrenInput = {
   steps?: Prisma.StorageMutationStepUncheckedCreateNestedManyWithoutMutationInput
   entities?: Prisma.StorageMutationEntityUncheckedCreateNestedManyWithoutMutationInput
   resources?: Prisma.StorageMutationResourceUncheckedCreateNestedManyWithoutMutationInput
+  operations?: Prisma.StorageMutationOperationUncheckedCreateNestedManyWithoutMutationInput
   uploadSessions?: Prisma.UploadSessionUncheckedCreateNestedManyWithoutStorageMutationInput
 }
 
@@ -1471,6 +1500,7 @@ export type StorageMutationCreateWithoutParentInput = {
   steps?: Prisma.StorageMutationStepCreateNestedManyWithoutMutationInput
   entities?: Prisma.StorageMutationEntityCreateNestedManyWithoutMutationInput
   resources?: Prisma.StorageMutationResourceCreateNestedManyWithoutMutationInput
+  operations?: Prisma.StorageMutationOperationCreateNestedManyWithoutMutationInput
   uploadSessions?: Prisma.UploadSessionCreateNestedManyWithoutStorageMutationInput
 }
 
@@ -1506,6 +1536,7 @@ export type StorageMutationUncheckedCreateWithoutParentInput = {
   steps?: Prisma.StorageMutationStepUncheckedCreateNestedManyWithoutMutationInput
   entities?: Prisma.StorageMutationEntityUncheckedCreateNestedManyWithoutMutationInput
   resources?: Prisma.StorageMutationResourceUncheckedCreateNestedManyWithoutMutationInput
+  operations?: Prisma.StorageMutationOperationUncheckedCreateNestedManyWithoutMutationInput
   uploadSessions?: Prisma.UploadSessionUncheckedCreateNestedManyWithoutStorageMutationInput
 }
 
@@ -1562,6 +1593,7 @@ export type StorageMutationUpdateWithoutChildrenInput = {
   steps?: Prisma.StorageMutationStepUpdateManyWithoutMutationNestedInput
   entities?: Prisma.StorageMutationEntityUpdateManyWithoutMutationNestedInput
   resources?: Prisma.StorageMutationResourceUpdateManyWithoutMutationNestedInput
+  operations?: Prisma.StorageMutationOperationUpdateManyWithoutMutationNestedInput
   uploadSessions?: Prisma.UploadSessionUpdateManyWithoutStorageMutationNestedInput
 }
 
@@ -1597,6 +1629,7 @@ export type StorageMutationUncheckedUpdateWithoutChildrenInput = {
   steps?: Prisma.StorageMutationStepUncheckedUpdateManyWithoutMutationNestedInput
   entities?: Prisma.StorageMutationEntityUncheckedUpdateManyWithoutMutationNestedInput
   resources?: Prisma.StorageMutationResourceUncheckedUpdateManyWithoutMutationNestedInput
+  operations?: Prisma.StorageMutationOperationUncheckedUpdateManyWithoutMutationNestedInput
   uploadSessions?: Prisma.UploadSessionUncheckedUpdateManyWithoutStorageMutationNestedInput
 }
 
@@ -1648,6 +1681,7 @@ export type StorageMutationCreateWithoutStepsInput = {
   owner: Prisma.UserCreateNestedOneWithoutStorageMutationsInput
   entities?: Prisma.StorageMutationEntityCreateNestedManyWithoutMutationInput
   resources?: Prisma.StorageMutationResourceCreateNestedManyWithoutMutationInput
+  operations?: Prisma.StorageMutationOperationCreateNestedManyWithoutMutationInput
   uploadSessions?: Prisma.UploadSessionCreateNestedManyWithoutStorageMutationInput
 }
 
@@ -1683,6 +1717,7 @@ export type StorageMutationUncheckedCreateWithoutStepsInput = {
   children?: Prisma.StorageMutationUncheckedCreateNestedManyWithoutParentInput
   entities?: Prisma.StorageMutationEntityUncheckedCreateNestedManyWithoutMutationInput
   resources?: Prisma.StorageMutationResourceUncheckedCreateNestedManyWithoutMutationInput
+  operations?: Prisma.StorageMutationOperationUncheckedCreateNestedManyWithoutMutationInput
   uploadSessions?: Prisma.UploadSessionUncheckedCreateNestedManyWithoutStorageMutationInput
 }
 
@@ -1734,6 +1769,7 @@ export type StorageMutationUpdateWithoutStepsInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutStorageMutationsNestedInput
   entities?: Prisma.StorageMutationEntityUpdateManyWithoutMutationNestedInput
   resources?: Prisma.StorageMutationResourceUpdateManyWithoutMutationNestedInput
+  operations?: Prisma.StorageMutationOperationUpdateManyWithoutMutationNestedInput
   uploadSessions?: Prisma.UploadSessionUpdateManyWithoutStorageMutationNestedInput
 }
 
@@ -1769,6 +1805,7 @@ export type StorageMutationUncheckedUpdateWithoutStepsInput = {
   children?: Prisma.StorageMutationUncheckedUpdateManyWithoutParentNestedInput
   entities?: Prisma.StorageMutationEntityUncheckedUpdateManyWithoutMutationNestedInput
   resources?: Prisma.StorageMutationResourceUncheckedUpdateManyWithoutMutationNestedInput
+  operations?: Prisma.StorageMutationOperationUncheckedUpdateManyWithoutMutationNestedInput
   uploadSessions?: Prisma.UploadSessionUncheckedUpdateManyWithoutStorageMutationNestedInput
 }
 
@@ -1804,6 +1841,7 @@ export type StorageMutationCreateWithoutEntitiesInput = {
   owner: Prisma.UserCreateNestedOneWithoutStorageMutationsInput
   steps?: Prisma.StorageMutationStepCreateNestedManyWithoutMutationInput
   resources?: Prisma.StorageMutationResourceCreateNestedManyWithoutMutationInput
+  operations?: Prisma.StorageMutationOperationCreateNestedManyWithoutMutationInput
   uploadSessions?: Prisma.UploadSessionCreateNestedManyWithoutStorageMutationInput
 }
 
@@ -1839,6 +1877,7 @@ export type StorageMutationUncheckedCreateWithoutEntitiesInput = {
   children?: Prisma.StorageMutationUncheckedCreateNestedManyWithoutParentInput
   steps?: Prisma.StorageMutationStepUncheckedCreateNestedManyWithoutMutationInput
   resources?: Prisma.StorageMutationResourceUncheckedCreateNestedManyWithoutMutationInput
+  operations?: Prisma.StorageMutationOperationUncheckedCreateNestedManyWithoutMutationInput
   uploadSessions?: Prisma.UploadSessionUncheckedCreateNestedManyWithoutStorageMutationInput
 }
 
@@ -1890,6 +1929,7 @@ export type StorageMutationUpdateWithoutEntitiesInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutStorageMutationsNestedInput
   steps?: Prisma.StorageMutationStepUpdateManyWithoutMutationNestedInput
   resources?: Prisma.StorageMutationResourceUpdateManyWithoutMutationNestedInput
+  operations?: Prisma.StorageMutationOperationUpdateManyWithoutMutationNestedInput
   uploadSessions?: Prisma.UploadSessionUpdateManyWithoutStorageMutationNestedInput
 }
 
@@ -1924,6 +1964,167 @@ export type StorageMutationUncheckedUpdateWithoutEntitiesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   children?: Prisma.StorageMutationUncheckedUpdateManyWithoutParentNestedInput
   steps?: Prisma.StorageMutationStepUncheckedUpdateManyWithoutMutationNestedInput
+  resources?: Prisma.StorageMutationResourceUncheckedUpdateManyWithoutMutationNestedInput
+  operations?: Prisma.StorageMutationOperationUncheckedUpdateManyWithoutMutationNestedInput
+  uploadSessions?: Prisma.UploadSessionUncheckedUpdateManyWithoutStorageMutationNestedInput
+}
+
+export type StorageMutationCreateWithoutOperationsInput = {
+  id?: string
+  kind: string
+  status: string
+  idempotencyKey?: string | null
+  requestHash?: string | null
+  intentJson: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  resultJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  leaseOwner?: string | null
+  leaseToken?: bigint | number
+  leaseExpiresAt?: Date | string | null
+  attemptCount?: number
+  claimFailureCount?: number
+  lastAttemptAt?: Date | string | null
+  nextAttemptAt?: Date | string | null
+  lastError?: string | null
+  metadataCommittedAt?: Date | string | null
+  metadataOperationsApplied?: number
+  completedAt?: Date | string | null
+  recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
+  reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  parent?: Prisma.StorageMutationCreateNestedOneWithoutChildrenInput
+  children?: Prisma.StorageMutationCreateNestedManyWithoutParentInput
+  owner: Prisma.UserCreateNestedOneWithoutStorageMutationsInput
+  steps?: Prisma.StorageMutationStepCreateNestedManyWithoutMutationInput
+  entities?: Prisma.StorageMutationEntityCreateNestedManyWithoutMutationInput
+  resources?: Prisma.StorageMutationResourceCreateNestedManyWithoutMutationInput
+  uploadSessions?: Prisma.UploadSessionCreateNestedManyWithoutStorageMutationInput
+}
+
+export type StorageMutationUncheckedCreateWithoutOperationsInput = {
+  id?: string
+  parentId?: string | null
+  kind: string
+  status: string
+  ownerUserId: string
+  idempotencyKey?: string | null
+  requestHash?: string | null
+  intentJson: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  resultJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  leaseOwner?: string | null
+  leaseToken?: bigint | number
+  leaseExpiresAt?: Date | string | null
+  attemptCount?: number
+  claimFailureCount?: number
+  lastAttemptAt?: Date | string | null
+  nextAttemptAt?: Date | string | null
+  lastError?: string | null
+  metadataCommittedAt?: Date | string | null
+  metadataOperationsApplied?: number
+  completedAt?: Date | string | null
+  recoveryRequiredAt?: Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Date | string | null
+  reviewNoticeSeenAt?: Date | string | null
+  reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  children?: Prisma.StorageMutationUncheckedCreateNestedManyWithoutParentInput
+  steps?: Prisma.StorageMutationStepUncheckedCreateNestedManyWithoutMutationInput
+  entities?: Prisma.StorageMutationEntityUncheckedCreateNestedManyWithoutMutationInput
+  resources?: Prisma.StorageMutationResourceUncheckedCreateNestedManyWithoutMutationInput
+  uploadSessions?: Prisma.UploadSessionUncheckedCreateNestedManyWithoutStorageMutationInput
+}
+
+export type StorageMutationCreateOrConnectWithoutOperationsInput = {
+  where: Prisma.StorageMutationWhereUniqueInput
+  create: Prisma.XOR<Prisma.StorageMutationCreateWithoutOperationsInput, Prisma.StorageMutationUncheckedCreateWithoutOperationsInput>
+}
+
+export type StorageMutationUpsertWithoutOperationsInput = {
+  update: Prisma.XOR<Prisma.StorageMutationUpdateWithoutOperationsInput, Prisma.StorageMutationUncheckedUpdateWithoutOperationsInput>
+  create: Prisma.XOR<Prisma.StorageMutationCreateWithoutOperationsInput, Prisma.StorageMutationUncheckedCreateWithoutOperationsInput>
+  where?: Prisma.StorageMutationWhereInput
+}
+
+export type StorageMutationUpdateToOneWithWhereWithoutOperationsInput = {
+  where?: Prisma.StorageMutationWhereInput
+  data: Prisma.XOR<Prisma.StorageMutationUpdateWithoutOperationsInput, Prisma.StorageMutationUncheckedUpdateWithoutOperationsInput>
+}
+
+export type StorageMutationUpdateWithoutOperationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  kind?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  intentJson?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  resultJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  leaseOwner?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
+  lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadataCommittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  parent?: Prisma.StorageMutationUpdateOneWithoutChildrenNestedInput
+  children?: Prisma.StorageMutationUpdateManyWithoutParentNestedInput
+  owner?: Prisma.UserUpdateOneRequiredWithoutStorageMutationsNestedInput
+  steps?: Prisma.StorageMutationStepUpdateManyWithoutMutationNestedInput
+  entities?: Prisma.StorageMutationEntityUpdateManyWithoutMutationNestedInput
+  resources?: Prisma.StorageMutationResourceUpdateManyWithoutMutationNestedInput
+  uploadSessions?: Prisma.UploadSessionUpdateManyWithoutStorageMutationNestedInput
+}
+
+export type StorageMutationUncheckedUpdateWithoutOperationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  kind?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  idempotencyKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requestHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  intentJson?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  resultJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  leaseOwner?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  leaseToken?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  leaseExpiresAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  attemptCount?: Prisma.IntFieldUpdateOperationsInput | number
+  claimFailureCount?: Prisma.IntFieldUpdateOperationsInput | number
+  lastAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  nextAttemptAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  lastError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  metadataCommittedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  metadataOperationsApplied?: Prisma.IntFieldUpdateOperationsInput | number
+  completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewJson?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reviewNoticeSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  children?: Prisma.StorageMutationUncheckedUpdateManyWithoutParentNestedInput
+  steps?: Prisma.StorageMutationStepUncheckedUpdateManyWithoutMutationNestedInput
+  entities?: Prisma.StorageMutationEntityUncheckedUpdateManyWithoutMutationNestedInput
   resources?: Prisma.StorageMutationResourceUncheckedUpdateManyWithoutMutationNestedInput
   uploadSessions?: Prisma.UploadSessionUncheckedUpdateManyWithoutStorageMutationNestedInput
 }
@@ -1960,6 +2161,7 @@ export type StorageMutationCreateWithoutResourcesInput = {
   owner: Prisma.UserCreateNestedOneWithoutStorageMutationsInput
   steps?: Prisma.StorageMutationStepCreateNestedManyWithoutMutationInput
   entities?: Prisma.StorageMutationEntityCreateNestedManyWithoutMutationInput
+  operations?: Prisma.StorageMutationOperationCreateNestedManyWithoutMutationInput
   uploadSessions?: Prisma.UploadSessionCreateNestedManyWithoutStorageMutationInput
 }
 
@@ -1995,6 +2197,7 @@ export type StorageMutationUncheckedCreateWithoutResourcesInput = {
   children?: Prisma.StorageMutationUncheckedCreateNestedManyWithoutParentInput
   steps?: Prisma.StorageMutationStepUncheckedCreateNestedManyWithoutMutationInput
   entities?: Prisma.StorageMutationEntityUncheckedCreateNestedManyWithoutMutationInput
+  operations?: Prisma.StorageMutationOperationUncheckedCreateNestedManyWithoutMutationInput
   uploadSessions?: Prisma.UploadSessionUncheckedCreateNestedManyWithoutStorageMutationInput
 }
 
@@ -2046,6 +2249,7 @@ export type StorageMutationUpdateWithoutResourcesInput = {
   owner?: Prisma.UserUpdateOneRequiredWithoutStorageMutationsNestedInput
   steps?: Prisma.StorageMutationStepUpdateManyWithoutMutationNestedInput
   entities?: Prisma.StorageMutationEntityUpdateManyWithoutMutationNestedInput
+  operations?: Prisma.StorageMutationOperationUpdateManyWithoutMutationNestedInput
   uploadSessions?: Prisma.UploadSessionUpdateManyWithoutStorageMutationNestedInput
 }
 
@@ -2081,6 +2285,7 @@ export type StorageMutationUncheckedUpdateWithoutResourcesInput = {
   children?: Prisma.StorageMutationUncheckedUpdateManyWithoutParentNestedInput
   steps?: Prisma.StorageMutationStepUncheckedUpdateManyWithoutMutationNestedInput
   entities?: Prisma.StorageMutationEntityUncheckedUpdateManyWithoutMutationNestedInput
+  operations?: Prisma.StorageMutationOperationUncheckedUpdateManyWithoutMutationNestedInput
   uploadSessions?: Prisma.UploadSessionUncheckedUpdateManyWithoutStorageMutationNestedInput
 }
 
@@ -2146,6 +2351,7 @@ export type StorageMutationUpdateWithoutOwnerInput = {
   steps?: Prisma.StorageMutationStepUpdateManyWithoutMutationNestedInput
   entities?: Prisma.StorageMutationEntityUpdateManyWithoutMutationNestedInput
   resources?: Prisma.StorageMutationResourceUpdateManyWithoutMutationNestedInput
+  operations?: Prisma.StorageMutationOperationUpdateManyWithoutMutationNestedInput
   uploadSessions?: Prisma.UploadSessionUpdateManyWithoutStorageMutationNestedInput
 }
 
@@ -2181,6 +2387,7 @@ export type StorageMutationUncheckedUpdateWithoutOwnerInput = {
   steps?: Prisma.StorageMutationStepUncheckedUpdateManyWithoutMutationNestedInput
   entities?: Prisma.StorageMutationEntityUncheckedUpdateManyWithoutMutationNestedInput
   resources?: Prisma.StorageMutationResourceUncheckedUpdateManyWithoutMutationNestedInput
+  operations?: Prisma.StorageMutationOperationUncheckedUpdateManyWithoutMutationNestedInput
   uploadSessions?: Prisma.UploadSessionUncheckedUpdateManyWithoutStorageMutationNestedInput
 }
 
@@ -2276,6 +2483,7 @@ export type StorageMutationUpdateWithoutParentInput = {
   steps?: Prisma.StorageMutationStepUpdateManyWithoutMutationNestedInput
   entities?: Prisma.StorageMutationEntityUpdateManyWithoutMutationNestedInput
   resources?: Prisma.StorageMutationResourceUpdateManyWithoutMutationNestedInput
+  operations?: Prisma.StorageMutationOperationUpdateManyWithoutMutationNestedInput
   uploadSessions?: Prisma.UploadSessionUpdateManyWithoutStorageMutationNestedInput
 }
 
@@ -2311,6 +2519,7 @@ export type StorageMutationUncheckedUpdateWithoutParentInput = {
   steps?: Prisma.StorageMutationStepUncheckedUpdateManyWithoutMutationNestedInput
   entities?: Prisma.StorageMutationEntityUncheckedUpdateManyWithoutMutationNestedInput
   resources?: Prisma.StorageMutationResourceUncheckedUpdateManyWithoutMutationNestedInput
+  operations?: Prisma.StorageMutationOperationUncheckedUpdateManyWithoutMutationNestedInput
   uploadSessions?: Prisma.UploadSessionUncheckedUpdateManyWithoutStorageMutationNestedInput
 }
 
@@ -2354,6 +2563,7 @@ export type StorageMutationCountOutputType = {
   steps: number
   entities: number
   resources: number
+  operations: number
   uploadSessions: number
 }
 
@@ -2362,6 +2572,7 @@ export type StorageMutationCountOutputTypeSelect<ExtArgs extends runtime.Types.E
   steps?: boolean | StorageMutationCountOutputTypeCountStepsArgs
   entities?: boolean | StorageMutationCountOutputTypeCountEntitiesArgs
   resources?: boolean | StorageMutationCountOutputTypeCountResourcesArgs
+  operations?: boolean | StorageMutationCountOutputTypeCountOperationsArgs
   uploadSessions?: boolean | StorageMutationCountOutputTypeCountUploadSessionsArgs
 }
 
@@ -2401,6 +2612,13 @@ export type StorageMutationCountOutputTypeCountEntitiesArgs<ExtArgs extends runt
  */
 export type StorageMutationCountOutputTypeCountResourcesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.StorageMutationResourceWhereInput
+}
+
+/**
+ * StorageMutationCountOutputType without action
+ */
+export type StorageMutationCountOutputTypeCountOperationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.StorageMutationOperationWhereInput
 }
 
 /**
@@ -2446,6 +2664,7 @@ export type StorageMutationSelect<ExtArgs extends runtime.Types.Extensions.Inter
   steps?: boolean | Prisma.StorageMutation$stepsArgs<ExtArgs>
   entities?: boolean | Prisma.StorageMutation$entitiesArgs<ExtArgs>
   resources?: boolean | Prisma.StorageMutation$resourcesArgs<ExtArgs>
+  operations?: boolean | Prisma.StorageMutation$operationsArgs<ExtArgs>
   uploadSessions?: boolean | Prisma.StorageMutation$uploadSessionsArgs<ExtArgs>
   _count?: boolean | Prisma.StorageMutationCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["storageMutation"]>
@@ -2555,6 +2774,7 @@ export type StorageMutationInclude<ExtArgs extends runtime.Types.Extensions.Inte
   steps?: boolean | Prisma.StorageMutation$stepsArgs<ExtArgs>
   entities?: boolean | Prisma.StorageMutation$entitiesArgs<ExtArgs>
   resources?: boolean | Prisma.StorageMutation$resourcesArgs<ExtArgs>
+  operations?: boolean | Prisma.StorageMutation$operationsArgs<ExtArgs>
   uploadSessions?: boolean | Prisma.StorageMutation$uploadSessionsArgs<ExtArgs>
   _count?: boolean | Prisma.StorageMutationCountOutputTypeDefaultArgs<ExtArgs>
 }
@@ -2576,6 +2796,7 @@ export type $StorageMutationPayload<ExtArgs extends runtime.Types.Extensions.Int
     steps: Prisma.$StorageMutationStepPayload<ExtArgs>[]
     entities: Prisma.$StorageMutationEntityPayload<ExtArgs>[]
     resources: Prisma.$StorageMutationResourcePayload<ExtArgs>[]
+    operations: Prisma.$StorageMutationOperationPayload<ExtArgs>[]
     uploadSessions: Prisma.$UploadSessionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
@@ -3025,6 +3246,7 @@ export interface Prisma__StorageMutationClient<T, Null = never, ExtArgs extends 
   steps<T extends Prisma.StorageMutation$stepsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.StorageMutation$stepsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$StorageMutationStepPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   entities<T extends Prisma.StorageMutation$entitiesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.StorageMutation$entitiesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$StorageMutationEntityPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   resources<T extends Prisma.StorageMutation$resourcesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.StorageMutation$resourcesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$StorageMutationResourcePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  operations<T extends Prisma.StorageMutation$operationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.StorageMutation$operationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$StorageMutationOperationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   uploadSessions<T extends Prisma.StorageMutation$uploadSessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.StorageMutation$uploadSessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$UploadSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -3596,6 +3818,30 @@ export type StorageMutation$resourcesArgs<ExtArgs extends runtime.Types.Extensio
   take?: number
   skip?: number
   distinct?: Prisma.StorageMutationResourceScalarFieldEnum | Prisma.StorageMutationResourceScalarFieldEnum[]
+}
+
+/**
+ * StorageMutation.operations
+ */
+export type StorageMutation$operationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the StorageMutationOperation
+   */
+  select?: Prisma.StorageMutationOperationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the StorageMutationOperation
+   */
+  omit?: Prisma.StorageMutationOperationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.StorageMutationOperationInclude<ExtArgs> | null
+  where?: Prisma.StorageMutationOperationWhereInput
+  orderBy?: Prisma.StorageMutationOperationOrderByWithRelationInput | Prisma.StorageMutationOperationOrderByWithRelationInput[]
+  cursor?: Prisma.StorageMutationOperationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.StorageMutationOperationScalarFieldEnum | Prisma.StorageMutationOperationScalarFieldEnum[]
 }
 
 /**

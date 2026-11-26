@@ -583,6 +583,7 @@ model StorageMutation {
   steps                StorageMutationStep[]
   entities             StorageMutationEntity[]
   resources            StorageMutationResource[]
+  operations           StorageMutationOperation[]
   uploadSessions       UploadSession[]
 
   @@index([status, nextAttemptAt])
@@ -631,6 +632,16 @@ model StorageMutationEntity {
 
   @@unique([mutationId, entityType, entityId])
   @@index([entityType, entityId])
+}
+
+// The metadata operations a large mutation commits in chunks, in order.
+model StorageMutationOperation {
+  mutationId String
+  ordinal    Int
+  operation  Json
+  mutation   StorageMutation @relation(fields: [mutationId], references: [id], onDelete: Cascade)
+
+  @@id([mutationId, ordinal])
 }
 
 model StorageMutationResource {

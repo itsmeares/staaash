@@ -1515,7 +1515,26 @@ type RefreshResult = {
   entities: StorageMutationEntityInput[];
 };
 
-const revisionAfterOperations = (mutation: Mutation, entityId: string) =>
+// Every update in the plan commits before a refresh: the bulk rows first, then
+// the ones in the intent, so a refresh counts both.
+const bulkUpdateCounts = async (mutationId: string) =>
+  new Map(
+    (
+      await getPrisma().$queryRaw<Array<{ entityId: string; count: number }>>`
+        SELECT operation->>'entityId' AS "entityId", count(*)::integer AS count
+        FROM "StorageMutationOperation"
+        WHERE "mutationId" = ${mutationId} AND operation->>'action' = 'update'
+        GROUP BY 1
+      `
+    ).map((row) => [row.entityId, row.count]),
+  );
+
+const revisionAfterOperations = (
+  mutation: Mutation,
+  bulkUpdates: Map<string, number>,
+  entityId: string,
+) =>
+  (bulkUpdates.get(entityId) ?? 0) +
   operationsOf(mutation).filter(
     (operation) =>
       operation.action === "update" && operation.entityId === entityId,
@@ -1537,9 +1556,12 @@ const refreshItem = async (
 ): Promise<RefreshResult | null> => {
   const { mutation } = context;
   const captured = await captureStorageNode(context.filesRoot, itemKey);
+  const bulkUpdates = kept ? await bulkUpdateCounts(mutation.id) : new Map();
   const revisionOf = (entity: ItemEntity) =>
     entity.preRevision +
-    (kept ? revisionAfterOperations(mutation, entity.entityId) : 0);
+    (kept
+      ? revisionAfterOperations(mutation, bulkUpdates, entity.entityId)
+      : 0);
   if (captured.type === "file") {
     const stepPatch = {
       expectedNodeType: "file",
@@ -1850,6 +1872,8 @@ type StepRewrite = {
   operations: StorageMetadataOperation[];
   entities: StorageMutationEntityInput[];
   undone: boolean;
+  /** False when the new operations replace the plan, bulk rows included. */
+  keepsBulk: boolean;
 };
 
 const withoutQuotaChecks = (operations: StorageMetadataOperation[]) =>
@@ -1896,6 +1920,7 @@ const planStepRewrite = async (
     operations: withoutQuotaChecks(operationsOf(mutation)),
     entities: [],
     undone: false,
+    keepsBulk: true,
   };
   if (rewrite.type === "resume") return keep;
   if (!step) {
@@ -1957,6 +1982,7 @@ const planStepRewrite = async (
       .filter((candidate) => candidate.status !== "applied")
       .map((candidate) => candidate.id),
     ...removed,
+    keepsBulk: false,
   };
 };
 
@@ -2017,6 +2043,7 @@ const undoRewrite = async (
     operations: refresh?.operations ?? [],
     entities: refresh?.entities ?? [],
     undone: true,
+    keepsBulk: false,
   };
 };
 
@@ -2026,12 +2053,18 @@ const rewrittenIntent = (mutation: Mutation, rewrite: StepRewrite) => {
   const intent = mutation.intentJson as Record<string, unknown>;
   // A parent keeps its own plan format; it only resumes.
   if (PARENT_KINDS.has(mutation.kind)) return intent;
-  const { bulkOperationsEnd: _bulk, ...rest } = intent;
+  // An Undo or a Remove commits none of the bulk operations, so it drops their
+  // count, or the old range the migration left. Completion clears the rows.
+  const {
+    bulkOperationCount: _bulk,
+    bulkOperationsEnd: _end,
+    ...rest
+  } = intent;
   // An Undo that stopped and is fixed again is still an Undo.
   const undone =
     rewrite.undone || storageReviewOutcomeOf(mutation.intentJson) === "undone";
   return {
-    ...(undone ? rest : intent),
+    ...(undone || !rewrite.keepsBulk ? rest : intent),
     metadataOperations: rewrite.operations,
     review: { outcome: undone ? "undone" : "fixed" },
   };
