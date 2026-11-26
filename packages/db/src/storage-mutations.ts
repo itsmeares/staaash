@@ -2535,46 +2535,39 @@ export const claimStorageMutationFinalization = async ({
   return mutation as ClaimedStorageMutation;
 };
 
-const clearInChunks = async (
-  fence: StorageMutationFence,
-  clear: (tx: Prisma.TransactionClient) => Promise<number>,
-) => {
-  let cleared = STORAGE_MUTATION_CHUNK_SIZE;
-  while (cleared === STORAGE_MUTATION_CHUNK_SIZE) {
-    cleared = await runFencedStorageTransaction(fence, clear);
-  }
-};
-
 // Entity snapshots and bulk operations name paths; a large mutation clears
-// them a chunk at a time so the completing transaction stays short.
+// them a chunk of each per transaction so the completing transaction stays
+// short. One loop keeps the commits as few as the entity chunks alone.
 const clearStorageMutationPaths = async (fence: StorageMutationFence) => {
   const { mutationId } = fence;
-  await clearInChunks(
-    fence,
-    (tx) => tx.$executeRaw`
-      UPDATE "StorageMutationEntity"
-      SET "beforeJson" = 'null'::jsonb, "afterJson" = 'null'::jsonb
-      WHERE id IN (
-        SELECT id FROM "StorageMutationEntity"
-        WHERE "mutationId" = ${mutationId}
-          AND ("beforeJson" IS DISTINCT FROM 'null'::jsonb
-            OR "afterJson" IS DISTINCT FROM 'null'::jsonb)
-        LIMIT ${STORAGE_MUTATION_CHUNK_SIZE}
-      )
-    `,
-  );
-  await clearInChunks(
-    fence,
-    (tx) => tx.$executeRaw`
-      DELETE FROM "StorageMutationOperation"
-      WHERE "mutationId" = ${mutationId} AND ordinal IN (
-        SELECT ordinal FROM "StorageMutationOperation"
-        WHERE "mutationId" = ${mutationId}
-        ORDER BY ordinal
-        LIMIT ${STORAGE_MUTATION_CHUNK_SIZE}
-      )
-    `,
-  );
+  let more = true;
+  while (more) {
+    more = await runFencedStorageTransaction(fence, async (tx) => {
+      // ARRAY(...) runs the chunk lookup once. As IN (...), a one-row estimate
+      // on a fresh table can rerun it for every row while holding the fence.
+      const redacted = await tx.$executeRaw`
+        UPDATE "StorageMutationEntity"
+        SET "beforeJson" = 'null'::jsonb, "afterJson" = 'null'::jsonb
+        WHERE id = ANY(ARRAY(
+          SELECT id FROM "StorageMutationEntity"
+          WHERE "mutationId" = ${mutationId}
+            AND ("beforeJson" IS DISTINCT FROM 'null'::jsonb
+              OR "afterJson" IS DISTINCT FROM 'null'::jsonb)
+          LIMIT ${STORAGE_MUTATION_CHUNK_SIZE}
+        ))
+      `;
+      const deleted = await tx.$executeRaw`
+        DELETE FROM "StorageMutationOperation"
+        WHERE "mutationId" = ${mutationId} AND ordinal = ANY(ARRAY(
+          SELECT ordinal FROM "StorageMutationOperation"
+          WHERE "mutationId" = ${mutationId}
+          ORDER BY ordinal
+          LIMIT ${STORAGE_MUTATION_CHUNK_SIZE}
+        ))
+      `;
+      return Math.max(redacted, deleted) === STORAGE_MUTATION_CHUNK_SIZE;
+    });
+  }
 };
 
 /**
