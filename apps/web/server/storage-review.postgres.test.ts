@@ -17,6 +17,7 @@ import {
   applyStorageMutationIntentMetadata,
   prepareStorageMutation,
   type RecoverableStorageMutationIntent,
+  STORAGE_MUTATION_CHUNK_SIZE,
   type StorageMetadataOperation,
 } from "@staaash/db/storage-mutations";
 import {
@@ -139,10 +140,14 @@ const run = (
     executionHook,
   });
 
-/** Source/Tree/child.bin moving to Destination/Tree, stopped by `arrange`. */
+/**
+ * Source/Tree/child.bin moving to Destination/Tree, stopped by `arrange`. With
+ * `bulk`, the file's update is one of over 1,000 operations stored as rows.
+ */
 const stopFolderMove = async (
   drive: Drive,
   arrange: (keys: { source: string; target: string }) => Promise<void>,
+  { bulk = false } = {},
 ) => {
   const tree = await db.folder.create({
     data: {
@@ -167,22 +172,34 @@ const stopFolderMove = async (
       contentChecksum: checksum,
     },
   });
-  const intentJson = intent([
-    {
-      action: "update",
-      entityType: "folder",
-      entityId: tree.id,
-      preRevision: 0,
-      data: { parentId: drive.destination.id },
-    },
-    {
-      action: "update",
-      entityType: "file",
-      entityId: file.id,
-      preRevision: 0,
-      data: { storageKey: `${target}/child.bin` },
-    },
-  ]);
+  const treeUpdate: StorageMetadataOperation = {
+    action: "update",
+    entityType: "folder",
+    entityId: tree.id,
+    preRevision: 0,
+    data: { parentId: drive.destination.id },
+  };
+  const fileUpdate: StorageMetadataOperation = {
+    action: "update",
+    entityType: "file",
+    entityId: file.id,
+    preRevision: 0,
+    data: { storageKey: `${target}/child.bin` },
+  };
+  const quotaChecks = Array.from(
+    { length: bulk ? STORAGE_MUTATION_CHUNK_SIZE : 0 },
+    (): StorageMetadataOperation => ({
+      action: "assert_owner_quota",
+      ownerUserId: drive.user.id,
+      additionalBytes: "0",
+    }),
+  );
+  const intentJson = bulk
+    ? {
+        ...intent([...quotaChecks, fileUpdate, treeUpdate]),
+        bulkOperationsEnd: quotaChecks.length + 1,
+      }
+    : intent([treeUpdate, fileUpdate]);
   const { mutation } = await prepareStorageMutation({
     kind: "folder_move",
     ownerUserId: drive.user.id,
@@ -814,6 +831,53 @@ describe("storage review", () => {
         storageKey: `${stopped.target}/Inner/second.txt`,
       },
     ]);
+  });
+
+  it("keeps a large moved folder whose file changed after the move", async () => {
+    const drive = await createDrive();
+    const changed = Buffer.from("edited by hand on the server");
+    const stopped = await stopFolderMove(
+      drive,
+      async ({ source, target }) => {
+        await rename(storagePath(source), storagePath(target));
+        await writeFile(storagePath(`${target}/child.bin`), changed);
+      },
+      { bulk: true },
+    );
+
+    await choose(stopped.mutationId, "keep", drive.user.id);
+
+    expect(await statusOf(stopped.mutationId)).toBe("succeeded");
+    await expect(
+      db.file.findUniqueOrThrow({ where: { id: stopped.file.id } }),
+    ).resolves.toMatchObject({
+      storageKey: `${stopped.target}/child.bin`,
+      sizeBytes: BigInt(changed.length),
+      contentChecksum: checksumOf(changed),
+    });
+  });
+
+  it("removes a lost large folder without running its stored operations", async () => {
+    const drive = await createDrive();
+    const stopped = await stopFolderMove(
+      drive,
+      async ({ source }) => {
+        await rm(storagePath(source), { recursive: true });
+      },
+      { bulk: true },
+    );
+
+    await choose(stopped.mutationId, "remove", drive.user.id);
+
+    expect(await statusOf(stopped.mutationId)).toBe("succeeded");
+    await expect(
+      db.file.findUnique({ where: { id: stopped.file.id } }),
+    ).resolves.toBeNull();
+    await expect(
+      db.storageMutationOperation.count({
+        where: { mutationId: stopped.mutationId },
+      }),
+    ).resolves.toBe(0);
   });
 
   it("removes a file that is in neither place only when the owner chooses it", async () => {
