@@ -595,6 +595,17 @@ describe("storage review", () => {
     expect(
       saved?.review.inspection?.choices.map((choice) => choice.id),
     ).not.toContain("keep");
+
+    // A new check of the same disk does not bring Keep back, and Undo, which
+    // refreshes the same folder, is refused the same way.
+    await expect(
+      choose(stopped.mutationId, "undo", drive.user.id),
+    ).resolves.toMatchObject({ outcome: "changed" });
+    const after = await readStorageReview(stopped.mutationId);
+    expect(after?.review.inspection?.tooBigChoices).toEqual(["keep", "undo"]);
+    expect(
+      after?.review.inspection?.choices.map((choice) => choice.id),
+    ).toEqual(["retry"]);
     expect(await statusOf(stopped.mutationId)).toBe("recovery_required");
   });
 

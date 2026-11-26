@@ -109,6 +109,8 @@ export type StorageReviewInspection = {
   waitingFor?: string;
   /** A choice needs more rows than one change can write yet. */
   tooBig?: boolean;
+  /** Choices found too big on this same disk state; not offered again. */
+  tooBigChoices?: StorageReviewChoice[];
   /** Keeping a file aside needs hard links, which this storage lacks. */
   noLinks?: boolean;
   error?: string;
@@ -647,7 +649,13 @@ const SHOWN_PLACES = 10;
 
 type InspectionBase = Omit<
   StorageReviewInspection,
-  "checkedAt" | "seen" | "choices" | "auto" | "places" | "morePlaces"
+  | "checkedAt"
+  | "seen"
+  | "choices"
+  | "auto"
+  | "places"
+  | "morePlaces"
+  | "tooBigChoices"
 > & {
   auto?: StorageReviewChoice | null;
   places: SeenPlace[];
@@ -1120,6 +1128,29 @@ const createContext = async (
   };
 };
 
+// A choice found too big stays off while the disk is as it was: only building
+// its rows shows the size, so a new check alone would offer it again.
+const withoutTooBig = (mutation: Mutation, inspected: Inspected): Inspected => {
+  const prior = readStorageReviewRecord(mutation.reviewJson).inspection;
+  const dropped =
+    prior?.seen === inspected.inspection.seen ? prior.tooBigChoices : undefined;
+  if (!dropped?.length) return inspected;
+  const plans = { ...inspected.plans };
+  for (const choice of dropped) delete plans[choice];
+  return {
+    ...inspected,
+    plans,
+    inspection: {
+      ...inspected.inspection,
+      tooBig: true,
+      tooBigChoices: dropped,
+      choices: inspected.inspection.choices.filter(
+        (item) => !dropped.includes(item.id),
+      ),
+    },
+  };
+};
+
 // A check that cannot run, even the disk probe on a full volume, still shows
 // the change, with only Check again to offer.
 const inspectMutation = async (
@@ -1127,7 +1158,10 @@ const inspectMutation = async (
   filesRoot: string,
 ): Promise<Inspected> => {
   try {
-    return await inspectStop(await createContext(mutation, filesRoot));
+    return withoutTooBig(
+      mutation,
+      await inspectStop(await createContext(mutation, filesRoot)),
+    );
   } catch (error) {
     return {
       ...finishInspection(
@@ -2084,7 +2118,7 @@ export const applyStorageReviewChoice = async ({
   const waiting = await unfinishedKeepOf(mutationId);
   if (waiting) return { outcome: "busy", mutationId: waiting.id };
   const context = await createContext(mutation, filesRoot);
-  const inspected = await inspectStop(context);
+  const inspected = withoutTooBig(mutation, await inspectStop(context));
   const record = readStorageReviewRecord(mutation.reviewJson);
   const plan = inspected.plans[choice];
   // A choice answers what the owner (or the worker) saw. If the disk now tells
@@ -2110,6 +2144,7 @@ export const applyStorageReviewChoice = async ({
     const inspection = {
       ...inspected.inspection,
       tooBig: true,
+      tooBigChoices: [...(inspected.inspection.tooBigChoices ?? []), choice],
       choices: inspected.inspection.choices.filter(
         (item) => item.id !== choice,
       ),
