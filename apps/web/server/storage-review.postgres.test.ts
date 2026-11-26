@@ -27,6 +27,7 @@ import {
 import {
   applyStorageReviewChoice,
   executeReviewedStorageMutation,
+  markRecoveredNoticeSeen,
   readRecoveredNotice,
   readStorageReview,
   refreshStorageReviewInspection,
@@ -382,6 +383,11 @@ describe("storage review", () => {
         removedEmptyFolders: 1,
       }),
     ]);
+    await expect(readRecoveredNotice(drive.user.id)).resolves.toEqual({
+      ids: [stopped.mutationId],
+      items: [],
+    });
+    await markRecoveredNoticeSeen(drive.user.id, [stopped.mutationId]);
     await expect(readRecoveredNotice(drive.user.id)).resolves.toBeNull();
   });
 
@@ -417,6 +423,7 @@ describe("storage review", () => {
       contentChecksum: checksumOf(extra),
     });
     await expect(readRecoveredNotice(drive.user.id)).resolves.toEqual({
+      ids: [stopped.mutationId],
       items: [
         {
           id: copy.id,
@@ -843,6 +850,36 @@ describe("storage review", () => {
     expect(inspection?.auto).not.toBe("retry");
   });
 
+  it("leaves two matching copies of one file to the owner", async () => {
+    const drive = await createDrive();
+    const stopped = await stopFileMove(drive, async ({ source, target }) => {
+      await writeAt(target, await readFile(storagePath(source)));
+    });
+
+    const inspection = await refreshStorageReviewInspection({
+      mutationId: stopped.mutationId,
+      filesRoot: storageRoot(),
+    });
+
+    expect(inspection).toMatchObject({ group: "two_copies", auto: null });
+  });
+
+  it("offers no Keep for a folder where the file was", async () => {
+    const drive = await createDrive();
+    const stopped = await stopFileMove(drive, async ({ source, target }) => {
+      await rm(storagePath(source));
+      await mkdir(storagePath(target));
+    });
+
+    const inspection = await refreshStorageReviewInspection({
+      mutationId: stopped.mutationId,
+      filesRoot: storageRoot(),
+    });
+
+    expect(inspection?.group).toBe("changed");
+    expect(inspection?.choices.map((choice) => choice.id)).toEqual(["retry"]);
+  });
+
   it("still ends an Undo as aborted after it stopped and was checked again", async () => {
     const drive = await createDrive();
     const edited = Buffer.from("edited after the move");
@@ -972,6 +1009,18 @@ describe("review steps", () => {
 
     await expectBytes(step.source, bytes);
     await expectBytes(step.target, other);
+  });
+
+  it("never takes a separate file with the same bytes for its own link", async () => {
+    const drive = await createDrive();
+    const bytes = Buffer.from("left behind");
+    const step = await setAside(drive, bytes);
+    await writeAt(step.target, bytes);
+
+    await expect(step.run()).rejects.toMatchObject(stop);
+
+    await expectBytes(step.source, bytes);
+    await expectBytes(step.target, bytes);
   });
 
   it("finishes moving a file aside after a crash between link and unlink", async () => {

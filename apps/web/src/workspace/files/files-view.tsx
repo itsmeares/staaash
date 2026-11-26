@@ -552,8 +552,9 @@ export function FilesView({
     (item) => !storageMutationItemIds.has(item.id) && !movingIds.has(item.id),
   );
 
-  // `?show=<id>` (from a link such as the recovered-copy toast) scrolls to
-  // the item and flashes it once it has loaded, then leaves the address.
+  // `?show=<id>` (from a link such as the recovered-copy toast) loads pages
+  // until the item is listed, scrolls to it and flashes it, then leaves the
+  // address.
   const show = rawSearchParams.get("show");
   const showLoaded = allItems.some((item) => item.id === show);
   const revealShown = useEffectEvent((id: string) => {
@@ -565,9 +566,21 @@ export function FilesView({
     const qs = next.toString();
     void navigate({ replace: true, href: `${pathname}${qs ? `?${qs}` : ""}` });
   });
+  const loadTowardShown = useEffectEvent(() => void continuous.loadMore());
   useEffect(() => {
-    if (show && showLoaded) revealShown(show);
-  }, [show, showLoaded]);
+    if (!show) return;
+    if (showLoaded) revealShown(show);
+    // A failed page stops here; the list shows its own retry.
+    else if (continuous.hasMore && !continuous.loading && !continuous.error) {
+      loadTowardShown();
+    }
+  }, [
+    show,
+    showLoaded,
+    continuous.hasMore,
+    continuous.loading,
+    continuous.error,
+  ]);
 
   const itemData = new Map<string, FolderSummary | FileSummary>(
     [...visibleFolders, ...visibleFiles].map((item) => [item.id, item]),

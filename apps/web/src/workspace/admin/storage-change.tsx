@@ -431,7 +431,10 @@ function useChoice(
         }),
       );
       showResult(result, row.id);
-      await queryClient.invalidateQueries({ queryKey: ["admin", "storage"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "storage"] }),
+        queryClient.invalidateQueries({ queryKey: ["recovered-notice"] }),
+      ]);
       if (result === "fixed" || result === "running") {
         await navigate({ href: "/admin/storage" });
       }

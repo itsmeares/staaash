@@ -36,6 +36,7 @@ export function mountViews(app: Hono<PreviewEnv>) {
     c.json(
       c.var.state.recoveredNotice
         ? {
+            ids: ["member-recovered-change"],
             items: [
               {
                 id: "member-recovered",

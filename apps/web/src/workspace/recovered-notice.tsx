@@ -6,8 +6,8 @@ import { api, read } from "@/lib/api";
 import { recoveredNoticeQuery } from "@/src/queries";
 import { toastManager } from "@staaash/ui/components/toast";
 
-// Once per page load: React's development double effect must not toast twice.
-let shown = false;
+// Once per answer: React's development double effect must not toast twice.
+let shownFor = "";
 
 /**
  * Tells a person, once, about copies Staaash kept in their drive while it
@@ -17,12 +17,16 @@ export function RecoveredNotice() {
   const navigate = useNavigate();
   const notice = useQuery(recoveredNoticeQuery).data;
   useEffect(() => {
-    const first = notice?.items[0];
-    if (!first || shown) return;
-    shown = true;
-    void read(api.api.views["recovered-notice"].seen.$post()).catch(
-      () => undefined,
-    );
+    const key = notice?.ids.join(",") ?? "";
+    if (!notice || key === shownFor) return;
+    shownFor = key;
+    void read(
+      api.api.views["recovered-notice"].seen.$post({
+        json: { ids: notice.ids },
+      }),
+    ).catch(() => undefined);
+    const first = notice.items[0];
+    if (!first) return;
     const more = notice.items.length - 1;
     toastManager.add({
       title:

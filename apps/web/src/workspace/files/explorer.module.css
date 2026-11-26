@@ -33,6 +33,12 @@
   .shown {
     animation: none;
   }
+
+  /* No fade: the selected look holds until Show clears it. */
+  .shown {
+    border-color: color-mix(in oklab, var(--primary) 45%, transparent);
+    background: var(--color-selected);
+  }
 }
 
 .dragPreview {

@@ -727,64 +727,39 @@ const inspectRename = async (context: ReviewContext, step: Step) => {
   ) {
     return clearInspection(context, withPlaces);
   }
-  if (!present(source)) {
-    if (target.state !== "missing" && "matches" in target && target.matches) {
+  if (!present(source) || !present(target)) {
+    const [itemKey, report] = present(target)
+      ? [step.targetKey, target]
+      : [step.sourceKey, source];
+    if ("matches" in report && report.matches) {
       return clearInspection(context, withPlaces);
     }
+    // A folder where the file was, or a file where the folder was, is not
+    // the item changed: only the server can sort that out.
+    const adoptable = report.state === (isFolder ? "directory" : "file");
     return finishInspection(
       context,
       { ...withPlaces, group: "changed" },
-      {
-        keep: {
-          obstacles: [],
-          rewrite: { type: "refresh", itemKey: step.targetKey },
-        },
-        ...(undoable
-          ? {
-              undo: {
-                obstacles: [],
-                rewrite: {
-                  type: "undo",
-                  itemKey: step.targetKey,
-                  refresh: true,
-                },
-              },
-            }
-          : {}),
-      },
-    );
-  }
-  if (!present(target)) {
-    if ("matches" in source && source.matches) {
-      return clearInspection(context, withPlaces);
-    }
-    return finishInspection(
-      context,
-      { ...withPlaces, group: "changed" },
-      {
-        keep: {
-          obstacles: [],
-          rewrite: { type: "refresh", itemKey: step.sourceKey },
-        },
-        ...(undoable
-          ? {
-              undo: {
-                obstacles: [],
-                rewrite: {
-                  type: "undo",
-                  itemKey: step.sourceKey,
-                  refresh: true,
-                },
-              },
-            }
-          : {}),
-      },
+      adoptable
+        ? {
+            keep: { obstacles: [], rewrite: { type: "refresh", itemKey } },
+            ...(undoable
+              ? {
+                  undo: {
+                    obstacles: [],
+                    rewrite: { type: "undo", itemKey, refresh: true },
+                  },
+                }
+              : {}),
+          }
+        : {},
     );
   }
   const sourceMatches = "matches" in source && source.matches === true;
   const targetMatches = "matches" in target && target.matches === true;
-  if (targetMatches || sourceMatches) {
-    // The side that matches is the item; the other is in the way.
+  // Exactly one side matching is the item; the other is in the way. Two
+  // matching copies leave the owner to say which one is the item.
+  if (targetMatches !== sourceMatches) {
     const [itemKey, otherKey, otherReport] = targetMatches
       ? [step.targetKey, step.sourceKey, source]
       : [step.sourceKey, step.targetKey, target];
@@ -2210,17 +2185,25 @@ const noticeMutations = (ownerUserId: string) =>
       status: { in: ["succeeded", "aborted"] },
     },
     select: { id: true, reviewJson: true },
+    orderBy: { reviewedAt: "asc" },
     take: 50,
   });
 
-/** Copies Staaash kept in this person's drive that they have not been told about. */
+/**
+ * Copies Staaash kept in this person's drive that they have not been told
+ * about. `ids` names every change read, even one whose copies are gone, so
+ * acknowledging them clears exactly what this answer covered.
+ */
 export const readRecoveredNotice = async (ownerUserId: string) => {
-  const kept = (await noticeMutations(ownerUserId)).flatMap((mutation) =>
+  const mutations = await noticeMutations(ownerUserId);
+  if (mutations.length === 0) return null;
+  const ids = mutations.map((mutation) => mutation.id);
+  const kept = mutations.flatMap((mutation) =>
     readStorageReviewRecord(mutation.reviewJson).fixes.flatMap(
       (fix) => fix.kept,
     ),
   );
-  if (kept.length === 0) return null;
+  if (kept.length === 0) return { ids, items: [] };
   const [files, folders] = await Promise.all([
     getPrisma().file.findMany({
       where: {
@@ -2268,16 +2251,14 @@ export const readRecoveredNotice = async (ownerUserId: string) => {
       folderId: folderOf(file.folderId),
     })),
   ];
-  return items.length ? { items } : null;
+  return { ids, items };
 };
 
-export const markRecoveredNoticeSeen = async (ownerUserId: string) => {
-  const mutations = await noticeMutations(ownerUserId);
-  await getPrisma().storageMutation.updateMany({
-    where: { id: { in: mutations.map((mutation) => mutation.id) } },
+export const markRecoveredNoticeSeen = (ownerUserId: string, ids: string[]) =>
+  getPrisma().storageMutation.updateMany({
+    where: { id: { in: ids }, ownerUserId, reviewNoticeSeenAt: null },
     data: { reviewNoticeSeenAt: new Date() },
   });
-};
 
 /** Recent changes a review resumed, newest first, for the admin Storage page. */
 export const listReviewedStorageMutations = async (take = 10) =>

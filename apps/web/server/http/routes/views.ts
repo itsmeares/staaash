@@ -229,10 +229,19 @@ const userViews = user
   .get("/recovered-notice", async (c) =>
     c.json(plain(await readRecoveredNotice(c.var.session.user.id))),
   )
-  .post("/recovered-notice/seen", async (c) => {
-    await markRecoveredNoticeSeen(c.var.session.user.id);
-    return c.json({ ok: true as const });
-  })
+  .post(
+    "/recovered-notice/seen",
+    validator("json", (value) =>
+      z.object({ ids: z.array(z.string().max(100)).max(50) }).parse(value),
+    ),
+    async (c) => {
+      await markRecoveredNoticeSeen(
+        c.var.session.user.id,
+        c.req.valid("json").ids,
+      );
+      return c.json({ ok: true as const });
+    },
+  )
   .get("/home", async (c) => {
     const { session } = c.var;
     const [favorites, recent, pickUp, shares] = await Promise.all([

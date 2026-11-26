@@ -25,7 +25,7 @@ A change in Admin → Storage with a yellow badge, such as **Retrying**, says **
 ## If it says Needs review
 
 :::note[Coming in v2.1.0]
-Older versions have no review page. On those, follow the last part of this section and open an issue.
+Older versions have no review page. On those, click **Copy** next to the change in Admin → Storage instead, then follow the last part of this section and open an issue.
 :::
 
 A red **Needs review** badge means Staaash found something it will not guess about, such as the same folder in both the old and the new place. Waiting or refreshing will not fix it.

@@ -130,7 +130,8 @@ export const adminStorageChangeQuery = (mutationId: string) =>
 export const recoveredNoticeQuery = queryOptions({
   queryKey: ["recovered-notice"],
   queryFn: () => read(views["recovered-notice"].$get()),
-  staleTime: Infinity,
+  // The worker can keep a copy while the page is open; focus checks again.
+  staleTime: 5 * 60_000,
 });
 
 export const adminUsersQuery = queryOptions({
