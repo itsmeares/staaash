@@ -61,8 +61,9 @@ metadata in chunks of at most 1,000:
   From the first chunk on, the mutation only goes forward: it is
   never rolled back or aborted, because committed rows already point at the
   moved bytes. The rows name paths, so completion deletes them a chunk at a
-  time, as it clears entity snapshots. A mutation that stops keeps them, and
-  a review Finish continues from them.
+  time, as it clears entity snapshots. Until the metadata commit, a mutation
+  that stops keeps every row, and a review Finish continues from them. Once
+  completion has started deleting rows, no step reads them again.
 - **Visibility.** Every item in the folder stays hidden behind its journal
   entity until the mutation finishes, so nobody reads a folder that is half
   moved. Sync refuses the whole snapshot while unfinished journal work affects

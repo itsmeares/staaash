@@ -1,3 +1,5 @@
+BEGIN;
+
 -- CreateTable
 CREATE TABLE "StorageMutationOperation" (
     "mutationId" TEXT NOT NULL,
@@ -11,12 +13,16 @@ CREATE TABLE "StorageMutationOperation" (
 ALTER TABLE "StorageMutationOperation" ADD CONSTRAINT "StorageMutationOperation_mutationId_fkey" FOREIGN KEY ("mutationId") REFERENCES "StorageMutation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- An unfinished large mutation moves the operations it commits in chunks
--- into rows. Each row keeps its index, which "metadataOperationsApplied"
+-- into rows. A finished one never reads its plan again and keeps it as it is. Each row keeps its index, which "metadataOperationsApplied"
 -- counts, so a mutation that stopped between chunks resumes at the next one.
--- CASE keeps each cast behind its type check. A malformed range is left as
+-- CASE keeps each cast and array call behind its type check, because a
+-- WHERE clause does not decide when PostgreSQL evaluates them. A malformed range is left as
 -- it is and still fails closed when the mutation runs.
 WITH bulk AS (
-  SELECT id, jsonb_array_length("intentJson"->'metadataOperations') AS "length",
+  SELECT id,
+    CASE WHEN jsonb_typeof("intentJson"->'metadataOperations') = 'array'
+      THEN jsonb_array_length("intentJson"->'metadataOperations')
+    END AS "length",
     CASE
       WHEN jsonb_typeof("intentJson"->'bulkOperationsEnd') = 'number'
         AND jsonb_typeof("intentJson"->'metadataOperations') = 'array'
@@ -30,19 +36,26 @@ WITH bulk AS (
   FROM "StorageMutation"
   WHERE "intentJson" ? 'bulkOperationsEnd'
     AND jsonb_typeof("intentJson"->'metadataOperations') = 'array'
+    AND status NOT IN ('succeeded', 'aborted')
 )
 INSERT INTO "StorageMutationOperation" ("mutationId", "ordinal", "operation")
 SELECT mutation.id, (operation.ordinal - 1)::integer, operation.value
 FROM bulk
 JOIN "StorageMutation" mutation ON mutation.id = bulk.id
-CROSS JOIN LATERAL jsonb_array_elements(mutation."intentJson"->'metadataOperations')
-  WITH ORDINALITY AS operation(value, ordinal)
+CROSS JOIN LATERAL jsonb_array_elements(CASE
+    WHEN jsonb_typeof(mutation."intentJson"->'metadataOperations') = 'array'
+    THEN mutation."intentJson"->'metadataOperations'
+    ELSE '[]'::jsonb
+  END) WITH ORDINALITY AS operation(value, ordinal)
 WHERE bulk."length" > 1000 AND operation.ordinal <= bulk."bulkEnd";
 
 -- The intent keeps what the last transaction commits and counts the rows.
 -- With 1,000 operations or fewer the range never applied: all commit at once.
 WITH bulk AS (
-  SELECT id, jsonb_array_length("intentJson"->'metadataOperations') AS "length",
+  SELECT id,
+    CASE WHEN jsonb_typeof("intentJson"->'metadataOperations') = 'array'
+      THEN jsonb_array_length("intentJson"->'metadataOperations')
+    END AS "length",
     CASE
       WHEN jsonb_typeof("intentJson"->'bulkOperationsEnd') = 'number'
         AND jsonb_typeof("intentJson"->'metadataOperations') = 'array'
@@ -56,6 +69,7 @@ WITH bulk AS (
   FROM "StorageMutation"
   WHERE "intentJson" ? 'bulkOperationsEnd'
     AND jsonb_typeof("intentJson"->'metadataOperations') = 'array'
+    AND status NOT IN ('succeeded', 'aborted')
 )
 UPDATE "StorageMutation" mutation
 SET "intentJson" = CASE
@@ -72,3 +86,5 @@ SET "intentJson" = CASE
 END
 FROM bulk
 WHERE bulk.id = mutation.id AND bulk."bulkEnd" IS NOT NULL;
+
+COMMIT;

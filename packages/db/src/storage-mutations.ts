@@ -2540,23 +2540,37 @@ export const claimStorageMutationFinalization = async ({
 // short. One loop keeps the commits as few as the entity chunks alone.
 const clearStorageMutationPaths = async (fence: StorageMutationFence) => {
   const { mutationId } = fence;
+  // Each chunk starts after the last entity cleared, so it never rereads the
+  // ones before it.
+  let after = { entityType: "", entityId: "" };
   let more = true;
   while (more) {
-    more = await runFencedStorageTransaction(fence, async (tx) => {
-      // ARRAY(...) runs the chunk lookup once. As IN (...), a one-row estimate
-      // on a fresh table can rerun it for every row while holding the fence.
-      const redacted = await tx.$executeRaw`
-        UPDATE "StorageMutationEntity"
-        SET "beforeJson" = 'null'::jsonb, "afterJson" = 'null'::jsonb
-        WHERE id = ANY(ARRAY(
-          SELECT id FROM "StorageMutationEntity"
+    // The cursor moves only after its chunk commits.
+    const { last, deleted } = await runFencedStorageTransaction(
+      fence,
+      async (tx) => {
+        // ARRAY(...) runs the chunk lookup once. As IN (...), a one-row estimate
+        // on a fresh table can rerun it for every row while holding the fence.
+        const [last] = await tx.$queryRaw<
+          Array<{ entityType: string; entityId: string; count: number }>
+        >`
+        WITH chunk AS (
+          SELECT id, "entityType", "entityId" FROM "StorageMutationEntity"
           WHERE "mutationId" = ${mutationId}
+            AND ("entityType", "entityId") > (${after.entityType}, ${after.entityId})
             AND ("beforeJson" IS DISTINCT FROM 'null'::jsonb
               OR "afterJson" IS DISTINCT FROM 'null'::jsonb)
+          ORDER BY "entityType", "entityId"
           LIMIT ${STORAGE_MUTATION_CHUNK_SIZE}
-        ))
+        ), redacted AS (
+          UPDATE "StorageMutationEntity"
+          SET "beforeJson" = 'null'::jsonb, "afterJson" = 'null'::jsonb
+          WHERE id = ANY(ARRAY(SELECT id FROM chunk))
+        )
+        SELECT "entityType", "entityId", (SELECT count(*) FROM chunk)::integer AS count
+        FROM chunk ORDER BY "entityType" DESC, "entityId" DESC LIMIT 1
       `;
-      const deleted = await tx.$executeRaw`
+        const deleted = await tx.$executeRaw`
         DELETE FROM "StorageMutationOperation"
         WHERE "mutationId" = ${mutationId} AND ordinal = ANY(ARRAY(
           SELECT ordinal FROM "StorageMutationOperation"
@@ -2565,8 +2579,11 @@ const clearStorageMutationPaths = async (fence: StorageMutationFence) => {
           LIMIT ${STORAGE_MUTATION_CHUNK_SIZE}
         ))
       `;
-      return Math.max(redacted, deleted) === STORAGE_MUTATION_CHUNK_SIZE;
-    });
+        return { last, deleted };
+      },
+    );
+    if (last) after = last;
+    more = Math.max(last?.count ?? 0, deleted) === STORAGE_MUTATION_CHUNK_SIZE;
   }
 };
 

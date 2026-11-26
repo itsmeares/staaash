@@ -1033,15 +1033,14 @@ it("moves a change stopped by v2.0.0 into operation rows, and it resumes at the 
       },
     },
   });
-  // A small plan never used its range, and a broken one must stay broken.
-  const legacy = (intentJson: Prisma.InputJsonValue) =>
+  // A small plan never used its range, a broken one must stay broken, and a
+  // finished one is never read again.
+  const legacy = (
+    intentJson: Prisma.InputJsonValue,
+    status = "recovery_required",
+  ) =>
     db.storageMutation.create({
-      data: {
-        kind: "folder_rename",
-        status: "aborted",
-        ownerUserId: id,
-        intentJson,
-      },
+      data: { kind: "folder_rename", status, ownerUserId: id, intentJson },
     });
   const small = await legacy({
     version: 1,
@@ -1053,9 +1052,24 @@ it("moves a change stopped by v2.0.0 into operation rows, and it resumes at the 
     metadataOperations: [],
     bulkOperationsEnd: "later",
   });
+  const notAList = await legacy({
+    version: 1,
+    metadataOperations: {},
+    bulkOperationsEnd: 1,
+  });
+  const finishedIntent = {
+    version: 1,
+    metadataOperations: Array.from({ length: 1001 }, (_, index) => ({
+      action: "delete_trash_entry",
+      entityId: `t${index}`,
+    })),
+    bulkOperationsEnd: 1001,
+  };
+  const finished = await legacy(finishedIntent, "succeeded");
 
-  await runSql(`DROP TABLE "StorageMutationOperation"`);
-  await runSql(await readFile(operationRowsMigration, "utf8"));
+  // One query, so a failed migration rolls the drop back too.
+  const migration = await readFile(operationRowsMigration, "utf8");
+  await runSql(`DROP TABLE "StorageMutationOperation";\n${migration}`);
 
   const migrated = await db.storageMutation.findUniqueOrThrow({
     where: { id: mutation.id },
@@ -1084,6 +1098,21 @@ it("moves a change stopped by v2.0.0 into operation rows, and it resumes at the 
     (await db.storageMutation.findUniqueOrThrow({ where: { id: broken.id } }))
       .intentJson,
   ).toMatchObject({ bulkOperationsEnd: "later" });
+  expect(
+    (await db.storageMutation.findUniqueOrThrow({ where: { id: notAList.id } }))
+      .intentJson,
+  ).toEqual({ version: 1, metadataOperations: {}, bulkOperationsEnd: 1 });
+  expect(
+    (await db.storageMutation.findUniqueOrThrow({ where: { id: finished.id } }))
+      .intentJson,
+  ).toEqual(finishedIntent);
+  const others = [small.id, broken.id, notAList.id, finished.id];
+  expect(
+    await db.storageMutationOperation.count({
+      where: { mutationId: { in: others } },
+    }),
+  ).toBe(0);
+  await db.storageMutation.deleteMany({ where: { id: { in: others } } });
 
   // A chunk applied twice would fail its revision check and stop for review.
   await db.storageMutation.update({
