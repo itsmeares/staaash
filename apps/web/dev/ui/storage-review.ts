@@ -3,9 +3,13 @@ import type { InferResponseType } from "hono/client";
 import type { api } from "../../lib/api";
 import { type State, timestamp } from "./state";
 
-type Change = InferResponseType<
-  (typeof api.api.views.admin.storage.changes)[":mutationId"]["$get"],
-  200
+// The route adds who is asking; the sample is the change itself.
+type Change = Omit<
+  InferResponseType<
+    (typeof api.api.views.admin.storage.changes)[":mutationId"]["$get"],
+    200
+  >,
+  "isOwner"
 >;
 type Inspection = NonNullable<Change["inspection"]>;
 export type FixedChange = InferResponseType<

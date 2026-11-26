@@ -425,7 +425,8 @@ type Obstacle = {
   key: string;
   drop: boolean;
   isFolder: boolean;
-  fileCount: number;
+  /** Rows a copy of it adds to the drive. */
+  rows: number;
   place: CopyPlace | null;
 };
 
@@ -455,6 +456,19 @@ const existsAt = async (context: ReviewContext, storageKey: string | null) =>
   Boolean(storageKey) &&
   !(await storageKeyIsFree(context.filesRoot, storageKey!).catch(() => true));
 
+// A later step moves this step's target on or removes it, as an Undo or a
+// staged publish does, so its being gone is the plan, not a rollback.
+const takenOnLater = (steps: Step[], index: number) => {
+  const key = steps[index]!.targetKey;
+  return steps
+    .slice(index + 1)
+    .some(
+      (later) =>
+        later.sourceKey === key ||
+        (later.action === "remove_empty_tree" && later.targetKey === key),
+    );
+};
+
 /**
  * The first forward step whose bytes are not where the journal says, and every
  * applied step a rollback already reversed. Those go back to pending, so a
@@ -463,7 +477,8 @@ const existsAt = async (context: ReviewContext, storageKey: string | null) =>
 const findForwardStop = async (context: ReviewContext) => {
   let stop: Step | null = null;
   const reset: string[] = [];
-  for (const step of forwardSteps(context.mutation)) {
+  const steps = forwardSteps(context.mutation);
+  for (const [index, step] of steps.entries()) {
     if (step.status !== "applied") {
       stop ??= step;
       continue;
@@ -471,6 +486,7 @@ const findForwardStop = async (context: ReviewContext) => {
     const moved = step.action === "rename" || step.action === "set_aside";
     if (!moved && step.action !== "mkdir") continue;
     if (await existsAt(context, step.targetKey)) continue;
+    if (takenOnLater(steps, index)) continue;
     reset.push(step.id);
     stop ??= step;
   }
@@ -582,7 +598,7 @@ const obstacleFor = async (
     key,
     drop,
     isFolder,
-    fileCount: "fileCount" in report ? report.fileCount : 0,
+    rows: "entryCount" in report ? report.entryCount : 0,
     place: drop
       ? null
       : await pickCopyPlace(context, key, otherKey, name, !isFolder),
@@ -601,12 +617,16 @@ const choiceView = (
   };
 };
 
-const tooBigToKeep = (plan: ReviewPlan) =>
-  plan.obstacles.some(
-    (obstacle) =>
-      !obstacle.drop &&
-      (!obstacle.place || obstacle.fileCount >= STORAGE_MUTATION_CHUNK_SIZE),
+// One keep change adds every copy at once, so their rows count together, the
+// same limit `buildKeepPlan` applies.
+const tooBigToKeep = (plan: ReviewPlan) => {
+  const kept = plan.obstacles.filter((obstacle) => !obstacle.drop);
+  return (
+    kept.some((obstacle) => !obstacle.place) ||
+    kept.reduce((rows, obstacle) => rows + obstacle.rows, 0) >
+      STORAGE_MUTATION_CHUNK_SIZE
   );
+};
 
 type InspectionBase = Omit<
   StorageReviewInspection,
@@ -1099,17 +1119,6 @@ const inspectMutation = async (
   }
 };
 
-const writeReviewRecord = (
-  client: Pick<Prisma.TransactionClient, "storageMutation">,
-  mutationId: string,
-  record: StorageReviewRecord,
-  extra: Prisma.StorageMutationUpdateManyMutationInput = {},
-) =>
-  client.storageMutation.updateMany({
-    where: { id: mutationId, status: "recovery_required" },
-    data: { reviewJson: record as unknown as Prisma.InputJsonValue, ...extra },
-  });
-
 // Only the inspection: a fix recorded while the disk was being checked stays.
 const saveInspection = (
   mutationId: string,
@@ -1328,6 +1337,7 @@ const buildKeepPlan = async (
       })),
       namesIgnoreCase: context.ignoresCase,
       sharedWithMutationId: mutation.id,
+      sharedWithStoppedAt: mutation.recoveryRequiredAt,
     },
     kept,
     removedEmptyFolders: obstacles.filter((obstacle) => obstacle.drop).length,
@@ -1884,14 +1894,38 @@ const rewrittenIntent = (mutation: Mutation, rewrite: StepRewrite) => {
   };
 };
 
+// Adds a fix to what the row holds now, not to an earlier read of it, so a
+// fix another request recorded meanwhile stays. The same fix replaces itself.
+const recordFix = async (
+  tx: Prisma.TransactionClient,
+  mutationId: string,
+  fix: StorageReviewFix,
+  inspection?: StorageReviewInspection,
+) => {
+  const [row] = await tx.$queryRaw<Array<{ reviewJson: Prisma.JsonValue }>>`
+    SELECT "reviewJson" FROM "StorageMutation" WHERE id = ${mutationId}
+    FOR UPDATE`;
+  const { fixes } = readStorageReviewRecord(row?.reviewJson ?? null);
+  const record: StorageReviewRecord = {
+    ...(inspection ? { inspection } : {}),
+    fixes: [...fixes.filter((known) => known.at !== fix.at), fix],
+  };
+  await tx.storageMutation.update({
+    where: { id: mutationId },
+    data: { reviewJson: record as unknown as Prisma.InputJsonValue },
+  });
+};
+
 const applyStepRewrite = async ({
   mutation,
   rewrite,
-  record,
+  fix,
+  inspection,
 }: {
   mutation: Mutation;
   rewrite: StepRewrite;
-  record: StorageReviewRecord;
+  fix: StorageReviewFix;
+  inspection: StorageReviewInspection;
 }) =>
   runStorageTransaction(async (tx) => {
     const now = new Date();
@@ -1905,7 +1939,6 @@ const applyStepRewrite = async ({
       data: {
         status: mutation.metadataCommittedAt ? "finalizing" : "retrying",
         intentJson: nextIntent as unknown as Prisma.InputJsonValue,
-        reviewJson: record as unknown as Prisma.InputJsonValue,
         reviewedAt: now,
         reviewNoticeSeenAt: null,
         nextAttemptAt: now,
@@ -1918,6 +1951,7 @@ const applyStepRewrite = async ({
     if (await unfinishedKeepOf(mutation.id, tx)) {
       throw new StorageReviewChangedError();
     }
+    await recordFix(tx, mutation.id, fix, inspection);
     if (rewrite.deleteStepIds.length) {
       await tx.storageMutationStep.deleteMany({
         where: { mutationId: mutation.id, id: { in: rewrite.deleteStepIds } },
@@ -2062,9 +2096,7 @@ export const applyStorageReviewChoice = async ({
     // the copy if anything stops before this change resumes. Without an
     // inspection, the worker checks the change again once the keep is done.
     const keep = await runKeepPlan(keepPlan, filesRoot, (tx, keepId) =>
-      writeReviewRecord(tx, mutationId, {
-        fixes: [...record.fixes, { ...fix, kept: keptBy(keepId) }],
-      }),
+      recordFix(tx, mutationId, { ...fix, kept: keptBy(keepId) }),
     ).catch(() => null);
     if (!keep) return { outcome: "busy" };
     fix.kept = keptBy(keep.id);
@@ -2074,10 +2106,8 @@ export const applyStorageReviewChoice = async ({
     await applyStepRewrite({
       mutation,
       rewrite,
-      record: {
-        inspection: inspected.inspection,
-        fixes: [...record.fixes, fix],
-      },
+      fix,
+      inspection: inspected.inspection,
     });
   } catch (error) {
     if (error instanceof StorageReviewChangedError) {
@@ -2102,13 +2132,36 @@ type StoppedCandidate = {
   reviewJson: Prisma.JsonValue;
 };
 
-// A check the owner's page already saved still counts when it found an
-// automatic fix the worker has not tried yet.
-const needsWorker = (mutation: StoppedCandidate) => {
-  if (!storageReviewInspectionIsCurrent(mutation)) return true;
-  const record = readStorageReviewRecord(mutation.reviewJson);
-  return Boolean(record.inspection?.auto) && !triedBefore(record);
-};
+// The stopped changes the worker has something to do for: no check since it
+// stopped, or a check that found an automatic fix not tried for this step
+// yet. The rest wait for the owner and stay out of the scan. The same rules
+// as `storageReviewInspectionIsCurrent` and `triedBefore`, in SQL.
+const workerCandidates = (take: number) =>
+  getPrisma().$queryRaw<StoppedCandidate[]>`
+    SELECT m.id, m."recoveryRequiredAt", m."reviewJson"
+    FROM "StorageMutation" m
+    CROSS JOIN LATERAL (SELECT m."reviewJson"->'inspection' AS i) seen
+    WHERE m.status = 'recovery_required'
+      AND (
+        seen.i IS NULL
+        OR m."recoveryRequiredAt" IS NULL
+        OR (seen.i->>'checkedAt')::timestamptz AT TIME ZONE 'UTC'
+          < m."recoveryRequiredAt"
+        OR (
+          seen.i->>'auto' IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(
+              COALESCE(m."reviewJson"->'fixes', '[]'::jsonb)
+            ) fix
+            WHERE fix->>'automatic' = 'true'
+              AND fix->>'guard' = COALESCE(seen.i->>'stepId', 'none')
+                || ':' || (seen.i->>'group')
+          )
+        )
+      )
+    ORDER BY m."recoveryRequiredAt" ASC NULLS FIRST
+    LIMIT ${take}`;
 
 const fixAutomatically = async (
   candidate: StoppedCandidate,
@@ -2148,15 +2201,8 @@ export const reviewStoppedStorageMutations = async ({
   filesRoot: string;
   take?: number;
 }) => {
-  // Every stopped change, not a window: ones waiting for the owner never
-  // leave this state and must not hide a newer one the worker can fix.
-  const stopped = await getPrisma().storageMutation.findMany({
-    where: { status: "recovery_required" },
-    orderBy: { recoveryRequiredAt: "asc" },
-    select: { id: true, recoveryRequiredAt: true, reviewJson: true },
-  });
   let fixed = 0;
-  for (const candidate of stopped.filter(needsWorker).slice(0, take)) {
+  for (const candidate of await workerCandidates(take)) {
     try {
       if (await fixAutomatically(candidate, filesRoot)) fixed += 1;
     } catch (error) {

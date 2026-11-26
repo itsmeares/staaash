@@ -567,9 +567,15 @@ export function FilesView({
     void navigate({ replace: true, href: `${pathname}${qs ? `?${qs}` : ""}` });
   });
   const loadTowardShown = useEffectEvent(() => void continuous.loadMore());
+  const showEverything = useEffectEvent(() => {
+    setFilterType("all");
+    finder.clear();
+  });
   useEffect(() => {
     if (!show) return;
     if (showLoaded) revealShown(show);
+    // A type filter or a search could hide the item for good.
+    else if (continuous.filtered) showEverything();
     // A failed page stops here; the list shows its own retry.
     else if (continuous.hasMore && !continuous.loading && !continuous.error) {
       loadTowardShown();
@@ -577,6 +583,7 @@ export function FilesView({
   }, [
     show,
     showLoaded,
+    continuous.filtered,
     continuous.hasMore,
     continuous.loading,
     continuous.error,

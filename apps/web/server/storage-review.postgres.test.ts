@@ -463,6 +463,49 @@ describe("storage review", () => {
     await expectBytes(files[0]!.storageKey, unknown);
   });
 
+  it("reaches a change it can fix behind ones waiting for the owner", async () => {
+    const drive = await createDrive();
+    const waiting = await stopFolderMove(drive, async ({ source, target }) => {
+      await rename(storagePath(source), storagePath(target));
+      await writeFile(storagePath(`${target}/child.bin`), "new place");
+      await writeAt(`${source}/child.bin`, Buffer.from("old place"));
+    });
+    await refreshStorageReviewInspection({
+      mutationId: waiting.mutationId,
+      filesRoot: storageRoot(),
+    });
+    // Another person's drive, so the waiting change holds none of its folders.
+    const fixable = await stopFileMove(
+      await createDrive(),
+      async ({ target }) => {
+        await writeAt(target, Buffer.from("someone else's file"));
+      },
+    );
+
+    await reviewStoppedStorageMutations({ filesRoot: storageRoot(), take: 1 });
+
+    expect(await statusOf(waiting.mutationId)).toBe("recovery_required");
+    expect(await statusOf(fixable.mutationId)).toBe("retrying");
+  });
+
+  it("counts folders too before it offers to keep a copy", async () => {
+    const drive = await createDrive();
+    const stopped = await stopFileMove(drive, async ({ target }) => {
+      await writeAt(`${target}/one.txt`, Buffer.from("one file"));
+      for (let index = 0; index < 1_000; index += 1) {
+        await mkdir(storagePath(`${target}/folder-${index}`));
+      }
+    });
+
+    const inspection = await refreshStorageReviewInspection({
+      mutationId: stopped.mutationId,
+      filesRoot: storageRoot(),
+    });
+
+    expect(inspection).toMatchObject({ group: "in_the_way", tooBig: true });
+    expect(inspection?.choices).toEqual([]);
+  });
+
   it("keeps both copies when the owner finishes a move where neither copy matches", async () => {
     const drive = await createDrive();
     const newer = Buffer.from("changed at the new place");
@@ -917,6 +960,111 @@ describe("storage review", () => {
     await expectBytes(stopped.source, edited);
   });
 
+  it("never runs a step again that an interrupted Undo already reversed", async () => {
+    const drive = await createDrive();
+    const names = ["a.bin", "b.bin", "c.bin"];
+    const files = await Promise.all(
+      names.map(async (name) => {
+        const bytes = Buffer.from(`${name}-${randomUUID()}`);
+        const source = drive.key(`Source/${name}`);
+        await writeAt(source, bytes);
+        const file = await db.file.create({
+          data: {
+            ownerUserId: drive.user.id,
+            folderId: drive.source.id,
+            originalName: name,
+            storageKey: source,
+            mimeType: "application/octet-stream",
+            sizeBytes: BigInt(bytes.length),
+            contentChecksum: checksumOf(bytes),
+          },
+        });
+        return {
+          file,
+          bytes,
+          source,
+          target: drive.key(`Destination/${name}`),
+        };
+      }),
+    );
+    const intentJson = intent(
+      files.map(({ file, target }) => ({
+        action: "update" as const,
+        entityType: "file" as const,
+        entityId: file.id,
+        preRevision: 0,
+        data: { folderId: drive.destination.id, storageKey: target },
+      })),
+    );
+    const { mutation } = await prepareStorageMutation({
+      kind: "file_move",
+      ownerUserId: drive.user.id,
+      idempotencyKey: randomUUID(),
+      requestHash: randomUUID(),
+      intentJson: intentJson as unknown as Prisma.InputJsonValue,
+      steps: files.map(({ bytes, source, target }) => ({
+        action: "rename" as const,
+        sourceKey: source,
+        targetKey: target,
+        expectedNodeType: "file" as const,
+        expectedSizeBytes: BigInt(bytes.length),
+        expectedChecksum: checksumOf(bytes),
+      })),
+      entities: files.map(({ file, source, target }) => ({
+        entityType: "file" as const,
+        entityId: file.id,
+        preRevision: 0,
+        postRevision: 1,
+        beforeJson: { folderId: drive.source.id, storageKey: source },
+        afterJson: { folderId: drive.destination.id, storageKey: target },
+      })),
+    });
+    const [a, b, c] = files as [
+      (typeof files)[0],
+      (typeof files)[0],
+      (typeof files)[0],
+    ];
+    const edited = Buffer.from("c, edited after the move");
+    // All three land, then c changes, so the move stops on c.
+    for (const file of files) {
+      await rename(storagePath(file.source), storagePath(file.target));
+    }
+    await writeFile(storagePath(c.target), edited);
+    await expect(run(mutation.id, intentJson)).rejects.toMatchObject(stop);
+    const looked = await refreshStorageReviewInspection({
+      mutationId: mutation.id,
+      filesRoot: storageRoot(),
+    });
+    await expect(
+      applyStorageReviewChoice({
+        mutationId: mutation.id,
+        choice: "undo",
+        seen: looked?.seen ?? null,
+        filesRoot: storageRoot(),
+        byUserId: drive.user.id,
+      }),
+    ).resolves.toMatchObject({ outcome: "resumed" });
+    // c and b go back, then something in a's old place stops the Undo.
+    await writeAt(a.source, Buffer.from("in the way of the undo"));
+    await executeReviewedStorageMutation({
+      mutationId: mutation.id,
+      filesRoot: storageRoot(),
+      leaseOwner: `test:${randomUUID()}`,
+    }).catch(() => null);
+    expect(await statusOf(mutation.id)).toBe("recovery_required");
+    await expectBytes(b.source, b.bytes);
+    await rm(storagePath(a.source));
+
+    await choose(mutation.id, "retry", drive.user.id);
+
+    expect(await statusOf(mutation.id)).toBe("aborted");
+    for (const file of [a, b]) {
+      await expectBytes(file.source, file.bytes);
+      await expectMissing(file.target);
+    }
+    await expectBytes(c.source, edited);
+  });
+
   it("never lets a preview publish finish without its file", async () => {
     const drive = await createDrive();
     const bytes = Buffer.from("preview");
@@ -1040,17 +1188,15 @@ describe("review steps", () => {
     await expectBytes(step.target, bytes);
   });
 
-  it("borrows locks only from a change that is still stopped", async () => {
+  it("borrows locks only from the same stop of a change", async () => {
     const drive = await createDrive();
     const stopped = await stopFileMove(drive, async ({ target }) => {
       await writeAt(target, Buffer.from("in the way"));
     });
-    await db.storageMutation.update({
+    const { recoveryRequiredAt } = await db.storageMutation.findUniqueOrThrow({
       where: { id: stopped.mutationId },
-      data: { status: "retrying" },
     });
-
-    await expect(
+    const borrow = () =>
       prepareStorageMutation({
         kind: "storage_review_keep",
         ownerUserId: drive.user.id,
@@ -1066,8 +1212,27 @@ describe("review steps", () => {
           },
         ],
         sharedWithMutationId: stopped.mutationId,
-      }),
-    ).rejects.toMatchObject({ code: "STORAGE_MUTATION_IN_PROGRESS" });
+        sharedWithStoppedAt: recoveryRequiredAt,
+      });
+
+    await db.storageMutation.update({
+      where: { id: stopped.mutationId },
+      data: { status: "retrying" },
+    });
+    await expect(borrow()).rejects.toMatchObject({
+      code: "STORAGE_MUTATION_IN_PROGRESS",
+    });
+    // It resumed and stopped again: a plan made for the first stop is stale.
+    await db.storageMutation.update({
+      where: { id: stopped.mutationId },
+      data: {
+        status: "recovery_required",
+        recoveryRequiredAt: new Date(recoveryRequiredAt!.getTime() + 1_000),
+      },
+    });
+    await expect(borrow()).rejects.toMatchObject({
+      code: "STORAGE_MUTATION_IN_PROGRESS",
+    });
   });
 
   it("stops removing empty folders when one holds a file", async () => {

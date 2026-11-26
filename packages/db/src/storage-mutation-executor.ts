@@ -1046,22 +1046,10 @@ const assertTargetStillFree = async (target: string) => {
   }
 };
 
-// Without hard links, an empty file claims the name first, so a file that
-// appears there makes this fail instead of being replaced by the rename. A
-// crash right after leaves both names, which stops the step for review.
-const holdName = async (target: string) => {
-  try {
-    await (await open(target, "wx")).close();
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-    throw new StorageMutationAmbiguityError(
-      "Set-aside target appeared before the move.",
-    );
-  }
-};
-
 // A file moves by link then unlink: `link` refuses to replace anything at the
 // new name. A folder rename refuses to replace a folder that holds anything.
+// Without hard links nothing can promise a file is not replaced (a rename
+// replaces, and Node has no rename that refuses), so the step stops instead.
 const moveWithoutReplacing = async (
   source: string,
   target: string,
@@ -1074,9 +1062,9 @@ const moveWithoutReplacing = async (
       const code = (error as NodeJS.ErrnoException).code ?? "";
       if (code === "EEXIST") await assertTargetStillFree(target);
       if (!LINK_UNSUPPORTED_CODES.has(code)) throw error;
-      await holdName(target);
-      await renameWhenFree(source, target);
-      return;
+      throw new StorageMutationAmbiguityError(
+        "Storage cannot set a file aside without hard links.",
+      );
     }
     await syncDirectory(path.dirname(target));
     await unlink(source);
@@ -1125,7 +1113,12 @@ const applySetAside = async (
   }
   if (!sourceState.exists) {
     await validateExpectedNode(target, step, false);
+    // Seal both: the unlink may be on disk no more than the link was. A
+    // missing old folder holds no name to bring back.
     await syncDirectory(path.dirname(target));
+    await syncDirectory(path.dirname(source)).catch((error) => {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    });
     return;
   }
   await validateExpectedNode(source, step, trustStats);
@@ -1949,6 +1942,8 @@ export type StorageNodeReport =
       state: "file" | "directory";
       sizeBytes: bigint;
       fileCount: number;
+      /** Files and folders in it, itself included: the rows a copy adds. */
+      entryCount: number;
       modifiedAt: Date;
       /** A folder tree with no file anywhere in it. */
       onlyFolders: boolean;
@@ -1976,14 +1971,15 @@ const treeTotals = async (treeRoot: string, folderModifiedAt: bigint) => {
   let sizeBytes = 0n;
   let fileCount = 0;
   let modifiedAt = folderModifiedAt;
-  for (const entry of await readTreeStatEntries(treeRoot)) {
+  const entries = await readTreeStatEntries(treeRoot);
+  for (const entry of entries) {
     if (entry.kind !== "file") continue;
     fileCount += 1;
     sizeBytes += entry.sizeBytes;
     const entryMs = entry.modifiedAtNs / 1_000_000n;
     if (entryMs > modifiedAt) modifiedAt = entryMs;
   }
-  return { sizeBytes, fileCount, modifiedAt };
+  return { sizeBytes, fileCount, entryCount: entries.length + 1, modifiedAt };
 };
 
 const UNSAFE_REASONS: Array<[RegExp, StorageNodeUnsafeReason]> = [
@@ -2019,11 +2015,17 @@ export const inspectStorageNode = async (
     const totals =
       state.type === "directory"
         ? await treeTotals(candidate, info.mtimeMs)
-        : { sizeBytes: state.size, fileCount: 1, modifiedAt: info.mtimeMs };
+        : {
+            sizeBytes: state.size,
+            fileCount: 1,
+            entryCount: 1,
+            modifiedAt: info.mtimeMs,
+          };
     return {
       state: state.type,
       sizeBytes: totals.sizeBytes,
       fileCount: totals.fileCount,
+      entryCount: totals.entryCount,
       modifiedAt: new Date(Number(totals.modifiedAt)),
       onlyFolders: state.type === "directory" && totals.fileCount === 0,
       matches: step ? await nodeMatchesStep(candidate, step) : null,

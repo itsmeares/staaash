@@ -168,8 +168,9 @@ every byte:
 Automatic fixes only rename to an unused name (`set_aside`) and remove empty
 folders deepest first (`remove_empty_tree`). `set_aside` links the file at the
 new name and then unlinks the old one, so it never replaces a file that
-appeared at the target. A folder that gains a file fails `remove_empty_tree`
-closed.
+appeared at the target. On storage without hard links it stops instead,
+because a rename could replace such a file. A folder that gains a file fails
+`remove_empty_tree` closed.
 
 The instance owner resolves every other case on the review page: Finish, Keep
 it as it is now, Undo, Remove the lost item, and Check again. The page offers a

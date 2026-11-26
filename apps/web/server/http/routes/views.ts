@@ -634,6 +634,8 @@ const adminViews = admin
           })),
           disk,
           fixed,
+          // Admins can read this page; only the owner can act on a change.
+          isOwner: c.var.session.user.isOwner,
         }),
       );
     },
@@ -643,7 +645,7 @@ const adminViews = admin
     if (!change) {
       throw httpError(404, "STORAGE_MUTATION_NOT_FOUND", "Change not found.");
     }
-    return c.json(plain(change));
+    return c.json(plain({ ...change, isOwner: c.var.session.user.isOwner }));
   })
   .get("/users", async (c) => {
     const { session } = c.var;

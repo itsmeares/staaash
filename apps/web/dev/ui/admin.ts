@@ -278,6 +278,7 @@ export function adminStorage(state: State, mutationId?: string) {
       .map((mutation) => ({ ...mutation, review: reviewSummary(mutation.id) })),
     disk,
     fixed: fixedChangesView(state),
+    isOwner: state.userId === "owner",
   } satisfies InferResponseType<typeof api.api.views.admin.storage.$get, 200>;
 }
 export function adminUsers(state: State, origin: string) {

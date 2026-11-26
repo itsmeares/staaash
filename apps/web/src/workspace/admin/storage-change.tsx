@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/page-header";
 import { SettingsCard, SettingsRow } from "@/components/settings-layout";
 import { api, read } from "@/lib/api";
 import { formatBytes } from "@/lib/format-bytes";
-import { adminStorageChangeQuery, shellQuery } from "@/src/queries";
+import { adminStorageChangeQuery } from "@/src/queries";
 import { Badge } from "@staaash/ui/components/badge";
 import { Button } from "@staaash/ui/components/button";
 import { Spinner } from "@staaash/ui/components/spinner";
@@ -498,7 +498,6 @@ function useChangePage(mutationId: string) {
     ...adminStorageChangeQuery(mutationId),
     refetchInterval: refetchWhileBusy,
   }).data;
-  const { info } = useSuspenseQuery(shellQuery).data;
   const item = change.inspection?.itemName ?? "This item";
   const stopped = change.status === "recovery_required";
   const inspection = stopped ? change.inspection : null;
@@ -518,7 +517,7 @@ function useChangePage(mutationId: string) {
     inspection,
     rows,
     stopped,
-    isOwner: info.isOwner,
+    isOwner: change.isOwner,
   };
 }
 

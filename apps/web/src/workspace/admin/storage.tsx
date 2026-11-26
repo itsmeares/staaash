@@ -11,7 +11,7 @@ import { getInitials } from "@/lib/user";
 import { useSuspenseQuery } from "@tanstack/react-query";
 
 import { useRefresh } from "@/lib/use-refresh";
-import { adminStorageQuery, shellQuery } from "@/src/queries";
+import { adminStorageQuery } from "@/src/queries";
 
 import { DiskBar } from "./disk-bar";
 import { summaryOf } from "./storage-change";
@@ -189,7 +189,6 @@ export function AdminStoragePage({ mutationId }: { mutationId?: string }) {
   const mutations = data.mutations.filter(
     (mutation) => mutation.status !== "recovery_required",
   );
-  const { info } = useSuspenseQuery(shellQuery).data;
   const refresh = useRefresh();
   const largest = BigInt(summary.rows[0]?.retainedBytes ?? 0);
   const nameOf: NameOf = new Map(
@@ -198,7 +197,7 @@ export function AdminStoragePage({ mutationId }: { mutationId?: string }) {
 
   const changes = (
     <UnfinishedGroup
-      isOwner={info.isOwner}
+      isOwner={data.isOwner}
       mutationId={mutationId}
       mutations={mutations}
       nameOf={nameOf}
@@ -226,7 +225,7 @@ export function AdminStoragePage({ mutationId }: { mutationId?: string }) {
           </div>
         }
       />
-      <ReviewGroup isOwner={info.isOwner} nameOf={nameOf} review={review} />
+      <ReviewGroup isOwner={data.isOwner} nameOf={nameOf} review={review} />
       {mutationId && !review.length ? changes : null}
 
       {disk ? (

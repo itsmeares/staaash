@@ -279,6 +279,9 @@ type PrepareStorageMutationInput = {
    * waits until it is done.
    */
   sharedWithMutationId?: string;
+  /** When that change stopped: a change that resumed and stopped again since
+   * is a different stop, and its locks are not lent. */
+  sharedWithStoppedAt?: Date | null;
   /** Runs in the transaction that marks the change prepared. */
   onPrepared?: (
     tx: Prisma.TransactionClient,
@@ -1594,11 +1597,17 @@ const acquirePreparedResources = async (
 ) => {
   const shared = input.sharedWithMutationId;
   if (shared) {
-    const stopped = await tx.$queryRaw<Array<{ id: string }>>`
-      SELECT id FROM "StorageMutation"
+    const stopped = await tx.$queryRaw<
+      Array<{ recoveryRequiredAt: Date | null }>
+    >`
+      SELECT "recoveryRequiredAt" FROM "StorageMutation"
       WHERE id = ${shared} AND status = 'recovery_required'
       FOR UPDATE`;
-    if (stopped.length !== 1) {
+    const stoppedAt = stopped[0]?.recoveryRequiredAt?.getTime() ?? null;
+    if (
+      stopped.length !== 1 ||
+      stoppedAt !== (input.sharedWithStoppedAt?.getTime() ?? null)
+    ) {
       throw new StorageMutationConflictError(
         "STORAGE_MUTATION_IN_PROGRESS",
         shared,

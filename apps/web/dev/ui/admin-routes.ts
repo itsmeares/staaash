@@ -107,7 +107,10 @@ export function mountAdmin(app: Hono<PreviewEnv>) {
         "Change not found.",
         "STORAGE_MUTATION_NOT_FOUND",
       );
-    return c.json(change);
+    return c.json({
+      ...change,
+      isOwner: c.var.state.userId === "owner",
+    });
   });
   app.post("/api/admin/storage/mutations/:id/review", async (c) => {
     const { choice } = (await c.req.json()) as { choice: string };
