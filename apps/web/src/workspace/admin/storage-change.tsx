@@ -316,6 +316,11 @@ function InspectionDetails({
                 <PlaceBadge place={place} />
               </SettingsRow>
             ))}
+            {inspection.morePlaces ? (
+              <SettingsRow
+                label={`And ${plural(inspection.morePlaces, "more place")}`}
+              />
+            ) : null}
           </SettingsCard>
         </Group>
       ) : null}

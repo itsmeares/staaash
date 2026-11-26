@@ -598,6 +598,41 @@ describe("storage review", () => {
     expect(await statusOf(stopped.mutationId)).toBe("recovery_required");
   });
 
+  it("lists ten leftovers and still checks every one", async () => {
+    const drive = await createDrive();
+    const keys = Array.from({ length: 11 }, (_, index) =>
+      drive.key(`Source/left-${String(index).padStart(2, "0")}.bin`),
+    );
+    for (const key of keys) await writeAt(key, Buffer.from(key));
+    const { mutation } = await prepareStorageMutation({
+      kind: "legacy_recovery",
+      ownerUserId: drive.user.id,
+      idempotencyKey: randomUUID(),
+      requestHash: randomUUID(),
+      intentJson: intent([]) as unknown as Prisma.InputJsonValue,
+      steps: keys.map((key) => ({
+        action: "delete_file" as const,
+        targetKey: key,
+      })),
+    });
+    await db.storageMutation.update({
+      where: { id: mutation.id },
+      data: { status: "recovery_required", recoveryRequiredAt: new Date() },
+    });
+    const check = () =>
+      refreshStorageReviewInspection({
+        mutationId: mutation.id,
+        filesRoot: storageRoot(),
+      });
+
+    const first = await check();
+    expect(first?.places).toHaveLength(10);
+    expect(first?.morePlaces).toBe(1);
+
+    await writeFile(storagePath(keys[10]!), "the eleventh, changed");
+    expect((await check())?.seen).not.toBe(first?.seen);
+  });
+
   it("keeps both copies when the owner finishes a move where neither copy matches", async () => {
     const drive = await createDrive();
     const newer = Buffer.from("changed at the new place");

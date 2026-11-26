@@ -104,6 +104,8 @@ export type StorageReviewInspection = {
   choices: StorageReviewChoiceView[];
   auto: StorageReviewChoice | null;
   unsafeReason?: string;
+  /** Places found beyond the ones listed; the digest covers them all. */
+  morePlaces?: number;
   waitingFor?: string;
   /** A choice needs more rows than one change can write yet. */
   tooBig?: boolean;
@@ -641,9 +643,11 @@ const tooBigToKeep = (plan: ReviewPlan) => {
   );
 };
 
+const SHOWN_PLACES = 10;
+
 type InspectionBase = Omit<
   StorageReviewInspection,
-  "checkedAt" | "seen" | "choices" | "auto" | "places"
+  "checkedAt" | "seen" | "choices" | "auto" | "places" | "morePlaces"
 > & {
   auto?: StorageReviewChoice | null;
   places: SeenPlace[];
@@ -681,7 +685,12 @@ const finishInspection = (
   return {
     inspection: {
       ...base,
-      places: base.places.map(({ identity: _identity, ...place }) => place),
+      places: base.places
+        .slice(0, SHOWN_PLACES)
+        .map(({ identity: _identity, ...place }) => place),
+      ...(base.places.length > SHOWN_PLACES
+        ? { morePlaces: base.places.length - SHOWN_PLACES }
+        : {}),
       checkedAt: new Date().toISOString(),
       seen: createHash("sha256")
         .update(JSON.stringify([base.stepId, base.group, base.places]))
@@ -958,9 +967,7 @@ const inspectLegacyResidue = async (context: ReviewContext) => {
     if (step.status === "applied" || !step.targetKey) continue;
     const report = await inspectStorageNode(context.filesRoot, step.targetKey);
     if (report.state === "missing") continue;
-    if (places.length < 10) {
-      places.push(placeOf("leftover", step.targetKey, report, "changed", step));
-    }
+    places.push(placeOf("leftover", step.targetKey, report, "changed", step));
     if (report.state === "unsafe") {
       return finishInspection(
         context,
@@ -1700,7 +1707,8 @@ const removeItemOperations = async (
   ) {
     return null;
   }
-  if (folders.length + files.length > STORAGE_MUTATION_CHUNK_SIZE) {
+  const rows = folders.length + files.length + dropTrashEntry.length;
+  if (rows > STORAGE_MUTATION_CHUNK_SIZE) {
     throw new StorageReviewTooBigError();
   }
   // Rows inside the folder that the change did not list get locked too.
