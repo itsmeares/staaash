@@ -279,6 +279,11 @@ type PrepareStorageMutationInput = {
    * waits until it is done.
    */
   sharedWithMutationId?: string;
+  /** Runs in the transaction that marks the change prepared. */
+  onPrepared?: (
+    tx: Prisma.TransactionClient,
+    mutationId: string,
+  ) => Promise<unknown>;
 };
 
 const mutationInclude = {
@@ -1551,6 +1556,7 @@ const finishStorageMutationPreparation = async (
     where: { id: mutationId },
     data: { status: "prepared" },
   });
+  await input.onPrepared?.(tx, mutationId);
   return tx.storageMutation.findUniqueOrThrow({
     where: { id: mutationId },
     include: mutationInclude,
@@ -1579,6 +1585,33 @@ const linkPreparedUploadSession = async (
   }
 };
 
+// A review keep borrows a stopped change's locks. The row lock keeps that
+// change stopped until the keep is written; after that, a resume waits for it.
+const acquirePreparedResources = async (
+  tx: Prisma.TransactionClient,
+  input: PrepareStorageMutationInput,
+  resourceKeys: string[],
+) => {
+  const shared = input.sharedWithMutationId;
+  if (shared) {
+    const stopped = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM "StorageMutation"
+      WHERE id = ${shared} AND status = 'recovery_required'
+      FOR UPDATE`;
+    if (stopped.length !== 1) {
+      throw new StorageMutationConflictError(
+        "STORAGE_MUTATION_IN_PROGRESS",
+        shared,
+      );
+    }
+  }
+  await acquireStorageMutationResources(
+    tx,
+    resourceKeys,
+    shared ? [shared] : [],
+  );
+};
+
 const prepareStorageMutationTransaction = async (
   tx: Prisma.TransactionClient,
   input: PrepareStorageMutationInput,
@@ -1587,11 +1620,7 @@ const prepareStorageMutationTransaction = async (
   if (input.reservedBytes) {
     await assertOwnerQuotaAvailable(tx, input.ownerUserId, input.reservedBytes);
   }
-  await acquireStorageMutationResources(
-    tx,
-    resourceKeys,
-    input.sharedWithMutationId ? [input.sharedWithMutationId] : [],
-  );
+  await acquirePreparedResources(tx, input, resourceKeys);
   // After the path locks: nothing can rename a guarded folder from here on.
   await validatePreparedFolderGuards(
     tx,
@@ -1675,11 +1704,7 @@ const prepareChunkedStorageMutation = async (
         input.reservedBytes,
       );
     }
-    await acquireStorageMutationResources(
-      tx,
-      resourceKeys,
-      input.sharedWithMutationId ? [input.sharedWithMutationId] : [],
-    );
+    await acquirePreparedResources(tx, input, resourceKeys);
     await validatePreparedFolderGuards(
       tx,
       input.folderGuards,

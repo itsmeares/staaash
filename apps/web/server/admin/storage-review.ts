@@ -72,15 +72,17 @@ export const getStorageChangeView = async (mutationId: string) => {
 // and the page shows them as finishing.
 const WAIT_FOR_FIX_MS = 10_000;
 
+type ChoiceRequest = { choice: StorageReviewChoice; seen: string | null };
+
 const runChoice = async (
   mutationId: string,
-  choice: StorageReviewChoice,
+  request: ChoiceRequest,
   userId: string,
 ) => {
   const filesRoot = getStorageRoot();
   const result = await applyStorageReviewChoice({
     mutationId,
-    choice,
+    ...request,
     filesRoot,
     byUserId: userId,
   });
@@ -96,10 +98,10 @@ const runChoice = async (
 
 export const startStorageReviewChoice = async (
   mutationId: string,
-  choice: StorageReviewChoice,
+  request: ChoiceRequest,
   userId: string,
 ) => {
-  const run = runChoice(mutationId, choice, userId);
+  const run = runChoice(mutationId, request, userId);
   run.catch((error) => {
     console.warn("[storage-review] Fix failed.", {
       mutationId,

@@ -411,7 +411,12 @@ const showResult = (result: keyof typeof resultToasts, choice: ChoiceId) => {
   });
 };
 
-function useChoice(mutationId: string, item: string, owner: string) {
+function useChoice(
+  mutationId: string,
+  item: string,
+  owner: string,
+  seen: string | null,
+) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [pending, setPending] = useState<ChoiceId | null>(null);
@@ -422,7 +427,7 @@ function useChoice(mutationId: string, item: string, owner: string) {
       const { result } = await read(
         api.api.admin.storage.mutations[":mutationId"].review.$post({
           param: { mutationId },
-          json: { choice: row.id },
+          json: { choice: row.id, seen },
         }),
       );
       showResult(result, row.id);
@@ -492,9 +497,14 @@ function useChangePage(mutationId: string) {
   }).data;
   const { info } = useSuspenseQuery(shellQuery).data;
   const item = change.inspection?.itemName ?? "This item";
-  const choice = useChoice(mutationId, item, change.ownerName);
   const stopped = change.status === "recovery_required";
   const inspection = stopped ? change.inspection : null;
+  const choice = useChoice(
+    mutationId,
+    item,
+    change.ownerName,
+    inspection?.seen ?? null,
+  );
   const rows = inspection
     ? choiceRowsOf(inspection, item, change.ownerName, change.kind)
     : [];

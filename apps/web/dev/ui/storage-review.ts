@@ -18,7 +18,7 @@ type Sample = {
   kind: string;
   ownerUserId: string;
   lastError: string;
-  inspection: Omit<Inspection, "checkedAt" | "stepId" | "auto">;
+  inspection: Omit<Inspection, "checkedAt" | "seen" | "stepId" | "auto">;
 };
 
 const copy = "Photos (recovered, 2026-11-25 14-09)";
@@ -232,6 +232,7 @@ const stoppedView = (state: State, sample: Sample): Change => ({
   inspection: {
     ...sample.inspection,
     checkedAt: "2026-11-25T14:10:00.000Z",
+    seen: `${sample.id}-seen`,
     stepId: `${sample.id}-step`,
     auto: null,
   },

@@ -155,13 +155,14 @@ export const adminRoutes = admin
     json(
       z.object({
         choice: z.enum(["finish", "keep", "undo", "remove", "retry"]),
+        seen: z.string().max(100).nullable(),
       }),
     ),
     async (c) =>
       c.json({
         result: await startStorageReviewChoice(
           c.req.param("mutationId"),
-          c.req.valid("json").choice,
+          c.req.valid("json"),
           c.var.session.user.id,
         ),
       }),

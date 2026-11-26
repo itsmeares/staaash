@@ -10,6 +10,7 @@ import {
   captureStorageNode,
   executeClaimedStorageMutation,
   inspectStorageNode,
+  renameCanResume,
   recoverStorageMutationCleanup,
   storageKeyIsFree,
   type CapturedStorageNode,
@@ -93,6 +94,8 @@ export type StorageReviewChoiceView = {
 
 export type StorageReviewInspection = {
   checkedAt: string;
+  /** A digest of what each place held; a choice names the one it answers. */
+  seen: string;
   stepId: string | null;
   group: StorageReviewGroup;
   itemName: string | null;
@@ -482,13 +485,18 @@ const canUndo = (mutation: Mutation) =>
   !mutation.metadataCommittedAt &&
   mutation.metadataOperationsApplied === 0;
 
+// The device and inode tell a replaced file from one edited in place. They
+// only go into the digest, never to the page.
+type SeenPlace = StorageReviewPlace & { identity?: string };
+
 const placeOf = (
   role: StorageReviewPlace["role"],
   storageKey: string,
   report: StorageNodeReport,
   state: StorageReviewPlaceState,
   step: Step | null,
-): StorageReviewPlace => ({
+): SeenPlace => ({
+  ...("identity" in report ? { identity: report.identity } : {}),
   role,
   label: storageReviewPlaceLabel(storageKey),
   state,
@@ -600,11 +608,17 @@ const tooBigToKeep = (plan: ReviewPlan) =>
       (!obstacle.place || obstacle.fileCount >= STORAGE_MUTATION_CHUNK_SIZE),
   );
 
+type InspectionBase = Omit<
+  StorageReviewInspection,
+  "checkedAt" | "seen" | "choices" | "auto" | "places"
+> & {
+  auto?: StorageReviewChoice | null;
+  places: SeenPlace[];
+};
+
 const finishInspection = (
-  context: ReviewContext,
-  base: Omit<StorageReviewInspection, "checkedAt" | "choices" | "auto"> & {
-    auto?: StorageReviewChoice | null;
-  },
+  context: Pick<ReviewContext, "mutation">,
+  base: InspectionBase,
   plans: Partial<Record<StorageReviewChoice, ReviewPlan>>,
 ): Pick<Inspected, "inspection" | "plans"> => {
   const usable: Partial<Record<StorageReviewChoice, ReviewPlan>> = {};
@@ -615,7 +629,11 @@ const finishInspection = (
     if (tooBigToKeep(plan)) tooBig = true;
     else usable[id] = plan;
   }
-  usable.retry = { obstacles: [], rewrite: { type: "resume" } };
+  // Resuming past something in the way could delete it (a quarantine cleanup
+  // removes its whole folder), so Check again only re-checks then.
+  if (base.group !== "in_the_way") {
+    usable.retry = { obstacles: [], rewrite: { type: "resume" } };
+  }
   const auto =
     base.auto && usable[base.auto] && context.mutation.kind !== KEEP_KIND
       ? base.auto
@@ -623,7 +641,11 @@ const finishInspection = (
   return {
     inspection: {
       ...base,
+      places: base.places.map(({ identity: _identity, ...place }) => place),
       checkedAt: new Date().toISOString(),
+      seen: createHash("sha256")
+        .update(JSON.stringify([base.stepId, base.group, base.places]))
+        .digest("base64url"),
       auto,
       ...(tooBig ? { tooBig } : {}),
       choices: (Object.keys(usable) as StorageReviewChoice[]).map((id) =>
@@ -693,12 +715,15 @@ const inspectRename = async (context: ReviewContext, step: Step) => {
       noCopyPlans(mutation),
     );
   }
+  // One entry under both names: a set-aside stopped between link and unlink,
+  // or a case-only rename. Two hard links to one file are neither.
   if (
-    present(source) &&
-    present(target) &&
     "identity" in source &&
     "identity" in target &&
-    source.identity === target.identity
+    source.identity === target.identity &&
+    (step.action === "set_aside"
+      ? source.state === "file"
+      : await renameCanResume(context.filesRoot, step))
   ) {
     return clearInspection(context, withPlaces);
   }
@@ -814,10 +839,7 @@ const inspectRename = async (context: ReviewContext, step: Step) => {
 
 const clearInspection = (
   context: ReviewContext,
-  base: Omit<
-    StorageReviewInspection,
-    "checkedAt" | "choices" | "auto" | "group"
-  >,
+  base: Omit<InspectionBase, "group" | "auto">,
 ) => finishInspection(context, { ...base, group: "clear", auto: "retry" }, {});
 
 const noCopyPlans = (
@@ -914,7 +936,7 @@ const originOf = (mutation: Mutation, storageKey: string) =>
 
 const inspectLegacyResidue = async (context: ReviewContext) => {
   const obstacles: Obstacle[] = [];
-  const places: StorageReviewPlace[] = [];
+  const places: SeenPlace[] = [];
   for (const step of cleanupSteps(context.mutation)) {
     if (step.status === "applied" || !step.targetKey) continue;
     const report = await inspectStorageNode(context.filesRoot, step.targetKey);
@@ -1073,17 +1095,18 @@ const createContext = async (
   };
 };
 
+// A check that cannot run, even the disk probe on a full volume, still shows
+// the change, with only Check again to offer.
 const inspectMutation = async (
   mutation: Mutation,
   filesRoot: string,
 ): Promise<Inspected> => {
-  const context = await createContext(mutation, filesRoot);
   try {
-    return await inspectStop(context);
+    return await inspectStop(await createContext(mutation, filesRoot));
   } catch (error) {
     return {
       ...finishInspection(
-        context,
+        { mutation },
         {
           stepId: null,
           itemName: null,
@@ -1111,6 +1134,20 @@ const writeReviewRecord = (
     data: { reviewJson: record as unknown as Prisma.InputJsonValue, ...extra },
   });
 
+// Only the inspection: a fix recorded while the disk was being checked stays.
+const saveInspection = (
+  mutationId: string,
+  inspection: StorageReviewInspection,
+) =>
+  getPrisma().$executeRaw`
+    UPDATE "StorageMutation"
+    SET "reviewJson" = jsonb_set(
+      COALESCE("reviewJson", '{"fixes": []}'::jsonb),
+      '{inspection}',
+      ${JSON.stringify(inspection)}::jsonb
+    )
+    WHERE id = ${mutationId} AND status = 'recovery_required'`;
+
 /** Checks a stopped change on disk again and saves what it found. */
 export const refreshStorageReviewInspection = async ({
   mutationId,
@@ -1122,10 +1159,7 @@ export const refreshStorageReviewInspection = async ({
   const mutation = await findStorageMutation(mutationId);
   if (mutation?.status !== "recovery_required") return null;
   const { inspection } = await inspectMutation(mutation, filesRoot);
-  await writeReviewRecord(getPrisma(), mutationId, {
-    ...readStorageReviewRecord(mutation.reviewJson),
-    inspection,
-  });
+  await saveInspection(mutationId, inspection);
   return inspection;
 };
 
@@ -1142,8 +1176,11 @@ export const storageReviewInspectionIsCurrent = (mutation: {
   );
 };
 
-const unfinishedKeepOf = (mutationId: string) =>
-  getPrisma().storageMutation.findFirst({
+const unfinishedKeepOf = (
+  mutationId: string,
+  client: Pick<Prisma.TransactionClient, "storageMutation"> = getPrisma(),
+) =>
+  client.storageMutation.findFirst({
     where: {
       kind: KEEP_KIND,
       idempotencyKey: { startsWith: keepKeyPrefix(mutationId) },
@@ -1357,8 +1394,12 @@ export const executeReviewedStorageMutation = async ({
   return (await findStorageMutation(mutationId))?.status ?? null;
 };
 
-const runKeepPlan = async (keep: KeepPlan, filesRoot: string) => {
-  const prepared = await prepareStorageMutation(keep.input);
+const runKeepPlan = async (
+  keep: KeepPlan,
+  filesRoot: string,
+  onPrepared: NonNullable<KeepPlan["input"]["onPrepared"]>,
+) => {
+  const prepared = await prepareStorageMutation({ ...keep.input, onPrepared });
   const status = await executeReviewedStorageMutation({
     mutationId: prepared.mutation.id,
     filesRoot,
@@ -1852,6 +1893,21 @@ const undoRewrite = async (
 
 class StorageReviewChangedError extends Error {}
 
+const rewrittenIntent = (mutation: Mutation, rewrite: StepRewrite) => {
+  const intent = mutation.intentJson as Record<string, unknown>;
+  // A parent keeps its own plan format; it only resumes.
+  if (PARENT_KINDS.has(mutation.kind)) return intent;
+  const { bulkOperationsEnd: _bulk, ...rest } = intent;
+  // An Undo that stopped and is fixed again is still an Undo.
+  const undone =
+    rewrite.undone || storageReviewOutcomeOf(mutation.intentJson) === "undone";
+  return {
+    ...(undone ? rest : intent),
+    metadataOperations: rewrite.operations,
+    review: { outcome: undone ? "undone" : "fixed" },
+  };
+};
+
 const applyStepRewrite = async ({
   mutation,
   rewrite,
@@ -1863,16 +1919,7 @@ const applyStepRewrite = async ({
 }) =>
   runStorageTransaction(async (tx) => {
     const now = new Date();
-    const intent = mutation.intentJson as Record<string, unknown>;
-    const { bulkOperationsEnd: _bulk, ...rest } = intent;
-    // A parent keeps its own plan format; it only resumes.
-    const nextIntent = PARENT_KINDS.has(mutation.kind)
-      ? intent
-      : {
-          ...(rewrite.undone ? rest : intent),
-          metadataOperations: rewrite.operations,
-          review: { outcome: rewrite.undone ? "undone" : "fixed" },
-        };
+    const nextIntent = rewrittenIntent(mutation, rewrite);
     const updated = await tx.storageMutation.updateMany({
       where: {
         id: mutation.id,
@@ -1890,6 +1937,11 @@ const applyStepRewrite = async ({
       },
     });
     if (updated.count !== 1) throw new StorageReviewChangedError();
+    // Read after the row lock: a keep written first borrows this change's
+    // locks, so it must finish before this change runs again.
+    if (await unfinishedKeepOf(mutation.id, tx)) {
+      throw new StorageReviewChangedError();
+    }
     if (rewrite.deleteStepIds.length) {
       await tx.storageMutationStep.deleteMany({
         where: { mutationId: mutation.id, id: { in: rewrite.deleteStepIds } },
@@ -1961,20 +2013,6 @@ export type StorageReviewResult =
 const guardOf = (inspection: StorageReviewInspection) =>
   `${inspection.stepId ?? "none"}:${inspection.group}`;
 
-// What each place held when checked, so a choice made on one view of the disk
-// never runs on another.
-const diskSeen = (inspection: StorageReviewInspection) =>
-  JSON.stringify([
-    guardOf(inspection),
-    inspection.places.map((place) => [
-      place.role,
-      place.state,
-      place.sizeBytes,
-      place.fileCount,
-      place.modifiedAt,
-    ]),
-  ]);
-
 /**
  * Applies one choice for a stopped change. The disk is checked again first;
  * a choice that no longer fits is refused with what was found instead.
@@ -1983,12 +2021,15 @@ const diskSeen = (inspection: StorageReviewInspection) =>
 export const applyStorageReviewChoice = async ({
   mutationId,
   choice,
+  seen,
   filesRoot,
   byUserId,
   automatic = false,
 }: {
   mutationId: string;
   choice: StorageReviewChoice;
+  /** The `seen` digest of the inspection the choice answers. */
+  seen: string | null;
   filesRoot: string;
   byUserId: string | null;
   automatic?: boolean;
@@ -2005,19 +2046,14 @@ export const applyStorageReviewChoice = async ({
   const plan = inspected.plans[choice];
   // A choice answers what the owner (or the worker) saw. If the disk now tells
   // a different story, show that instead of acting on it.
-  const seen = record.inspection;
   const sawSomethingElse =
-    choice !== "retry" &&
-    (!seen || diskSeen(seen) !== diskSeen(inspected.inspection));
+    choice !== "retry" && seen !== inspected.inspection.seen;
   if (
     !plan ||
     sawSomethingElse ||
     (automatic && inspected.inspection.auto !== choice)
   ) {
-    await writeReviewRecord(getPrisma(), mutationId, {
-      ...record,
-      inspection: inspected.inspection,
-    });
+    await saveInspection(mutationId, inspected.inspection);
     return { outcome: "changed", inspection: inspected.inspection };
   }
   const rewrite = await planStepRewrite(context, inspected, plan.rewrite);
@@ -2043,19 +2079,19 @@ export const applyStorageReviewChoice = async ({
     return { outcome: "changed", inspection: inspected.inspection };
   }
   if (keepPlan) {
-    const keep = await runKeepPlan(keepPlan, filesRoot).catch(() => null);
-    if (!keep) return { outcome: "busy" };
-    fix.kept = keepPlan.kept.map((item) => ({
-      ...item,
-      keepMutationId: keep.id,
-    }));
+    const keptBy = (keepMutationId: string) =>
+      keepPlan.kept.map((item) => ({ ...item, keepMutationId }));
     fix.removedEmptyFolders = keepPlan.removedEmptyFolders;
-    // Recorded before the change resumes, so the person still hears about the
-    // copy if anything stops in between. Without an inspection, the worker
-    // checks the change again once the keep change is done.
-    await writeReviewRecord(getPrisma(), mutationId, {
-      fixes: [...record.fixes, fix],
-    });
+    // Recorded with the keep change itself, so the person still hears about
+    // the copy if anything stops before this change resumes. Without an
+    // inspection, the worker checks the change again once the keep is done.
+    const keep = await runKeepPlan(keepPlan, filesRoot, (tx, keepId) =>
+      writeReviewRecord(tx, mutationId, {
+        fixes: [...record.fixes, { ...fix, kept: keptBy(keepId) }],
+      }),
+    ).catch(() => null);
+    if (!keep) return { outcome: "busy" };
+    fix.kept = keptBy(keep.id);
     if (!keep.succeeded) return { outcome: "stopped", mutationId: keep.id };
   }
   try {
@@ -2116,6 +2152,7 @@ const fixAutomatically = async (
   const result = await applyStorageReviewChoice({
     mutationId: candidate.id,
     choice: inspection.auto,
+    seen: inspection.seen,
     filesRoot,
     byUserId: null,
     automatic: true,

@@ -926,6 +926,20 @@ const resolveRenameState = async (
   return { source, target, sourceState };
 };
 
+/** Whether a rename that finds both of its names knows which one to keep. */
+export const renameCanResume = async (
+  filesRoot: string,
+  step: StorageMutationStep,
+) => {
+  try {
+    await resolveRenameState(filesRoot, step);
+    return true;
+  } catch (error) {
+    if (error instanceof StorageMutationAmbiguityError) return false;
+    throw error;
+  }
+};
+
 const syncRenameSource = async (source: string, state: StoragePathState) => {
   if (state.type === "file") {
     await syncFile(source);
@@ -1096,6 +1110,9 @@ const applySetAside = async (
       );
     }
     await validateExpectedNode(target, step, false);
+    // A link seen is not yet a link kept: seal the new name before the old
+    // one goes, as the first attempt does.
+    await syncDirectory(path.dirname(target));
     await assertLease();
     await unlink(source);
     await syncParents(source, target);
@@ -1108,6 +1125,7 @@ const applySetAside = async (
   }
   if (!sourceState.exists) {
     await validateExpectedNode(target, step, false);
+    await syncDirectory(path.dirname(target));
     return;
   }
   await validateExpectedNode(source, step, trustStats);
