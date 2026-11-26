@@ -506,6 +506,75 @@ describe("storage review", () => {
     expect(inspection?.choices).toEqual([]);
   });
 
+  it("skips a change that waits for its keep change", async () => {
+    const drive = await createDrive();
+    const waiting = await stopFileMove(drive, async ({ target }) => {
+      await writeAt(target, Buffer.from("in the way"));
+    });
+    const { recoveryRequiredAt } = await db.storageMutation.findUniqueOrThrow({
+      where: { id: waiting.mutationId },
+    });
+    await prepareStorageMutation({
+      kind: "storage_review_keep",
+      ownerUserId: drive.user.id,
+      idempotencyKey: `storage-review-keep:${waiting.mutationId}:0`,
+      requestHash: randomUUID(),
+      intentJson: intent([]) as unknown as Prisma.InputJsonValue,
+      steps: [],
+      sharedWithMutationId: waiting.mutationId,
+      sharedWithStoppedAt: recoveryRequiredAt,
+    });
+    const fixable = await stopFileMove(
+      await createDrive(),
+      async ({ target }) => {
+        await writeAt(target, Buffer.from("someone else's file"));
+      },
+    );
+
+    await reviewStoppedStorageMutations({ filesRoot: storageRoot(), take: 1 });
+
+    expect(await statusOf(waiting.mutationId)).toBe("recovery_required");
+    expect(await statusOf(fixable.mutationId)).toBe("retrying");
+  });
+
+  it("moves a change it could not fix to the back of the queue", async () => {
+    const drive = await createDrive();
+    const blocked = await stopFileMove(drive, async ({ target }) => {
+      await writeAt(target, Buffer.from("in the way"));
+    });
+    const looked = await refreshStorageReviewInspection({
+      mutationId: blocked.mutationId,
+      filesRoot: storageRoot(),
+    });
+    // Another change holds the name the copy would get, so the keep waits.
+    await prepareStorageMutation({
+      kind: "file_rename",
+      ownerUserId: drive.user.id,
+      idempotencyKey: randomUUID(),
+      requestHash: randomUUID(),
+      intentJson: intent([]) as unknown as Prisma.InputJsonValue,
+      steps: [
+        {
+          action: "mkdir",
+          targetKey: drive.key(`Destination/${looked!.choices[0]!.copyName}`),
+        },
+      ],
+    });
+    const fixable = await stopFileMove(
+      await createDrive(),
+      async ({ target }) => {
+        await writeAt(target, Buffer.from("someone else's file"));
+      },
+    );
+
+    await reviewStoppedStorageMutations({ filesRoot: storageRoot(), take: 1 });
+    expect(await statusOf(blocked.mutationId)).toBe("recovery_required");
+    expect(await statusOf(fixable.mutationId)).toBe("recovery_required");
+
+    await reviewStoppedStorageMutations({ filesRoot: storageRoot(), take: 1 });
+    expect(await statusOf(fixable.mutationId)).toBe("retrying");
+  });
+
   it("keeps both copies when the owner finishes a move where neither copy matches", async () => {
     const drive = await createDrive();
     const newer = Buffer.from("changed at the new place");

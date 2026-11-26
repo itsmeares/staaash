@@ -65,6 +65,7 @@ describe("storage filesystem capability cache", () => {
     // Windows and macOS disks ignore letter case by default.
     const supported = {
       ignoresCase: ["win32", "darwin"].includes(process.platform),
+      hardLinks: true,
     };
 
     await expect(assertStorageFilesystemSupported(filesRoot)).resolves.toEqual(

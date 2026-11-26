@@ -107,6 +107,8 @@ export type StorageReviewInspection = {
   waitingFor?: string;
   /** A copy to keep has more files than one change can add yet. */
   tooBig?: boolean;
+  /** Keeping a file aside needs hard links, which this storage lacks. */
+  noLinks?: boolean;
   error?: string;
 };
 
@@ -165,8 +167,8 @@ const CLEANUP_ACTIONS = new Set([
   "remove_empty_directory",
 ]);
 const KEEP_KIND = "storage_review_keep";
-const keepKeyPrefix = (mutationId: string) =>
-  `storage-review-keep:${mutationId}:`;
+const KEEP_KEY = "storage-review-keep";
+const keepKeyPrefix = (mutationId: string) => `${KEEP_KEY}:${mutationId}:`;
 
 type Mutation = StorageMutationRecord;
 type Step = Mutation["steps"][number];
@@ -335,6 +337,7 @@ type ReviewContext = {
   filesRoot: string;
   storageId: string;
   ignoresCase: boolean;
+  hardLinks: boolean;
   stamp: string;
   takenKeys: Set<string>;
 };
@@ -594,14 +597,19 @@ const obstacleFor = async (
 ): Promise<Obstacle> => {
   const isFolder = report.state === "directory";
   const drop = isFolder && "onlyFolders" in report && report.onlyFolders;
+  const place = drop
+    ? null
+    : await pickCopyPlace(context, key, otherKey, name, !isFolder);
   return {
     key,
     drop,
     isFolder,
-    rows: "entryCount" in report ? report.entryCount : 0,
-    place: drop
-      ? null
-      : await pickCopyPlace(context, key, otherKey, name, !isFolder),
+    // Generated output is set aside outside the drive and adds no rows.
+    rows:
+      "entryCount" in report && (!place || place.folder)
+        ? report.entryCount
+        : 0,
+    place,
   };
 };
 
@@ -636,17 +644,24 @@ type InspectionBase = Omit<
   places: SeenPlace[];
 };
 
+// A file is set aside by link then unlink; a folder by a rename that cannot
+// replace anything that holds bytes.
+const setsFileAside = (plan: ReviewPlan) =>
+  plan.obstacles.some((obstacle) => !obstacle.drop && !obstacle.isFolder);
+
 const finishInspection = (
-  context: Pick<ReviewContext, "mutation">,
+  context: Pick<ReviewContext, "mutation"> & { hardLinks?: boolean },
   base: InspectionBase,
   plans: Partial<Record<StorageReviewChoice, ReviewPlan>>,
 ): Pick<Inspected, "inspection" | "plans"> => {
   const usable: Partial<Record<StorageReviewChoice, ReviewPlan>> = {};
   let tooBig = false;
+  let noLinks = false;
   for (const [id, plan] of Object.entries(plans) as Array<
     [StorageReviewChoice, ReviewPlan]
   >) {
     if (tooBigToKeep(plan)) tooBig = true;
+    else if (context.hardLinks === false && setsFileAside(plan)) noLinks = true;
     else usable[id] = plan;
   }
   // Resuming past something in the way could delete it (a quarantine cleanup
@@ -668,6 +683,7 @@ const finishInspection = (
         .digest("base64url"),
       auto,
       ...(tooBig ? { tooBig } : {}),
+      ...(noLinks ? { noLinks } : {}),
       choices: (Object.keys(usable) as StorageReviewChoice[]).map((id) =>
         choiceView(id, usable[id]!),
       ),
@@ -1083,6 +1099,7 @@ const createContext = async (
     filesRoot,
     storageId: owner.storageId,
     ignoresCase: traits.ignoresCase,
+    hardLinks: traits.hardLinks,
     stamp: await copyStamp(
       mutation.ownerUserId,
       mutation.recoveryRequiredAt ?? mutation.createdAt,
@@ -2134,14 +2151,22 @@ type StoppedCandidate = {
 
 // The stopped changes the worker has something to do for: no check since it
 // stopped, or a check that found an automatic fix not tried for this step
-// yet. The rest wait for the owner and stay out of the scan. The same rules
-// as `storageReviewInspectionIsCurrent` and `triedBefore`, in SQL.
+// yet. The rest wait for the owner, or for a keep change, and stay out of the
+// scan. The same rules as `storageReviewInspectionIsCurrent`, `triedBefore`
+// and `unfinishedKeepOf`, in SQL. Least recently touched first: a change the
+// worker could not move goes to the back, so it never blocks a newer one.
 const workerCandidates = (take: number) =>
   getPrisma().$queryRaw<StoppedCandidate[]>`
     SELECT m.id, m."recoveryRequiredAt", m."reviewJson"
     FROM "StorageMutation" m
     CROSS JOIN LATERAL (SELECT m."reviewJson"->'inspection' AS i) seen
     WHERE m.status = 'recovery_required'
+      AND NOT EXISTS (
+        SELECT 1 FROM "StorageMutation" keep
+        WHERE keep.kind = ${KEEP_KIND}
+          AND keep."idempotencyKey" LIKE ${KEEP_KEY} || ':' || m.id || ':%'
+          AND keep.status NOT IN ('succeeded', 'aborted')
+      )
       AND (
         seen.i IS NULL
         OR m."recoveryRequiredAt" IS NULL
@@ -2160,8 +2185,14 @@ const workerCandidates = (take: number) =>
           )
         )
       )
-    ORDER BY m."recoveryRequiredAt" ASC NULLS FIRST
+    ORDER BY m."updatedAt" ASC
     LIMIT ${take}`;
+
+const touch = (mutationId: string) =>
+  getPrisma().storageMutation.updateMany({
+    where: { id: mutationId, status: "recovery_required" },
+    data: { updatedAt: new Date() },
+  });
 
 const fixAutomatically = async (
   candidate: StoppedCandidate,
@@ -2204,13 +2235,17 @@ export const reviewStoppedStorageMutations = async ({
   let fixed = 0;
   for (const candidate of await workerCandidates(take)) {
     try {
-      if (await fixAutomatically(candidate, filesRoot)) fixed += 1;
+      if (await fixAutomatically(candidate, filesRoot)) {
+        fixed += 1;
+        continue;
+      }
     } catch (error) {
       console.warn("[worker] Storage review deferred.", {
         mutationId: candidate.id,
         error: error instanceof Error ? error.message : "Unknown error.",
       });
     }
+    await touch(candidate.id);
   }
   return fixed;
 };

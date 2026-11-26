@@ -750,6 +750,8 @@ const STORAGE_FILESYSTEM_PROBE_TTL_MS = 60_000;
 type StorageFilesystemTraits = {
   /** Names that differ only in letter case are one entry on this disk. */
   ignoresCase: boolean;
+  /** A file can have two names, which a set-aside needs to never replace. */
+  hardLinks: boolean;
 };
 
 type FilesystemProbeCacheEntry = {
@@ -776,13 +778,22 @@ const probeStorageFilesystemSupport = async (
     const ignoresCase = (
       await pathState(path.join(probeRoot, path.basename(source).toUpperCase()))
     ).exists;
+    const hardLinks = await link(source, `${source}.linked`).then(
+      () => true,
+      (error: NodeJS.ErrnoException) => {
+        if (LINK_UNSUPPORTED_CODES.has(error.code ?? "")) return false;
+        throw error;
+      },
+    );
+    await rm(`${source}.linked`, { force: true });
     await rename(source, target);
     await syncDirectory(probeRoot);
     await rm(target);
     await syncDirectory(probeRoot);
-    return { ignoresCase };
+    return { ignoresCase, hardLinks };
   } catch (error) {
     await rm(source, { force: true }).catch(() => undefined);
+    await rm(`${source}.linked`, { force: true }).catch(() => undefined);
     await rm(target, { force: true }).catch(() => undefined);
     if (error instanceof StorageFilesystemUnsupportedError) throw error;
     throw new StorageFilesystemUnsupportedError(
@@ -804,7 +815,7 @@ export const assertStorageFilesystemSupported = async (filesRoot: string) => {
     return existing.probe;
   }
   const entry: FilesystemProbeCacheEntry = {
-    probe: Promise.resolve({ ignoresCase: false }),
+    probe: Promise.resolve({ ignoresCase: false, hardLinks: true }),
     verifiedAt: null,
   };
   entry.probe = probeStorageFilesystemSupport(resolvedRoot)
@@ -1054,6 +1065,7 @@ const moveWithoutReplacing = async (
   source: string,
   target: string,
   state: StoragePathState,
+  assertLease: () => Promise<void>,
 ) => {
   if (state.type === "file") {
     try {
@@ -1067,6 +1079,8 @@ const moveWithoutReplacing = async (
       );
     }
     await syncDirectory(path.dirname(target));
+    // The sync can outlast the lease; another worker may own the step now.
+    await assertLease();
     await unlink(source);
     return;
   }
@@ -1130,7 +1144,7 @@ const applySetAside = async (
     beforeCreate: assertLease,
   });
   await assertLease();
-  await moveWithoutReplacing(source, target, sourceState);
+  await moveWithoutReplacing(source, target, sourceState, assertLease);
   await syncParents(source, target);
 };
 

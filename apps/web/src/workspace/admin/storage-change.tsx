@@ -350,6 +350,14 @@ function InspectionDetails({
           it is; nothing is lost while it waits.
         </p>
       ) : null}
+
+      {inspection.noLinks ? (
+        <p className="m-0 text-body text-muted-foreground">
+          This storage has no hard links, so Staaash cannot move a file aside
+          without risking the file in its place. Leave it as it is; nothing is
+          lost while it waits.
+        </p>
+      ) : null}
     </>
   );
 }
