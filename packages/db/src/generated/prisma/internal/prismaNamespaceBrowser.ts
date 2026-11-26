@@ -75,6 +75,7 @@ export const ModelName = {
   StorageMutation: 'StorageMutation',
   StorageMutationStep: 'StorageMutationStep',
   StorageMutationEntity: 'StorageMutationEntity',
+  StorageMutationOperation: 'StorageMutationOperation',
   StorageMutationResource: 'StorageMutationResource',
   TrashEntry: 'TrashEntry',
   UploadChunk: 'UploadChunk'
@@ -576,6 +577,15 @@ export const StorageMutationEntityScalarFieldEnum = {
 } as const
 
 export type StorageMutationEntityScalarFieldEnum = (typeof StorageMutationEntityScalarFieldEnum)[keyof typeof StorageMutationEntityScalarFieldEnum]
+
+
+export const StorageMutationOperationScalarFieldEnum = {
+  mutationId: 'mutationId',
+  ordinal: 'ordinal',
+  operation: 'operation'
+} as const
+
+export type StorageMutationOperationScalarFieldEnum = (typeof StorageMutationOperationScalarFieldEnum)[keyof typeof StorageMutationOperationScalarFieldEnum]
 
 
 export const StorageMutationResourceScalarFieldEnum = {

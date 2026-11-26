@@ -16,6 +16,7 @@ import {
   DERIVATIVE_KIND_THUMBNAIL,
   DERIVATIVE_PROFILE_THUMB,
   canHaveThumbnail,
+  findStoredMediaDerivatives,
   isDerivativeKindEnabled,
   scheduleDerivativeGenerate,
 } from "@staaash/db/media-derivatives";
@@ -2536,18 +2537,9 @@ export const createFilesService = ({
         folderIds,
       })
     ).filter((item) => item.trashEntryId === currentFolder.trashEntryId);
-    const derivatives = await getPrisma().mediaDerivative.findMany({
-      where: {
-        fileId: { in: files.map((item) => item.id) },
-        storageKey: { not: null },
-      },
-      select: {
-        id: true,
-        storageKey: true,
-        sizeBytes: true,
-        storageRevision: true,
-      },
-    });
+    const derivatives = await findStoredMediaDerivatives(
+      files.map((item) => item.id),
+    );
     const quarantineKey = path.posix.join(
       "tmp",
       "quarantine",

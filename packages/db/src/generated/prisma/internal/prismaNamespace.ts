@@ -421,6 +421,7 @@ export const ModelName = {
   StorageMutation: 'StorageMutation',
   StorageMutationStep: 'StorageMutationStep',
   StorageMutationEntity: 'StorageMutationEntity',
+  StorageMutationOperation: 'StorageMutationOperation',
   StorageMutationResource: 'StorageMutationResource',
   TrashEntry: 'TrashEntry',
   UploadChunk: 'UploadChunk'
@@ -439,7 +440,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "deviceAuthCode" | "storageChange" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "workerInstance" | "backgroundJobEvent" | "restoreReconciliationRun" | "mediaDerivative" | "zipArchive" | "uploadSession" | "storageMutation" | "storageMutationStep" | "storageMutationEntity" | "storageMutationResource" | "trashEntry" | "uploadChunk"
+    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "deviceAuthCode" | "storageChange" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "workerInstance" | "backgroundJobEvent" | "restoreReconciliationRun" | "mediaDerivative" | "zipArchive" | "uploadSession" | "storageMutation" | "storageMutationStep" | "storageMutationEntity" | "storageMutationOperation" | "storageMutationResource" | "trashEntry" | "uploadChunk"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -2219,6 +2220,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    StorageMutationOperation: {
+      payload: Prisma.$StorageMutationOperationPayload<ExtArgs>
+      fields: Prisma.StorageMutationOperationFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.StorageMutationOperationFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageMutationOperationPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.StorageMutationOperationFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageMutationOperationPayload>
+        }
+        findFirst: {
+          args: Prisma.StorageMutationOperationFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageMutationOperationPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.StorageMutationOperationFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageMutationOperationPayload>
+        }
+        findMany: {
+          args: Prisma.StorageMutationOperationFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageMutationOperationPayload>[]
+        }
+        create: {
+          args: Prisma.StorageMutationOperationCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageMutationOperationPayload>
+        }
+        createMany: {
+          args: Prisma.StorageMutationOperationCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.StorageMutationOperationCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageMutationOperationPayload>[]
+        }
+        delete: {
+          args: Prisma.StorageMutationOperationDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageMutationOperationPayload>
+        }
+        update: {
+          args: Prisma.StorageMutationOperationUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageMutationOperationPayload>
+        }
+        deleteMany: {
+          args: Prisma.StorageMutationOperationDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.StorageMutationOperationUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.StorageMutationOperationUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageMutationOperationPayload>[]
+        }
+        upsert: {
+          args: Prisma.StorageMutationOperationUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageMutationOperationPayload>
+        }
+        aggregate: {
+          args: Prisma.StorageMutationOperationAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateStorageMutationOperation>
+        }
+        groupBy: {
+          args: Prisma.StorageMutationOperationGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.StorageMutationOperationGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.StorageMutationOperationCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.StorageMutationOperationCountAggregateOutputType> | number
+        }
+      }
+    }
     StorageMutationResource: {
       payload: Prisma.$StorageMutationResourcePayload<ExtArgs>
       fields: Prisma.StorageMutationResourceFieldRefs
@@ -2962,6 +3037,15 @@ export const StorageMutationEntityScalarFieldEnum = {
 export type StorageMutationEntityScalarFieldEnum = (typeof StorageMutationEntityScalarFieldEnum)[keyof typeof StorageMutationEntityScalarFieldEnum]
 
 
+export const StorageMutationOperationScalarFieldEnum = {
+  mutationId: 'mutationId',
+  ordinal: 'ordinal',
+  operation: 'operation'
+} as const
+
+export type StorageMutationOperationScalarFieldEnum = (typeof StorageMutationOperationScalarFieldEnum)[keyof typeof StorageMutationOperationScalarFieldEnum]
+
+
 export const StorageMutationResourceScalarFieldEnum = {
   id: 'id',
   resourceKey: 'resourceKey',
@@ -3392,6 +3476,7 @@ export type GlobalOmitConfig = {
   storageMutation?: Prisma.StorageMutationOmit
   storageMutationStep?: Prisma.StorageMutationStepOmit
   storageMutationEntity?: Prisma.StorageMutationEntityOmit
+  storageMutationOperation?: Prisma.StorageMutationOperationOmit
   storageMutationResource?: Prisma.StorageMutationResourceOmit
   trashEntry?: Prisma.TrashEntryOmit
   uploadChunk?: Prisma.UploadChunkOmit

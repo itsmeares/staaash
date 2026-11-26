@@ -7,6 +7,24 @@ import {
   ensureBackgroundJobScheduled,
 } from "./jobs";
 
+/**
+ * The derivatives with a stored file among these files. One array value
+ * keeps a folder of any size below PostgreSQL's bind-parameter limit.
+ */
+export const findStoredMediaDerivatives = (fileIds: string[]) =>
+  getPrisma().$queryRaw<
+    Array<{
+      id: string;
+      storageKey: string;
+      sizeBytes: bigint | null;
+      storageRevision: number;
+    }>
+  >`
+    SELECT id, "storageKey", "sizeBytes", "storageRevision"
+    FROM "MediaDerivative"
+    WHERE "fileId" = ANY(${fileIds}::text[]) AND "storageKey" IS NOT NULL
+  `;
+
 export const DERIVATIVE_KIND_PREVIEW = "preview" as const;
 export const DERIVATIVE_KIND_THUMBNAIL = "thumbnail" as const;
 export const DERIVATIVE_PROFILE_1080P = "preview-1080p" as const;

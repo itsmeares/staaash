@@ -164,6 +164,11 @@ export type StorageMutationStep = Prisma.StorageMutationStepModel
  */
 export type StorageMutationEntity = Prisma.StorageMutationEntityModel
 /**
+ * Model StorageMutationOperation
+ * 
+ */
+export type StorageMutationOperation = Prisma.StorageMutationOperationModel
+/**
  * Model StorageMutationResource
  * 
  */

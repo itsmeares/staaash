@@ -4,6 +4,7 @@ import path from "node:path";
 import { lstat } from "node:fs/promises";
 
 import { getPrisma, type Prisma } from "@staaash/db/client";
+import { findStoredMediaDerivatives } from "@staaash/db/media-derivatives";
 import {
   readFolderAncestorIds,
   readFolderSubtreeIds,
@@ -1344,12 +1345,9 @@ const buildClearTrashFolderPlan = async ({
     prisma.folder.findMany({ where: { trashEntryId: root.trashEntryId } }),
     prisma.file.findMany({ where: { trashEntryId: root.trashEntryId } }),
   ]);
-  const derivatives = await prisma.mediaDerivative.findMany({
-    where: {
-      fileId: { in: files.map((file) => file.id) },
-      storageKey: { not: null },
-    },
-  });
+  const derivatives = await findStoredMediaDerivatives(
+    files.map((file) => file.id),
+  );
   const steps =
     root.trashEntry!.layoutVersion === "isolated"
       ? buildIsolatedTrashTreeSteps({

@@ -2026,7 +2026,8 @@ const rewrittenIntent = (mutation: Mutation, rewrite: StepRewrite) => {
   const intent = mutation.intentJson as Record<string, unknown>;
   // A parent keeps its own plan format; it only resumes.
   if (PARENT_KINDS.has(mutation.kind)) return intent;
-  const { bulkOperationsEnd: _bulk, ...rest } = intent;
+  // An Undo commits none of the bulk rows; completion clears them.
+  const { bulkOperationCount: _bulk, ...rest } = intent;
   // An Undo that stopped and is fixed again is still an Undo.
   const undone =
     rewrite.undone || storageReviewOutcomeOf(mutation.intentJson) === "undone";

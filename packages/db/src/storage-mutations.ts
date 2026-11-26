@@ -230,12 +230,12 @@ export type RecoverableStorageMutationIntent = {
   version: 1;
   metadataOperations: StorageMetadataOperation[];
   /**
-   * Operations before this index change only items inside a folder whose own
-   * change comes after them. When there are many, they commit in several
-   * transactions before the last one, and the change feed covers only the
-   * items the last transaction changes.
+   * How many operations wait in `StorageMutationOperation` rows. They change
+   * only items inside a folder whose own change is in `metadataOperations`,
+   * and commit a chunk per transaction before it, so the change feed covers
+   * only the items the last transaction changes.
    */
-  bulkOperationsEnd?: number;
+  bulkOperationCount?: number;
   [key: string]: unknown;
 };
 
@@ -819,33 +819,31 @@ const metadataOperationHandlers: Record<
     ),
 };
 
-const bulkOperationsEndOf = (intent: RecoverableStorageMutationIntent) => {
-  const end = intent.bulkOperationsEnd;
-  if (end === undefined) return 0;
-  if (
-    !Number.isInteger(end) ||
-    end < 0 ||
-    end > intent.metadataOperations.length
-  ) {
+const bulkOperationCountOf = (intent: RecoverableStorageMutationIntent) => {
+  // A range the operation rows migration could not move fails closed.
+  if ("bulkOperationsEnd" in intent) {
     throw new StorageMutationIntentError("Invalid bulk operation range.");
   }
-  return intent.metadataOperations.length > STORAGE_MUTATION_CHUNK_SIZE
-    ? end
-    : 0;
+  const count = intent.bulkOperationCount ?? 0;
+  if (!Number.isInteger(count) || count < 0) {
+    throw new StorageMutationIntentError("Invalid bulk operation count.");
+  }
+  return count;
 };
 
-// Only an intent that names a bulk range is read here; others commit whole.
+// Only an intent with bulk rows is read here; others commit whole.
 const bulkIntentOf = (intentJson: unknown) =>
   intentJson &&
   typeof intentJson === "object" &&
-  "bulkOperationsEnd" in intentJson
+  ("bulkOperationCount" in intentJson || "bulkOperationsEnd" in intentJson)
     ? parseRecoverableStorageMutationIntent(intentJson)
     : null;
 
 /** The operations the metadata commit transaction itself applies. */
 const committedOperationsOf = (intentJson: unknown) => {
   const intent = parseRecoverableStorageMutationIntent(intentJson);
-  return intent.metadataOperations.slice(bulkOperationsEndOf(intent));
+  bulkOperationCountOf(intent);
+  return intent.metadataOperations;
 };
 
 /**
@@ -855,7 +853,7 @@ const committedOperationsOf = (intentJson: unknown) => {
  */
 export const committedChangeFeedEntities = (intentJson: unknown) => {
   const intent = bulkIntentOf(intentJson);
-  if (!intent || bulkOperationsEndOf(intent) === 0) return null;
+  if (!intent || bulkOperationCountOf(intent) === 0) return null;
   return new Set(
     committedOperationsOf(intent).flatMap((operation) =>
       operation.action === "update" || operation.action === "delete"
@@ -1020,6 +1018,62 @@ const getPreparedMetadataOperations = (
   }
   return intentJson.metadataOperations as unknown as StorageMetadataOperation[];
 };
+
+/**
+ * A plan names its first `bulkOperationsEnd` operations as changes inside a
+ * folder whose own change follows. Above a chunk they are stored as rows, a
+ * chunk per transaction, and the intent keeps the rest and their count.
+ */
+const splitBulkOperations = (
+  intentJson: Prisma.InputJsonValue,
+  operations: StorageMetadataOperation[],
+) => {
+  if (
+    !intentJson ||
+    typeof intentJson !== "object" ||
+    Array.isArray(intentJson) ||
+    !("bulkOperationsEnd" in intentJson)
+  ) {
+    return { intentJson, bulkOperations: [] };
+  }
+  const { bulkOperationsEnd: end, ...intent } = intentJson;
+  if (end === undefined) return { intentJson: intent, bulkOperations: [] };
+  if (
+    typeof end !== "number" ||
+    !Number.isInteger(end) ||
+    end < 0 ||
+    end > operations.length
+  ) {
+    throw new StorageMutationIntentError("Invalid bulk operation range.");
+  }
+  if (end === 0 || operations.length <= STORAGE_MUTATION_CHUNK_SIZE) {
+    return { intentJson: intent, bulkOperations: [] };
+  }
+  return {
+    intentJson: {
+      ...intent,
+      metadataOperations: operations.slice(
+        end,
+      ) as unknown as Prisma.InputJsonValue,
+      bulkOperationCount: end,
+    },
+    bulkOperations: operations.slice(0, end),
+  };
+};
+
+// A retried chunk whose commit was lost writes the same ordinals again.
+const insertStorageMutationOperations = (
+  tx: Prisma.TransactionClient,
+  mutationId: string,
+  firstOrdinal: number,
+  operations: StorageMetadataOperation[],
+) => tx.$executeRaw`
+    INSERT INTO "StorageMutationOperation" ("mutationId", ordinal, operation)
+    SELECT ${mutationId}, ${firstOrdinal}::integer + (position - 1)::integer, operation
+    FROM jsonb_array_elements(${JSON.stringify(operations)}::jsonb)
+      WITH ORDINALITY AS inputs(operation, position)
+    ON CONFLICT ("mutationId", ordinal) DO NOTHING
+  `;
 
 const assertPreparedOwner = (actual: string, expected: string) => {
   if (actual !== expected) {
@@ -1521,6 +1575,7 @@ const createPreparingStorageMutation = async (
       reservedBytes: input.reservedBytes ?? null,
       originDeviceId,
     },
+    select: { id: true },
   });
   if (input.steps.length || resourceKeys.length) {
     const steps = JSON.stringify(input.steps, (_key, value) =>
@@ -1560,10 +1615,6 @@ const finishStorageMutationPreparation = async (
     data: { status: "prepared" },
   });
   await input.onPrepared?.(tx, mutationId);
-  return tx.storageMutation.findUniqueOrThrow({
-    where: { id: mutationId },
-    include: mutationInclude,
-  });
 };
 
 const linkPreparedUploadSession = async (
@@ -1625,6 +1676,7 @@ const prepareStorageMutationTransaction = async (
   tx: Prisma.TransactionClient,
   input: PrepareStorageMutationInput,
   resourceKeys: string[],
+  operations: StorageMetadataOperation[] | null,
 ) => {
   if (input.reservedBytes) {
     await assertOwnerQuotaAvailable(tx, input.ownerUserId, input.reservedBytes);
@@ -1647,10 +1699,14 @@ const prepareStorageMutationTransaction = async (
   await validatePreparedNamespaces(
     tx,
     input.ownerUserId,
-    getPreparedMetadataOperations(input.intentJson),
+    operations,
     input.namesIgnoreCase ?? false,
   );
-  return finishStorageMutationPreparation(tx, input, created.id);
+  await finishStorageMutationPreparation(tx, input, created.id);
+  return tx.storageMutation.findUniqueOrThrow({
+    where: { id: created.id },
+    include: mutationInclude,
+  });
 };
 
 const discardPreparingStorageMutation = (
@@ -1690,20 +1746,24 @@ const runPreparationChunk = <T>(
     return work(tx);
   });
 
-const needsChunkedPreparation = (input: PrepareStorageMutationInput) =>
+const needsChunkedPreparation = (
+  input: PrepareStorageMutationInput,
+  operations: StorageMetadataOperation[] | null,
+) =>
   (input.entities?.length ?? 0) > STORAGE_MUTATION_CHUNK_SIZE ||
-  (getPreparedMetadataOperations(input.intentJson)?.length ?? 0) >
-    STORAGE_MUTATION_CHUNK_SIZE;
+  (operations?.length ?? 0) > STORAGE_MUTATION_CHUNK_SIZE;
 
 /**
  * The first transaction takes the locks and writes the mutation as
- * `preparing`, which no executor runs. Entities and checks follow a chunk per
- * transaction, and the last one marks it `prepared`.
+ * `preparing`, which no executor runs. Entities, bulk operations and checks
+ * follow a chunk per transaction, and the last one marks it `prepared`.
  */
 const prepareChunkedStorageMutation = async (
   input: PrepareStorageMutationInput,
   resourceKeys: string[],
   options: StorageTransactionOptions,
+  operations: StorageMetadataOperation[],
+  bulkOperations: StorageMetadataOperation[],
 ) => {
   const created = await runStorageTransaction(async (tx) => {
     if (input.reservedBytes) {
@@ -1734,7 +1794,16 @@ const prepareChunkedStorageMutation = async (
         );
       });
     }
-    const operations = getPreparedMetadataOperations(input.intentJson) ?? [];
+    for (
+      let at = 0;
+      at < bulkOperations.length;
+      at += STORAGE_MUTATION_CHUNK_SIZE
+    ) {
+      const chunk = bulkOperations.slice(at, at + STORAGE_MUTATION_CHUNK_SIZE);
+      await runPreparationChunk(created.id, (tx) =>
+        insertStorageMutationOperations(tx, created.id, at, chunk),
+      );
+    }
     const planned = new Set<string>();
     for (
       let at = 0;
@@ -1752,13 +1821,19 @@ const prepareChunkedStorageMutation = async (
         ),
       );
     }
-    return await runPreparationChunk(created.id, (tx) =>
+    await runPreparationChunk(created.id, (tx) =>
       finishStorageMutationPreparation(tx, input, created.id),
     );
   } catch (error) {
     await discardPreparingStorageMutation(created.id).catch(() => undefined);
     throw error;
   }
+  // Read after the commit: every entity of a large mutation does not fit in
+  // one transaction's time on a slow server.
+  return getPrisma().storageMutation.findUniqueOrThrow({
+    where: { id: created.id },
+    include: mutationInclude,
+  });
 };
 
 const resolvePreparationConflict = async (
@@ -1811,11 +1886,29 @@ export const prepareStorageMutation = async (
   );
   const replay = await findPreparedMutationReplay(input);
   if (replay) return replay;
+  const operations = getPreparedMetadataOperations(input.intentJson);
+  const { intentJson, bulkOperations } = splitBulkOperations(
+    input.intentJson,
+    operations ?? [],
+  );
+  const stored = { ...input, intentJson };
   try {
-    const mutation = needsChunkedPreparation(input)
-      ? await prepareChunkedStorageMutation(input, resourceKeys, options)
+    const mutation = needsChunkedPreparation(input, operations)
+      ? await prepareChunkedStorageMutation(
+          stored,
+          resourceKeys,
+          options,
+          operations ?? [],
+          bulkOperations,
+        )
       : await runStorageTransaction(
-          (tx) => prepareStorageMutationTransaction(tx, input, resourceKeys),
+          (tx) =>
+            prepareStorageMutationTransaction(
+              tx,
+              stored,
+              resourceKeys,
+              operations,
+            ),
           options,
         );
     return { mutation, replayed: false };
@@ -2114,6 +2207,41 @@ const assertFence = async (
   }
 };
 
+type StorageMutationFence = {
+  mutationId: string;
+  leaseOwner: string;
+  leaseToken: bigint;
+};
+
+/**
+ * Runs one step of a claimed mutation behind its fence. The fence's row lock
+ * fails at once while another transaction holds the row, such as a lease
+ * renewal waiting on a slow disk. That attempt rolled back, so it is tried
+ * again within the admission window instead of stopping the mutation.
+ */
+const runFencedStorageTransaction = <T>(
+  { mutationId, leaseOwner, leaseToken }: StorageMutationFence,
+  work: (tx: Prisma.TransactionClient) => Promise<T>,
+  {
+    ownerUserId,
+    client,
+  }: {
+    ownerUserId?: string;
+    client?: StorageTransactionOptions["client"];
+  } = {},
+) =>
+  waitForStorageAdmission(
+    (deadline) =>
+      runStorageTransaction(
+        async (tx) => {
+          await assertFence(tx, mutationId, leaseOwner, leaseToken);
+          return work(tx);
+        },
+        { client, deadline },
+      ),
+    { ownerUserId },
+  );
+
 export const renewStorageMutationLease = async ({
   id,
   leaseOwner,
@@ -2153,9 +2281,8 @@ export const markStorageMutationStepApplied = async ({
   leaseOwner: string;
   leaseToken: bigint;
 }) =>
-  runStorageTransaction(async (tx) => {
-    await assertFence(tx, mutationId, leaseOwner, leaseToken);
-    await tx.storageMutationStep.update({
+  runFencedStorageTransaction({ mutationId, leaseOwner, leaseToken }, (tx) =>
+    tx.storageMutationStep.update({
       where: { id: stepId, mutationId },
       data: {
         status: "applied",
@@ -2163,8 +2290,8 @@ export const markStorageMutationStepApplied = async ({
         attemptCount: { increment: 1 },
         lastError: null,
       },
-    });
-  });
+    }),
+  );
 
 export const markStorageMutationStepFailed = async ({
   mutationId,
@@ -2179,16 +2306,15 @@ export const markStorageMutationStepFailed = async ({
   leaseToken: bigint;
   error: string;
 }) =>
-  runStorageTransaction(async (tx) => {
-    await assertFence(tx, mutationId, leaseOwner, leaseToken);
-    await tx.storageMutationStep.update({
+  runFencedStorageTransaction({ mutationId, leaseOwner, leaseToken }, (tx) =>
+    tx.storageMutationStep.update({
       where: { id: stepId, mutationId },
       data: {
         attemptCount: { increment: 1 },
         lastError: error.slice(0, 4_000),
       },
-    });
-  });
+    }),
+  );
 
 /**
  * Applies the bulk operations of a large mutation, a chunk per transaction,
@@ -2214,35 +2340,42 @@ export const applyStorageMutationBulkMetadata = async ({
 }) => {
   const intent = bulkIntentOf(intentJson);
   if (!intent) return;
-  const end = bulkOperationsEndOf(intent);
+  const end = bulkOperationCountOf(intent);
   let finished = end === 0;
   while (!finished) {
-    finished = await waitForStorageAdmission(
-      (deadline) =>
-        runStorageTransaction(
-          async (tx) => {
-            await assertFence(tx, mutationId, leaseOwner, leaseToken);
-            const { metadataOperationsApplied: applied } =
-              await tx.storageMutation.findUniqueOrThrow({
-                where: { id: mutationId },
-                select: { metadataOperationsApplied: true },
-              });
-            const next = Math.min(applied + STORAGE_MUTATION_CHUNK_SIZE, end);
-            if (next > applied) {
-              await applyMetadataOperations(
-                tx,
-                intent.metadataOperations.slice(applied, next),
-              );
-              // updateMany returns no row, so the large intent is not read back.
-              await tx.storageMutation.updateMany({
-                where: { id: mutationId },
-                data: { metadataOperationsApplied: next },
-              });
-            }
-            return next >= end;
-          },
-          { deadline },
-        ),
+    finished = await runFencedStorageTransaction(
+      { mutationId, leaseOwner, leaseToken },
+      async (tx) => {
+        const { metadataOperationsApplied: applied } =
+          await tx.storageMutation.findUniqueOrThrow({
+            where: { id: mutationId },
+            select: { metadataOperationsApplied: true },
+          });
+        const next = Math.min(applied + STORAGE_MUTATION_CHUNK_SIZE, end);
+        if (next > applied) {
+          const rows = await tx.storageMutationOperation.findMany({
+            where: { mutationId, ordinal: { gte: applied, lt: next } },
+            orderBy: { ordinal: "asc" },
+            select: { operation: true },
+          });
+          if (rows.length !== next - applied) {
+            throw new StorageMutationIntentError(
+              "Bulk operations are missing.",
+            );
+          }
+          await applyMetadataOperations(
+            tx,
+            rows.map(
+              (row) => row.operation as unknown as StorageMetadataOperation,
+            ),
+          );
+          await tx.storageMutation.updateMany({
+            where: { id: mutationId },
+            data: { metadataOperationsApplied: next },
+          });
+        }
+        return next >= end;
+      },
       { ownerUserId },
     );
     await afterChunk?.();
@@ -2273,53 +2406,47 @@ export const commitStorageMutationMetadata = async <T>({
     ): Promise<R>;
   };
 }): Promise<T> =>
-  waitForStorageAdmission(
-    (deadline) =>
-      runStorageTransaction(
-        async (tx: Prisma.TransactionClient) => {
-          await assertFence(tx, mutationId, leaseOwner, leaseToken);
-          // The committed File row replaces the reservation in the same transaction.
-          await tx.storageMutation.updateMany({
-            where: { id: mutationId, reservedBytes: { not: null } },
-            data: { reservedBytes: null },
-          });
-          const before = await readStorageItemSnapshot(
-            tx,
-            mutationId,
-            changeFeedEntities,
-          );
-          const result = await callback(tx);
-          await appendStorageChanges(tx, {
-            mutationId,
-            ownerUserId,
-            before,
-            only: changeFeedEntities,
-          });
-          const durableResult = resultJson?.(result);
-          const updated = await tx.storageMutation.updateMany({
-            where: {
-              id: mutationId,
-              leaseOwner,
-              leaseToken,
-              status: "running",
-              leaseExpiresAt: { gt: new Date() },
-            },
-            data: {
-              status: "metadata_committed",
-              metadataCommittedAt: new Date(),
-              ...(durableResult === undefined
-                ? {}
-                : { resultJson: durableResult }),
-            },
-          });
-          if (updated.count !== 1) {
-            throw new StorageMutationFenceError();
-          }
-          return result;
+  runFencedStorageTransaction(
+    { mutationId, leaseOwner, leaseToken },
+    async (tx) => {
+      // The committed File row replaces the reservation in the same transaction.
+      await tx.storageMutation.updateMany({
+        where: { id: mutationId, reservedBytes: { not: null } },
+        data: { reservedBytes: null },
+      });
+      const before = await readStorageItemSnapshot(
+        tx,
+        mutationId,
+        changeFeedEntities,
+      );
+      const result = await callback(tx);
+      await appendStorageChanges(tx, {
+        mutationId,
+        ownerUserId,
+        before,
+        only: changeFeedEntities,
+      });
+      const durableResult = resultJson?.(result);
+      const updated = await tx.storageMutation.updateMany({
+        where: {
+          id: mutationId,
+          leaseOwner,
+          leaseToken,
+          status: "running",
+          leaseExpiresAt: { gt: new Date() },
         },
-        { client, deadline },
-      ),
-    { ownerUserId },
+        data: {
+          status: "metadata_committed",
+          metadataCommittedAt: new Date(),
+          ...(durableResult === undefined ? {} : { resultJson: durableResult }),
+        },
+      });
+      if (updated.count !== 1) {
+        throw new StorageMutationFenceError();
+      }
+      return result;
+    },
+    { ownerUserId, client },
   );
 
 export const beginStorageMutationFinalization = async ({
@@ -2332,26 +2459,28 @@ export const beginStorageMutationFinalization = async ({
   leaseToken: bigint;
 }) => {
   const now = new Date();
-  await runStorageTransaction(async (tx) => {
-    await assertFence(tx, mutationId, leaseOwner, leaseToken);
-    const result = await tx.storageMutation.updateMany({
-      where: {
-        id: mutationId,
-        leaseOwner,
-        leaseToken,
-        status: "metadata_committed",
-        leaseExpiresAt: { gt: now },
-      },
-      data: { status: "finalizing" },
-    });
-    if (result.count !== 1) {
-      throw new StorageMutationFenceError();
-    }
-    await tx.storageMutationResource.updateMany({
-      where: { mutationId, releasedAt: null },
-      data: { releasedAt: now },
-    });
-  });
+  await runFencedStorageTransaction(
+    { mutationId, leaseOwner, leaseToken },
+    async (tx) => {
+      const result = await tx.storageMutation.updateMany({
+        where: {
+          id: mutationId,
+          leaseOwner,
+          leaseToken,
+          status: "metadata_committed",
+          leaseExpiresAt: { gt: now },
+        },
+        data: { status: "finalizing" },
+      });
+      if (result.count !== 1) {
+        throw new StorageMutationFenceError();
+      }
+      await tx.storageMutationResource.updateMany({
+        where: { mutationId, releasedAt: null },
+        data: { releasedAt: now },
+      });
+    },
+  );
 };
 
 export const claimStorageMutationFinalization = async ({
@@ -2406,34 +2535,46 @@ export const claimStorageMutationFinalization = async ({
   return mutation as ClaimedStorageMutation;
 };
 
-// Entity snapshots name paths; a large mutation clears them a chunk at a time
-// so the completing transaction stays short.
-const redactStorageMutationEntities = async ({
-  mutationId,
-  leaseOwner,
-  leaseToken,
-}: {
-  mutationId: string;
-  leaseOwner: string;
-  leaseToken: bigint;
-}) => {
-  let redacted = STORAGE_MUTATION_CHUNK_SIZE;
-  while (redacted === STORAGE_MUTATION_CHUNK_SIZE) {
-    redacted = await runStorageTransaction(async (tx) => {
-      await assertFence(tx, mutationId, leaseOwner, leaseToken);
-      return tx.$executeRaw`
-        UPDATE "StorageMutationEntity"
-        SET "beforeJson" = 'null'::jsonb, "afterJson" = 'null'::jsonb
-        WHERE id IN (
-          SELECT id FROM "StorageMutationEntity"
-          WHERE "mutationId" = ${mutationId}
-            AND ("beforeJson" IS DISTINCT FROM 'null'::jsonb
-              OR "afterJson" IS DISTINCT FROM 'null'::jsonb)
-          LIMIT ${STORAGE_MUTATION_CHUNK_SIZE}
-        )
-      `;
-    });
+const clearInChunks = async (
+  fence: StorageMutationFence,
+  clear: (tx: Prisma.TransactionClient) => Promise<number>,
+) => {
+  let cleared = STORAGE_MUTATION_CHUNK_SIZE;
+  while (cleared === STORAGE_MUTATION_CHUNK_SIZE) {
+    cleared = await runFencedStorageTransaction(fence, clear);
   }
+};
+
+// Entity snapshots and bulk operations name paths; a large mutation clears
+// them a chunk at a time so the completing transaction stays short.
+const clearStorageMutationPaths = async (fence: StorageMutationFence) => {
+  const { mutationId } = fence;
+  await clearInChunks(
+    fence,
+    (tx) => tx.$executeRaw`
+      UPDATE "StorageMutationEntity"
+      SET "beforeJson" = 'null'::jsonb, "afterJson" = 'null'::jsonb
+      WHERE id IN (
+        SELECT id FROM "StorageMutationEntity"
+        WHERE "mutationId" = ${mutationId}
+          AND ("beforeJson" IS DISTINCT FROM 'null'::jsonb
+            OR "afterJson" IS DISTINCT FROM 'null'::jsonb)
+        LIMIT ${STORAGE_MUTATION_CHUNK_SIZE}
+      )
+    `,
+  );
+  await clearInChunks(
+    fence,
+    (tx) => tx.$executeRaw`
+      DELETE FROM "StorageMutationOperation"
+      WHERE "mutationId" = ${mutationId} AND ordinal IN (
+        SELECT ordinal FROM "StorageMutationOperation"
+        WHERE "mutationId" = ${mutationId}
+        ORDER BY ordinal
+        LIMIT ${STORAGE_MUTATION_CHUNK_SIZE}
+      )
+    `,
+  );
 };
 
 /**
@@ -2461,9 +2602,9 @@ export const completeStorageMutation = async ({
   /** The change was undone after review: it ends aborted and frees its key. */
   undone?: boolean;
 }) => {
-  await redactStorageMutationEntities({ mutationId, leaseOwner, leaseToken });
-  return runStorageTransaction(async (tx) => {
-    await assertFence(tx, mutationId, leaseOwner, leaseToken);
+  const fence = { mutationId, leaseOwner, leaseToken };
+  await clearStorageMutationPaths(fence);
+  return runFencedStorageTransaction(fence, async (tx) => {
     const completedAt = new Date();
     const completed = await tx.storageMutation.updateMany({
       where: {
@@ -2491,6 +2632,7 @@ export const completeStorageMutation = async ({
     }
     if (undone)
       await releaseAbortedStorageMutation(tx, mutationId, completedAt);
+    // Entity snapshots were cleared above, under the same fence.
     await tx.$executeRaw`
       WITH redacted_steps AS (
         UPDATE "StorageMutationStep"
@@ -2498,13 +2640,6 @@ export const completeStorageMutation = async ({
             "expectedSizeBytes" = NULL, "treeManifestDigest" = NULL,
             "expectedFileStat" = NULL, "updatedAt" = ${completedAt}
         WHERE "mutationId" = ${mutationId}
-        RETURNING id
-      ), redacted_entities AS (
-        UPDATE "StorageMutationEntity"
-        SET "beforeJson" = 'null'::jsonb, "afterJson" = 'null'::jsonb
-        WHERE "mutationId" = ${mutationId}
-          AND ("beforeJson" IS DISTINCT FROM 'null'::jsonb
-            OR "afterJson" IS DISTINCT FROM 'null'::jsonb)
         RETURNING id
       )
       UPDATE "StorageMutationResource" SET "releasedAt" = ${completedAt}
@@ -2615,25 +2750,27 @@ export const abortStorageMutation = async ({
   rejection: StorageMutationRejectedError;
   error: string;
 }) =>
-  runStorageTransaction(async (tx) => {
-    await assertFence(tx, mutationId, leaseOwner, leaseToken);
-    const abortedAt = new Date();
-    const aborted = await tx.storageMutation.updateMany({
-      where: {
-        id: mutationId,
-        leaseOwner,
-        leaseToken,
-        status: "running",
-        metadataCommittedAt: null,
-        metadataOperationsApplied: 0,
-      },
-      data: abortedStorageMutationData(rejection, error, abortedAt),
-    });
-    if (aborted.count !== 1) {
-      throw new StorageMutationFenceError();
-    }
-    await releaseAbortedStorageMutation(tx, mutationId, abortedAt);
-  });
+  runFencedStorageTransaction(
+    { mutationId, leaseOwner, leaseToken },
+    async (tx) => {
+      const abortedAt = new Date();
+      const aborted = await tx.storageMutation.updateMany({
+        where: {
+          id: mutationId,
+          leaseOwner,
+          leaseToken,
+          status: "running",
+          metadataCommittedAt: null,
+          metadataOperationsApplied: 0,
+        },
+        data: abortedStorageMutationData(rejection, error, abortedAt),
+      });
+      if (aborted.count !== 1) {
+        throw new StorageMutationFenceError();
+      }
+      await releaseAbortedStorageMutation(tx, mutationId, abortedAt);
+    },
+  );
 
 export const createLegacyRecoveryRequiredMutation = async ({
   ownerUserId,
@@ -2781,32 +2918,34 @@ export const recordStorageMutationParentChild = async ({
   leaseOwner: string;
   leaseToken: bigint;
 }) =>
-  runStorageTransaction(async (tx) => {
-    await assertFence(tx, parentId, leaseOwner, leaseToken);
-    const parent = await tx.storageMutation.findUniqueOrThrow({
-      where: { id: parentId },
-      select: { resultJson: true, status: true },
-    });
-    if (parent.status === "succeeded") return;
-    const current =
-      parent.resultJson && typeof parent.resultJson === "object"
-        ? (parent.resultJson as { children?: unknown })
-        : {};
-    const children = Array.isArray(current.children)
-      ? (current.children as Array<{
-          ordinal?: number;
-          childId?: string | null;
-          result?: Prisma.JsonValue;
-        }>)
-      : [];
-    const next = children.filter((child) => child.ordinal !== ordinal);
-    next.push({ ordinal, childId, result: result as Prisma.JsonValue });
-    next.sort((left, right) => (left.ordinal ?? 0) - (right.ordinal ?? 0));
-    await tx.storageMutation.update({
-      where: { id: parentId },
-      data: { resultJson: { children: next } },
-    });
-  });
+  runFencedStorageTransaction(
+    { mutationId: parentId, leaseOwner, leaseToken },
+    async (tx) => {
+      const parent = await tx.storageMutation.findUniqueOrThrow({
+        where: { id: parentId },
+        select: { resultJson: true, status: true },
+      });
+      if (parent.status === "succeeded") return;
+      const current =
+        parent.resultJson && typeof parent.resultJson === "object"
+          ? (parent.resultJson as { children?: unknown })
+          : {};
+      const children = Array.isArray(current.children)
+        ? (current.children as Array<{
+            ordinal?: number;
+            childId?: string | null;
+            result?: Prisma.JsonValue;
+          }>)
+        : [];
+      const next = children.filter((child) => child.ordinal !== ordinal);
+      next.push({ ordinal, childId, result: result as Prisma.JsonValue });
+      next.sort((left, right) => (left.ordinal ?? 0) - (right.ordinal ?? 0));
+      await tx.storageMutation.update({
+        where: { id: parentId },
+        data: { resultJson: { children: next } },
+      });
+    },
+  );
 
 // Parent completion keeps the durable child ledger beside the public summary.
 // fallow-ignore-next-line complexity
