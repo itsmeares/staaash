@@ -1848,6 +1848,31 @@ type StepRewrite = {
 const withoutQuotaChecks = (operations: StorageMetadataOperation[]) =>
   operations.filter((operation) => operation.action !== "assert_owner_quota");
 
+// A folder kept before already holds create rows for what was in it then. A
+// new refresh lists everything again under the same ids, so drop the old rows.
+const withoutEarlierRefresh = (mutation: Mutation, finalKey: string) => {
+  const created = new Set(
+    mutation.entities
+      .filter((entity) => {
+        const key = jsonOf(entity.afterJson).storageKey;
+        return (
+          entity.preRevision === -1 &&
+          typeof key === "string" &&
+          key.startsWith(`${finalKey}/`)
+        );
+      })
+      .map((entity) => entity.entityId),
+  );
+  return withoutQuotaChecks(operationsOf(mutation)).filter(
+    (operation) =>
+      !(
+        (operation.action === "create_folder" ||
+          operation.action === "create_file") &&
+        created.has(operation.data.id)
+      ),
+  );
+};
+
 // fallow-ignore-next-line complexity
 const planStepRewrite = async (
   context: ReviewContext,
@@ -1887,7 +1912,7 @@ const planStepRewrite = async (
       ...keep,
       patch: { stepId: step.id, data: refresh.stepPatch },
       operations: [
-        ...withoutQuotaChecks(operationsOf(mutation)),
+        ...withoutEarlierRefresh(mutation, step.targetKey!),
         ...refresh.operations,
       ],
       entities: refresh.entities,
@@ -2104,7 +2129,9 @@ const applyStepRewrite = async ({
       });
     }
     if (rewrite.entities.length) {
+      // A refresh run again lists rows an earlier one already saved.
       await tx.storageMutationEntity.createMany({
+        skipDuplicates: true,
         data: rewrite.entities.map((entity) => ({
           mutationId: mutation.id,
           entityType: entity.entityType,

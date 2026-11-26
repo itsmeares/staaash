@@ -763,6 +763,59 @@ describe("storage review", () => {
     });
   });
 
+  it("keeps a moved folder that changed again after the first Keep", async () => {
+    const drive = await createDrive();
+    const first = Buffer.from("added after the move");
+    const second = Buffer.from("added after the first keep");
+    const stopped = await stopFolderMove(drive, async ({ source, target }) => {
+      await rename(storagePath(source), storagePath(target));
+      await writeAt(`${target}/Inner/first.txt`, first);
+    });
+    const looked = await refreshStorageReviewInspection({
+      mutationId: stopped.mutationId,
+      filesRoot: storageRoot(),
+    });
+    await expect(
+      applyStorageReviewChoice({
+        mutationId: stopped.mutationId,
+        choice: "keep",
+        seen: looked?.seen ?? null,
+        filesRoot: storageRoot(),
+        byUserId: drive.user.id,
+      }),
+    ).resolves.toMatchObject({ outcome: "resumed" });
+    await writeAt(`${stopped.target}/Inner/second.txt`, second);
+    await executeReviewedStorageMutation({
+      mutationId: stopped.mutationId,
+      filesRoot: storageRoot(),
+      leaseOwner: `test:${randomUUID()}`,
+    }).catch(() => null);
+    expect(await statusOf(stopped.mutationId)).toBe("recovery_required");
+
+    await choose(stopped.mutationId, "keep", drive.user.id);
+
+    expect(await statusOf(stopped.mutationId)).toBe("succeeded");
+    const inner = await db.folder.findFirstOrThrow({
+      where: { parentId: stopped.tree.id, name: "Inner" },
+    });
+    await expect(
+      db.file.findMany({
+        where: { folderId: inner.id },
+        select: { originalName: true, storageKey: true },
+        orderBy: { originalName: "asc" },
+      }),
+    ).resolves.toEqual([
+      {
+        originalName: "first.txt",
+        storageKey: `${stopped.target}/Inner/first.txt`,
+      },
+      {
+        originalName: "second.txt",
+        storageKey: `${stopped.target}/Inner/second.txt`,
+      },
+    ]);
+  });
+
   it("removes a file that is in neither place only when the owner chooses it", async () => {
     const drive = await createDrive();
     const stopped = await stopFileMove(drive, async ({ source, target }) => {
