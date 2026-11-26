@@ -105,7 +105,7 @@ export type StorageReviewInspection = {
   auto: StorageReviewChoice | null;
   unsafeReason?: string;
   waitingFor?: string;
-  /** A copy to keep has more files than one change can add yet. */
+  /** A choice needs more rows than one change can write yet. */
   tooBig?: boolean;
   /** Keeping a file aside needs hard links, which this storage lacks. */
   noLinks?: boolean;
@@ -169,6 +169,9 @@ const CLEANUP_ACTIONS = new Set([
 const KEEP_KIND = "storage_review_keep";
 const KEEP_KEY = "storage-review-keep";
 const keepKeyPrefix = (mutationId: string) => `${KEEP_KEY}:${mutationId}:`;
+
+// Only building the rows shows how many a refresh or removal needs.
+class StorageReviewTooBigError extends Error {}
 
 type Mutation = StorageMutationRecord;
 type Step = Mutation["steps"][number];
@@ -1606,7 +1609,9 @@ const refreshItem = async (
     });
   }
   const operations = [...creates, ...updates];
-  if (operations.length > STORAGE_MUTATION_CHUNK_SIZE) return null;
+  if (operations.length > STORAGE_MUTATION_CHUNK_SIZE) {
+    throw new StorageReviewTooBigError();
+  }
   return {
     stepPatch: {
       expectedNodeType: "directory",
@@ -1689,12 +1694,12 @@ const removeItemOperations = async (
     );
   if (
     !files.every((file) => inItem(file.storageKey)) ||
-    folders.some(
-      (folder) => (folder.trashEntryId ?? rootTrash) !== rootTrash,
-    ) ||
-    folders.length + files.length > STORAGE_MUTATION_CHUNK_SIZE
+    folders.some((folder) => (folder.trashEntryId ?? rootTrash) !== rootTrash)
   ) {
     return null;
+  }
+  if (folders.length + files.length > STORAGE_MUTATION_CHUNK_SIZE) {
+    throw new StorageReviewTooBigError();
   }
   // Rows inside the folder that the change did not list get locked too.
   const listed = new Set(
@@ -2083,7 +2088,24 @@ export const applyStorageReviewChoice = async ({
     await saveInspection(mutationId, inspected.inspection);
     return { outcome: "changed", inspection: inspected.inspection };
   }
-  const rewrite = await planStepRewrite(context, inspected, plan.rewrite);
+  const rewrite = await planStepRewrite(context, inspected, plan.rewrite).catch(
+    (error) => {
+      if (error instanceof StorageReviewTooBigError) return "too_big" as const;
+      throw error;
+    },
+  );
+  if (rewrite === "too_big") {
+    // Saved without this choice, so the page says why instead of offering it.
+    const inspection = {
+      ...inspected.inspection,
+      tooBig: true,
+      choices: inspected.inspection.choices.filter(
+        (item) => item.id !== choice,
+      ),
+    };
+    await saveInspection(mutationId, inspection);
+    return { outcome: "changed", inspection };
+  }
   if (!rewrite) {
     return { outcome: "changed", inspection: inspected.inspection };
   }

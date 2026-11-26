@@ -346,8 +346,8 @@ function InspectionDetails({
 
       {inspection.tooBig ? (
         <p className="m-0 text-body text-muted-foreground">
-          The copy to keep has too many files to add from here yet. Leave it as
-          it is; nothing is lost while it waits.
+          Some choices touch too many files and folders to run from here yet.
+          Leave it as it is; nothing is lost while it waits.
         </p>
       ) : null}
 

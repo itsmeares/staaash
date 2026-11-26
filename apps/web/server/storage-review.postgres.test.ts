@@ -575,6 +575,29 @@ describe("storage review", () => {
     expect(await statusOf(fixable.mutationId)).toBe("retrying");
   });
 
+  it("says Keep is too big instead of offering it again", async () => {
+    const drive = await createDrive();
+    const stopped = await stopFolderMove(drive, async ({ source, target }) => {
+      await rename(storagePath(source), storagePath(target));
+      for (let index = 0; index < 1_001; index += 1) {
+        await mkdir(storagePath(`${target}/folder-${index}`));
+      }
+    });
+
+    const result = await choose(stopped.mutationId, "keep", drive.user.id);
+
+    expect(result).toMatchObject({
+      outcome: "changed",
+      inspection: { group: "changed", tooBig: true },
+    });
+    const saved = await readStorageReview(stopped.mutationId);
+    expect(saved?.review.inspection).toMatchObject({ tooBig: true });
+    expect(
+      saved?.review.inspection?.choices.map((choice) => choice.id),
+    ).not.toContain("keep");
+    expect(await statusOf(stopped.mutationId)).toBe("recovery_required");
+  });
+
   it("keeps both copies when the owner finishes a move where neither copy matches", async () => {
     const drive = await createDrive();
     const newer = Buffer.from("changed at the new place");
