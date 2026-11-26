@@ -1147,6 +1147,21 @@ const createContext = async (
   };
 };
 
+const dropTooBig = (
+  inspection: StorageReviewInspection,
+  tooBigChoices: StorageReviewChoice[],
+): StorageReviewInspection =>
+  tooBigChoices.length
+    ? {
+        ...inspection,
+        tooBig: true,
+        tooBigChoices,
+        choices: inspection.choices.filter(
+          (item) => !tooBigChoices.includes(item.id),
+        ),
+      }
+    : inspection;
+
 // A choice found too big stays off while the disk is as it was: only building
 // its rows shows the size, so a new check alone would offer it again.
 const withoutTooBig = (mutation: Mutation, inspected: Inspected): Inspected => {
@@ -1159,14 +1174,7 @@ const withoutTooBig = (mutation: Mutation, inspected: Inspected): Inspected => {
   return {
     ...inspected,
     plans,
-    inspection: {
-      ...inspected.inspection,
-      tooBig: true,
-      tooBigChoices: dropped,
-      choices: inspected.inspection.choices.filter(
-        (item) => !dropped.includes(item.id),
-      ),
-    },
+    inspection: dropTooBig(inspected.inspection, dropped),
   };
 };
 
@@ -1201,19 +1209,38 @@ const inspectMutation = async (
   }
 };
 
-// Only the inspection: a fix recorded while the disk was being checked stays.
+// Only the inspection, merged under the row lock: a fix recorded while the
+// disk was being checked stays, and so does a choice another request found
+// too big on the same disk state. Returns what was saved.
 const saveInspection = (
   mutationId: string,
   inspection: StorageReviewInspection,
 ) =>
-  getPrisma().$executeRaw`
-    UPDATE "StorageMutation"
-    SET "reviewJson" = jsonb_set(
-      COALESCE("reviewJson", '{"fixes": []}'::jsonb),
-      '{inspection}',
-      ${JSON.stringify(inspection)}::jsonb
-    )
-    WHERE id = ${mutationId} AND status = 'recovery_required'`;
+  runStorageTransaction(async (tx) => {
+    const [row] = await tx.$queryRaw<Array<{ reviewJson: Prisma.JsonValue }>>`
+      SELECT "reviewJson" FROM "StorageMutation"
+      WHERE id = ${mutationId} AND status = 'recovery_required'
+      FOR UPDATE`;
+    if (!row) return inspection;
+    const record = readStorageReviewRecord(row.reviewJson);
+    const prior = record.inspection;
+    const saved = dropTooBig(inspection, [
+      ...new Set([
+        ...(prior?.seen === inspection.seen ? (prior.tooBigChoices ?? []) : []),
+        ...(inspection.tooBigChoices ?? []),
+      ]),
+    ]);
+    await tx.storageMutation.update({
+      where: { id: mutationId },
+      data: {
+        reviewJson: {
+          ...record,
+          inspection: saved,
+        } as unknown as Prisma.InputJsonValue,
+      },
+    });
+    return saved;
+  });
 
 /** Checks a stopped change on disk again and saves what it found. */
 export const refreshStorageReviewInspection = async ({
@@ -1226,8 +1253,7 @@ export const refreshStorageReviewInspection = async ({
   const mutation = await findStorageMutation(mutationId);
   if (mutation?.status !== "recovery_required") return null;
   const { inspection } = await inspectMutation(mutation, filesRoot);
-  await saveInspection(mutationId, inspection);
-  return inspection;
+  return saveInspection(mutationId, inspection);
 };
 
 export const storageReviewInspectionIsCurrent = (mutation: {
@@ -2160,15 +2186,13 @@ export const applyStorageReviewChoice = async ({
   );
   if (rewrite === "too_big") {
     // Saved without this choice, so the page says why instead of offering it.
-    const inspection = {
-      ...inspected.inspection,
-      tooBig: true,
-      tooBigChoices: [...(inspected.inspection.tooBigChoices ?? []), choice],
-      choices: inspected.inspection.choices.filter(
-        (item) => item.id !== choice,
-      ),
-    };
-    await saveInspection(mutationId, inspection);
+    const inspection = await saveInspection(
+      mutationId,
+      dropTooBig(inspected.inspection, [
+        ...(inspected.inspection.tooBigChoices ?? []),
+        choice,
+      ]),
+    );
     return { outcome: "changed", inspection };
   }
   if (!rewrite) {
