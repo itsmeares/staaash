@@ -1961,6 +1961,20 @@ export type StorageReviewResult =
 const guardOf = (inspection: StorageReviewInspection) =>
   `${inspection.stepId ?? "none"}:${inspection.group}`;
 
+// What each place held when checked, so a choice made on one view of the disk
+// never runs on another.
+const diskSeen = (inspection: StorageReviewInspection) =>
+  JSON.stringify([
+    guardOf(inspection),
+    inspection.places.map((place) => [
+      place.role,
+      place.state,
+      place.sizeBytes,
+      place.fileCount,
+      place.modifiedAt,
+    ]),
+  ]);
+
 /**
  * Applies one choice for a stopped change. The disk is checked again first;
  * a choice that no longer fits is refused with what was found instead.
@@ -1994,7 +2008,7 @@ export const applyStorageReviewChoice = async ({
   const seen = record.inspection;
   const sawSomethingElse =
     choice !== "retry" &&
-    (!seen || guardOf(seen) !== guardOf(inspected.inspection));
+    (!seen || diskSeen(seen) !== diskSeen(inspected.inspection));
   if (
     !plan ||
     sawSomethingElse ||
@@ -2121,10 +2135,11 @@ export const reviewStoppedStorageMutations = async ({
   filesRoot: string;
   take?: number;
 }) => {
+  // Every stopped change, not a window: ones waiting for the owner never
+  // leave this state and must not hide a newer one the worker can fix.
   const stopped = await getPrisma().storageMutation.findMany({
     where: { status: "recovery_required" },
     orderBy: { recoveryRequiredAt: "asc" },
-    take: take * 5,
     select: { id: true, recoveryRequiredAt: true, reviewJson: true },
   });
   let fixed = 0;

@@ -624,6 +624,36 @@ describe("storage review", () => {
     await expectBytes(`${stopped.target}/child.bin`, newer);
   });
 
+  it("refuses a choice when a copy changed but the diagnosis did not", async () => {
+    const drive = await createDrive();
+    const stopped = await stopFolderMove(drive, async ({ source, target }) => {
+      await rename(storagePath(source), storagePath(target));
+      await writeFile(storagePath(`${target}/child.bin`), "new place");
+      await writeAt(`${source}/child.bin`, Buffer.from("old place"));
+    });
+    await refreshStorageReviewInspection({
+      mutationId: stopped.mutationId,
+      filesRoot: storageRoot(),
+    });
+    await writeFile(
+      storagePath(`${stopped.source}/child.bin`),
+      "old place, edited again",
+    );
+
+    await expect(
+      applyStorageReviewChoice({
+        mutationId: stopped.mutationId,
+        choice: "finish",
+        filesRoot: storageRoot(),
+        byUserId: drive.user.id,
+      }),
+    ).resolves.toMatchObject({
+      outcome: "changed",
+      inspection: { group: "two_copies" },
+    });
+    expect(await statusOf(stopped.mutationId)).toBe("recovery_required");
+  });
+
   it("never touches a folder with a shortcut inside", async () => {
     const drive = await createDrive();
     const stopped = await stopFolderMove(drive, async ({ source, target }) => {

@@ -180,7 +180,9 @@ first moves leftovers aside and creates their metadata rows in the change
 owner's drive. Then the stopped mutation is rewritten in place and resumes as
 `retrying` before commit or `finalizing` after it. Both parts are idempotent,
 so a crash during a fix resumes like any other mutation. A choice is refused
-when the stopped step or the disk changed since the check.
+when the stopped step or anything at its paths changed since the check the
+owner saw. Check again is the exception: it reruns the stopped step as it is,
+and execution checks every byte again before it acts.
 
 Recovered copies sit next to the original as
 `<name> (recovered, YYYY-MM-DD HH-mm)`, using the time the change stopped,

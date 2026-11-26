@@ -1032,6 +1032,20 @@ const assertTargetStillFree = async (target: string) => {
   }
 };
 
+// Without hard links, an empty file claims the name first, so a file that
+// appears there makes this fail instead of being replaced by the rename. A
+// crash right after leaves both names, which stops the step for review.
+const holdName = async (target: string) => {
+  try {
+    await (await open(target, "wx")).close();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    throw new StorageMutationAmbiguityError(
+      "Set-aside target appeared before the move.",
+    );
+  }
+};
+
 // A file moves by link then unlink: `link` refuses to replace anything at the
 // new name. A folder rename refuses to replace a folder that holds anything.
 const moveWithoutReplacing = async (
@@ -1046,7 +1060,7 @@ const moveWithoutReplacing = async (
       const code = (error as NodeJS.ErrnoException).code ?? "";
       if (code === "EEXIST") await assertTargetStillFree(target);
       if (!LINK_UNSUPPORTED_CODES.has(code)) throw error;
-      await assertTargetStillFree(target);
+      await holdName(target);
       await renameWhenFree(source, target);
       return;
     }
