@@ -576,10 +576,12 @@ const itemEntityOf = (mutation: Mutation, step: Step) => {
     );
   }
   // Guard entities (same revision before and after) only lock a folder, such
-  // as the destination; they are never the item that moves.
+  // as the destination, and folders a Keep added sit inside the item; neither
+  // is the item that moves.
   const folders = mutation.entities.filter(
     (entity) =>
       entity.entityType === "folder" &&
+      entity.preRevision !== -1 &&
       entity.preRevision !== entity.postRevision,
   );
   const ids = new Set(folders.map((entity) => entity.entityId));
