@@ -1965,7 +1965,10 @@ export type StorageNodeReport =
       onlyFolders: boolean;
       /** Whether it is what the step captured; null when it captured nothing. */
       matches: boolean | null;
-      /** Device and inode, to tell one entry seen under two names. */
+      /**
+       * Device and inode, to tell one entry seen under two names; for a folder
+       * also a stamp of every entry inside, so any change in it shows.
+       */
       identity: string;
     };
 
@@ -1987,24 +1990,23 @@ const treeTotals = async (treeRoot: string, folderModifiedAt: bigint) => {
   let sizeBytes = 0n;
   let fileCount = 0;
   let modifiedAt = folderModifiedAt;
+  let deepestBytes = 0;
   const entries = await readTreeStatEntries(treeRoot);
   for (const entry of entries) {
+    deepestBytes = Math.max(deepestBytes, Buffer.byteLength(entry.relativeKey));
     if (entry.kind !== "file") continue;
     fileCount += 1;
     sizeBytes += entry.sizeBytes;
     const entryMs = entry.modifiedAtNs / 1_000_000n;
     if (entryMs > modifiedAt) modifiedAt = entryMs;
   }
-  const deepestBytes = Math.max(
-    0,
-    ...entries.map((entry) => Buffer.byteLength(entry.relativeKey)),
-  );
   return {
     sizeBytes,
     fileCount,
     entryCount: entries.length + 1,
     deepestBytes,
     modifiedAt,
+    stamp: `:${hashTreeStatEntries(entries)}`,
   };
 };
 
@@ -2047,6 +2049,7 @@ export const inspectStorageNode = async (
             entryCount: 1,
             deepestBytes: 0,
             modifiedAt: info.mtimeMs,
+            stamp: "",
           };
     return {
       state: state.type,
@@ -2057,7 +2060,7 @@ export const inspectStorageNode = async (
       modifiedAt: new Date(Number(totals.modifiedAt)),
       onlyFolders: state.type === "directory" && totals.fileCount === 0,
       matches: step ? await nodeMatchesStep(candidate, step) : null,
-      identity: `${info.dev}:${info.ino}`,
+      identity: `${info.dev}:${info.ino}${totals.stamp}`,
     };
   } catch (error) {
     if (error instanceof StorageMutationAmbiguityError) {

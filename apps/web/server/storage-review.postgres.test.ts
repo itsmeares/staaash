@@ -1146,6 +1146,49 @@ describe("storage review", () => {
     expect(inspection?.choices.map((choice) => choice.id)).toEqual(["retry"]);
   });
 
+  it("offers no Finish onto a folder where the file was going", async () => {
+    const drive = await createDrive();
+    const stopped = await stopFileMove(drive, async ({ source, target }) => {
+      await writeFile(storagePath(source), "edited in the old place");
+      await mkdir(storagePath(target));
+    });
+
+    const inspection = await refreshStorageReviewInspection({
+      mutationId: stopped.mutationId,
+      filesRoot: storageRoot(),
+    });
+
+    expect(inspection?.group).toBe("two_copies");
+    expect(inspection?.choices.map((choice) => choice.id)).toEqual([
+      "undo",
+      "retry",
+    ]);
+  });
+
+  it("refuses a choice when only something deep inside a folder changed", async () => {
+    const drive = await createDrive();
+    const stopped = await stopFolderMove(drive, async ({ source, target }) => {
+      await rename(storagePath(source), storagePath(target));
+      await mkdir(storagePath(`${target}/Inner`));
+    });
+    const looked = await refreshStorageReviewInspection({
+      mutationId: stopped.mutationId,
+      filesRoot: storageRoot(),
+    });
+    await mkdir(storagePath(`${stopped.target}/Inner/Empty`));
+
+    await expect(
+      applyStorageReviewChoice({
+        mutationId: stopped.mutationId,
+        choice: "keep",
+        seen: looked?.seen ?? null,
+        filesRoot: storageRoot(),
+        byUserId: drive.user.id,
+      }),
+    ).resolves.toMatchObject({ outcome: "changed" });
+    expect(await statusOf(stopped.mutationId)).toBe("recovery_required");
+  });
+
   it("still ends an Undo as aborted after it stopped and was checked again", async () => {
     const drive = await createDrive();
     const edited = Buffer.from("edited after the move");

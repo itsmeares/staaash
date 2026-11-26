@@ -787,6 +787,10 @@ const inspectRename = async (context: ReviewContext, step: Step) => {
     return finishInspection(context, { ...withPlaces, group: "broken" }, {});
   }
   const undoable = canUndo(mutation);
+  // A folder where the file was, or a file where the folder was, is not
+  // the item changed: only the server can sort that out.
+  const fits = (report: StorageNodeReport) =>
+    report.state === (isFolder ? "directory" : "file");
   if (!present(source) && !present(target)) {
     return finishInspection(
       context,
@@ -813,13 +817,10 @@ const inspectRename = async (context: ReviewContext, step: Step) => {
     if ("matches" in report && report.matches) {
       return clearInspection(context, withPlaces);
     }
-    // A folder where the file was, or a file where the folder was, is not
-    // the item changed: only the server can sort that out.
-    const adoptable = report.state === (isFolder ? "directory" : "file");
     return finishInspection(
       context,
       { ...withPlaces, group: "changed" },
-      adoptable
+      fits(report)
         ? {
             keep: { obstacles: [], rewrite: { type: "refresh", itemKey } },
             ...(undoable
@@ -860,19 +861,23 @@ const inspectRename = async (context: ReviewContext, step: Step) => {
     context,
     { ...withPlaces, group: "two_copies" },
     {
-      finish: {
-        obstacles: [
-          await obstacleFor(
-            context,
-            step.sourceKey,
-            source,
-            step.targetKey,
-            name,
-          ),
-        ],
-        rewrite: { type: "refresh", itemKey: step.targetKey },
-      },
-      ...(undoable
+      ...(fits(target)
+        ? {
+            finish: {
+              obstacles: [
+                await obstacleFor(
+                  context,
+                  step.sourceKey,
+                  source,
+                  step.targetKey,
+                  name,
+                ),
+              ],
+              rewrite: { type: "refresh", itemKey: step.targetKey },
+            },
+          }
+        : {}),
+      ...(undoable && fits(source)
         ? {
             undo: {
               obstacles: [
