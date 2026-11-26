@@ -365,6 +365,7 @@ const pickCopyPlace = async (
   otherKey: string | null,
   name: string,
   isFile: boolean,
+  innerBytes: number,
 ): Promise<CopyPlace | null> => {
   const generated = GENERATED_KINDS.has(context.mutation.kind);
   for (const parentKey of copyParents(context, foundKey, otherKey)) {
@@ -376,7 +377,14 @@ const pickCopyPlace = async (
           parentKey,
         );
     if (!folder && !generated) continue;
-    const place = await freeCopyPlace(context, parentKey, folder, name, isFile);
+    const place = await freeCopyPlace(
+      context,
+      parentKey,
+      folder,
+      name,
+      isFile,
+      innerBytes,
+    );
     if (place) return place;
   }
   return null;
@@ -420,12 +428,16 @@ const freeCopyPlace = async (
   folder: DriveFolder | null,
   name: string,
   isFile: boolean,
+  innerBytes: number,
 ): Promise<CopyPlace | null> => {
   for (let attempt = 1; attempt <= 100; attempt += 1) {
     const copyName = recoveredCopyName(name, context.stamp, attempt, isFile);
     const key = `${parentKey}/${copyName}`;
-    const fullPath = path.resolve(context.filesRoot, key);
-    if (Buffer.byteLength(fullPath) > MAX_PATH_BYTES) return null;
+    // The deepest file inside must fit too; a shallower parent is tried next.
+    const longest =
+      Buffer.byteLength(path.resolve(context.filesRoot, key)) +
+      (innerBytes ? innerBytes + 1 : 0);
+    if (longest > MAX_PATH_BYTES) return null;
     if (await copyNameTaken(context, key, folder, copyName)) continue;
     context.takenKeys.add(key.toLowerCase());
     return { key, name: copyName, folder };
@@ -608,7 +620,14 @@ const obstacleFor = async (
   const drop = isFolder && "onlyFolders" in report && report.onlyFolders;
   const place = drop
     ? null
-    : await pickCopyPlace(context, key, otherKey, name, !isFolder);
+    : await pickCopyPlace(
+        context,
+        key,
+        otherKey,
+        name,
+        !isFolder,
+        "deepestBytes" in report ? report.deepestBytes : 0,
+      );
   return {
     key,
     drop,

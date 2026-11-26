@@ -644,6 +644,36 @@ describe("storage review", () => {
     expect((await check())?.seen).not.toBe(first?.seen);
   });
 
+  it("keeps a deep leftover higher up when its copy would not fit", async () => {
+    const drive = await createDrive();
+    let deep = "";
+    const stopped = await stopFolderMove(drive, async ({ source, target }) => {
+      await rename(storagePath(source), storagePath(target));
+      // 4,070 bytes in all: fits where it is, but not with the 30-byte
+      // " (recovered, …)" suffix next to it. The drive's top is 7 bytes shorter.
+      let remaining = 4_070 - Buffer.byteLength(storagePath(source)) - 1;
+      const parts: string[] = [];
+      while (remaining > 201) {
+        parts.push("d".repeat(200));
+        remaining -= 201;
+      }
+      parts.push("f".repeat(remaining));
+      deep = parts.join("/");
+      await writeAt(`${source}/${deep}`, Buffer.from("deep inside"));
+    });
+
+    await autoFix();
+
+    expect(await statusOf(stopped.mutationId)).toBe("succeeded");
+    expect((await recoveredCopiesIn(drive.source.id)).folders).toHaveLength(0);
+    const [copy] = (await recoveredCopiesIn(drive.root.id)).folders;
+    expect(copy?.name).toMatch(new RegExp(`^Tree ${COPY_STAMP}$`));
+    await expectBytes(
+      drive.key(`${copy!.name}/${deep}`),
+      Buffer.from("deep inside"),
+    );
+  });
+
   it("keeps both copies when the owner finishes a move where neither copy matches", async () => {
     const drive = await createDrive();
     const newer = Buffer.from("changed at the new place");

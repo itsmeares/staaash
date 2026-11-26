@@ -1958,6 +1958,8 @@ export type StorageNodeReport =
       fileCount: number;
       /** Files and folders in it, itself included: the rows a copy adds. */
       entryCount: number;
+      /** Bytes of the longest path inside it, relative to it; 0 for a file. */
+      deepestBytes: number;
       modifiedAt: Date;
       /** A folder tree with no file anywhere in it. */
       onlyFolders: boolean;
@@ -1993,7 +1995,17 @@ const treeTotals = async (treeRoot: string, folderModifiedAt: bigint) => {
     const entryMs = entry.modifiedAtNs / 1_000_000n;
     if (entryMs > modifiedAt) modifiedAt = entryMs;
   }
-  return { sizeBytes, fileCount, entryCount: entries.length + 1, modifiedAt };
+  const deepestBytes = Math.max(
+    0,
+    ...entries.map((entry) => Buffer.byteLength(entry.relativeKey)),
+  );
+  return {
+    sizeBytes,
+    fileCount,
+    entryCount: entries.length + 1,
+    deepestBytes,
+    modifiedAt,
+  };
 };
 
 const UNSAFE_REASONS: Array<[RegExp, StorageNodeUnsafeReason]> = [
@@ -2033,6 +2045,7 @@ export const inspectStorageNode = async (
             sizeBytes: state.size,
             fileCount: 1,
             entryCount: 1,
+            deepestBytes: 0,
             modifiedAt: info.mtimeMs,
           };
     return {
@@ -2040,6 +2053,7 @@ export const inspectStorageNode = async (
       sizeBytes: totals.sizeBytes,
       fileCount: totals.fileCount,
       entryCount: totals.entryCount,
+      deepestBytes: totals.deepestBytes,
       modifiedAt: new Date(Number(totals.modifiedAt)),
       onlyFolders: state.type === "directory" && totals.fileCount === 0,
       matches: step ? await nodeMatchesStep(candidate, step) : null,
