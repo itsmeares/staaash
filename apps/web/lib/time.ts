@@ -72,6 +72,21 @@ function formatShortDate(value: DateInput, timeZone: string) {
   return formatter.format(toDate(value));
 }
 
+const dateFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/** "25 Feb 2027": a day that may fall in another year. */
+export function formatDate(value: DateInput, timeZone: string) {
+  let formatter = dateFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-GB", {
+      dateStyle: "medium",
+      timeZone,
+    });
+    dateFormatters.set(timeZone, formatter);
+  }
+  return formatter.format(toDate(value));
+}
+
 const dayMonthFormatters = new Map<string, Intl.DateTimeFormat>();
 
 /** "11 Oct": a day in this or a recent year, for "Expired 11 Oct". */

@@ -73,11 +73,13 @@ const SETUPS = [
         {
           $schema: "https://opencode.ai/config.json",
           mcp: {
-            staaash: {
-              type: "remote",
-              url,
-              oauth: false,
-              headers: { Authorization: `Bearer ${token}` },
+            servers: {
+              staaash: {
+                type: "remote",
+                url,
+                oauth: false,
+                headers: { Authorization: `Bearer ${token}` },
+              },
             },
           },
         },
@@ -101,6 +103,8 @@ const SETUPS = [
                 url,
                 "--header",
                 "Authorization:${STAAASH_AUTH}",
+                // mcp-remote refuses plain http beyond this computer without it.
+                ...(url.startsWith("http:") ? ["--allow-http"] : []),
               ],
               env: { STAAASH_AUTH: `Bearer ${token}` },
             },

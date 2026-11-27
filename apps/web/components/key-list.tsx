@@ -7,7 +7,7 @@ import { useTime } from "@/components/time-provider";
 import { Badge } from "@staaash/ui/components/badge";
 import { Button } from "@staaash/ui/components/button";
 import { toast } from "@staaash/ui/components/toast";
-import { formatRelativeTime, formatTimeUntil } from "@/lib/time";
+import { formatDate, formatRelativeTime } from "@/lib/time";
 import { useRefresh } from "@/lib/use-refresh";
 import type { KeyView } from "@/server/auth/keys";
 
@@ -20,7 +20,7 @@ const describeKey = (key: KeyView, now: Date, timeZone: string) =>
       ? `Used ${formatRelativeTime(key.lastUsedAt, now, timeZone, "long")}`
       : "Never used",
     key.expiresAt
-      ? `Ends in ${formatTimeUntil(key.expiresAt, now)}`
+      ? `Ends ${formatDate(key.expiresAt, timeZone)}`
       : "No end date",
   ].filter(Boolean);
 

@@ -39,17 +39,19 @@ url = "https://drive.example.com/mcp"
 http_headers = { "Authorization" = "Bearer stsh_..." }
 ```
 
-**OpenCode.** Add this to `opencode.json`:
+**OpenCode 2.** Add this to `opencode.json`:
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "staaash": {
-      "type": "remote",
-      "url": "https://drive.example.com/mcp",
-      "oauth": false,
-      "headers": { "Authorization": "Bearer stsh_..." }
+    "servers": {
+      "staaash": {
+        "type": "remote",
+        "url": "https://drive.example.com/mcp",
+        "oauth": false,
+        "headers": { "Authorization": "Bearer stsh_..." }
+      }
     }
   }
 }
@@ -74,6 +76,8 @@ http_headers = { "Authorization" = "Bearer stsh_..." }
   }
 }
 ```
+
+If your drive's address starts with `http://`, add `"--allow-http"` after `"Authorization:${STAAASH_AUTH}"`. The setup in Settings does this for you.
 
 **Open WebUI.** In **Admin Panel**, open **Settings**, then **External Tools**, and add a server. Pick **MCP (Streamable HTTP)**, paste the MCP address, choose **Bearer**, and paste the key. Open WebUI connects from its own server, so the address must work from there. If both run in Docker, the address your browser uses may not.
 
