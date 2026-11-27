@@ -25,10 +25,11 @@ For an AI app key, the next screen also shows the setup for each app below with 
 
 The MCP address is your drive's address with `/mcp` at the end, for example `https://drive.example.com/mcp`. Replace `stsh_...` below with your key.
 
-**Claude Code.** Run this in a terminal:
+**Claude Code.** Run this in a terminal and paste the key when `read` waits. It keeps the key out of your shell history:
 
-```sh
-claude mcp add --transport http staaash https://drive.example.com/mcp --header "Authorization: Bearer stsh_..."
+```bash
+read -rs STAAASH_KEY
+claude mcp add --transport http staaash https://drive.example.com/mcp --header "Authorization: Bearer $STAAASH_KEY"
 ```
 
 **Codex.** Add this to `~/.codex/config.toml`:
