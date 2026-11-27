@@ -245,6 +245,36 @@ describe("MCP", () => {
     ).toBe("B");
   });
 
+  it("refuses a move it can't finish before changing anything", async () => {
+    const { id } = await drive();
+    const token = await key(id);
+    await tool(token, "write_file", { path: "/Work/plan.md", content: "B" });
+    await tool(token, "write_file", { path: "/Trips/new.md", content: "A" });
+
+    expect(
+      (
+        await tool(token, "move", {
+          from: "/Trips/plan.md",
+          to: "/Work/secret.txt",
+        })
+      ).error,
+    ).toBe("/Work/secret.txt already exists.");
+    expect(
+      (
+        await tool(token, "move", {
+          from: "/Trips/plan.md",
+          to: "/Work/new.md",
+        })
+      ).error,
+    ).toMatch(/can't move and take its new name in one step/);
+    expect(
+      (await tool(token, "read_file", { path: "/Trips/plan.md" })).text,
+    ).toBe("Day 1: the coast");
+    expect(
+      (await tool(token, "get_info", { path: "/Work/new.md" })).error,
+    ).toBe("Nothing is at /Work/new.md.");
+  });
+
   it("sees the whole drive without a folder", async () => {
     const { id } = await drive();
     const token = await key(id);

@@ -9,6 +9,7 @@ import {
   normalizeMimeType,
   resolveUploadMimeType,
 } from "@staaash/config/media-types";
+import { getPrisma, Prisma } from "@staaash/db/client";
 import { z } from "zod";
 
 import { resolveAppVersion } from "@/server/app-version";
@@ -24,7 +25,7 @@ import type {
   StoredFile,
 } from "@/server/files/types";
 import { actorOf, type Session } from "@/server/http/core";
-import { getRetrievalPage } from "@/server/retrieval/page";
+import { hydrateRetrievalPage } from "@/server/retrieval/page";
 import {
   recordFileAccessBestEffort,
   recordFolderAccessBestEffort,
@@ -36,7 +37,6 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_WRITE_CHARS = 1_000_000;
 const LIST_PAGE = 200;
 const SEARCH_RESULTS = 25;
-const RECENT_PAGE = 500;
 // What vision models take; HEIC and the rest would only waste the call.
 const PICTURE_TYPES = new Set([
   "image/png",
@@ -160,10 +160,40 @@ const folderPaths = async (root: FolderSummary, folderIds: string[]) => {
   };
 };
 
+/** What was opened lately inside the root, newest first. */
+const recentUnder = async (root: FolderSummary) => {
+  const userId = root.ownerUserId;
+  const rows = await getPrisma().$queryRaw<
+    { id: string; kind: "file" | "folder" }[]
+  >(Prisma.sql`
+    WITH RECURSIVE within(id) AS (
+      SELECT ${root.id}::text
+      UNION
+      SELECT f.id FROM "Folder" f JOIN within ON f."parentId" = within.id
+      WHERE f."ownerUserId" = ${userId} AND f."deletedAt" IS NULL
+    )
+    SELECT id, kind FROM (
+      SELECT f.id, 'file' AS kind, r."lastInteractedAt" AS at
+      FROM "RecentFile" r JOIN "File" f ON f.id = r."fileId"
+      WHERE r."userId" = ${userId} AND f."deletedAt" IS NULL
+        AND f."storageStatus" = 'available' AND f."folderId" IN (SELECT id FROM within)
+      UNION ALL
+      SELECT f.id, 'folder', r."lastInteractedAt"
+      FROM "RecentFolder" r JOIN "Folder" f ON f.id = r."folderId"
+      WHERE r."userId" = ${userId} AND f."deletedAt" IS NULL
+        AND f."parentId" IN (SELECT id FROM within)
+    ) recent ORDER BY at DESC, id LIMIT ${SEARCH_RESULTS}`);
+  const page = await hydrateRetrievalPage(userId, {
+    items: rows,
+    total: rows.length,
+  });
+  return page.items;
+};
+
 /** Search and recent items as paths below the root; the rest is left out. */
 const underRoot = async (
   root: FolderSummary,
-  items: Awaited<ReturnType<typeof getRetrievalPage>>["items"],
+  items: Awaited<ReturnType<typeof hydrateRetrievalPage>>["items"],
 ) => {
   const pathOf = await folderPaths(
     root,
@@ -329,23 +359,7 @@ const registerReads = (server: McpServer, session: Session) => {
         });
         return reply({ results: await underRoot(root, page.items) });
       }
-      // Recent covers the whole drive, so a folder key reads on past the rest.
-      const results = [];
-      for (
-        let offset = 0;
-        results.length < SEARCH_RESULTS;
-        offset += RECENT_PAGE
-      ) {
-        const page = await getRetrievalPage(ownerUserId, "recent", {
-          offset,
-          limit: RECENT_PAGE,
-          liveOnly: true,
-          usableOnly: true,
-        });
-        results.push(...(await underRoot(root, page.items)));
-        if (page.items.length < RECENT_PAGE) break;
-      }
-      return reply({ results: results.slice(0, SEARCH_RESULTS) });
+      return reply({ results: await underRoot(root, await recentUnder(root)) });
     }),
   );
 
@@ -468,6 +482,44 @@ const registerChanges = (server: McpServer, session: Session) => {
     return operation
       ? `It holds ${operation.totalCount} items and finishes in the background.`
       : null;
+  };
+
+  /** Something else already has this name in that folder. */
+  const taken = async (found: Found, parentId: string, name: string) => {
+    const hit = await repo.findActiveNameConflict({
+      ownerUserId,
+      parentId,
+      name,
+    });
+    return hit !== null && hit.item.id !== found.item.id;
+  };
+
+  /**
+   * Moving first needs the old name free where it goes; renaming first needs
+   * the new name free where it is. With neither, nothing changes.
+   */
+  const orderSteps = async <Step>(
+    found: Found,
+    plan: {
+      move: Step;
+      rename: Step;
+      from: string;
+      to: FolderSummary;
+      toPath: string;
+      name: string;
+    },
+  ) => {
+    if (!(await taken(found, plan.to.id, found.item.name))) {
+      return [plan.move, plan.rename];
+    }
+    const here =
+      found.kind === "folder" ? found.item.parentId : found.item.folderId;
+    if (here && (await taken(found, here, plan.name))) {
+      throw new ToolError(
+        `It can't move and take its new name in one step: "${found.item.name}" is taken in ${plan.toPath} and "${plan.name}" in ${plan.from}. Rename it to a free name first, then move it.`,
+      );
+    }
+    return [plan.rename, plan.move];
   };
 
   /** Moves a file or folder; a note when a big folder finishes later. */
@@ -645,6 +697,12 @@ const registerChanges = (server: McpServer, session: Session) => {
       if (!name)
         throw new ToolError('Give the new path, like "/Archive/notes.md".');
       const destination = await lookUpFolder(root, target);
+      // Checked before any change, so a refused move leaves nothing half done.
+      if (await taken(found, destination.id, name)) {
+        throw new ToolError(
+          `${joinPath(pathFrom(target), name)} already exists.`,
+        );
+      }
       const parentId =
         found.kind === "folder" ? found.item.parentId : found.item.folderId;
       // Where it is after each step, so the reply says what really happened.
@@ -666,18 +724,17 @@ const registerChanges = (server: McpServer, session: Session) => {
           at.name = name;
           return note;
         });
-      // Its old name may be taken where it goes while the new one is free.
-      const clash =
-        move &&
-        rename &&
-        (await repo.findActiveNameConflict({
-          ownerUserId,
-          parentId: destination.id,
-          name: found.item.name,
-        }));
-      const steps = (clash ? [rename, move] : [move, rename]).filter(
-        (step) => step !== false,
-      );
+      const steps =
+        move && rename
+          ? await orderSteps(found, {
+              move,
+              rename,
+              from: at.parent,
+              to: destination,
+              toPath: pathFrom(target),
+              name,
+            })
+          : [move, rename].filter((step) => step !== false);
       for (const [index, step] of steps.entries()) {
         const note = await step();
         // A step left to the background ends this call; a retry would repeat it.
