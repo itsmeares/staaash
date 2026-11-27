@@ -6253,7 +6253,7 @@ export const createFilesService = ({
         getDirectoryMutationLockKey(targetFolderPath),
       ];
 
-      return coordinateStorageMutation({
+      const file = await coordinateStorageMutation({
         lockKeys: targetFolderLockKeys,
         // Commit callback preserves session and metadata transaction ordering.
         // fallow-ignore-next-line complexity
@@ -6618,11 +6618,11 @@ export const createFilesService = ({
             });
           }
 
-          const summary = toFileSummary(createdFile);
-          scheduleUploadWork([summary]);
-          return summary;
+          return toFileSummary(createdFile);
         },
       });
+      scheduleUploadWork([file]);
+      return file;
     },
   };
 };

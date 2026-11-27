@@ -34,7 +34,10 @@ import type {
 } from "@/server/files/types";
 import { actorOf, type Session } from "@/server/http/core";
 import { hydrateRetrievalPage } from "@/server/retrieval/page";
-import { storageReadPredicate } from "@/server/storage-read-guard";
+import {
+  assertStorageEntityReadable,
+  storageReadPredicate,
+} from "@/server/storage-read-guard";
 import {
   recordFileAccessBestEffort,
   recordFolderAccessBestEffort,
@@ -522,6 +525,8 @@ const readStoredText = async (
   offset: number,
   ctx: ServerContext,
 ): Promise<CallToolResult> => {
+  // Same as the file's bytes: no reading while a storage change holds it.
+  await assertStorageEntityReadable("file", file.id);
   const reading = await getTextReading();
   let text = await findFileText(file.id);
   if (!settled(text, reading)) {

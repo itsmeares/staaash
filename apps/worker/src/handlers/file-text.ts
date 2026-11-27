@@ -173,28 +173,16 @@ const scanOne = async (
     ocrDone: done + 1,
     ocrLanguages: languages,
   };
+  let pageText: string;
   try {
     const timed = AbortSignal.any([
       signal,
       AbortSignal.timeout(SCAN_TIMEOUT_MS),
     ]);
-    const pageText =
+    pageText =
       file.source === "pdf"
         ? await scanPdfPage(filePath, page, languages, timed)
         : await scanPicture(filePath, languages, timed);
-    const kept = limitText(
-      file.source === "pdf" ? placePage(file.text, page, pageText) : pageText,
-    );
-    // Full: the pages after this one are left out.
-    const ocrPages = kept.truncated
-      ? file.ocrPages.slice(0, done + 1)
-      : file.ocrPages;
-    await saveScannedPage(file, {
-      ...progress,
-      ...kept,
-      ocrPages,
-      finished: done + 1 >= ocrPages.length,
-    });
   } catch (error) {
     signal.throwIfAborted();
     if (isMissingFile(error)) return "skip";
@@ -206,7 +194,22 @@ const scanOne = async (
       error: isTimeout(error) ? "scan-timeout" : "scan-failed",
       finished: true,
     });
+    return "read";
   }
+  // A failed save is the database's trouble, not the page's: the job retries.
+  const kept = limitText(
+    file.source === "pdf" ? placePage(file.text, page, pageText) : pageText,
+  );
+  // Full: the pages after this one are left out.
+  const ocrPages = kept.truncated
+    ? file.ocrPages.slice(0, done + 1)
+    : file.ocrPages;
+  await saveScannedPage(file, {
+    ...progress,
+    ...kept,
+    ocrPages,
+    finished: done + 1 >= ocrPages.length,
+  });
   return "read";
 };
 

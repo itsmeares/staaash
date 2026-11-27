@@ -46,11 +46,11 @@ You can also drag items onto a folder to move them. Select several items with `C
 Older versions search names only.
 :::
 
-Search also finds words inside your files: text files, PDFs, Word, Excel and PowerPoint files, OpenDocument files, EPUB books and saved web pages. Name matches come first. A match inside a file shows the words around it.
+Search also finds words inside your files: text files, PDFs, Word, Excel and PowerPoint files, OpenDocument files, EPUB books and saved web pages. Name matches come first. A match inside a file shows the words around it when it is in the first 100,000 characters; further in, the file is still found, with the start of its text.
 
-Every word you type must be in the file, at the start of a word. `inv 2024` finds a PDF that says "Invoice no. 2024-17". Put words in quotes, like `"due friday"`, to find them in that order.
+Every word you type must be in the file, at the start of a word. `inv 2024` finds a PDF that says "Invoice no. 2024-17". Put words in quotes, like `"due friday"`, to find them in that order. In a long file, quoted words are only found in about the first 16,000 words.
 
-New uploads are searchable within a minute or so. Scanned PDFs and photos of paper take longer, because each page is read one by one. Your drive's owner decides whether scans are read at all.
+New uploads are usually searchable within a minute, and always within about 10 minutes. Scanned PDFs and photos of paper take longer, because each page is read one by one. Your drive's owner decides whether scans are read at all. Servers installed on Windows don't read scans.
 
 ## Look at files
 

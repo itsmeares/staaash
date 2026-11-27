@@ -51,9 +51,11 @@ $$;
 -- and each quoted phrase must appear in order. Null when nothing is left.
 CREATE FUNCTION staaash_text_query(words text, phrases text[]) RETURNS tsquery
 LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
-  SELECT CASE WHEN count(*) > 0 THEN to_tsquery('pg_catalog.simple', string_agg(part, ' & ')) END
+  -- A cast, not to_tsquery, which would split a lexeme again.
+  SELECT CASE WHEN count(*) > 0 THEN string_agg(part, ' & ')::tsquery END
   FROM (
-    SELECT '''' || lexeme || ''':*' AS part
+    -- unaccent turns letters like the okina in Hawaiʻi into an apostrophe.
+    SELECT '''' || replace(replace(lexeme, '\', '\\'), '''', '''''') || ''':*' AS part
     FROM unnest(tsvector_to_array(staaash_text_vector(words))) lexeme
     WHERE length(lexeme) > 1
     UNION ALL

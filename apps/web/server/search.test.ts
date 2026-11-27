@@ -155,6 +155,15 @@ describe("matchedWords", () => {
     ).toEqual(["ﬁnal"]);
   });
 
+  it("marks the right words after characters that take two UTF-16 units", () => {
+    const text = "😀 Meet at the lighthouse";
+    expect(
+      matchedWords(text, "lighthouse").map(([start, end]) =>
+        text.slice(start, end),
+      ),
+    ).toEqual(["lighthouse"]);
+  });
+
   it("starts a long snippet three words before its first match", () => {
     expect(
       startNearMatch(

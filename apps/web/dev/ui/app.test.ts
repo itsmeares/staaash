@@ -832,6 +832,10 @@ describe("database-free sample drive", () => {
         snippet: expect.stringContaining("before breakfast"),
       }),
     ]);
+    // An empty query lists what was opened lately, as the server does.
+    expect(
+      (await client.read<{ total: number }>("/api/search?q=")).total,
+    ).toBeGreaterThan(0);
     expect(
       (await client.post("/api/files/files/owner-coast/trash")).status,
     ).toBe(200);

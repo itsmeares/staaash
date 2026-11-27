@@ -178,7 +178,7 @@ export function mountViews(app: Hono<PreviewEnv>) {
     const name = q.replaceAll('"', "").trim().toLowerCase();
     const items = ownedItems(state).flatMap(
       (item): { item: typeof item; snippet: string | null }[] => {
-        if (name && item.name.toLowerCase().includes(name)) {
+        if (item.name.toLowerCase().includes(name)) {
           return [{ item, snippet: null }];
         }
         const snippet = "asset" in item ? textSnippet(item.asset, q) : null;

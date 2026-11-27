@@ -1,7 +1,7 @@
 import { strToU8, zipSync } from "fflate";
 import { describe, expect, it } from "vite-plus/test";
 
-import { epubText, htmlText, officeText } from "./extract.js";
+import { epubText, htmlText, officeText, tidyText } from "./extract.js";
 
 const zip = (files: Record<string, string>) =>
   zipSync(
@@ -19,11 +19,11 @@ const rels = (targets: Record<string, string>) =>
     .join("")}</Relationships>`;
 
 describe("officeText", () => {
-  it("reads a Word document's paragraphs, tabs, notes, and headers, without deleted text", () => {
+  it("reads a Word document's paragraphs, tabs, notes, and headers, without deleted text or tab stops", () => {
     const text = officeText(
       zip({
         "word/document.xml": `<w:document><w:body>
-          <w:p><w:r><w:t>Invoice</w:t></w:r><w:r><w:tab/><w:t xml:space="preserve">No. 42 &amp; more</w:t></w:r></w:p>
+          <w:p><w:pPr><w:tabs><w:tab w:val="left" w:pos="720"/></w:tabs></w:pPr><w:r><w:t>Invoice</w:t></w:r><w:r><w:tab/><w:t xml:space="preserve">No. 42 &amp; more</w:t></w:r></w:p>
           <w:p><w:r><w:delText>old words</w:delText><w:t>Çağrı paid</w:t></w:r></w:p>
         </w:body></w:document>`,
         "word/footnotes.xml":
@@ -94,7 +94,7 @@ describe("officeText", () => {
         }),
         "ods",
       ),
-    ).toBe("Plan\nOne two\tthree\nA\tB");
+    ).toBe("Plan\nOne two\tthree\nA\t\tB");
   });
 
   it("stops a zip whose entries claim to unpack too large", () => {
@@ -112,6 +112,18 @@ describe("htmlText", () => {
         <h1>Caf&eacute;   news</h1><p>Line one<br>line two &amp; &#8220;three&#8221;</p>
         <table><tr><td>a</td><td>b</td></tr></table><!-- hidden --></body></html>`),
     ).toBe("Menu\n\nCafé news\n\nLine one\nline two & “three”\n\na\tb");
+  });
+});
+
+describe("unfinished markup", () => {
+  it("ends the text at an unclosed script, comment, or tag, as a browser does", () => {
+    expect(htmlText("<p>Kept</p><script>var x = 1; <p>hidden")).toBe("Kept");
+    expect(htmlText("<p>Kept</p><!-- never closed <p>hidden")).toBe("Kept");
+    expect(htmlText("<p>Kept</p><b class=")).toBe("Kept");
+  });
+
+  it("drops NUL characters, which PostgreSQL cannot store", () => {
+    expect(tidyText("a\0b")).toBe("ab");
   });
 });
 

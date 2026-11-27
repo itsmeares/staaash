@@ -95,6 +95,14 @@ it("finds files by the words inside them, after name matches", async () => {
     "scan-001.pdf",
   ]);
   expect(await search('"friday due"')).toEqual([]);
+  // Quotes don't break a name match, and an okina doesn't break the query.
+  expect((await search('fatura "notes"')).map((item) => item.name)).toEqual([
+    "Fatura notes.pdf",
+  ]);
+  await add("lei.pdf", "Our Hawaiʻi trip");
+  expect((await search("Hawaiʻi")).map((item) => item.name)).toEqual([
+    "lei.pdf",
+  ]);
   // One letter finds names only.
   expect((await search("f")).every((item) => item.match !== "text")).toBe(true);
   expect(
@@ -148,6 +156,7 @@ it("queues wanted and unread files, then scans, and counts progress", async () =
     status: "ready",
     source: "pdf",
     text: "first\f\fthird",
+    truncated: true,
     ocrPages: [2],
     finished: false,
   });
@@ -178,6 +187,8 @@ it("queues wanted and unread files, then scans, and counts progress", async () =
     languages: ["eng"],
   });
   expect(after.pagesWaiting).toBe(before.pagesWaiting - 1);
+  // The first read cut the text, and a scanned page can't undo that.
+  expect(await findFileText(unread.id)).toMatchObject({ truncated: true });
   expect(
     (await getSearchPage(owner.id, "second")).items.map((item) => item.name),
   ).toEqual(["unread.pdf"]);

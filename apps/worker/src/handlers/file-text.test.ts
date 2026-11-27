@@ -268,6 +268,17 @@ describe("reading file text", () => {
     });
   });
 
+  it("leaves a page whose save failed for the job's retry, not marked failed", async () => {
+    rounds([[]], [fileToScan("page")]);
+    mocks.scanPdfPage.mockResolvedValue("Page two");
+    mocks.saveScannedPage.mockRejectedValueOnce(new Error("database gone"));
+
+    await expect(
+      handleFileTextRead(null, storagePaths, context()),
+    ).rejects.toThrow("database gone");
+    expect(mocks.saveScannedPage).toHaveBeenCalledOnce();
+  });
+
   it("marks a scan that runs too long as failed and keeps the text it has", async () => {
     rounds([[]], [fileToScan("slow")]);
     mocks.scanPdfPage.mockRejectedValue(

@@ -197,7 +197,7 @@ export const saveScannedPage = async (
     finished: boolean;
   },
 ) => {
-  const { finished, ...data } = update;
+  const { finished, truncated, ...data } = update;
   await getPrisma().fileText.updateMany({
     where: {
       fileId: file.id,
@@ -206,7 +206,8 @@ export const saveScannedPage = async (
     },
     data: {
       ...data,
-      ...(update.truncated ? { truncated: true } : {}),
+      // Text cut by the first read stays cut, whatever a page adds.
+      ...(truncated ? { truncated: true } : {}),
       readAt: new Date(),
       ...(finished ? { wantedAt: null } : {}),
     },

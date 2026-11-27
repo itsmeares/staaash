@@ -30,7 +30,8 @@ export const matchedWords = (text: string, query: string) => {
     const character = String.fromCodePoint(text.codePointAt(at)!);
     const part = fold(character);
     folded += part;
-    origin.push(...Array.from(part, () => at));
+    // Match offsets count UTF-16 units, so each unit points back.
+    origin.push(...Array.from({ length: part.length }, () => at));
     at += character.length;
   }
   const ranges: [number, number][] = [];

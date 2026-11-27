@@ -29,7 +29,7 @@ export async function getSearchPage(
   } = {},
 ) {
   const { words, phrases } = splitSearchWords(text);
-  const query = normalizeSearchText(text.replaceAll('"', " "));
+  const query = normalizeSearchText(text.replaceAll('"', ""));
   if (!query) return { items: [], total: 0 };
   const textQuery = Prisma.sql`staaash_text_query(${words}, ${phrases}::text[])`;
   // Paths run through folders above the limit, so they don't count.
