@@ -250,6 +250,40 @@ test("opens a job's runs and fixes its failed run in Details", async ({
   expect(errors).toEqual([]);
 });
 
+test("keeps the newest run list when an older read lands late", async ({
+  page,
+}) => {
+  await page.request.post("/__ui/scenario", { form: { scenario: "error" } });
+  let late: () => void;
+  const landed = new Promise<void>((resolve) => (late = resolve));
+  let first = true;
+  await page.route(/\/api\/admin\/jobs\?kind=media/, async (route) => {
+    if (!first) return route.continue();
+    first = false;
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.fulfill({ json: { items: [] } });
+    late();
+  });
+  await page.goto("/admin/jobs");
+  const details = page
+    .getByRole("article")
+    .filter({ hasText: "Create preview files" })
+    .getByRole("button", { name: "Details", exact: true });
+  await details.click();
+  await page.keyboard.press("Escape");
+  await details.click();
+  await page.getByRole("tab", { name: "All runs" }).click();
+  const rows = page
+    .getByRole("dialog")
+    .getByRole("list", { name: "Runs" })
+    .getByRole("listitem");
+  await expect(rows.nth(1)).toBeVisible();
+  const count = await rows.count();
+  await landed;
+  await page.waitForTimeout(300);
+  await expect(rows).toHaveCount(count);
+});
+
 test("keeps a person's changes until Save, and Discard puts them back", async ({
   page,
 }) => {

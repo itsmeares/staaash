@@ -558,10 +558,12 @@ const eventSentence = (event: JsonJobEvent, clock: (iso: string) => string) =>
 function useRunEvents(jobId: string, version: string) {
   const [events, setEvents] = useState<JsonJobEvent[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
     setFailed(false);
+    setLoading(true);
     void fetch(`/api/admin/jobs/${encodeURIComponent(jobId)}/events`)
       .then(async (res) => {
         if (!res.ok) throw new Error();
@@ -570,12 +572,17 @@ function useRunEvents(jobId: string, version: string) {
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
   }, [jobId, version, attempt]);
-  return { events, failed, retry: () => setAttempt((n) => n + 1) };
+  // Steps shown during a reload may be out of date, so copying waits.
+  const ready = !loading && !failed ? events : null;
+  return { events, failed, ready, retry: () => setAttempt((n) => n + 1) };
 }
 
 const copyRunDetails = async (
@@ -666,7 +673,7 @@ function RunStory({
   onJobAction: (jobId: string, action: "retry" | "cancel") => void;
   timeZone: string;
 }) {
-  const { events, failed, retry } = useRunEvents(job.id, job.updatedAt);
+  const { events, failed, ready, retry } = useRunEvents(job.id, job.updatedAt);
   const action = runAction(effectiveStatus(job));
   return (
     <div className="grid gap-3.5 ps-9 pe-4 pt-1 pb-4">
@@ -687,8 +694,8 @@ function RunStory({
           </Button>
         ) : null}
         <Button
-          disabled={!events || failed}
-          onClick={() => events && void copyRunDetails(job, events)}
+          disabled={!ready}
+          onClick={() => ready && void copyRunDetails(job, ready)}
           size="xs"
           variant="outline"
         >
