@@ -31,6 +31,7 @@ import { getStorageChangeView } from "@/server/admin/storage-review";
 import { getUpdateState } from "@/server/admin/updates";
 import { resolveAppVersion } from "@/server/app-version";
 import { canAccessAdminSurface } from "@/server/access";
+import { toKeyViews } from "@/server/auth/keys";
 import { authService } from "@/server/auth/service";
 import type { AuthUser } from "@/server/auth/types";
 import { prismaFilesRepository } from "@/server/files/repository";
@@ -573,8 +574,10 @@ const userViews = user
           clockFormat: prefs.clockFormat as "12h" | "24h",
         },
         sessions: sessions
+          .filter((entry) => !entry.key)
           .map((entry) => toDevice(entry, session))
           .sort((a, b) => Number(b.current) - Number(a.current)),
+        keys: await toKeyViews(sessions),
         storage,
         profile: {
           name: session.user.displayName,
@@ -705,7 +708,10 @@ const adminViews = admin
           folders: row?.retainedFolderCount ?? 0,
           lastChange: row?.lastContentActivityAt ?? null,
         },
-        devices: sessions.map((entry) => toDevice(entry, session)),
+        devices: sessions
+          .filter((entry) => !entry.key)
+          .map((entry) => toDevice(entry, session)),
+        keys: await toKeyViews(sessions),
         signInUrl: new URL("/", getBaseUrl(c.req.raw.headers)).toString(),
       }),
     );

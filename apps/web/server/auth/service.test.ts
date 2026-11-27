@@ -238,6 +238,7 @@ const createRepo = (state: State): AuthRepository => ({
       ipAddress: params.metadata?.ipAddress ?? null,
       deviceName: params.metadata?.deviceName ?? null,
       deviceSessionId: params.metadata?.deviceSessionId ?? null,
+      key: null,
       lastSeenAt: params.now,
       createdAt: params.now,
       updatedAt: params.now,
@@ -407,6 +408,7 @@ describe("auth service", () => {
       ipAddress: "127.0.0.1",
       deviceName: null,
       deviceSessionId: null,
+      key: null,
       lastSeenAt: now,
       createdAt: now,
       updatedAt: now,
@@ -528,6 +530,43 @@ describe("auth service", () => {
     ).toEqual([here.session.id]);
   });
 
+  it("keeps a key with no end date alive while it is used, and a dated key to its date", async () => {
+    const state: State = { users: [], sessions: [] };
+    const service = createAuthService({
+      repo: createRepo(state),
+      now: () => now,
+      sessionMaxAgeDays: 30,
+    });
+    await service.bootstrap({
+      instanceName: "Test Staaash",
+      email: "owner@example.com",
+      password: "long-owner-password",
+    });
+    const asKey = async (noEnd: boolean) => {
+      const { sessionToken } = await service.signIn({
+        email: "owner@example.com",
+        password: "long-owner-password",
+      });
+      const session = state.sessions.at(-1)!;
+      const expiresAt = new Date(now.getTime() + 86_400_000);
+      Object.assign(session, {
+        deviceName: "Key",
+        key: { use: "script", readOnly: false, folderId: null, noEnd },
+        expiresAt,
+      });
+      return { sessionToken, expiresAt };
+    };
+
+    const open = await asKey(true);
+    expect((await service.getSession(open.sessionToken))?.expiresAt).toEqual(
+      new Date(now.getTime() + 365 * 86_400_000),
+    );
+    const dated = await asKey(false);
+    expect((await service.getSession(dated.sessionToken))?.expiresAt).toEqual(
+      dated.expiresAt,
+    );
+  });
+
   it("lets the owner sign out a session only for the user it belongs to", async () => {
     const state: State = { users: [], sessions: [] };
     const service = createAuthService({
@@ -633,6 +672,7 @@ describe("auth service", () => {
       ipAddress: null,
       deviceName: null,
       deviceSessionId: null,
+      key: null,
       lastSeenAt: now,
       createdAt: now,
       updatedAt: unchangedUpdatedAt,
@@ -647,6 +687,7 @@ describe("auth service", () => {
       ipAddress: null,
       deviceName: null,
       deviceSessionId: null,
+      key: null,
       lastSeenAt: unchangedUpdatedAt,
       createdAt: unchangedUpdatedAt,
       updatedAt: unchangedUpdatedAt,
@@ -723,6 +764,7 @@ describe("auth service", () => {
           ipAddress: null,
           deviceName: null,
           deviceSessionId: null,
+          key: null,
           lastSeenAt: now,
           createdAt: now,
           updatedAt: now,
@@ -737,6 +779,7 @@ describe("auth service", () => {
           ipAddress: null,
           deviceName: null,
           deviceSessionId: null,
+          key: null,
           lastSeenAt: now,
           createdAt: now,
           updatedAt: now,

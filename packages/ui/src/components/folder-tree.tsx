@@ -50,6 +50,7 @@ export function FolderTreeRow({
   trailing,
   open = false,
   picked,
+  tabStop = false,
   disabled,
   onPick,
   onToggle,
@@ -61,6 +62,8 @@ export function FolderTreeRow({
   trailing?: ReactNode;
   open?: boolean;
   picked: boolean;
+  /** The row Tab reaches while no row is picked. */
+  tabStop?: boolean;
   disabled: boolean;
   onPick: () => void;
   onToggle?: () => void;
@@ -77,14 +80,26 @@ export function FolderTreeRow({
       aria-level={depth + 1}
       aria-selected={picked}
       className={cn(
-        "relative flex h-9 cursor-pointer items-center gap-1.5 rounded-lg pe-2 text-body outline-none select-none hover:bg-hover aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-selected:selected-pill",
+        "relative flex h-9 cursor-pointer items-center gap-1.5 rounded-lg pe-2 text-body outline-none select-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-selected:selected-pill",
       )}
       ref={ref}
       role="treeitem"
       style={{ paddingInlineStart: 8 + depth * INDENT }}
-      tabIndex={picked ? 0 : -1}
+      tabIndex={picked || tabStop ? 0 : -1}
       onClick={pick}
       onKeyDown={(event) => {
+        // Arrows move focus between rows without picking one.
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          const rows = [
+            ...(event.currentTarget
+              .closest('[role="tree"]')
+              ?.querySelectorAll<HTMLElement>('[role="treeitem"]') ?? []),
+          ];
+          const step = event.key === "ArrowDown" ? 1 : -1;
+          rows[rows.indexOf(event.currentTarget) + step]?.focus();
+          return;
+        }
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
         pick();

@@ -198,6 +198,29 @@ export function SettingsCard({ children }: { children: ReactNode }) {
   );
 }
 
+/** A named group of cards inside a category, with an action beside the name. */
+export function SettingsGroup({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section aria-label={title} className="grid gap-2.5">
+      <div className="flex min-h-8 items-center justify-between gap-3">
+        <h3 className="m-0 font-sans text-label font-medium text-muted-foreground">
+          {title}
+        </h3>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
 /** A label on the left and one control in the shared 200px column. */
 export function SettingsRow({
   label,

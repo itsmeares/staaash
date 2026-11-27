@@ -3,6 +3,7 @@ import { authRoutes } from "@/server/http/routes/auth";
 import { desktopRoutes } from "@/server/http/routes/desktop";
 import { filesRoutes } from "@/server/http/routes/files";
 import { healthRoutes } from "@/server/http/routes/health";
+import { mcpRoutes } from "@/server/http/routes/mcp";
 import { publicShareRoutes } from "@/server/http/routes/public-shares";
 import { searchRoutes } from "@/server/http/routes/search";
 import { shareRoutes } from "@/server/http/routes/shares";
@@ -22,6 +23,7 @@ const app = createApp()
   .route("/", searchRoutes)
   .route("/", syncRoutes)
   .route("/", adminRoutes)
+  .route("/", mcpRoutes)
   .route("/", viewRoutes);
 
 export type AppType = typeof app;

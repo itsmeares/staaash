@@ -856,6 +856,32 @@ describe("database-free sample drive", () => {
       )?.name,
     ).toBe("New coast.jpg");
   });
+  it("keeps each person's keys apart", async () => {
+    const client = browser();
+    type Settings = InferResponseType<typeof api.api.views.settings.$get, 200>;
+    const keyNames = async (path: string) =>
+      (await client.read<Pick<Settings, "keys">>(path)).keys.map(
+        (key) => key.name,
+      );
+    expect(await keyNames("/api/views/settings")).toEqual([
+      "Claude Code",
+      "Nightly backup",
+    ]);
+    expect(await keyNames("/api/views/admin/users/member")).toEqual([
+      "Open WebUI",
+    ]);
+
+    await client.post("/api/user/sessions/revoke", { sessionId: "key-claude" });
+    expect(await keyNames("/api/views/settings")).toEqual(["Nightly backup"]);
+    await client.post("/api/admin/users/member/password-reset");
+    expect(await keyNames("/api/views/admin/users/member")).toEqual([]);
+    await client.post("/api/user/password", {
+      currentPassword: "preview-password",
+      password: "another-password",
+      confirmPassword: "another-password",
+    });
+    expect(await keyNames("/api/views/settings")).toEqual([]);
+  });
   it("isolates browser sessions and restores the seed on reset", async () => {
     const preview = createNodePreviewApp();
     const a = browser(preview),

@@ -13,6 +13,20 @@ with the `Host` header. The desktop app signs in through the browser and sends
 its device token as `Authorization: Bearer <token>`. Device tokens cannot use
 admin routes.
 
+API keys are sessions made by hand in Settings and sent the same way. They
+start with `stsh_`, and only their hash is stored. A key works only on `/mcp`
+and the `/api/files`, `/api/uploads`, `/api/shares`, `/api/search` and
+`/api/sync` routes; anywhere else it counts as signed out. An `ai` key works
+only on `/mcp`. A read-only key may only read, plus `POST /api/files/archives`
+to pack a zip. Keys never work as a cookie, on device-only routes, or on admin
+routes.
+
+`/mcp` serves the Model Context Protocol over Streamable HTTP, statelessly, and
+takes keys only. Its tools name files by path from the key's root: the key's
+folder, or the whole drive. A path is walked down from that root, so nothing
+outside it can be named. Changes go through the same services as the web app,
+and nothing there deletes for good or makes share links.
+
 ## Large folder changes
 
 A folder change sent with `Prefer: respond-async` whose tree holds more than

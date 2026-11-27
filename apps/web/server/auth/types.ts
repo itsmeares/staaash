@@ -46,16 +46,29 @@ export type OidcIdentity = {
   groups: string[];
 };
 
+/** What an API key may do. */
+export type SessionKey = {
+  /** "ai" works only through MCP; "script" works on the API too. */
+  use: "ai" | "script";
+  readOnly: boolean;
+  /** An AI key held to this folder; null reaches the whole drive. */
+  folderId: string | null;
+  /** No end date: valid while it is used at least once a year. */
+  noEnd: boolean;
+};
+
 export type AuthSession = {
   id: string;
   expiresAt: Date;
   userAgent: string | null;
   ipAddress: string | null;
   lastSeenAt: Date | null;
-  /** Set for a desktop device signed in with a device token. */
+  /** Set for a desktop device signed in with a device token, and an API key's name. */
   deviceName: string | null;
   /** Set for an app window's browser session, opened by that device. */
   deviceSessionId: string | null;
+  /** Set for an API key made in Settings. */
+  key: SessionKey | null;
   createdAt: Date;
   updatedAt: Date;
   user: AuthUser;

@@ -7,6 +7,7 @@ import { Badge } from "@staaash/ui/components/badge";
 import { Button } from "@staaash/ui/components/button";
 import { toast } from "@staaash/ui/components/toast";
 import { formatRelativeTime } from "@/lib/time";
+import { useRefresh } from "@/lib/use-refresh";
 import type { Device } from "@/lib/user-agent";
 
 const PHONE = /iPhone|iPad|Android/;
@@ -16,27 +17,27 @@ const PHONE = /iPhone|iPad|Android/;
  * see someone else's list with addresses hidden until they ask for them.
  */
 export function DeviceList({
-  devices: initial,
+  devices,
   hideAddresses = false,
+  hasKeys = false,
   onSignOut,
   onSignOutOthers,
 }: {
   devices: Device[];
   hideAddresses?: boolean;
+  /** Signing out everywhere else deletes keys too, so it is offered for them alone. */
+  hasKeys?: boolean;
   onSignOut?: (sessionId: string) => Promise<void>;
   onSignOutOthers?: () => Promise<void>;
 }) {
   const { now, timeZone } = useTime();
-  const [devices, setDevices] = useState(initial);
+  const refresh = useRefresh();
   const [showAddresses, setShowAddresses] = useState(!hideAddresses);
 
-  const run = async (
-    action: () => Promise<void>,
-    keep: (d: Device) => boolean,
-  ) => {
+  const run = async (action: () => Promise<void>) => {
     try {
       await action();
-      setDevices((list) => list.filter(keep));
+      await refresh();
     } catch (caught) {
       toast.error(
         caught instanceof Error ? caught.message : "Could not sign out.",
@@ -86,12 +87,7 @@ export function DeviceList({
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() =>
-                    void run(
-                      () => onSignOut(device.id),
-                      (entry) => entry.id !== device.id,
-                    )
-                  }
+                  onClick={() => void run(() => onSignOut(device.id))}
                 >
                   Sign out
                 </Button>
@@ -110,11 +106,12 @@ export function DeviceList({
             {showAddresses ? "Hide addresses" : "Show addresses"}
           </Button>
         ) : null}
-        {onSignOutOthers && devices.some((device) => !device.current) ? (
+        {onSignOutOthers &&
+        (hasKeys || devices.some((device) => !device.current)) ? (
           <Button
             size="sm"
             variant="outline"
-            onClick={() => void run(onSignOutOthers, (entry) => entry.current)}
+            onClick={() => void run(onSignOutOthers)}
           >
             Sign out everywhere else
           </Button>

@@ -7,6 +7,7 @@ import type { api } from "../../lib/api";
 import type { Plain } from "../../lib/plain";
 import { plain } from "../../lib/plain";
 import { formatBytes } from "../../lib/format-bytes";
+import type { KeyView } from "../../server/auth/keys";
 import type { FileSummary, FolderSummary } from "../../server/files/types";
 import type { RecentClientItem } from "../../src/workspace/recent/recent-helpers";
 import {
@@ -178,6 +179,48 @@ export function createState(scenario: Scenario = "owner") {
       import("../../server/files/types").BatchMoveOperationResponse
     >(),
     sessions: ["current", "phone"],
+    keys: new Map<string, KeyView[]>([
+      [
+        "owner",
+        [
+          {
+            id: "key-claude",
+            name: "Claude Code",
+            use: "ai",
+            readOnly: false,
+            folder: { id: "folder-trips", name: "Trips" },
+            lastUsedAt: timestamp,
+            expiresAt: "2027-01-27T12:00:00.000Z",
+            createdAt: timestamp,
+          },
+          {
+            id: "key-backup",
+            name: "Nightly backup",
+            use: "script",
+            readOnly: true,
+            folder: null,
+            lastUsedAt: timestamp,
+            expiresAt: null,
+            createdAt: timestamp,
+          },
+        ],
+      ],
+      [
+        "member",
+        [
+          {
+            id: "key-webui",
+            name: "Open WebUI",
+            use: "ai",
+            readOnly: true,
+            folder: null,
+            lastUsedAt: null,
+            expiresAt: "2027-02-25T12:00:00.000Z",
+            createdAt: timestamp,
+          },
+        ],
+      ],
+    ]),
     settings: {
       ...plain(settingsSchema.parse(SETTINGS_DEFAULTS)),
       id: "singleton",

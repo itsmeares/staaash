@@ -237,6 +237,15 @@ const toAuthSession = (
   lastSeenAt: session.lastSeenAt,
   deviceName: session.deviceName,
   deviceSessionId: session.deviceSessionId,
+  key: session.keyUse
+    ? {
+        // An unknown use gets the narrower one.
+        use: session.keyUse === "script" ? "script" : "ai",
+        readOnly: session.keyReadOnly,
+        folderId: session.keyFolderId,
+        noEnd: session.keyNoEnd,
+      }
+    : null,
   createdAt: session.createdAt,
   updatedAt: session.updatedAt,
   user: toAuthUser(session.user),

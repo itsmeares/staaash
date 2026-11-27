@@ -35,6 +35,10 @@ export type SessionMinAggregateOutputType = {
   lastSeenAt: Date | null
   deviceName: string | null
   deviceSessionId: string | null
+  keyUse: string | null
+  keyReadOnly: boolean | null
+  keyFolderId: string | null
+  keyNoEnd: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -50,6 +54,10 @@ export type SessionMaxAggregateOutputType = {
   lastSeenAt: Date | null
   deviceName: string | null
   deviceSessionId: string | null
+  keyUse: string | null
+  keyReadOnly: boolean | null
+  keyFolderId: string | null
+  keyNoEnd: boolean | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -65,6 +73,10 @@ export type SessionCountAggregateOutputType = {
   lastSeenAt: number
   deviceName: number
   deviceSessionId: number
+  keyUse: number
+  keyReadOnly: number
+  keyFolderId: number
+  keyNoEnd: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -82,6 +94,10 @@ export type SessionMinAggregateInputType = {
   lastSeenAt?: true
   deviceName?: true
   deviceSessionId?: true
+  keyUse?: true
+  keyReadOnly?: true
+  keyFolderId?: true
+  keyNoEnd?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -97,6 +113,10 @@ export type SessionMaxAggregateInputType = {
   lastSeenAt?: true
   deviceName?: true
   deviceSessionId?: true
+  keyUse?: true
+  keyReadOnly?: true
+  keyFolderId?: true
+  keyNoEnd?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -112,6 +132,10 @@ export type SessionCountAggregateInputType = {
   lastSeenAt?: true
   deviceName?: true
   deviceSessionId?: true
+  keyUse?: true
+  keyReadOnly?: true
+  keyFolderId?: true
+  keyNoEnd?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -200,6 +224,10 @@ export type SessionGroupByOutputType = {
   lastSeenAt: Date | null
   deviceName: string | null
   deviceSessionId: string | null
+  keyUse: string | null
+  keyReadOnly: boolean
+  keyFolderId: string | null
+  keyNoEnd: boolean
   createdAt: Date
   updatedAt: Date
   _count: SessionCountAggregateOutputType | null
@@ -236,6 +264,10 @@ export type SessionWhereInput = {
   lastSeenAt?: Prisma.DateTimeNullableFilter<"Session"> | Date | string | null
   deviceName?: Prisma.StringNullableFilter<"Session"> | string | null
   deviceSessionId?: Prisma.StringNullableFilter<"Session"> | string | null
+  keyUse?: Prisma.StringNullableFilter<"Session"> | string | null
+  keyReadOnly?: Prisma.BoolFilter<"Session"> | boolean
+  keyFolderId?: Prisma.StringNullableFilter<"Session"> | string | null
+  keyNoEnd?: Prisma.BoolFilter<"Session"> | boolean
   createdAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
@@ -254,6 +286,10 @@ export type SessionOrderByWithRelationInput = {
   lastSeenAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deviceName?: Prisma.SortOrderInput | Prisma.SortOrder
   deviceSessionId?: Prisma.SortOrderInput | Prisma.SortOrder
+  keyUse?: Prisma.SortOrderInput | Prisma.SortOrder
+  keyReadOnly?: Prisma.SortOrder
+  keyFolderId?: Prisma.SortOrderInput | Prisma.SortOrder
+  keyNoEnd?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
@@ -275,6 +311,10 @@ export type SessionWhereUniqueInput = Prisma.AtLeast<{
   lastSeenAt?: Prisma.DateTimeNullableFilter<"Session"> | Date | string | null
   deviceName?: Prisma.StringNullableFilter<"Session"> | string | null
   deviceSessionId?: Prisma.StringNullableFilter<"Session"> | string | null
+  keyUse?: Prisma.StringNullableFilter<"Session"> | string | null
+  keyReadOnly?: Prisma.BoolFilter<"Session"> | boolean
+  keyFolderId?: Prisma.StringNullableFilter<"Session"> | string | null
+  keyNoEnd?: Prisma.BoolFilter<"Session"> | boolean
   createdAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
@@ -293,6 +333,10 @@ export type SessionOrderByWithAggregationInput = {
   lastSeenAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deviceName?: Prisma.SortOrderInput | Prisma.SortOrder
   deviceSessionId?: Prisma.SortOrderInput | Prisma.SortOrder
+  keyUse?: Prisma.SortOrderInput | Prisma.SortOrder
+  keyReadOnly?: Prisma.SortOrder
+  keyFolderId?: Prisma.SortOrderInput | Prisma.SortOrder
+  keyNoEnd?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.SessionCountOrderByAggregateInput
@@ -314,6 +358,10 @@ export type SessionScalarWhereWithAggregatesInput = {
   lastSeenAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Session"> | Date | string | null
   deviceName?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
   deviceSessionId?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
+  keyUse?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
+  keyReadOnly?: Prisma.BoolWithAggregatesFilter<"Session"> | boolean
+  keyFolderId?: Prisma.StringNullableWithAggregatesFilter<"Session"> | string | null
+  keyNoEnd?: Prisma.BoolWithAggregatesFilter<"Session"> | boolean
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Session"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Session"> | Date | string
 }
@@ -327,6 +375,10 @@ export type SessionCreateInput = {
   ipAddress?: string | null
   lastSeenAt?: Date | string | null
   deviceName?: string | null
+  keyUse?: string | null
+  keyReadOnly?: boolean
+  keyFolderId?: string | null
+  keyNoEnd?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutSessionsInput
@@ -345,6 +397,10 @@ export type SessionUncheckedCreateInput = {
   lastSeenAt?: Date | string | null
   deviceName?: string | null
   deviceSessionId?: string | null
+  keyUse?: string | null
+  keyReadOnly?: boolean
+  keyFolderId?: string | null
+  keyNoEnd?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   webSessions?: Prisma.SessionUncheckedCreateNestedManyWithoutDeviceSessionInput
@@ -359,6 +415,10 @@ export type SessionUpdateInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyUse?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyReadOnly?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  keyFolderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyNoEnd?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutSessionsNestedInput
@@ -377,6 +437,10 @@ export type SessionUncheckedUpdateInput = {
   lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyUse?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyReadOnly?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  keyFolderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyNoEnd?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   webSessions?: Prisma.SessionUncheckedUpdateManyWithoutDeviceSessionNestedInput
@@ -393,6 +457,10 @@ export type SessionCreateManyInput = {
   lastSeenAt?: Date | string | null
   deviceName?: string | null
   deviceSessionId?: string | null
+  keyUse?: string | null
+  keyReadOnly?: boolean
+  keyFolderId?: string | null
+  keyNoEnd?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -406,6 +474,10 @@ export type SessionUpdateManyMutationInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyUse?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyReadOnly?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  keyFolderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyNoEnd?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -421,6 +493,10 @@ export type SessionUncheckedUpdateManyInput = {
   lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyUse?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyReadOnly?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  keyFolderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyNoEnd?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -451,6 +527,10 @@ export type SessionCountOrderByAggregateInput = {
   lastSeenAt?: Prisma.SortOrder
   deviceName?: Prisma.SortOrder
   deviceSessionId?: Prisma.SortOrder
+  keyUse?: Prisma.SortOrder
+  keyReadOnly?: Prisma.SortOrder
+  keyFolderId?: Prisma.SortOrder
+  keyNoEnd?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -466,6 +546,10 @@ export type SessionMaxOrderByAggregateInput = {
   lastSeenAt?: Prisma.SortOrder
   deviceName?: Prisma.SortOrder
   deviceSessionId?: Prisma.SortOrder
+  keyUse?: Prisma.SortOrder
+  keyReadOnly?: Prisma.SortOrder
+  keyFolderId?: Prisma.SortOrder
+  keyNoEnd?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -481,6 +565,10 @@ export type SessionMinOrderByAggregateInput = {
   lastSeenAt?: Prisma.SortOrder
   deviceName?: Prisma.SortOrder
   deviceSessionId?: Prisma.SortOrder
+  keyUse?: Prisma.SortOrder
+  keyReadOnly?: Prisma.SortOrder
+  keyFolderId?: Prisma.SortOrder
+  keyNoEnd?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -594,6 +682,10 @@ export type SessionCreateWithoutUserInput = {
   ipAddress?: string | null
   lastSeenAt?: Date | string | null
   deviceName?: string | null
+  keyUse?: string | null
+  keyReadOnly?: boolean
+  keyFolderId?: string | null
+  keyNoEnd?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   deviceSession?: Prisma.SessionCreateNestedOneWithoutWebSessionsInput
@@ -610,6 +702,10 @@ export type SessionUncheckedCreateWithoutUserInput = {
   lastSeenAt?: Date | string | null
   deviceName?: string | null
   deviceSessionId?: string | null
+  keyUse?: string | null
+  keyReadOnly?: boolean
+  keyFolderId?: string | null
+  keyNoEnd?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   webSessions?: Prisma.SessionUncheckedCreateNestedManyWithoutDeviceSessionInput
@@ -655,6 +751,10 @@ export type SessionScalarWhereInput = {
   lastSeenAt?: Prisma.DateTimeNullableFilter<"Session"> | Date | string | null
   deviceName?: Prisma.StringNullableFilter<"Session"> | string | null
   deviceSessionId?: Prisma.StringNullableFilter<"Session"> | string | null
+  keyUse?: Prisma.StringNullableFilter<"Session"> | string | null
+  keyReadOnly?: Prisma.BoolFilter<"Session"> | boolean
+  keyFolderId?: Prisma.StringNullableFilter<"Session"> | string | null
+  keyNoEnd?: Prisma.BoolFilter<"Session"> | boolean
   createdAt?: Prisma.DateTimeFilter<"Session"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Session"> | Date | string
 }
@@ -668,6 +768,10 @@ export type SessionCreateWithoutWebSessionsInput = {
   ipAddress?: string | null
   lastSeenAt?: Date | string | null
   deviceName?: string | null
+  keyUse?: string | null
+  keyReadOnly?: boolean
+  keyFolderId?: string | null
+  keyNoEnd?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutSessionsInput
@@ -685,6 +789,10 @@ export type SessionUncheckedCreateWithoutWebSessionsInput = {
   lastSeenAt?: Date | string | null
   deviceName?: string | null
   deviceSessionId?: string | null
+  keyUse?: string | null
+  keyReadOnly?: boolean
+  keyFolderId?: string | null
+  keyNoEnd?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -703,6 +811,10 @@ export type SessionCreateWithoutDeviceSessionInput = {
   ipAddress?: string | null
   lastSeenAt?: Date | string | null
   deviceName?: string | null
+  keyUse?: string | null
+  keyReadOnly?: boolean
+  keyFolderId?: string | null
+  keyNoEnd?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutSessionsInput
@@ -719,6 +831,10 @@ export type SessionUncheckedCreateWithoutDeviceSessionInput = {
   ipAddress?: string | null
   lastSeenAt?: Date | string | null
   deviceName?: string | null
+  keyUse?: string | null
+  keyReadOnly?: boolean
+  keyFolderId?: string | null
+  keyNoEnd?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
   webSessions?: Prisma.SessionUncheckedCreateNestedManyWithoutDeviceSessionInput
@@ -754,6 +870,10 @@ export type SessionUpdateWithoutWebSessionsInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyUse?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyReadOnly?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  keyFolderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyNoEnd?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutSessionsNestedInput
@@ -771,6 +891,10 @@ export type SessionUncheckedUpdateWithoutWebSessionsInput = {
   lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyUse?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyReadOnly?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  keyFolderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyNoEnd?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -801,6 +925,10 @@ export type SessionCreateManyUserInput = {
   lastSeenAt?: Date | string | null
   deviceName?: string | null
   deviceSessionId?: string | null
+  keyUse?: string | null
+  keyReadOnly?: boolean
+  keyFolderId?: string | null
+  keyNoEnd?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -814,6 +942,10 @@ export type SessionUpdateWithoutUserInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyUse?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyReadOnly?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  keyFolderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyNoEnd?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deviceSession?: Prisma.SessionUpdateOneWithoutWebSessionsNestedInput
@@ -830,6 +962,10 @@ export type SessionUncheckedUpdateWithoutUserInput = {
   lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyUse?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyReadOnly?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  keyFolderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyNoEnd?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   webSessions?: Prisma.SessionUncheckedUpdateManyWithoutDeviceSessionNestedInput
@@ -845,6 +981,10 @@ export type SessionUncheckedUpdateManyWithoutUserInput = {
   lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deviceSessionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyUse?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyReadOnly?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  keyFolderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyNoEnd?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -859,6 +999,10 @@ export type SessionCreateManyDeviceSessionInput = {
   ipAddress?: string | null
   lastSeenAt?: Date | string | null
   deviceName?: string | null
+  keyUse?: string | null
+  keyReadOnly?: boolean
+  keyFolderId?: string | null
+  keyNoEnd?: boolean
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -872,6 +1016,10 @@ export type SessionUpdateWithoutDeviceSessionInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyUse?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyReadOnly?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  keyFolderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyNoEnd?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutSessionsNestedInput
@@ -888,6 +1036,10 @@ export type SessionUncheckedUpdateWithoutDeviceSessionInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyUse?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyReadOnly?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  keyFolderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyNoEnd?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   webSessions?: Prisma.SessionUncheckedUpdateManyWithoutDeviceSessionNestedInput
@@ -903,6 +1055,10 @@ export type SessionUncheckedUpdateManyWithoutDeviceSessionInput = {
   ipAddress?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   lastSeenAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deviceName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyUse?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyReadOnly?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  keyFolderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  keyNoEnd?: Prisma.BoolFieldUpdateOperationsInput | boolean
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -949,6 +1105,10 @@ export type SessionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   lastSeenAt?: boolean
   deviceName?: boolean
   deviceSessionId?: boolean
+  keyUse?: boolean
+  keyReadOnly?: boolean
+  keyFolderId?: boolean
+  keyNoEnd?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -968,6 +1128,10 @@ export type SessionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   lastSeenAt?: boolean
   deviceName?: boolean
   deviceSessionId?: boolean
+  keyUse?: boolean
+  keyReadOnly?: boolean
+  keyFolderId?: boolean
+  keyNoEnd?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -985,6 +1149,10 @@ export type SessionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   lastSeenAt?: boolean
   deviceName?: boolean
   deviceSessionId?: boolean
+  keyUse?: boolean
+  keyReadOnly?: boolean
+  keyFolderId?: boolean
+  keyNoEnd?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -1002,11 +1170,15 @@ export type SessionSelectScalar = {
   lastSeenAt?: boolean
   deviceName?: boolean
   deviceSessionId?: boolean
+  keyUse?: boolean
+  keyReadOnly?: boolean
+  keyFolderId?: boolean
+  keyNoEnd?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type SessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "tokenHash" | "expiresAt" | "revokedAt" | "userAgent" | "ipAddress" | "lastSeenAt" | "deviceName" | "deviceSessionId" | "createdAt" | "updatedAt", ExtArgs["result"]["session"]>
+export type SessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "tokenHash" | "expiresAt" | "revokedAt" | "userAgent" | "ipAddress" | "lastSeenAt" | "deviceName" | "deviceSessionId" | "keyUse" | "keyReadOnly" | "keyFolderId" | "keyNoEnd" | "createdAt" | "updatedAt", ExtArgs["result"]["session"]>
 export type SessionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   deviceSession?: boolean | Prisma.Session$deviceSessionArgs<ExtArgs>
@@ -1046,6 +1218,21 @@ export type $SessionPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
      * A browser session opened by a device's app window; revoking the device ends it.
      */
     deviceSessionId: string | null
+    /**
+     * Set for an API key: "ai" works only through MCP, "script" on the API too.
+     * A key's name is in deviceName, so the rules that keep devices out of
+     * admin routes keep keys out too.
+     */
+    keyUse: string | null
+    keyReadOnly: boolean
+    /**
+     * An AI key held to this folder. A missing or trashed folder refuses the key.
+     */
+    keyFolderId: string | null
+    /**
+     * No end date: the key stays valid while it is used at least once a year.
+     */
+    keyNoEnd: boolean
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["session"]>
@@ -1484,6 +1671,10 @@ export interface SessionFieldRefs {
   readonly lastSeenAt: Prisma.FieldRef<"Session", 'DateTime'>
   readonly deviceName: Prisma.FieldRef<"Session", 'String'>
   readonly deviceSessionId: Prisma.FieldRef<"Session", 'String'>
+  readonly keyUse: Prisma.FieldRef<"Session", 'String'>
+  readonly keyReadOnly: Prisma.FieldRef<"Session", 'Boolean'>
+  readonly keyFolderId: Prisma.FieldRef<"Session", 'String'>
+  readonly keyNoEnd: Prisma.FieldRef<"Session", 'Boolean'>
   readonly createdAt: Prisma.FieldRef<"Session", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"Session", 'DateTime'>
 }

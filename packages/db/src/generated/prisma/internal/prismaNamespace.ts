@@ -2656,6 +2656,10 @@ export const SessionScalarFieldEnum = {
   lastSeenAt: 'lastSeenAt',
   deviceName: 'deviceName',
   deviceSessionId: 'deviceSessionId',
+  keyUse: 'keyUse',
+  keyReadOnly: 'keyReadOnly',
+  keyFolderId: 'keyFolderId',
+  keyNoEnd: 'keyNoEnd',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

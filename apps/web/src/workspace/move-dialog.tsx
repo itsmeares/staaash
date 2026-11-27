@@ -186,7 +186,12 @@ function MovePicker({
     if (childrenOf.has(id)) toggle(id, true);
   };
 
-  const folderRow = (folder: MoveTarget, depth: number, label?: string) => (
+  const folderRow = (
+    folder: MoveTarget,
+    depth: number,
+    label?: string,
+    tabStop?: boolean,
+  ) => (
     <TreeRow
       depth={depth}
       disabled={blocked(folder.id)}
@@ -195,6 +200,7 @@ function MovePicker({
       note={noteFor(folder.id, here, movingIds)}
       open={expanded.has(folder.id)}
       picked={picked === folder.id}
+      tabStop={tabStop}
       onPick={() => (label ? setPicked(folder.id) : pick(folder.id))}
       onToggle={
         !label && childrenOf.has(folder.id) && !movingIds.has(folder.id)
@@ -233,6 +239,16 @@ function MovePicker({
   const matches = (tree?.folders ?? []).filter(
     (folder) => !folder.isFilesRoot && folder.name.toLowerCase().includes(term),
   );
+  // Tab lands on the picked row, or on the first row when that one is not on screen.
+  const pickedShown =
+    picked !== null &&
+    (term
+      ? matches.some((folder) => folder.id === picked)
+      : lineage(byId, picked)
+          .slice(1)
+          .every(
+            (at) => at === root?.id || (expanded.has(at) && !movingIds.has(at)),
+          ));
   const startNewFolder = () => {
     const parentId = picked && !blocked(picked) ? picked : root?.id;
     if (!parentId) return;
@@ -253,7 +269,7 @@ function MovePicker({
       );
     }
     if (term) {
-      return matches.map((folder) => (
+      return matches.map((folder, index) => (
         <div key={folder.id}>
           {folderRow(
             folder,
@@ -263,6 +279,7 @@ function MovePicker({
               .reverse()
               .map(nameOf)
               .join(" / "),
+            !pickedShown && index === 0,
           )}
         </div>
       ));
@@ -276,6 +293,7 @@ function MovePicker({
           label={<span className="font-medium">{tree.instanceName}</span>}
           note={noteFor(root.id, here, movingIds)}
           picked={picked === root.id}
+          tabStop={!pickedShown}
           onPick={() => setPicked(root.id)}
         />
         {branch(root.id, 1)}

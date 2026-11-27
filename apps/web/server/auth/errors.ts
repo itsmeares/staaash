@@ -24,7 +24,11 @@ export type AuthErrorCode =
   | "OIDC_NOT_INVITED"
   | "OIDC_INVITE_INVALID"
   | "OIDC_EMAIL_REQUIRED"
-  | "OIDC_LAST_SIGN_IN";
+  | "OIDC_LAST_SIGN_IN"
+  | "KEY_FOLDER_INVALID"
+  | "KEY_AI_ONLY"
+  | "KEY_READ_ONLY"
+  | "KEY_REQUIRED";
 
 const authErrorMessages: Record<AuthErrorCode, string> = {
   ACCESS_DENIED: "You do not have access to that surface.",
@@ -59,6 +63,11 @@ const authErrorMessages: Record<AuthErrorCode, string> = {
     "Single sign-on did not share an email address, which a new account needs.",
   OIDC_LAST_SIGN_IN:
     "Set a password first, or this account would have no way to sign in.",
+  KEY_FOLDER_INVALID:
+    "Pick one of your folders. Only keys for AI apps can be held to one folder.",
+  KEY_AI_ONLY: "This key is for AI apps. It works only through MCP, at /mcp.",
+  KEY_READ_ONLY: "This key is read only.",
+  KEY_REQUIRED: "MCP needs an API key. Make one in Settings, under Signed in.",
 };
 
 const authErrorStatuses: Record<AuthErrorCode, number> = {
@@ -88,6 +97,10 @@ const authErrorStatuses: Record<AuthErrorCode, number> = {
   OIDC_INVITE_INVALID: 400,
   OIDC_EMAIL_REQUIRED: 400,
   OIDC_LAST_SIGN_IN: 409,
+  KEY_FOLDER_INVALID: 400,
+  KEY_AI_ONLY: 403,
+  KEY_READ_ONLY: 403,
+  KEY_REQUIRED: 403,
 };
 
 export class AuthError extends Error {

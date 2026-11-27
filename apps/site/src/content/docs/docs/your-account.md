@@ -13,7 +13,7 @@ Changes in Appearance and Date and time wait for you to press **Save**. **Reset 
 ## Profile
 
 - **Edit** changes your name and photo. **Upload photo** picks a picture, and **Remove photo** goes back to your initials.
-- **Change** next to **Password** sets a new password of at least 12 characters. All your other devices are signed out when you do.
+- **Change** next to **Password** sets a new password of at least 12 characters. All your other devices are signed out when you do, and from v2.1.0 your keys are deleted.
 - If your drive uses [single sign-on](/docs/single-sign-on/), **Connect** next to the provider's name lets you sign in with it. **Disconnect** shows only while you also have a password.
 - **Role** shows whether you are the owner or a member.
 
@@ -48,6 +48,10 @@ Every browser and desktop app signed in to your account, with when it was last s
 - Each one shows the network address it last used.
 
 Sign out a lost phone or computer here. To add the desktop app, see [Desktop App](/docs/desktop-app/).
+
+:::note[Coming in v2.1.0]
+**Keys** lists the keys you made for AI apps and scripts, with when each was last used and when it ends. **New key** makes one, and **Delete** ends one. **Sign out everywhere else** deletes your keys too. See [API Keys and AI Apps](/docs/api-keys/).
+:::
 
 ## Updates
 

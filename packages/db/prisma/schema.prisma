@@ -152,6 +152,15 @@ model Session {
   deviceName String?
   /// A browser session opened by a device's app window; revoking the device ends it.
   deviceSessionId String?
+  /// Set for an API key: "ai" works only through MCP, "script" on the API too.
+  /// A key's name is in deviceName, so the rules that keep devices out of
+  /// admin routes keep keys out too.
+  keyUse      String?
+  keyReadOnly Boolean   @default(false)
+  /// An AI key held to this folder. A missing or trashed folder refuses the key.
+  keyFolderId String?
+  /// No end date: the key stays valid while it is used at least once a year.
+  keyNoEnd    Boolean   @default(false)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)

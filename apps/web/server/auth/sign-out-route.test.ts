@@ -21,6 +21,7 @@ const session: AuthSession = {
   lastSeenAt: createdAt,
   deviceName: "Desktop",
   deviceSessionId: "device-session-id",
+  key: null,
   createdAt,
   updatedAt: createdAt,
   user: {

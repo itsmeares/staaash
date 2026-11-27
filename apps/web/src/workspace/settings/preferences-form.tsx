@@ -15,12 +15,17 @@ import { useEffect, useRef, useState } from "react";
 import { AUTO_TIME_ZONE } from "@staaash/config/time-zone";
 
 import { emptyTrash } from "@/src/workspace/trash-moves";
+import { confirmAction } from "@/components/confirm-dialog";
 import { DeviceList } from "@/components/device-list";
+import { KeyList } from "@/components/key-list";
+import type { KeyView } from "@/server/auth/keys";
+import { NewKeyButton } from "./new-key";
 import type { Device } from "@/lib/user-agent";
 import { MiniDrive } from "@/components/mini-drive";
 import {
   ChangedDot,
   SettingsCard,
+  SettingsGroup,
   SettingsLayout,
   SettingsRow,
 } from "@/components/settings-layout";
@@ -318,7 +323,9 @@ function PasswordEditor({ onDone }: { onDone: () => void }) {
         const data = Object.fromEntries(new FormData(event.currentTarget));
         try {
           await post("/api/user/password", data);
-          toast.success("Password changed. Other devices were signed out.");
+          toast.success(
+            "Password changed. Other devices were signed out, and your keys were deleted.",
+          );
           onDone();
           void refresh();
         } catch (caught) {
@@ -359,6 +366,9 @@ function PasswordEditor({ onDone }: { onDone: () => void }) {
           type="password"
         />
       </label>
+      <p className="m-0 text-label text-muted-foreground">
+        This signs out your other devices and deletes your keys.
+      </p>
       <div className="flex justify-end gap-2">
         <Button size="sm" type="button" variant="ghost" onClick={onDone}>
           Cancel
@@ -693,12 +703,14 @@ export function PersonalSettings({
   prefs,
   storage,
   sessions,
+  keys,
 }: {
   profile: Profile;
   isOwner: boolean;
   prefs: Preferences;
   storage: StorageBreakdown;
   sessions: Device[];
+  keys: KeyView[];
 }) {
   const { draft, category, pending } = usePreferenceDraft(prefs);
   const categories = [
@@ -739,13 +751,38 @@ export function PersonalSettings({
       label: "Signed in",
       icon: KeyRound,
       content: (
-        <DeviceList
-          devices={sessions}
-          onSignOut={(sessionId) =>
-            post("/api/user/sessions/revoke", { sessionId })
-          }
-          onSignOutOthers={() => post("/api/user/sessions/revoke", {})}
-        />
+        <>
+          <SettingsGroup title="Browsers and devices">
+            <DeviceList
+              devices={sessions}
+              hasKeys={keys.length > 0}
+              onSignOut={(sessionId) =>
+                post("/api/user/sessions/revoke", { sessionId })
+              }
+              onSignOutOthers={async () => {
+                const confirmed =
+                  keys.length === 0 ||
+                  (await confirmAction({
+                    title: "Sign out everywhere else?",
+                    description:
+                      "Your keys are deleted too, and the apps that use them stop working.",
+                    confirmLabel: "Sign out",
+                    destructive: true,
+                  }));
+                if (confirmed) await post("/api/user/sessions/revoke", {});
+              }}
+            />
+          </SettingsGroup>
+          <SettingsGroup action={<NewKeyButton />} title="Keys">
+            <KeyList
+              empty="A key lets an AI app or a script reach your files."
+              keys={keys}
+              onDelete={(sessionId) =>
+                post("/api/user/sessions/revoke", { sessionId })
+              }
+            />
+          </SettingsGroup>
+        </>
       ),
     },
   ];
