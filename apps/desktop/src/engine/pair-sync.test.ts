@@ -15,7 +15,12 @@ import { afterEach, expect, it, vi } from "vite-plus/test";
 import type { Activity } from "../shared/types";
 import { ApiError, createApi } from "./api";
 import * as local from "./local";
-import { type PairContext, syncPair, type Waiting } from "./pair-sync";
+import {
+  type PairContext,
+  type RunningPass,
+  syncPair,
+  type Waiting,
+} from "./pair-sync";
 import { RemoteTree } from "./remote";
 import { Store } from "./store";
 import { LANES, SMALL_UPLOAD_BYTES, Throttle, UploadMeter } from "./transfer";
@@ -61,6 +66,7 @@ const rig = async (names = ["a.txt", "b.txt"]) => {
     });
   const activity: Activity[] = [];
   const waiting: Waiting[] = [];
+  const passes: RunningPass[] = [];
   const tree = new RemoteTree(store, new Set(["root"]));
   const ctx = {
     api,
@@ -84,6 +90,7 @@ const rig = async (names = ["a.txt", "b.txt"]) => {
     },
     activity: (update) => activity.push({ ...update }),
     waiting: (each) => waiting.push(each),
+    attach: (pass) => passes.push(pass),
     scanned: () => {},
     resolved: vi.fn<(rel: string) => void>(),
     notify: () => {},
@@ -92,7 +99,17 @@ const rig = async (names = ["a.txt", "b.txt"]) => {
     signal: new AbortController().signal,
     full: { size: Infinity, message: null as string | null },
   } satisfies PairContext;
-  return { ctx, start, failures, store, tree, directory, activity, waiting };
+  return {
+    ctx,
+    start,
+    failures,
+    store,
+    tree,
+    directory,
+    activity,
+    waiting,
+    passes,
+  };
 };
 
 it.each([
@@ -215,6 +232,113 @@ it("leaves a synced file alone once its path is skipped", async () => {
   expect(await readFile(path.join(r.directory, "a.txt"), "utf8")).toBe(
     "changed",
   );
+});
+
+it("lists the next and the biggest waiting files, up to 100 each", async () => {
+  const names = Array.from({ length: 150 }, (_, i) => `f${i + 100}.txt`);
+  const r = await rig(names);
+  for (const [i, name] of names.entries()) {
+    await writeFile(path.join(r.directory, name), "x".repeat(i + 1));
+  }
+  await writeFile(
+    path.join(r.directory, "big.mov"),
+    Buffer.alloc(SMALL_UPLOAD_BYTES + 1),
+  );
+  let lists: ReturnType<RunningPass["waitingFiles"]> | undefined;
+  await syncPair({
+    ...r.ctx,
+    waiting: () => {
+      lists ??= r.passes[0]!.waitingFiles();
+    },
+    // Only the plan is needed; nothing starts once it is made.
+    current: () => lists === undefined,
+  });
+  const { next, biggest } = lists!;
+  expect(next).toHaveLength(100);
+  expect(biggest).toHaveLength(100);
+  expect(biggest[0]).toEqual({
+    pairId: r.ctx.pair.id,
+    rel: "big.mov",
+    direction: "up",
+    bytes: SMALL_UPLOAD_BYTES + 1,
+  });
+  const sizes = biggest.map((each) => each.bytes);
+  expect(sizes).toEqual([...sizes].sort((a, b) => b - a));
+  expect(biggest.at(-1)?.rel).toBe("f151.txt");
+  // Big uploads have their own lane, so the video starts with the first photos.
+  expect(next.slice(0, 3).map((each) => each.rel)).toEqual([
+    "big.mov",
+    "f100.txt",
+    "f101.txt",
+  ]);
+});
+
+it("takes newly skipped files out of the line and syncs the rest", async () => {
+  const r = await rig(["a.txt", "b.txt"]);
+  await mkdir(path.join(r.directory, "Raw"));
+  await writeFile(path.join(r.directory, "Raw", "mine.txt"), "mine");
+  let asked = false;
+  let skipped: boolean | undefined;
+  let after: ReturnType<RunningPass["waitingFiles"]> | undefined;
+  const result = await syncPair({
+    ...r.ctx,
+    waiting: (each) => {
+      r.waiting.push(each);
+      if (asked) return;
+      asked = true;
+      skipped = r.passes[0]!.skip({
+        ...r.ctx.pair,
+        skipPaths: ["Raw", "b.txt"],
+      });
+      after = r.passes[0]!.waitingFiles();
+    },
+  });
+  expect(skipped).toBe(true);
+  expect(after?.next.map((each) => each.rel)).toEqual(["a.txt"]);
+  expect(r.waiting[1]).toEqual({ files: 1, bytes: 5, uploadBytes: 5 });
+  expect(result.issues).toEqual([]);
+  expect(r.start.mock.calls.map(([input]) => input.name)).toEqual(["a.txt"]);
+  expect(r.store.baseEntries(r.ctx.pair.id).map((entry) => entry.rel)).toEqual([
+    "a.txt",
+  ]);
+  expect(await readFile(path.join(r.directory, "b.txt"), "utf8")).toBe("b.txt");
+});
+
+it("leaves a file skipped during the scan out of the line", async () => {
+  const r = await rig(["a.txt", "b.txt"]);
+  let skipped = false;
+  let before: ReturnType<RunningPass["waitingFiles"]> | undefined;
+  let queued: Waiting | undefined;
+  let listed: string[] | undefined;
+  await syncPair({
+    ...r.ctx,
+    // The scan is done but the plan is not made yet.
+    scanned: () => {
+      before = r.passes[0]!.waitingFiles();
+      skipped = r.passes[0]!.skip({ ...r.ctx.pair, skipPaths: ["b.txt"] });
+    },
+    waiting: (each) => {
+      if (!skipped || queued || each.files === 0) return;
+      queued = each;
+      listed = r.passes[0]!.waitingFiles().next.map((file) => file.rel);
+    },
+  });
+  expect(before).toEqual({ next: [], biggest: [] });
+  expect(queued).toEqual({ files: 1, bytes: 5, uploadBytes: 5 });
+  expect(listed).toEqual(["a.txt"]);
+  expect(r.start.mock.calls.map(([input]) => input.name)).toEqual(["a.txt"]);
+});
+
+it("will not skip a file while it uploads", async () => {
+  const r = await rig(["a.txt"]);
+  const upload = r.start.getMockImplementation()!;
+  let skipped: boolean | undefined;
+  r.start.mockImplementation(async (...args) => {
+    skipped = r.passes[0]!.skip({ ...r.ctx.pair, skipPaths: ["a.txt"] });
+    return upload(...args);
+  });
+  await syncPair(r.ctx);
+  expect(skipped).toBe(false);
 });
 
 it("shows one server-full issue per folder when both limits refuse", async () => {

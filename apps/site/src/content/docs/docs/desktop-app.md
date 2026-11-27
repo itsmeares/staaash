@@ -37,7 +37,7 @@ The installers are not code signed yet, so your computer may stop the first laun
 Under **Files to skip** you can leave out names you do not want to sync.
 
 :::note[Coming in 2.1]
-To stop syncing one file, such as a big video that is uploading, press the **X** next to it in **Activity**. Both copies stay as they are. Under **Folders**, **N skipped** lists every file and folder left out, and **Sync again** brings one back.
+To stop syncing one file, such as a big video that is uploading, press the **X** next to it in **Activity**. Both copies stay as they are. To drop a file before it starts, open **N more files waiting**. It lists the next files to sync, and **Biggest** puts the largest first. Under **Folders**, **N skipped** lists every file and folder left out, and **Sync again** brings one back. To stop without the question, tick **Don't ask again**, or turn off **Ask before you stop syncing a file** in Settings.
 :::
 
 Use the tray menu to pause for 1 hour, 1 day, 1 week, or until you resume. The settings also have limits for upload and download speed and for free space on your computer.

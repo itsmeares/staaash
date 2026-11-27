@@ -3,6 +3,7 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
+  ChevronRight,
   CircleAlert,
   Clock,
   FolderOpen,
@@ -28,6 +29,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogPanel,
   DialogPopup,
   DialogTitle,
 } from "@staaash/ui/components/dialog";
@@ -36,11 +38,18 @@ import {
   PopoverPopup,
   PopoverTrigger,
 } from "@staaash/ui/components/popover";
+import { Tabs, TabsList, TabsTab } from "@staaash/ui/components/tabs";
 import { ItemTypeIcon } from "@staaash/ui/item-type-icon";
 import { getItemVisual } from "@staaash/ui/item-visuals";
 
 import { statusLine, syncDetail, uploadTimeLeft } from "../shared/status";
-import type { Activity, AppState, Conflict, Issue } from "../shared/types";
+import type {
+  Activity,
+  AppState,
+  Conflict,
+  Issue,
+  WaitingFile,
+} from "../shared/types";
 import { PauseButton } from "./pause";
 import type { Page } from "./shell";
 import { desktop } from "./state";
@@ -153,13 +162,14 @@ function IssueRow({
   );
 }
 
+/** A file moving, done, or still waiting for its turn. */
 function ActivityRow({
   activity,
   folder,
   paused = false,
   onStop,
 }: {
-  activity: Activity;
+  activity: Activity | WaitingFile;
   folder: string;
   paused?: boolean;
   onStop: () => void;
@@ -167,7 +177,8 @@ function ActivityRow({
   const Direction = activity.direction === "up" ? ArrowUp : ArrowDown;
   const name = fileName(activity.rel);
   const inside = activity.rel.slice(0, -name.length - 1);
-  const stopped = activity.state === "failed" || activity.state === "waiting";
+  // A download that has not started has nothing on this computer to show.
+  const local = "state" in activity || activity.direction === "up";
   const open = () => void desktop.openFolder(activity.pairId, activity.rel);
   return (
     <ContextMenu>
@@ -178,7 +189,8 @@ function ActivityRow({
       >
         {/* The status sits outside the button: its info icon is a button too. */}
         <button
-          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 border-0 bg-transparent p-0 text-start text-foreground focus-visible:outline-none"
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 border-0 bg-transparent p-0 text-start text-foreground focus-visible:outline-none disabled:cursor-default"
+          disabled={!local}
           type="button"
           onClick={open}
         >
@@ -197,42 +209,88 @@ function ActivityRow({
             </span>
           </span>
         </button>
-        {activity.state === "active" ? (
-          <>
-            <ActivityProgress activity={activity} />
-            <Button
-              aria-label={`Stop syncing ${name}`}
-              size="icon-sm"
-              variant="ghost-muted"
-              onClick={onStop}
-            >
-              <X />
-            </Button>
-          </>
-        ) : (
-          <ActivityEnd activity={activity} />
-        )}
+        <RowEnd activity={activity} name={name} onStop={onStop} />
       </ContextMenuTrigger>
-      <ContextMenuPopup>
-        {stopped ? (
-          <ContextMenuItem
-            disabled={paused}
-            onClick={() => void desktop.syncNow()}
-          >
-            <RotateCw aria-hidden />
-            {paused ? "Resume sync to retry" : "Retry"}
-          </ContextMenuItem>
-        ) : null}
-        <ContextMenuItem onClick={open}>
+      <RowMenu
+        activity={activity}
+        paused={paused}
+        onOpen={local ? open : null}
+        onStop={onStop}
+      />
+    </ContextMenu>
+  );
+}
+
+function RowMenu({
+  activity,
+  paused,
+  onOpen,
+  onStop,
+}: {
+  activity: Activity | WaitingFile;
+  paused: boolean;
+  onOpen: (() => void) | null;
+  onStop: () => void;
+}) {
+  const stopped =
+    "state" in activity &&
+    (activity.state === "failed" || activity.state === "waiting");
+  return (
+    <ContextMenuPopup>
+      {stopped ? (
+        <ContextMenuItem
+          disabled={paused}
+          onClick={() => void desktop.syncNow()}
+        >
+          <RotateCw aria-hidden />
+          {paused ? "Resume sync to retry" : "Retry"}
+        </ContextMenuItem>
+      ) : null}
+      {onOpen ? (
+        <ContextMenuItem onClick={onOpen}>
           <FolderOpen aria-hidden />
           Show in folder
         </ContextMenuItem>
-        <ContextMenuItem onClick={onStop}>
-          <X aria-hidden />
-          Stop syncing this file
-        </ContextMenuItem>
-      </ContextMenuPopup>
-    </ContextMenu>
+      ) : null}
+      <ContextMenuItem onClick={onStop}>
+        <X aria-hidden />
+        Stop syncing this file
+      </ContextMenuItem>
+    </ContextMenuPopup>
+  );
+}
+
+/** Progress or size with an X while a file can be stopped; else how it ended. */
+function RowEnd({
+  activity,
+  name,
+  onStop,
+}: {
+  activity: Activity | WaitingFile;
+  name: string;
+  onStop: () => void;
+}) {
+  if ("state" in activity && activity.state !== "active") {
+    return <ActivityEnd activity={activity} />;
+  }
+  return (
+    <>
+      {"state" in activity ? (
+        <ActivityProgress activity={activity} />
+      ) : (
+        <span className="shrink-0 text-meta text-muted-foreground">
+          {formatBytes(activity.bytes)}
+        </span>
+      )}
+      <Button
+        aria-label={`Stop syncing ${name}`}
+        size="icon-sm"
+        variant="ghost-muted"
+        onClick={onStop}
+      >
+        <X />
+      </Button>
+    </>
   );
 }
 
@@ -312,27 +370,56 @@ function ActivityProgress({ activity }: { activity: Activity }) {
   );
 }
 
+type Stoppable = Pick<Activity, "pairId" | "rel">;
+
+const why = (failure: unknown) =>
+  failure instanceof Error ? failure.message : String(failure);
+
+/** Skips the file's path; resolves to why that failed, or null. */
+const skipFile = (file: Stoppable) =>
+  desktop
+    .editPair(file.pairId, { skipPath: file.rel })
+    .then(({ error }) => error, why);
+
 /**
  * Leaves one file out of its pair by path, as the folder chooser leaves out
- * folders. The engine then cancels its upload and forgets it on both sides.
+ * folders. The engine takes a waiting file out of the line, or cancels its
+ * upload, and leaves it alone on both sides.
  */
 function StopSyncDialog({
-  activity,
+  file,
+  failed,
+  asking,
   onClose,
 }: {
-  activity: Activity;
+  file: Stoppable;
+  failed: string | null;
+  /** Whether stopping asks first; only then is "Don't ask again" offered. */
+  asking: boolean;
   onClose: () => void;
 }) {
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(failed);
   const [saving, setSaving] = useState(false);
+  const [quiet, setQuiet] = useState(false);
   const stop = async () => {
     setSaving(true);
-    const result = await desktop.editPair(activity.pairId, {
-      skipPath: activity.rel,
-    });
+    const problem = await skipFile(file);
     setSaving(false);
-    if (result.error) setError(result.error);
-    else onClose();
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    if (quiet) {
+      // The file is skipped either way; pressing Stop again only retries this.
+      const saved = await desktop
+        .updateSettings({ confirmStopSync: false })
+        .then(() => null, why);
+      if (saved) {
+        setError(`Stopped, but "Don't ask again" wasn't saved. ${saved}`);
+        return;
+      }
+    }
+    onClose();
   };
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -341,7 +428,7 @@ function StopSyncDialog({
           <DialogTitle>Stop syncing this file?</DialogTitle>
           <DialogDescription className="wrap-anywhere">
             <span className="font-medium text-foreground">
-              {fileName(activity.rel)}
+              {fileName(file.rel)}
             </span>{" "}
             stays as it is now, on this computer and on the server. To sync it
             again, remove it from the skipped list in Folders.
@@ -350,7 +437,18 @@ function StopSyncDialog({
             <p className="m-0 text-meta text-destructive-foreground">{error}</p>
           ) : null}
         </DialogHeader>
-        <DialogFooter>
+        <DialogFooter className="sm:items-center">
+          {asking ? (
+            <label className="flex cursor-pointer items-center gap-2 text-meta text-muted-foreground sm:me-auto">
+              <input
+                checked={quiet}
+                className="size-4 shrink-0 accent-primary"
+                type="checkbox"
+                onChange={(event) => setQuiet(event.target.checked)}
+              />
+              Don't ask again
+            </label>
+          ) : null}
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
@@ -358,6 +456,126 @@ function StopSyncDialog({
             Stop syncing
           </Button>
         </DialogFooter>
+      </DialogPopup>
+    </Dialog>
+  );
+}
+
+/**
+ * Stops one file, asking first unless the person turned that off. A failed
+ * stop opens the dialog with the reason. Render `dialog` inside the dialog a
+ * request comes from, so the two nest.
+ */
+function useStopSync(asking: boolean) {
+  const [stopping, setStopping] = useState<{
+    file: Stoppable;
+    failed: string | null;
+  } | null>(null);
+  const request = (file: Stoppable) => {
+    if (asking) {
+      setStopping({ file, failed: null });
+      return;
+    }
+    void skipFile(file).then((problem) => {
+      if (problem) setStopping({ file, failed: problem });
+    });
+  };
+  const dialog = stopping ? (
+    <StopSyncDialog
+      asking={asking}
+      failed={stopping.failed}
+      file={stopping.file}
+      onClose={() => setStopping(null)}
+    />
+  ) : null;
+  return { request, dialog };
+}
+
+type WaitingOrder = "next" | "biggest";
+
+/** How many waiting files the list leaves out. */
+function NotListed({
+  count,
+  listed,
+  order,
+}: {
+  count: number;
+  listed: number;
+  order: WaitingOrder;
+}) {
+  const hidden = count - listed;
+  // The count and the lists arrive apart; with no rows, a "more" line has
+  // nothing to follow.
+  if (listed === 0 || hidden <= 0) return null;
+  return (
+    <p className="m-0 px-5 pt-2 text-label text-muted-foreground">
+      {order === "next"
+        ? `${hidden.toLocaleString()} more after these.`
+        : `${hidden.toLocaleString()} smaller file${hidden === 1 ? " is" : "s are"} not listed.`}
+    </p>
+  );
+}
+
+/** The files waiting for their turn, with a way to drop any of them. */
+function WaitingDialog({
+  state,
+  count,
+  folderOf,
+  onClose,
+}: {
+  state: AppState;
+  count: number;
+  folderOf: (pairId: string) => string;
+  onClose: () => void;
+}) {
+  const [order, setOrder] = useState<WaitingOrder>("next");
+  const stopSync = useStopSync(state.settings.confirmStopSync);
+  const files = state.status?.waitingFiles[order] ?? [];
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogPopup className="sm:max-w-120">
+        <DialogHeader>
+          <DialogTitle>
+            {count.toLocaleString()} file{count === 1 ? "" : "s"} waiting
+          </DialogTitle>
+          <Tabs
+            className="mt-2"
+            value={order}
+            onValueChange={(next) => {
+              if (next === "next" || next === "biggest") setOrder(next);
+            }}
+          >
+            <TabsList aria-label="Order" size="sm">
+              <TabsTab value="next">Next up</TabsTab>
+              <TabsTab value="biggest">Biggest</TabsTab>
+            </TabsList>
+          </Tabs>
+        </DialogHeader>
+        <DialogPanel className="px-1">
+          {files.length > 0 ? (
+            <ul aria-label="Waiting files" className="m-0 list-none p-0">
+              {files.map((file) => (
+                <ActivityRow
+                  activity={file}
+                  folder={folderOf(file.pairId)}
+                  key={`${file.pairId}:${file.rel}`}
+                  onStop={() => stopSync.request(file)}
+                />
+              ))}
+            </ul>
+          ) : (
+            <p className="m-0 px-6 py-6 text-center text-body text-muted-foreground">
+              Nothing is waiting now.
+            </p>
+          )}
+          <NotListed count={count} listed={files.length} order={order} />
+        </DialogPanel>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Done
+          </Button>
+        </DialogFooter>
+        {stopSync.dialog}
       </DialogPopup>
     </Dialog>
   );
@@ -518,7 +736,8 @@ export function ActivityPage({
     )?.remoteLabel;
     return label === "Your whole drive" ? "Your drive" : (label ?? "");
   };
-  const [stopping, setStopping] = useState<Activity | null>(null);
+  const stopSync = useStopSync(state.settings.confirmStopSync);
+  const [showWaiting, setShowWaiting] = useState(false);
   const group =
     "m-0 px-5 pt-3.5 pb-1.5 text-label font-medium text-muted-foreground";
 
@@ -601,16 +820,25 @@ export function ActivityPage({
                   activity={each}
                   folder={folderOf(each.pairId)}
                   key={`${each.pairId}:${each.rel}`}
-                  onStop={() => setStopping(each)}
+                  onStop={() => stopSync.request(each)}
                 />
               ))}
               {waiting > 0 ? (
-                <li className="flex items-center gap-3 px-5 py-2 text-meta text-muted-foreground">
-                  <span className="grid size-8.5 shrink-0 place-items-center rounded-[0.625rem] bg-hover">
-                    <Clock aria-hidden className="size-4.25" />
-                  </span>
-                  {waiting.toLocaleString()} more file
-                  {waiting === 1 ? "" : "s"} waiting
+                <li>
+                  <button
+                    className="flex w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-5 py-2 text-start text-meta text-muted-foreground hover:bg-hover focus-visible:bg-hover focus-visible:outline-none"
+                    type="button"
+                    onClick={() => setShowWaiting(true)}
+                  >
+                    <span className="grid size-8.5 shrink-0 place-items-center rounded-[0.625rem] bg-hover">
+                      <Clock aria-hidden className="size-4.25" />
+                    </span>
+                    <span className="flex-1">
+                      {waiting.toLocaleString()} more file
+                      {waiting === 1 ? "" : "s"} waiting
+                    </span>
+                    <ChevronRight aria-hidden className="size-4 shrink-0" />
+                  </button>
                 </li>
               ) : null}
             </ul>
@@ -625,7 +853,7 @@ export function ActivityPage({
                   activity={each}
                   folder={folderOf(each.pairId)}
                   key={`${each.pairId}:${each.rel}`}
-                  onStop={() => setStopping(each)}
+                  onStop={() => stopSync.request(each)}
                   paused={state.status?.state === "paused"}
                 />
               ))}
@@ -637,8 +865,14 @@ export function ActivityPage({
           </p>
         ) : null}
       </div>
-      {stopping ? (
-        <StopSyncDialog activity={stopping} onClose={() => setStopping(null)} />
+      {stopSync.dialog}
+      {showWaiting ? (
+        <WaitingDialog
+          count={waiting}
+          folderOf={folderOf}
+          state={state}
+          onClose={() => setShowWaiting(false)}
+        />
       ) : null}
     </>
   );

@@ -67,6 +67,7 @@ export async function showDesktop(page: Page) {
           startAtLogin: true,
           setupSkipped: false,
           updateChannel: "auto",
+          confirmStopSync: true,
         },
         status: {
           state: "syncing",
@@ -76,6 +77,7 @@ export async function showDesktop(page: Page) {
           pendingBytes: 214 * MB,
           movedBytes: 296 * MB,
           uncheckedFolders: 0,
+          waitingFiles: { next: [], biggest: [] },
           fileCount: 1284,
           conflicts: [],
           issues: [],

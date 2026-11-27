@@ -1,7 +1,13 @@
 import { mkdir, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 
-import type { Activity, Issue, SyncPair } from "../shared/types";
+import type {
+  Activity,
+  EngineStatus,
+  Issue,
+  SyncPair,
+  WaitingFile,
+} from "../shared/types";
 import type { Api } from "./api";
 import { ApiError } from "./api";
 import type { SyncLog } from "./log";
@@ -39,6 +45,8 @@ export type PairContext = {
   activity: (update: Activity) => void;
   /** Transfers this round planned and has not started yet. */
   waiting: (waiting: Waiting) => void;
+  /** Hands the engine what it can ask of this pass while it runs. */
+  attach: (pass: RunningPass) => void;
   scanned: (scan: LocalScan | null) => void;
   resolved: (rel: string) => void;
   notify: (title: string, body: string) => void;
@@ -60,6 +68,19 @@ export type PairContext = {
 };
 
 export type Waiting = { files: number; bytes: number; uploadBytes: number };
+
+export type RunningPass = {
+  waitingFiles: () => EngineStatus["waitingFiles"];
+  /**
+   * Leaves out what `pair` newly skips without stopping the pass, so the
+   * transfers already moving carry on. False when one of those paths is being
+   * worked on: only stopping the pass ends that work.
+   */
+  skip: (pair: SyncPair) => boolean;
+};
+
+/** Enough to find a big file, without a status message the queue's size. */
+const LISTED = 100;
 
 export type PairResult = {
   issues: Issue[];
@@ -94,6 +115,9 @@ const uploadSize = (action: Action) =>
 
 const transferSize = (action: Action) =>
   action.kind === "download" ? (action.remote.size ?? 0) : uploadSize(action);
+
+const pathsOf = (action: Action) =>
+  "rel" in action ? [action.rel] : [action.from, action.to];
 
 /** Downloads, big uploads and small uploads each get their own lane. */
 const transferLanes = (actions: Action[]) => {
@@ -652,27 +676,110 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
   // quadratic: 100,000 queued files froze the engine for most of a minute.
   let queued = new Set<Action>();
   let waiting: Waiting = { files: 0, bytes: 0, uploadBytes: 0 };
+  // Each lane in the order it starts files, then every transfer biggest first.
+  let lists: Action[][] = [];
   const queue = (actions: Action[]) => {
-    queued = new Set(actions.filter((action) => transferSize(action) !== null));
+    // A skip that came in while this round scanned is already in force.
+    queued = new Set(
+      actions.filter(
+        (action) =>
+          transferSize(action) !== null &&
+          !pathsOf(action).some((rel) => isLeftOut(rel)),
+      ),
+    );
     waiting = { files: queued.size, bytes: 0, uploadBytes: 0 };
     for (const action of queued) {
       waiting.bytes += transferSize(action) ?? 0;
       waiting.uploadBytes += uploadSize(action) ?? 0;
     }
+    lists = [
+      ...transferLanes([...queued]).map((lane) => lane.items),
+      [...queued].sort(
+        (a, b) => (transferSize(b) ?? 0) - (transferSize(a) ?? 0),
+      ),
+    ];
     ctx.waiting(waiting);
   };
+  const unqueue = (action: Action) => {
+    if (!queued.delete(action)) return false;
+    waiting = {
+      files: waiting.files - 1,
+      bytes: waiting.bytes - (transferSize(action) ?? 0),
+      uploadBytes: waiting.uploadBytes - (uploadSize(action) ?? 0),
+    };
+    return true;
+  };
+
+  const waitingFile = (action: Action): WaitingFile => ({
+    pairId: pair.id,
+    rel: pathsOf(action)[0]!,
+    direction: action.kind === "download" ? "down" : "up",
+    bytes: transferSize(action) ?? 0,
+  });
+  /** Up to LISTED files from `lists[index]` that are still waiting, in order. */
+  const stillWaiting = (index: number) => {
+    const taken: Action[] = [];
+    let gaps = 0;
+    // Before the first plan there are no lists.
+    for (const action of lists[index] ?? []) {
+      if (taken.length === LISTED) break;
+      if (queued.has(action)) taken.push(action);
+      else gaps += 1;
+    }
+    // Started and skipped files leave gaps anywhere in a list. Dropping them
+    // once a read steps over many keeps every read near LISTED steps.
+    if (gaps > LISTED) {
+      lists[index] = lists[index]!.filter((action) => queued.has(action));
+    }
+    return taken;
+  };
+  // The lanes run side by side, so the next to start take turns between them.
+  const nextUp = () => {
+    const heads = lists.slice(0, -1).map((_, index) => stillWaiting(index));
+    const next: Action[] = [];
+    for (let at = 0; next.length < LISTED; at += 1) {
+      const turn = heads.filter((head) => at < head.length);
+      if (turn.length === 0) break;
+      for (const head of turn) if (next.length < LISTED) next.push(head[at]!);
+    }
+    return next;
+  };
+
+  let leftOut = leftOutOf(pair);
+  /** Whether `rel` or a folder holding it is left out. */
+  const isLeftOut = (rel: string, rules = leftOut) => {
+    for (let at = rel; at; at = parentRel(at)) if (rules.local(at)) return true;
+    return false;
+  };
+  const working = new Set<Action>();
+  ctx.attach({
+    waitingFiles: () => ({
+      next: nextUp().map(waitingFile),
+      biggest: stillWaiting(lists.length - 1).map(waitingFile),
+    }),
+    skip: (next) => {
+      const rules = leftOutOf(next);
+      const busy = (action: Action) =>
+        pathsOf(action).some((rel) => isLeftOut(rel, rules));
+      if ([...working].some(busy)) return false;
+      leftOut = rules;
+      for (const action of queued) if (busy(action)) unqueue(action);
+      ctx.waiting(waiting);
+      return true;
+    },
+  });
 
   const run = async (action: Action, sent = () => {}) => {
-    if (queued.delete(action)) {
-      waiting = {
-        files: waiting.files - 1,
-        bytes: waiting.bytes - (transferSize(action) ?? 0),
-        uploadBytes: waiting.uploadBytes - (uploadSize(action) ?? 0),
-      };
-      ctx.waiting(waiting);
-    }
+    if (unqueue(action)) ctx.waiting(waiting);
     const rel = "rel" in action ? action.rel : action.from;
-    if (!ctx.current() || waits(action)) return;
+    // Skipped while the pass runs: left alone, as the next scan will.
+    if (
+      !ctx.current() ||
+      waits(action) ||
+      pathsOf(action).some((each) => isLeftOut(each))
+    )
+      return;
+    working.add(action);
     let ended: Outcome = { state: "failed" };
     try {
       const handler = handlers[action.kind] as Handler<Action["kind"]>;
@@ -693,6 +800,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         ended = tolerate(error, rel, uploadSize(action));
       }
     } finally {
+      working.delete(action);
       for (const activity of open.filter((each) => each.rel === rel)) {
         ctx.activity({ ...activity, ...ended, at: Date.now() });
       }
@@ -713,11 +821,12 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
   let retrySoon = false;
   // Files that could not be read for hashing sit out the rest of the pass.
   const unhashable: Excluded[] = [];
-  const leftOut = leftOutOf(pair);
   for (let round = 0; round < MAX_ROUNDS && ctx.current(); round += 1) {
+    // One set of rules per round, so the scan and the server side agree.
+    const rules = leftOut;
     let scan;
     try {
-      scan = await scanLocal(pair.localPath, ctx.ignore, leftOut.local);
+      scan = await scanLocal(pair.localPath, ctx.ignore, rules.local);
     } catch (error) {
       ctx.scanned(null);
       if (typeof (error as NodeJS.ErrnoException).syscall !== "string") {
@@ -735,7 +844,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     const { items, skipped, ignored } = tree.scope(
       pair.remoteFolderId,
       ctx.ignore,
-      leftOut.remote,
+      rules.remote,
     );
     ctx.scanned(scan);
     folderIds = new Map(

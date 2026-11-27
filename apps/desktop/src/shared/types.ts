@@ -47,6 +47,8 @@ export type Settings = {
   setupSkipped: boolean;
   /** The same choices as the server's update channel. */
   updateChannel: UpdateChannel;
+  /** Ask before stopping one file from syncing. */
+  confirmStopSync: boolean;
 };
 
 export type EngineConfig = {
@@ -103,6 +105,12 @@ export type Activity = {
   reason?: string;
 };
 
+/** A transfer planned for the folder syncing now that has not started. */
+export type WaitingFile = Pick<
+  Activity,
+  "pairId" | "rel" | "direction" | "bytes"
+>;
+
 export type EngineState =
   | "starting"
   | "idle"
@@ -123,6 +131,8 @@ export type EngineStatus = {
   movedBytes: number;
   /** Folders this pass has not reached; their work is not counted yet. */
   uncheckedFolders: number;
+  /** Up to 100 waiting transfers each: the next to start, and the biggest. */
+  waitingFiles: { next: WaitingFile[]; biggest: WaitingFile[] };
   fileCount: number;
   activity: Activity[];
   conflicts: Conflict[];

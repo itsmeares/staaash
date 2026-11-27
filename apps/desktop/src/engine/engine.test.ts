@@ -214,6 +214,108 @@ it("ends the running transfers when paused, without calling it a failure", async
   expect(logged).toEqual([]);
 });
 
+const NOTHING_TO_DO = {
+  issues: [],
+  hold: null,
+  pullAgain: false,
+  retrySoon: false,
+};
+
+it("keeps a folder's transfers going when only waiting files are skipped", async () => {
+  const pair = pairOf("a");
+  const waitingFiles = {
+    next: [{ pairId: "a", rel: "big.mov", direction: "up" as const, bytes: 9 }],
+    biggest: [],
+  };
+  let moving = false;
+  let ctx!: pairSync.PairContext;
+  let started!: () => void;
+  const running = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  // Only the first pass hangs; the one after the stop has nothing to do.
+  vi.spyOn(pairSync, "syncPair")
+    .mockResolvedValue(NOTHING_TO_DO)
+    .mockImplementationOnce(
+      (each) =>
+        new Promise((_resolve, reject) => {
+          ctx = each;
+          each.attach({
+            waitingFiles: () => waitingFiles,
+            skip: () => {
+              if (moving) return false;
+              each.waiting({ files: 0, bytes: 0, uploadBytes: 0 });
+              return true;
+            },
+          });
+          each.waiting({ files: 1, bytes: 9, uploadBytes: 9 });
+          each.signal.addEventListener("abort", () =>
+            reject(each.signal.reason),
+          );
+          started();
+        }),
+    );
+  await engine.configure(configOf([pair]));
+  void engine.syncNow();
+  await running;
+  expect(engine.status()).toMatchObject({ pendingFiles: 1, waitingFiles });
+
+  // Settings apply at once; the rest of configure() waits for the pass.
+  const skipped = engine.configure(
+    configOf([{ ...pair, skipPaths: ["big.mov"] }]),
+  );
+  expect(ctx.signal.aborted).toBe(false);
+  expect(ctx.current()).toBe(true);
+  // The skipped file leaves the counts at once, not when the next one starts.
+  expect(engine.status().pendingFiles).toBe(0);
+
+  // A skipped file that is moving can only be stopped with the pass.
+  moving = true;
+  const first = ctx;
+  const stopped = engine.configure(
+    configOf([{ ...pair, skipPaths: ["big.mov", "now.mov"] }]),
+  );
+  expect(first.signal.aborted).toBe(true);
+  await Promise.all([skipped, stopped]);
+});
+
+it("stops the folder when a change does more than skip files", async () => {
+  const pair = pairOf("a");
+  let ctx!: pairSync.PairContext;
+  let started!: () => void;
+  const running = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  const skip = vi.fn(() => true);
+  vi.spyOn(pairSync, "syncPair")
+    .mockResolvedValue(NOTHING_TO_DO)
+    .mockImplementationOnce(
+      (each) =>
+        new Promise((_resolve, reject) => {
+          ctx = each;
+          each.attach({
+            waitingFiles: () => ({ next: [], biggest: [] }),
+            skip,
+          });
+          each.signal.addEventListener("abort", () =>
+            reject(each.signal.reason),
+          );
+          started();
+        }),
+    );
+  await engine.configure(configOf([{ ...pair, skipPaths: ["old.mov"] }]));
+  void engine.syncNow();
+  await running;
+
+  // Syncing a file again brings it back, which takes a new scan.
+  const changed = engine.configure(
+    configOf([{ ...pair, skipPaths: ["new.mov"] }]),
+  );
+  expect(skip).not.toHaveBeenCalled();
+  expect(ctx.signal.aborted).toBe(true);
+  await changed;
+});
+
 it("does not show pre-transfer readings while a fresh server read is needed", async () => {
   const pair = pairOf("a");
   vi.spyOn(pairSync, "syncPair").mockImplementation(async (ctx) => {
