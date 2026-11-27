@@ -498,7 +498,9 @@ function WaitingDialog({
   const [order, setOrder] = useState<WaitingOrder>("next");
   const stopSync = useStopSync(state.settings.confirmStopSync);
   const files = state.status?.waitingFiles[order] ?? [];
-  const hidden = Math.max(0, count - files.length);
+  // The count and the lists arrive apart; with no rows, a "more" line has
+  // nothing to follow.
+  const hidden = files.length > 0 ? Math.max(0, count - files.length) : 0;
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogPopup className="sm:max-w-120">
