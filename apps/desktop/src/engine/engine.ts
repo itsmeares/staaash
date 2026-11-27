@@ -19,7 +19,7 @@ import { folderSizes } from "./folder-sizes";
 import { covered } from "./plan";
 import type { SyncLog } from "./log";
 import { createIgnore, leftOutOf, pathKey } from "./names";
-import type { Waiting } from "./pair-sync";
+import type { RunningPass, Waiting } from "./pair-sync";
 import { syncPair } from "./pair-sync";
 import type { StorageChange } from "./remote";
 import { RemoteTree, fromSnapshot } from "./remote";
@@ -110,6 +110,12 @@ const sizeKey = (config: EngineConfig, pair: SyncPair) =>
     config.ignore,
   ]);
 
+/** Whether `after` differs from `before` only by skipping more paths. */
+const onlySkipsMore = (before: SyncPair, after: SyncPair) =>
+  JSON.stringify({ ...before, skipPaths: null }) ===
+    JSON.stringify({ ...after, skipPaths: null }) &&
+  (before.skipPaths ?? []).every((rel) => after.skipPaths?.includes(rel));
+
 /**
  * Keeps every pair in sync. One pass reads the server's change feed, then
  * brings each pair in line.
@@ -139,6 +145,7 @@ export class SyncEngine {
     pair: SyncPair;
     ignore: string[];
     stop: AbortController;
+    pass: RunningPass | null;
   } | null = null;
   private refusedPasses = 0;
   private passWaiting: Promise<void> | null = null;
@@ -178,8 +185,14 @@ export class SyncEngine {
     this.config = config;
     // Pausing, or changing the folder being synced, ends its running
     // transfers too. A big upload would otherwise carry on until it finished.
-    if (this.syncing && !this.current(this.syncing.pair, this.syncing.ignore)) {
-      this.syncing.stop.abort();
+    // Skipping files that are not moving only takes them out of the line.
+    const { syncing } = this;
+    if (syncing && !this.current(syncing.pair, syncing.ignore)) {
+      const now = config.pairs.find((pair) => pair.id === syncing.pair.id);
+      if (now && onlySkipsMore(syncing.pair, now) && syncing.pass?.skip(now)) {
+        syncing.pair = now;
+      }
+      if (!this.current(syncing.pair, syncing.ignore)) syncing.stop.abort();
     }
     this.uploads.limitKBps = config.uploadLimitKBps;
     this.downloads.limitKBps = config.downloadLimitKBps;
@@ -572,7 +585,17 @@ export class SyncEngine {
         this.unchecked = config.pairs.length - index - 1;
         let result;
         const stop = new AbortController();
-        this.syncing = { pair, ignore: config.ignore, stop };
+        const syncing = {
+          pair,
+          ignore: config.ignore,
+          stop,
+          pass: null as RunningPass | null,
+        };
+        this.syncing = syncing;
+        // The pair can gain skipped paths while it syncs; see configure().
+        const live = () =>
+          this.syncing === syncing &&
+          this.current(syncing.pair, syncing.ignore);
         try {
           result = await syncPair({
             api: this.api as Api,
@@ -588,16 +611,18 @@ export class SyncEngine {
             trash: this.deps.trash,
             activity: (update) => this.track(update),
             waiting: (waiting) => {
-              if (this.config !== config) return;
+              if (!live()) return;
               this.waiting = waiting;
               this.emitStatus();
             },
+            attach: (pass) => {
+              syncing.pass = pass;
+            },
             scanned: (scan) => {
-              if (this.config !== config || !this.current(pair, config.ignore))
-                return;
+              if (!live()) return;
               const result = folderSizes(
                 this.tree,
-                pair,
+                syncing.pair,
                 createIgnore(config.ignore),
                 scan,
               );
@@ -615,8 +640,7 @@ export class SyncEngine {
               this.emitStatus();
             },
             resolved: (rel) => {
-              if (this.config !== config || !this.current(pair, config.ignore))
-                return;
+              if (!live()) return;
               this.issues = this.issues.filter(
                 (issue) =>
                   issue.pairId !== pair.id ||
@@ -628,7 +652,7 @@ export class SyncEngine {
             notify: (title, body) =>
               this.deps.emit({ type: "notify", title, body }),
             log: this.deps.log,
-            current: () => this.current(pair, config.ignore),
+            current: () => this.current(syncing.pair, syncing.ignore),
             signal: AbortSignal.any([this.halt.signal, stop.signal]),
             full,
           });
@@ -882,6 +906,10 @@ export class SyncEngine {
       movedBytes:
         this.movedBytes + active.reduce((sum, each) => sum + each.doneBytes, 0),
       uncheckedFolders: this.unchecked,
+      waitingFiles: this.syncing?.pass?.waitingFiles() ?? {
+        next: [],
+        biggest: [],
+      },
       fileCount: pairs.reduce(
         (sum, pair) => sum + this.store.fileCount(pair.id),
         0,

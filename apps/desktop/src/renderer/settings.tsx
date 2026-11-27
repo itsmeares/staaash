@@ -680,6 +680,13 @@ export function SettingsPage({ state }: { state: AppState }) {
             onChange={(event) => setIgnore(event.target.value)}
           />
         </div>
+        <Row label="Ask before you stop syncing a file">
+          <Switch
+            aria-label="Ask before you stop syncing a file"
+            checked={settings.confirmStopSync}
+            onCheckedChange={(confirmStopSync) => update({ confirmStopSync })}
+          />
+        </Row>
       </Group>
       <Group title="Updates">
         <UpdateRow state={state} />

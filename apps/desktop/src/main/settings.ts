@@ -21,6 +21,7 @@ const defaults = (): Settings => ({
   startAtLogin: true,
   setupSkipped: false,
   updateChannel: "auto",
+  confirmStopSync: true,
 });
 
 const file = () => path.join(app.getPath("userData"), "settings.json");
