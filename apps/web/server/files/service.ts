@@ -2255,9 +2255,11 @@ export const createFilesService = ({
   };
 
   // Best-effort: a queue failure must not fail an upload that is already saved.
-  const scheduleUploadWork = (files: FileSummary[]) =>
+  const scheduleUploadWork = (files: FileSummary[]) => {
+    void scheduleFileTextRead(now()).catch((error) => {
+      console.error("[files] Failed to schedule reading.", error);
+    });
     void (async () => {
-      await scheduleFileTextRead(now());
       const settings = await getSystemSettings();
       const thumbnails = isDerivativeKindEnabled(
         settings,
@@ -2291,8 +2293,9 @@ export const createFilesService = ({
         ]),
       );
     })().catch((error) => {
-      console.error("[files] Failed to schedule reading or previews.", error);
+      console.error("[files] Failed to schedule preview generation.", error);
     });
+  };
 
   const scheduleStagingCleanup = async (runAt = now()) => {
     if (scheduleStagingCleanupJob) {

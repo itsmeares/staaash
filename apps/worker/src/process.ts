@@ -14,7 +14,8 @@ export type ProcessResult = {
 
 /**
  * Runs a program to its end. A timeout or abort stops it with SIGTERM, then
- * SIGKILL, and rejects with a TimeoutError or AbortError once it exits.
+ * SIGKILL, and rejects once it exits: with a TimeoutError for timeoutMs, else
+ * with the signal's reason, so AbortSignal.timeout() also reads as a timeout.
  * stdout is kept only with maxOutputBytes.
  */
 export const runProcess = (
@@ -86,13 +87,10 @@ export const runProcess = (
     };
     proc.on("close", (code) => {
       cleanup();
-      if (stopped === "timeout" || stopped === "abort") {
-        reject(
-          new DOMException(
-            `${command} ${stopped === "timeout" ? "timed out" : "aborted"}.`,
-            stopped === "timeout" ? "TimeoutError" : "AbortError",
-          ),
-        );
+      if (stopped === "timeout") {
+        reject(new DOMException(`${command} timed out.`, "TimeoutError"));
+      } else if (stopped === "abort") {
+        reject(signal?.reason);
       } else {
         resolve({
           code,
