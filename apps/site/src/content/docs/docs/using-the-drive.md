@@ -46,7 +46,7 @@ You can also drag items onto a folder to move them. Select several items with `C
 Older versions search names only.
 :::
 
-Search also finds words inside your files: text files, PDFs, Word, Excel and PowerPoint files, OpenDocument files, EPUB books and saved web pages. It reads about the first million characters of each file. Name matches come first. A match inside a file shows the words around it when it is in the first 100,000 characters; further in, the file is still found, with the start of its text.
+Search also finds words inside your files: text files, PDFs, Word, Excel and PowerPoint files, OpenDocument files, EPUB books and saved web pages. It reads the first 1 MB of each file's text, which is about a million letters in English and fewer in Greek, Russian or Chinese. Words after that aren't found. Name matches come first. A match inside a file shows the words around it when it is in the first 100,000 characters; further in, the file is still found, with the start of its text.
 
 Every word you type must be in the file, at the start of a word. `inv 2024` finds a PDF that says "Invoice no. 2024-17". One-letter words outside quotes are left out. Put words in quotes, like `"due friday"`, to find them in that order. Quoted words must match whole words, and in a long file they are only found in about the first 16,000 words.
 
