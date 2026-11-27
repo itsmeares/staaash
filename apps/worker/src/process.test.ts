@@ -9,7 +9,12 @@ const stall = (signal: AbortSignal) =>
 
 describe("runProcess", () => {
   it("stops a program at a timeout signal and says it timed out", async () => {
-    await expect(stall(AbortSignal.timeout(100))).rejects.toMatchObject({
+    // As the reader combines them: the job's signal and its own time limit.
+    const signal = AbortSignal.any([
+      new AbortController().signal,
+      AbortSignal.timeout(100),
+    ]);
+    await expect(stall(signal)).rejects.toMatchObject({
       name: "TimeoutError",
     });
   });

@@ -98,9 +98,14 @@ const tagsNamed = (markup: string, name: string) =>
     "name" in token && token.name === name && !token.end ? [token.tag] : [],
   );
 
-// No closing quote needed, so a hostile tag can't make the search rescan it.
-const attribute = (tag: string, name: string) =>
-  new RegExp(`\\s${name}="([^"]*)`).exec(tag)?.[1];
+// Either quote, as XML allows. No closing quote needed, so a hostile tag
+// can't make the search rescan it.
+const attribute = (tag: string, name: string) => {
+  const match = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)|'([^']*))`).exec(
+    tag,
+  );
+  return match?.[1] ?? match?.[2];
+};
 
 /** Whitespace with a line break between two tags only lays out the XML. */
 const isLayout = (text: string) => text.includes("\n") && text.trim() === "";

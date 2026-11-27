@@ -198,6 +198,27 @@ describe("reading file text", () => {
     ).toEqual(["encrypted", "ready"]);
   });
 
+  it("marks a file the worker may not open as failed, and leaves a vanished one for later", async () => {
+    const fsError = (code: string) => Object.assign(new Error(code), { code });
+    rounds([[fileToRead("denied"), fileToRead("gone")]], []);
+    mocks.readPdfText
+      .mockRejectedValueOnce(fsError("EACCES"))
+      .mockRejectedValueOnce(fsError("ENOENT"));
+
+    await handleFileTextRead(null, storagePaths, context());
+
+    expect(
+      mocks.saveFileText.mock.calls.map(([file, r]) => [
+        file.id,
+        r.status,
+        r.error,
+      ]),
+    ).toEqual([["denied", "failed", "unreadable"]]);
+    expect(mocks.listFilesToRead).toHaveBeenLastCalledWith(
+      expect.objectContaining({ skip: ["gone"] }),
+    );
+  });
+
   it("waits to clear a wanted file until its scans are done, when scans are on", async () => {
     rounds([[fileToRead("scan", { wanted: true })]], []);
     mocks.readPdfText.mockResolvedValue({

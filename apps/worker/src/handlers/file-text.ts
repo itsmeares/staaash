@@ -58,8 +58,10 @@ const readScanPlan = async () => {
   );
 };
 
+// Gone or busy for a moment, during a move. A file the worker may not open is
+// a failed read instead, so it shows up and is not tried forever.
 const isMissingFile = (error: unknown) =>
-  ["ENOENT", "ENOTDIR", "EACCES", "EBUSY"].includes(
+  ["ENOENT", "ENOTDIR", "EBUSY"].includes(
     (error as NodeJS.ErrnoException).code ?? "",
   );
 
