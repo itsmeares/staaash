@@ -220,10 +220,6 @@ describe("preview follow-up regressions", () => {
       (await client.post("/api/admin/jobs/run", { kind: "staging.cleanup" }))
         .status,
     ).toBe(403);
-    expect(
-      (await client.post("/api/admin/derivatives/files/admin-film/regenerate"))
-        .status,
-    ).toBe(403);
     await client.scenario("owner");
     expect(
       (await client.post("/api/admin/jobs/run", { kind: "staging.cleanup" }))
@@ -785,6 +781,7 @@ describe("database-free sample drive", () => {
       "viewer/owner-coast",
       "settings",
       "admin/overview",
+      "admin/maintenance",
       "admin/storage",
       "admin/users",
       "admin/users/member",
@@ -1219,15 +1216,19 @@ describe("database-free sample drive", () => {
     const before = await client.read<
       InferResponseType<typeof api.api.views.admin.jobs.$get, 200>
     >("/api/views/admin/jobs");
-    expect(before.initialProblems).toHaveLength(1);
+    expect(before.initialProblems.map((job) => job.ownerName)).toEqual([
+      null,
+      "Sam Rivera",
+      "Mia Chen",
+    ]);
     expect((await client.post("/api/admin/jobs/job-0/retry")).status).toBe(200);
     expect(
       (
         await client.read<
           InferResponseType<typeof api.api.views.admin.jobs.$get, 200>
         >("/api/views/admin/jobs")
-      ).initialProblems,
-    ).toHaveLength(0);
+      ).initialProblems.map((job) => job.id),
+    ).toEqual(["preview-0", "preview-1"]);
   });
   it("updates admin users, passwords, and preview jobs in the same fake state", async () => {
     const client = browser();
@@ -1247,20 +1248,13 @@ describe("database-free sample drive", () => {
       storageLimitBytes: "100000",
     });
     await client.scenario("error");
-    const failed = await client.read<
-      InferResponseType<typeof api.api.views.admin.jobs.$get, 200>
-    >("/api/views/admin/jobs");
-    const derivative = failed.initialDerivatives.rows[0]!;
+    // The viewer asks for a preview again after one failed.
     expect(
-      (
-        await client.post(
-          `/api/admin/derivatives/files/${derivative.fileId}/regenerate`,
-        )
-      ).status,
+      (await client.post("/api/files/files/owner-film/derivative")).status,
     ).toBe(200);
-    expect(
-      await client.read(`/api/files/files/${derivative.fileId}/derivative`),
-    ).toEqual({ status: "ready" });
+    expect(await client.read("/api/files/files/owner-film/derivative")).toEqual(
+      { status: "ready" },
+    );
     await client.scenario("owner");
     expect(
       (

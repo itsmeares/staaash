@@ -15,7 +15,7 @@ export function AdminUnavailablePage() {
         <AlertTriangle aria-hidden className="size-6 text-warning-foreground" />
         <div className="grid justify-items-center gap-1.5">
           <h1 className="m-0 font-heading text-headline font-semibold">
-            Admin overview is unavailable
+            Admin pages are unavailable
           </h1>
           <p className="m-0 text-body text-muted-foreground">
             Check that the database is running, then refresh this page.

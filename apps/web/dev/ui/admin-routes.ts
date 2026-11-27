@@ -9,7 +9,6 @@ import {
   PreviewError,
   requireUser,
   rootOf,
-  fileOf,
   jobKinds,
   sampleJob,
   timestamp,
@@ -17,6 +16,7 @@ import {
 import { devices } from "./views";
 import {
   adminOverview,
+  adminMaintenance,
   adminStorage,
   adminUsers,
   healthView,
@@ -59,6 +59,9 @@ export function mountAdmin(app: Hono<PreviewEnv>) {
   app.get("/api/views/admin/overview", (c) =>
     c.json(adminOverview(c.var.state)),
   );
+  app.get("/api/views/admin/maintenance", (c) =>
+    c.json(adminMaintenance(c.var.state)),
+  );
   app.get("/api/views/admin/storage", (c) =>
     c.json(adminStorage(c.var.state, c.req.query("mutationId"))),
   );
@@ -86,7 +89,11 @@ export function mountAdmin(app: Hono<PreviewEnv>) {
         folders: row.retainedFolderCount,
         lastChange: row.lastContentActivityAt,
       },
-      devices: devices(state),
+      // Only your own page has the browser you're using.
+      devices: devices(state).map((device) => ({
+        ...device,
+        current: device.current && user.id === state.userId,
+      })),
       keys: state.keys.get(user.id) ?? [],
       signInUrl: `${c.var.site}/`,
     });
@@ -164,21 +171,33 @@ export function mountAdmin(app: Hono<PreviewEnv>) {
         .map((job) => job.id),
     });
   });
-  app.get("/api/admin/jobs/:id/events", (c) =>
-    c.json({
+  // The steps a real run records, in order, ending with how it went.
+  app.get("/api/admin/jobs/:id/events", (c) => {
+    const job = c.var.state.jobs.find((j) => j.id === c.req.param("id"));
+    const event = (type: string, message: string) => ({
+      id: `${c.req.param("id")}-${type}`,
+      jobId: c.req.param("id"),
+      type,
+      message,
+      metadataJson: {},
+      workerId: "sample-worker",
+      createdAt: job?.updatedAt ?? timestamp,
+    });
+    const end =
+      job?.status === "failed" || job?.status === "dead"
+        ? [event("failed", job.lastError ?? "Sample job could not finish.")]
+        : job?.status === "succeeded"
+          ? [event("succeeded", "Job completed successfully.")]
+          : [];
+    return c.json({
       items: [
-        {
-          id: "event-1",
-          jobId: c.req.param("id"),
-          type: "completed",
-          message: "Sample job finished.",
-          metadataJson: {},
-          workerId: "sample-worker",
-          createdAt: timestamp,
-        },
+        event("queued", "Job queued."),
+        event("claimed", "Job claimed by worker."),
+        event("started", "Job handler started."),
+        ...end,
       ],
-    }),
-  );
+    });
+  });
   app.post("/api/admin/jobs/run", async (c) => {
     const body = await jsonBody(c.req.raw);
     const kind = z.enum(jobKinds).parse(body.kind);
@@ -354,39 +373,23 @@ export function mountAdmin(app: Hono<PreviewEnv>) {
       signInUrl: `${c.var.site}/`,
     });
   });
-  app.delete("/api/admin/users/:id/sessions/:sessionId", (c) => {
+  // Without a session id, every session but this browser signs out. The
+  // sample keeps one list of sessions for every account.
+  app.delete("/api/admin/users/:id/sessions/:sessionId?", (c) => {
     if (requireUser(c.var.state).role !== "owner")
       throw new PreviewError(403, "Owner access required.");
     const sessionId = c.req.param("sessionId");
-    c.var.state.sessions = c.var.state.sessions.filter(
-      (id) => id !== sessionId,
+    c.var.state.sessions = c.var.state.sessions.filter((id) =>
+      sessionId ? id !== sessionId : id === "current",
     );
     const { keys } = c.var.state;
     const userId = c.req.param("id");
     keys.set(
       userId,
-      (keys.get(userId) ?? []).filter((key) => key.id !== sessionId),
+      sessionId
+        ? (keys.get(userId) ?? []).filter((key) => key.id !== sessionId)
+        : [],
     );
-    return c.json({ ok: true });
-  });
-  app.post("/api/admin/derivatives/files/:id/regenerate", (c) => {
-    const file = fileOf(c.var.state, c.req.param("id"));
-    c.var.state.previewStates.set(file.id, "ready");
-    return c.json({ ok: true });
-  });
-  app.post("/api/admin/derivatives/:id/:action", async (c) => {
-    const state = c.var.state;
-    const file = fileOf(state, c.req.param("id").replace(/^derivative-/, ""));
-    const action = c.req.param("action");
-    if (action === "pin") {
-      const body = z
-        .object({ pinned: z.boolean() })
-        .parse(await jsonBody(c.req.raw));
-      if (body.pinned) state.pinnedPreviews.add(file.id);
-      else state.pinnedPreviews.delete(file.id);
-    } else if (action === "cancel") state.previewStates.set(file.id, "failed");
-    else if (action === "remove") state.previewStates.set(file.id, "none");
-    else throw new PreviewError(404, "Unknown sample preview action.");
     return c.json({ ok: true });
   });
 }

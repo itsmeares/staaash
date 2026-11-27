@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import {
-  buildRestoreReconciliationHealthSummary,
-  createRestoreReconciliationReport,
-  hasRestoreIssues,
-} from "@/server/restore";
+import { buildRestoreReconciliationHealthSummary } from "@/server/restore";
 
 describe("restore reconciliation", () => {
   it("does not warn when the restore check never ran", () => {
@@ -12,23 +8,6 @@ describe("restore reconciliation", () => {
       status: "healthy",
       runStatus: null,
     });
-  });
-
-  it("creates empty reconciliation reports by default", () => {
-    expect(createRestoreReconciliationReport()).toEqual({
-      missingOriginalIds: [],
-      orphanedStorageKeys: [],
-    });
-  });
-
-  it("flags restore reports with missing originals or orphaned storage", () => {
-    expect(
-      hasRestoreIssues(
-        createRestoreReconciliationReport({
-          missingOriginalIds: ["file-1"],
-        }),
-      ),
-    ).toBe(true);
   });
 
   it("marks clean completed runs as healthy and failed runs as errors", () => {

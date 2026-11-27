@@ -27,11 +27,6 @@ export type StorageWarningSummary = {
   message: string;
 };
 
-export type RestoreReconciliationReport = {
-  missingOriginalIds: string[];
-  orphanedStorageKeys: string[];
-};
-
 export type RestoreReconciliationRunStatus =
   | "queued"
   | "running"

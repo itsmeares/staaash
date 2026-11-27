@@ -9,6 +9,7 @@ const avatarVariants = cva(
       size: {
         default: "size-8 text-label",
         lg: "size-8.5 text-meta",
+        xl: "size-12 text-body",
       },
       variant: {
         accent: "bg-primary/14",

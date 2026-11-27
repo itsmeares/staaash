@@ -180,6 +180,24 @@ describe("readiness and operational history", () => {
       await db.backgroundJob.delete({ where: { id: job.id } });
     }
   });
+
+  it("leaves a failed download zip out of the instance health", async () => {
+    const job = await db.backgroundJob.create({
+      data: {
+        kind: "zip.archive.generate",
+        status: "dead",
+        payloadJson: {},
+        attemptCount: 5,
+        maxAttempts: 5,
+      },
+    });
+    try {
+      const queue = await getQueueBacklogSummary(inject("postgresDatabaseUrl"));
+      expect(queue).toMatchObject({ dead: 0, failed: 0, status: "healthy" });
+    } finally {
+      await db.backgroundJob.delete({ where: { id: job.id } });
+    }
+  });
 });
 
 describe("storage admission on real PostgreSQL", () => {

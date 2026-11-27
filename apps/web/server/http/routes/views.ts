@@ -3,7 +3,6 @@ import { validator } from "hono/validator";
 import { getCookie } from "hono/cookie";
 import { z } from "zod";
 
-import { ALL_SUPPORTED_JOB_KINDS } from "@staaash/db/jobs";
 import { getStorageMutationHealth } from "@staaash/db/storage-mutations";
 import {
   listReviewedStorageMutations,
@@ -18,13 +17,11 @@ import { accountNote, getInitials, roleLabel } from "@/lib/user";
 import type { FirstRunKind } from "@/components/public/first-run";
 import { toDevice } from "@/lib/user-agent";
 import {
+  ADMIN_JOB_KINDS,
   getAdminJobStateSnapshot,
   toJsonAdminJobStateSnapshot,
 } from "@/server/admin/jobs";
-import {
-  getAdminMediaDerivativeSummary,
-  toJsonAdminMediaDerivativeSummary,
-} from "@/server/admin/media-derivatives";
+import { getAdminHealthSummary } from "@/server/health";
 import { getAdminOverviewSummary } from "@/server/admin/overview";
 import { getAdminStorageSummary } from "@/server/admin/storage";
 import { getStorageChangeView } from "@/server/admin/storage-review";
@@ -617,10 +614,9 @@ const adminViews = admin
         .parse(value),
     ),
     async (c) => {
-      const [summary, mutations, disk, fixed] = await Promise.all([
+      const [summary, mutations, fixed] = await Promise.all([
         getAdminStorageSummary(),
         getStorageMutationHealth(new Date(), c.req.valid("query").mutationId),
-        getInstanceDiskInfo(),
         listReviewedStorageMutations(),
       ]);
       const reviews = await readStorageReviewSummaries(
@@ -635,7 +631,6 @@ const adminViews = admin
             ...mutation,
             review: reviews.get(mutation.id) ?? null,
           })),
-          disk,
           fixed,
           // Admins can read this page; only the owner can act on a change.
           isOwner: c.var.session.user.isOwner,
@@ -643,6 +638,26 @@ const adminViews = admin
       );
     },
   )
+  .get("/maintenance", async (c) => {
+    const [health, fixed] = await Promise.all([
+      getAdminHealthSummary(),
+      listReviewedStorageMutations(),
+    ]);
+    const { counts } = health.storageMutations;
+    const review = counts.recovery_required ?? 0;
+    const unfinished = Object.values(counts).reduce((sum, n) => sum + n, 0);
+    return c.json(
+      plain({
+        storage: {
+          review,
+          finishing: unfinished - review,
+          fixed: fixed.length,
+        },
+        restore: health.reconciliation,
+        isOwner: c.var.session.user.isOwner,
+      }),
+    );
+  })
   .get("/storage/changes/:mutationId", async (c) => {
     const change = await getStorageChangeView(c.req.param("mutationId"));
     if (!change) {
@@ -652,10 +667,14 @@ const adminViews = admin
   })
   .get("/users", async (c) => {
     const { session } = c.var;
-    const users = await authService.listUsers(session.user.id);
+    const [users, storage] = await Promise.all([
+      authService.listUsers(session.user.id),
+      getAdminStorageSummary(),
+    ]);
     const usage = await Promise.all(
       users.map(async (user) => (await getUserStorageUsed(user.id)).usedBytes),
     );
+    const rowOf = new Map(storage.rows.map((row) => [row.userId, row]));
     return c.json(
       plain({
         canInvite: session.user.isOwner,
@@ -669,6 +688,8 @@ const adminViews = admin
           role: user.role,
           storageLimitBytes: user.storageLimitBytes,
           storageUsedBytes: usage[index] ?? 0n,
+          files: rowOf.get(user.id)?.retainedFileCount ?? 0,
+          lastActiveAt: rowOf.get(user.id)?.lastContentActivityAt ?? null,
           note: accountNote(user),
         })),
       }),
@@ -717,18 +738,13 @@ const adminViews = admin
     );
   })
   .get("/jobs", async (c) => {
-    const [snapshot, mediaDerivatives] = await Promise.all([
-      getAdminJobStateSnapshot(),
-      getAdminMediaDerivativeSummary(),
-    ]);
-    const state = toJsonAdminJobStateSnapshot(snapshot);
+    const state = toJsonAdminJobStateSnapshot(await getAdminJobStateSnapshot());
     return c.json(
       plain({
         initialLastRuns: state.lastRuns,
         initialProblems: state.problems,
-        initialDerivatives: toJsonAdminMediaDerivativeSummary(mediaDerivatives),
         initialSummary: state.summary,
-        jobKinds: [...ALL_SUPPORTED_JOB_KINDS],
+        jobKinds: ADMIN_JOB_KINDS,
       }),
     );
   })

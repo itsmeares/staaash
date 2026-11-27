@@ -117,6 +117,13 @@ export const adminStorageQuery = (mutationId?: string) =>
     staleTime: 0,
   });
 
+// Under "storage" so a storage review refreshes it too.
+export const adminMaintenanceQuery = queryOptions({
+  queryKey: ["admin", "storage", "maintenance"],
+  queryFn: () => read(admin.maintenance.$get()),
+  staleTime: 0,
+});
+
 export const adminStorageChangeQuery = (mutationId: string) =>
   queryOptions({
     queryKey: ["admin", "storage", "change", mutationId],

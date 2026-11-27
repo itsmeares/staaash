@@ -14,7 +14,6 @@ const mocks = vi.hoisted(() => ({
   savePreferences: vi.fn(),
   createUser: vi.fn(),
   updateUser: vi.fn(),
-  setStorageLimit: vi.fn(),
   resetTemporaryPassword: vi.fn(),
   fileMutation: vi.fn(),
   shareMutation: vi.fn(),
@@ -40,7 +39,6 @@ vi.mock("@/server/auth/service", async (importOriginal) => ({
     savePreferences: mocks.savePreferences,
     createUser: mocks.createUser,
     updateUser: mocks.updateUser,
-    setStorageLimit: mocks.setStorageLimit,
     resetTemporaryPassword: mocks.resetTemporaryPassword,
   },
 }));
@@ -287,11 +285,6 @@ const routes = [
     invoke: (request: Request) => app.request(request),
   },
   {
-    path: "/api/admin/users/member-1/storage-limit",
-    method: "PATCH",
-    invoke: (request: Request) => app.request(request),
-  },
-  {
     path: "/api/admin/users",
     method: "POST",
     invoke: (request: Request) => app.request(request),
@@ -365,7 +358,6 @@ const expectNoMutation = () => {
     mocks.savePreferences,
     mocks.createUser,
     mocks.updateUser,
-    mocks.setStorageLimit,
     mocks.resetTemporaryPassword,
     mocks.fileMutation,
     mocks.shareMutation,

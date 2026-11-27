@@ -12,11 +12,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@staaash/ui/components/dialog";
-import { Field, FieldLabel } from "@staaash/ui/components/field";
-import { Input } from "@staaash/ui/components/input";
+import { Switch } from "@staaash/ui/components/switch";
 import { toastManager } from "@staaash/ui/components/toast";
 
-import { AdminToggleField } from "./admin-toggle-field";
+import {
+  SettingsCard,
+  SettingsRow,
+  SettingsText,
+} from "@/components/settings-layout";
 import { copyText } from "@/lib/clipboard";
 
 /** Single sign-on, when the server has it set up. */
@@ -63,63 +66,47 @@ export const sendAdmin = async <T,>(
 const formString = (value: FormDataEntryValue | null) =>
   typeof value === "string" ? value : undefined;
 
-/** The password half of invite and reset: generated, or typed twice. */
-export function TemporaryPasswordFields() {
-  const [generated, setGenerated] = useState(true);
+/** The password rows of invite and reset; left empty, Staaash makes one. */
+export function TemporaryPasswordRows() {
   return (
     <>
-      <AdminToggleField
-        checked={generated}
-        label="Generate a password"
-        onChange={setGenerated}
-      />
-      <input name="generate" type="hidden" value={generated ? "on" : ""} />
-      {generated ? null : (
-        <>
-          <Field>
-            <FieldLabel>Temporary password</FieldLabel>
-            <Input
-              minLength={12}
-              name="temporaryPassword"
-              placeholder="12+ characters"
-              required
-              type="password"
-            />
-          </Field>
-          <Field>
-            <FieldLabel>Repeat it</FieldLabel>
-            <Input
-              minLength={12}
-              name="confirmTemporaryPassword"
-              required
-              type="password"
-            />
-          </Field>
-        </>
-      )}
-      <AdminToggleField
-        defaultChecked
-        label="Ask for a new password at sign-in"
-        name="requirePasswordChange"
-      />
+      <SettingsRow htmlFor="temporary-password" label="Password">
+        <SettingsText
+          autoComplete="off"
+          id="temporary-password"
+          maxLength={128}
+          minLength={12}
+          name="temporaryPassword"
+          placeholder="Leave empty to generate"
+        />
+      </SettingsRow>
+      <SettingsRow
+        htmlFor="require-password-change"
+        label="Change it at first sign-in"
+      >
+        <Switch
+          defaultChecked
+          id="require-password-change"
+          name="requirePasswordChange"
+        />
+      </SettingsRow>
     </>
   );
 }
 
-export const temporaryPasswordPayload = (form: FormData) =>
-  form.get("generate") === "on"
+// The next screen shows the password, so it's typed once.
+export const temporaryPasswordPayload = (form: FormData) => {
+  const typed = formString(form.get("temporaryPassword"))?.trim();
+  const requirePasswordChange = form.get("requirePasswordChange") === "on";
+  return typed
     ? {
-        generateTemporaryPassword: true,
-        requirePasswordChange: form.get("requirePasswordChange") === "on",
-      }
-    : {
         generateTemporaryPassword: false,
-        temporaryPassword: formString(form.get("temporaryPassword")),
-        confirmTemporaryPassword: formString(
-          form.get("confirmTemporaryPassword"),
-        ),
-        requirePasswordChange: form.get("requirePasswordChange") === "on",
-      };
+        temporaryPassword: typed,
+        confirmTemporaryPassword: typed,
+        requirePasswordChange,
+      }
+    : { generateTemporaryPassword: true, requirePasswordChange };
+};
 
 /** Shown once, right after the server makes the password or the link. */
 export function SignInDetailsDialog({
@@ -183,7 +170,10 @@ export function SignInDetailsDialog({
   );
 }
 
-/** A small admin form in a dialog: closes when `onSubmit` succeeds, shows its error when it throws. */
+/**
+ * A small admin form in a dialog, its rows in one card: closes when
+ * `onSubmit` succeeds, shows its error when it throws.
+ */
 export function AdminFormDialog({
   trigger,
   triggerLabel,
@@ -210,7 +200,7 @@ export function AdminFormDialog({
       }}
     >
       <DialogTrigger render={trigger}>{triggerLabel}</DialogTrigger>
-      <DialogPopup className="max-w-110">
+      <DialogPopup className="sm:max-w-lg">
         <form
           className="flex min-h-0 flex-col"
           onSubmit={async (event) => {
@@ -229,9 +219,9 @@ export function AdminFormDialog({
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
           </DialogHeader>
-          <DialogPanel className="grid gap-4">
-            {children}
+          <DialogPanel className="grid gap-3">
             {error ? <Alert variant="error">{error}</Alert> : null}
+            <SettingsCard>{children}</SettingsCard>
           </DialogPanel>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)}>

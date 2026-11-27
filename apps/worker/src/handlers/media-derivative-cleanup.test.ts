@@ -6,7 +6,6 @@ type Row = {
   kind: string;
   status: string;
   storageKey: string | null;
-  pinnedByAdmin: boolean;
   lastViewedAt: Date | null;
   lastSharedAt: Date | null;
   generatedAt: Date | null;
@@ -76,7 +75,6 @@ const unusedDerivative = (kind: string): Row => ({
   kind,
   status: "ready",
   storageKey: `derivatives/file-1/${kind}`,
-  pinnedByAdmin: false,
   lastViewedAt: longAgo,
   lastSharedAt: null,
   generatedAt: longAgo,

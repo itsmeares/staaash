@@ -448,7 +448,6 @@ export const MediaDerivativeScalarFieldEnum = {
   videoCodec: 'videoCodec',
   audioCodec: 'audioCodec',
   error: 'error',
-  pinnedByAdmin: 'pinnedByAdmin',
   lastViewedAt: 'lastViewedAt',
   lastSharedAt: 'lastSharedAt',
   generatedAt: 'generatedAt',

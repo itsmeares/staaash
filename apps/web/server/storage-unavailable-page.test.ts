@@ -47,7 +47,7 @@ describe("private storage unavailable page", () => {
 
     expect(markup).toContain("Storage needs a check");
     expect(markup).toContain("An administrator needs to review it.");
-    expect(markup).toContain("/admin/storage/changes/recovery-1");
+    expect(markup).toContain("/admin/maintenance/changes/recovery-1");
     expect(markup).not.toContain("Every file is kept safe");
     expect(markup).not.toContain("data-storage-unavailable-spinner");
   });

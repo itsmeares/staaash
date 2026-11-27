@@ -44,7 +44,7 @@ const WORKSPACE_ROUTES = [
 const ADMIN_ROUTES = [
   "/admin",
   "/admin/jobs",
-  "/admin/storage",
+  "/admin/maintenance",
   "/admin/users",
   "/admin/users/e2e-member",
   "/admin/settings",

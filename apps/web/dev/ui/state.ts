@@ -46,7 +46,6 @@ export const jobKinds = [
   "restore.reconcile",
   "media.derivative.generate",
   "media.derivative.cleanup",
-  "zip.archive.generate",
   "zip.archive.cleanup",
 ] as const;
 type Job = InferResponseType<
@@ -63,7 +62,7 @@ export function sampleJob(
     kind,
     status,
     payloadJson: {},
-    fileName: null,
+    ownerName: kind === "media.derivative.generate" ? "Alex Morgan" : null,
     dedupeKey: null,
     runAt: timestamp,
     lockedAt: null,
@@ -130,6 +129,8 @@ export function createState(scenario: Scenario = "owner") {
     storageId: `sample-${person.id}`,
     storageLimitBytes: person.storageLimitBytes,
     storageUsedBytes: "0",
+    files: 0,
+    lastActiveAt: null,
     createdAt: timestamp,
     note: null,
     prefs: {
@@ -172,7 +173,6 @@ export function createState(scenario: Scenario = "owner") {
       string,
       import("../../lib/media-preview-status").MediaPreviewStatus
     >(),
-    pinnedPreviews: new Set<string>(),
     unlocked: new Set<string>(),
     moves: new Map<
       string,
@@ -230,23 +230,37 @@ export function createState(scenario: Scenario = "owner") {
     recovering: scenario === "busy",
     fixedChanges: [] as import("./storage-review").FixedChange[],
     recoveredNotice: scenario === "recovered",
-    jobs: jobKinds.map((kind, index) =>
-      sampleJob(
-        kind,
-        `job-${index}`,
-        scenario === "error" && index === 0
-          ? "failed"
-          : scenario === "busy" && index === 0
-            ? "running"
-            : "succeeded",
-      ),
-    ),
+    jobs: jobKinds
+      .map((kind, index) =>
+        sampleJob(
+          kind,
+          `job-${index}`,
+          scenario === "error" && index === 0
+            ? "failed"
+            : scenario === "busy" && index === 0
+              ? "running"
+              : "succeeded",
+        ),
+      )
+      .concat(failedPreviews(scenario)),
   };
   for (const user of users)
     if (demo) seedDemoDrive(state, user);
     else seedDrive(state, user);
   return state;
 }
+// Videos that never got a preview, so the error state shows whose file it was.
+const failedPreviews = (scenario: Scenario): Job[] =>
+  scenario === "error"
+    ? ["Sam Rivera", "Mia Chen"].map((owner, index) => ({
+        ...sampleJob("media.derivative.generate", `preview-${index}`, "dead"),
+        ownerName: owner,
+        // The second one an admin already retried once after it gave up.
+        attemptCount: 5 + index,
+        maxAttempts: 5,
+        lastError: "Couldn't read this file.",
+      }))
+    : [];
 const daysAgo = (days: number) =>
   new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 function seedDemoDrive(state: State, user: User) {

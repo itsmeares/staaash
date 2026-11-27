@@ -37,19 +37,19 @@ for (const role of ["owner", "admin", "member"] as const) {
         ).status(),
       ).toBe(403);
     } else {
-      await popup.getByRole("link", { name: "View recovery details" }).click();
-      await expect(page).toHaveURL(/\/admin\/storage\?mutationId=sample-move$/);
-      await expect(
-        page.getByText("Both rename source and target exist.", {
-          exact: false,
-        }),
-      ).toBeVisible();
-      await expect(page.getByRole("button", { name: "Retry now" })).toHaveCount(
-        0,
+      await popup.getByRole("link", { name: "Review this change" }).click();
+      await expect(page).toHaveURL(
+        /\/admin\/maintenance\/changes\/sample-move$/,
       );
-      await page.getByRole("button", { name: "Copy recovery details" }).click();
       await expect(
-        page.getByRole("button", { name: "Copy recovery details" }),
+        page.getByRole("heading", { name: "Folder move" }),
+      ).toBeVisible();
+      await expect(page.getByRole("button", { name: "Finish" })).toHaveCount(
+        role === "owner" ? 1 : 0,
+      );
+      await page.getByRole("button", { name: "Copy details" }).click();
+      await expect(
+        page.getByRole("button", { name: "Copy details" }),
       ).toContainText("Copied");
       expect(
         await page.evaluate(() => navigator.clipboard.readText()),
@@ -65,7 +65,7 @@ for (const role of ["owner", "admin", "member"] as const) {
       ).toBeVisible();
     else
       await expect(
-        page.getByRole("link", { name: "View recovery details" }),
+        page.getByRole("link", { name: "Review this change" }),
       ).toBeVisible();
   });
 }
@@ -102,12 +102,15 @@ test("shows the same recovery help across workspace lists and search", async ({
     }
   }
   await page.goto("/admin/storage?mutationId=missing");
+  await expect(page).toHaveURL(
+    /\/admin\/maintenance\/changes\?mutationId=missing$/,
+  );
   await expect(
     page.getByText("This change is no longer unfinished", { exact: false }),
   ).toBeVisible();
   await page.getByRole("link", { name: "Show all unfinished changes" }).click();
   await expect(
-    page.getByText("Both rename source and target exist.", { exact: false }),
+    page.getByText("Photos is in both places", { exact: false }),
   ).toBeVisible();
 });
 
@@ -130,9 +133,9 @@ test.describe("on touch screens", () => {
     await expect(page.getByRole("dialog")).toContainText(
       "An administrator needs to review it",
     );
-    await page.getByRole("link", { name: "View recovery details" }).click();
+    await page.getByRole("link", { name: "Review this change" }).click();
     await expect(
-      page.getByText("Both rename source and target exist.", { exact: false }),
+      page.getByRole("heading", { name: "Folder move" }),
     ).toBeVisible();
     expect(
       await page

@@ -31,12 +31,15 @@ import { Route as WorkspaceAdminStorageRouteImport } from './routes/_workspace/a
 import { Route as WorkspaceFilesIndexRouteImport } from './routes/_workspace/files.index'
 import { Route as WorkspaceFilesStorageUnavailableRouteImport } from './routes/_workspace/files.storage-unavailable'
 import { Route as STokenIndexRouteImport } from './routes/s.$token.index'
+import { Route as WorkspaceAdminMaintenanceIndexRouteImport } from './routes/_workspace/admin.maintenance.index'
 import { Route as WorkspaceAdminUsersIndexRouteImport } from './routes/_workspace/admin.users.index'
 import { Route as WorkspaceAdminUsersUserIdRouteImport } from './routes/_workspace/admin.users.$userId'
 import { Route as WorkspaceFilesFFolderIdRouteImport } from './routes/_workspace/files.f.$folderId'
 import { Route as WorkspaceFilesViewFileIdRouteImport } from './routes/_workspace/files.view.$fileId'
 import { Route as STokenFFolderIdRouteImport } from './routes/s.$token.f.$folderId'
 import { Route as STokenFilesFileIdRouteImport } from './routes/s.$token.files.$fileId'
+import { Route as WorkspaceAdminMaintenanceChangesIndexRouteImport } from './routes/_workspace/admin.maintenance.changes.index'
+import { Route as WorkspaceAdminMaintenanceChangesMutationIdRouteImport } from './routes/_workspace/admin.maintenance.changes.$mutationId'
 import { Route as WorkspaceAdminStorageChangesMutationIdRouteImport } from './routes/_workspace/admin.storage_.changes.$mutationId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -149,6 +152,12 @@ const STokenIndexRoute = STokenIndexRouteImport.update({
   path: '/',
   getParentRoute: () => STokenRoute,
 } as any)
+const WorkspaceAdminMaintenanceIndexRoute =
+  WorkspaceAdminMaintenanceIndexRouteImport.update({
+    id: '/maintenance/',
+    path: '/maintenance/',
+    getParentRoute: () => WorkspaceAdminRoute,
+  } as any)
 const WorkspaceAdminUsersIndexRoute =
   WorkspaceAdminUsersIndexRouteImport.update({
     id: '/users/',
@@ -182,6 +191,18 @@ const STokenFilesFileIdRoute = STokenFilesFileIdRouteImport.update({
   path: '/files/$fileId',
   getParentRoute: () => STokenRoute,
 } as any)
+const WorkspaceAdminMaintenanceChangesIndexRoute =
+  WorkspaceAdminMaintenanceChangesIndexRouteImport.update({
+    id: '/maintenance/changes/',
+    path: '/maintenance/changes/',
+    getParentRoute: () => WorkspaceAdminRoute,
+  } as any)
+const WorkspaceAdminMaintenanceChangesMutationIdRoute =
+  WorkspaceAdminMaintenanceChangesMutationIdRouteImport.update({
+    id: '/maintenance/changes/$mutationId',
+    path: '/maintenance/changes/$mutationId',
+    getParentRoute: () => WorkspaceAdminRoute,
+  } as any)
 const WorkspaceAdminStorageChangesMutationIdRoute =
   WorkspaceAdminStorageChangesMutationIdRouteImport.update({
     id: '/storage_/changes/$mutationId',
@@ -216,8 +237,11 @@ export interface FileRoutesByFullPath {
   '/files/view/$fileId': typeof WorkspaceFilesViewFileIdRoute
   '/s/$token/f/$folderId': typeof STokenFFolderIdRoute
   '/s/$token/files/$fileId': typeof STokenFilesFileIdRoute
+  '/admin/maintenance/': typeof WorkspaceAdminMaintenanceIndexRoute
   '/admin/users/': typeof WorkspaceAdminUsersIndexRoute
+  '/admin/maintenance/changes/$mutationId': typeof WorkspaceAdminMaintenanceChangesMutationIdRoute
   '/admin/storage/changes/$mutationId': typeof WorkspaceAdminStorageChangesMutationIdRoute
+  '/admin/maintenance/changes/': typeof WorkspaceAdminMaintenanceChangesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -244,8 +268,11 @@ export interface FileRoutesByTo {
   '/files/view/$fileId': typeof WorkspaceFilesViewFileIdRoute
   '/s/$token/f/$folderId': typeof STokenFFolderIdRoute
   '/s/$token/files/$fileId': typeof STokenFilesFileIdRoute
+  '/admin/maintenance': typeof WorkspaceAdminMaintenanceIndexRoute
   '/admin/users': typeof WorkspaceAdminUsersIndexRoute
+  '/admin/maintenance/changes/$mutationId': typeof WorkspaceAdminMaintenanceChangesMutationIdRoute
   '/admin/storage/changes/$mutationId': typeof WorkspaceAdminStorageChangesMutationIdRoute
+  '/admin/maintenance/changes': typeof WorkspaceAdminMaintenanceChangesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -276,8 +303,11 @@ export interface FileRoutesById {
   '/_workspace/files/view/$fileId': typeof WorkspaceFilesViewFileIdRoute
   '/s/$token/f/$folderId': typeof STokenFFolderIdRoute
   '/s/$token/files/$fileId': typeof STokenFilesFileIdRoute
+  '/_workspace/admin/maintenance/': typeof WorkspaceAdminMaintenanceIndexRoute
   '/_workspace/admin/users/': typeof WorkspaceAdminUsersIndexRoute
+  '/_workspace/admin/maintenance/changes/$mutationId': typeof WorkspaceAdminMaintenanceChangesMutationIdRoute
   '/_workspace/admin/storage_/changes/$mutationId': typeof WorkspaceAdminStorageChangesMutationIdRoute
+  '/_workspace/admin/maintenance/changes/': typeof WorkspaceAdminMaintenanceChangesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -308,8 +338,11 @@ export interface FileRouteTypes {
     | '/files/view/$fileId'
     | '/s/$token/f/$folderId'
     | '/s/$token/files/$fileId'
+    | '/admin/maintenance/'
     | '/admin/users/'
+    | '/admin/maintenance/changes/$mutationId'
     | '/admin/storage/changes/$mutationId'
+    | '/admin/maintenance/changes/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -336,8 +369,11 @@ export interface FileRouteTypes {
     | '/files/view/$fileId'
     | '/s/$token/f/$folderId'
     | '/s/$token/files/$fileId'
+    | '/admin/maintenance'
     | '/admin/users'
+    | '/admin/maintenance/changes/$mutationId'
     | '/admin/storage/changes/$mutationId'
+    | '/admin/maintenance/changes'
   id:
     | '__root__'
     | '/'
@@ -367,8 +403,11 @@ export interface FileRouteTypes {
     | '/_workspace/files/view/$fileId'
     | '/s/$token/f/$folderId'
     | '/s/$token/files/$fileId'
+    | '/_workspace/admin/maintenance/'
     | '/_workspace/admin/users/'
+    | '/_workspace/admin/maintenance/changes/$mutationId'
     | '/_workspace/admin/storage_/changes/$mutationId'
+    | '/_workspace/admin/maintenance/changes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -537,6 +576,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof STokenIndexRouteImport
       parentRoute: typeof STokenRoute
     }
+    '/_workspace/admin/maintenance/': {
+      id: '/_workspace/admin/maintenance/'
+      path: '/maintenance'
+      fullPath: '/admin/maintenance/'
+      preLoaderRoute: typeof WorkspaceAdminMaintenanceIndexRouteImport
+      parentRoute: typeof WorkspaceAdminRoute
+    }
     '/_workspace/admin/users/': {
       id: '/_workspace/admin/users/'
       path: '/users'
@@ -579,6 +625,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof STokenFilesFileIdRouteImport
       parentRoute: typeof STokenRoute
     }
+    '/_workspace/admin/maintenance/changes/': {
+      id: '/_workspace/admin/maintenance/changes/'
+      path: '/maintenance/changes'
+      fullPath: '/admin/maintenance/changes/'
+      preLoaderRoute: typeof WorkspaceAdminMaintenanceChangesIndexRouteImport
+      parentRoute: typeof WorkspaceAdminRoute
+    }
+    '/_workspace/admin/maintenance/changes/$mutationId': {
+      id: '/_workspace/admin/maintenance/changes/$mutationId'
+      path: '/maintenance/changes/$mutationId'
+      fullPath: '/admin/maintenance/changes/$mutationId'
+      preLoaderRoute: typeof WorkspaceAdminMaintenanceChangesMutationIdRouteImport
+      parentRoute: typeof WorkspaceAdminRoute
+    }
     '/_workspace/admin/storage_/changes/$mutationId': {
       id: '/_workspace/admin/storage_/changes/$mutationId'
       path: '/storage/changes/$mutationId'
@@ -595,8 +655,11 @@ interface WorkspaceAdminRouteChildren {
   WorkspaceAdminStorageRoute: typeof WorkspaceAdminStorageRoute
   WorkspaceAdminIndexRoute: typeof WorkspaceAdminIndexRoute
   WorkspaceAdminUsersUserIdRoute: typeof WorkspaceAdminUsersUserIdRoute
+  WorkspaceAdminMaintenanceIndexRoute: typeof WorkspaceAdminMaintenanceIndexRoute
   WorkspaceAdminUsersIndexRoute: typeof WorkspaceAdminUsersIndexRoute
+  WorkspaceAdminMaintenanceChangesMutationIdRoute: typeof WorkspaceAdminMaintenanceChangesMutationIdRoute
   WorkspaceAdminStorageChangesMutationIdRoute: typeof WorkspaceAdminStorageChangesMutationIdRoute
+  WorkspaceAdminMaintenanceChangesIndexRoute: typeof WorkspaceAdminMaintenanceChangesIndexRoute
 }
 
 const WorkspaceAdminRouteChildren: WorkspaceAdminRouteChildren = {
@@ -605,9 +668,14 @@ const WorkspaceAdminRouteChildren: WorkspaceAdminRouteChildren = {
   WorkspaceAdminStorageRoute: WorkspaceAdminStorageRoute,
   WorkspaceAdminIndexRoute: WorkspaceAdminIndexRoute,
   WorkspaceAdminUsersUserIdRoute: WorkspaceAdminUsersUserIdRoute,
+  WorkspaceAdminMaintenanceIndexRoute: WorkspaceAdminMaintenanceIndexRoute,
   WorkspaceAdminUsersIndexRoute: WorkspaceAdminUsersIndexRoute,
+  WorkspaceAdminMaintenanceChangesMutationIdRoute:
+    WorkspaceAdminMaintenanceChangesMutationIdRoute,
   WorkspaceAdminStorageChangesMutationIdRoute:
     WorkspaceAdminStorageChangesMutationIdRoute,
+  WorkspaceAdminMaintenanceChangesIndexRoute:
+    WorkspaceAdminMaintenanceChangesIndexRoute,
 }
 
 const WorkspaceAdminRouteWithChildren = WorkspaceAdminRoute._addFileChildren(

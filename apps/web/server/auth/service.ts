@@ -599,23 +599,6 @@ export const createAuthService = ({
       return user;
     },
 
-    async setStorageLimit(
-      actorUserId: string,
-      targetUserId: string,
-      limitBytes: bigint | null,
-    ) {
-      await requireOwner(actorUserId);
-      const activeRepo = await resolveRepo();
-      const user = await activeRepo.setUserStorageLimit(
-        targetUserId,
-        limitBytes,
-      );
-      if (!user) {
-        throw new AuthError("USER_NOT_FOUND");
-      }
-      return user;
-    },
-
     async resetTemporaryPassword(
       actorUserId: string,
       targetUserId: string,

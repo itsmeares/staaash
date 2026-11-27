@@ -1,19 +1,16 @@
+import { ChevronLeft } from "lucide-react";
 import { MutationRow } from "./storage-mutation-row";
 import { AppLink } from "@/components/app-link";
-import type { ReactNode } from "react";
 
-import { AdminAvatar } from "@/src/workspace/admin/admin-avatar";
 import { PageHeader } from "@/components/page-header";
 import { SettingsCard } from "@/components/settings-layout";
 import { Button } from "@staaash/ui/components/button";
-import { formatBytes } from "@/lib/format-bytes";
-import { getInitials } from "@/lib/user";
 import { useSuspenseQuery } from "@tanstack/react-query";
 
 import { useRefresh } from "@/lib/use-refresh";
+import { AdminGroup, AdminPage } from "./admin-panel";
 import { adminStorageQuery } from "@/src/queries";
 
-import { DiskBar } from "./disk-bar";
 import { summaryOf } from "./storage-change";
 
 const plural = (count: number, word: string) =>
@@ -38,15 +35,6 @@ const outcomes = {
   retry: "Checked again",
 } as const;
 
-function Group({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="grid gap-2.5">
-      <h2 className="m-0 font-heading text-body font-semibold">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
 const rowClass =
   "flex min-h-15 items-center gap-3 border-t border-border px-4 py-2.5 first:border-t-0";
 
@@ -55,7 +43,7 @@ type StorageData = Awaited<
 >;
 type NameOf = Map<string, string>;
 
-const changeLink = (id: string) => `/admin/storage/changes/${id}`;
+const changeLink = (id: string) => `/admin/maintenance/changes/${id}`;
 
 function ReviewGroup({
   review,
@@ -68,7 +56,7 @@ function ReviewGroup({
 }) {
   if (!review.length) return null;
   return (
-    <Group title="Needs review">
+    <AdminGroup title="Needs review">
       <SettingsCard>
         {review.map((mutation) => (
           <div className={rowClass} key={mutation.id}>
@@ -96,7 +84,7 @@ function ReviewGroup({
           </div>
         ))}
       </SettingsCard>
-    </Group>
+    </AdminGroup>
   );
 }
 
@@ -114,7 +102,7 @@ function FixedGroup({
 }) {
   if (!fixed.length) return null;
   return (
-    <Group title="Fixed">
+    <AdminGroup title="Fixed">
       <SettingsCard>
         {fixed.map((item) => (
           <AppLink
@@ -141,7 +129,7 @@ function FixedGroup({
           </AppLink>
         ))}
       </SettingsCard>
-    </Group>
+    </AdminGroup>
   );
 }
 
@@ -157,7 +145,7 @@ function UnfinishedGroup({
   isOwner: boolean;
 }) {
   return (
-    <Group title={mutationId ? "Selected change" : "Unfinished changes"}>
+    <AdminGroup title={mutationId ? "Selected change" : "Unfinished changes"}>
       <SettingsCard>
         {mutations.length === 0 ? (
           <p className="m-0 px-4 py-3.5 text-body text-muted-foreground">
@@ -176,13 +164,13 @@ function UnfinishedGroup({
           ))
         )}
       </SettingsCard>
-    </Group>
+    </AdminGroup>
   );
 }
 
-export function AdminStoragePage({ mutationId }: { mutationId?: string }) {
+export function StorageChangesPage({ mutationId }: { mutationId?: string }) {
   const data = useSuspenseQuery(adminStorageQuery(mutationId)).data;
-  const { summary, disk, fixed } = data;
+  const { summary, fixed } = data;
   const review = data.mutations.filter(
     (mutation) => mutation.status === "recovery_required",
   );
@@ -190,7 +178,6 @@ export function AdminStoragePage({ mutationId }: { mutationId?: string }) {
     (mutation) => mutation.status !== "recovery_required",
   );
   const refresh = useRefresh();
-  const largest = BigInt(summary.rows[0]?.retainedBytes ?? 0);
   const nameOf: NameOf = new Map(
     summary.rows.map((row) => [row.userId, row.displayName ?? row.email]),
   );
@@ -205,16 +192,25 @@ export function AdminStoragePage({ mutationId }: { mutationId?: string }) {
   );
 
   return (
-    <div className="grid w-full max-w-3xl content-start gap-6">
+    <AdminPage>
+      <Button
+        className="-ms-2 justify-self-start"
+        render={<AppLink href="/admin/maintenance" />}
+        size="sm"
+        variant="ghost-muted"
+      >
+        <ChevronLeft aria-hidden />
+        Maintenance
+      </Button>
       <PageHeader
-        title="Storage"
+        title="Storage changes"
         actions={
           <div className="flex flex-wrap gap-2">
             {mutationId ? (
               <Button
                 variant="link"
                 size="sm"
-                render={<AppLink href="/admin/storage" />}
+                render={<AppLink href="/admin/maintenance/changes" />}
               >
                 Show all unfinished changes
               </Button>
@@ -227,63 +223,13 @@ export function AdminStoragePage({ mutationId }: { mutationId?: string }) {
       />
       <ReviewGroup isOwner={data.isOwner} nameOf={nameOf} review={review} />
       {mutationId && !review.length ? changes : null}
-
-      {disk ? (
-        <SettingsCard>
-          <div className="px-4 py-3.5">
-            <DiskBar
-              capacityBytes={BigInt(disk.capacityBytes)}
-              staaashBytes={BigInt(summary.retainedBytes)}
-              usedBytes={BigInt(disk.usedBytes)}
-            />
-          </div>
-        </SettingsCard>
-      ) : null}
-
-      <Group title="By person">
-        <SettingsCard>
-          {summary.rows.map((row) => (
-            <AppLink
-              className={`${rowClass} outline-none hover:bg-hover focus-visible:bg-hover`}
-              href={`/admin/users/${row.userId}`}
-              key={row.userId}
-            >
-              <AdminAvatar
-                avatarUrl={null}
-                initials={getInitials(row.displayName, row.email)}
-                size="sm"
-              />
-              <span className="grid min-w-0 flex-1">
-                <span className="truncate text-body font-medium">
-                  {row.displayName ?? row.email}
-                </span>
-                <span className="truncate text-label text-muted-foreground">
-                  {row.retainedFileCount + row.retainedFolderCount === 0
-                    ? "Nothing yet"
-                    : `${plural(row.retainedFileCount, "file")} · ${plural(row.retainedFolderCount, "folder")}`}
-                </span>
-              </span>
-              <span className="grid w-36 gap-1.5 text-end">
-                <span className="text-label tabular-nums">
-                  {formatBytes(row.retainedBytes)}
-                </span>
-                <span className="block h-1 overflow-hidden rounded-full bg-pressed">
-                  <span
-                    className="block h-full rounded-full bg-primary"
-                    style={{
-                      width: `${largest > 0n ? Number((BigInt(row.retainedBytes) * 100n) / largest) : 0}%`,
-                    }}
-                  />
-                </span>
-              </span>
-            </AppLink>
-          ))}
-        </SettingsCard>
-      </Group>
-
-      {mutationId ? null : changes}
+      {/* An empty list only says something when nothing else is shown. */}
+      {mutationId ||
+      (mutations.length === 0 && review.length + fixed.length > 0)
+        ? null
+        : changes}
 
       <FixedGroup fixed={fixed} nameOf={nameOf} />
-    </div>
+    </AdminPage>
   );
 }

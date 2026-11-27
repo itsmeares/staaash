@@ -21,12 +21,6 @@ import {
   toJsonAdminJobSummary,
 } from "@/server/admin/jobs";
 import { createAdminLiveStream } from "@/server/admin/live";
-import {
-  cancelDerivative,
-  regenerateDerivative,
-  removeDerivative,
-  setDerivativePinned,
-} from "@/server/admin/media-derivatives";
 import { saveSystemSettings } from "@/server/admin/settings";
 import {
   getAdminStorageSummary,
@@ -91,11 +85,12 @@ const CreateUserBody = z.object({
   requirePasswordChange: z.boolean().default(true),
 });
 
+// A field left out stays as it is.
 const UpdateUserBody = z.object({
   email: z.string().optional(),
   displayName: z.string().nullable().optional(),
-  storageLimitBytes: DecimalBytes,
-  isAdmin: z.boolean().default(false),
+  storageLimitBytes: DecimalBytes.optional(),
+  isAdmin: z.boolean().optional(),
 });
 
 const PasswordResetBody = z.object({
@@ -106,8 +101,6 @@ const PasswordResetBody = z.object({
 });
 
 const RunJobBody = z.object({ kind: z.enum(ALL_SUPPORTED_JOB_KINDS) });
-
-const StorageLimitBody = z.object({ limitBytes: DecimalBytes });
 
 const userView = <User extends { storageLimitBytes: bigint | null }>(
   user: User,
@@ -284,27 +277,6 @@ export const adminRoutes = admin
     const result = await saveSystemSettings(c.req.valid("json"));
     return c.json(result, result.fieldErrors ? 400 : 200);
   })
-  .post("/derivatives/files/:fileId/regenerate", async (c) => {
-    await regenerateDerivative(c.req.param("fileId"));
-    return c.json({ ok: true as const });
-  })
-  .post(
-    "/derivatives/:id/pin",
-    json(z.object({ pinned: z.boolean() })),
-    async (c) => {
-      const { pinned } = c.req.valid("json");
-      await setDerivativePinned(c.req.param("id"), pinned);
-      return c.json({ ok: true as const });
-    },
-  )
-  .post("/derivatives/:id/cancel", async (c) => {
-    await cancelDerivative(c.req.param("id"), c.var.session.user.id);
-    return c.json({ ok: true as const });
-  })
-  .post("/derivatives/:id/remove", async (c) => {
-    await removeDerivative(c.req.param("id"));
-    return c.json({ ok: true as const });
-  })
   .post("/users", json(CreateUserBody), async (c) => {
     const result = await authService.createUser(
       c.var.session.user.id,
@@ -361,6 +333,14 @@ export const adminRoutes = admin
       signInUrl: new URL("/", getBaseUrl(c.req.raw.headers)).toString(),
     });
   })
+  .delete("/users/:userId/sessions", async (c) => {
+    await authService.revokeAllUserSessions(
+      c.var.session.user.id,
+      c.req.param("userId"),
+      c.var.session.id,
+    );
+    return c.json({ ok: true as const });
+  })
   .delete("/users/:userId/sessions/:sessionId", async (c) => {
     await authService.revokeUserSession(
       c.var.session.user.id,
@@ -369,16 +349,4 @@ export const adminRoutes = admin
       c.var.session.id,
     );
     return c.json({ ok: true as const });
-  })
-  .patch("/users/:userId/storage-limit", json(StorageLimitBody), async (c) => {
-    const { limitBytes } = c.req.valid("json");
-    const user = await authService.setStorageLimit(
-      c.var.session.user.id,
-      c.req.param("userId"),
-      limitBytes,
-    );
-    return c.json({
-      id: user.id,
-      storageLimitBytes: user.storageLimitBytes?.toString() ?? null,
-    });
   });

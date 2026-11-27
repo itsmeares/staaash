@@ -206,49 +206,98 @@ test("opens file details, rename, move, and sharing controls", async ({
   await expect(page.getByRole("dialog")).toBeVisible();
 });
 
-test("opens job details, history, and preview-file panels", async ({
+test("lists a failed health check under Needs attention", async ({ page }) => {
+  await page.request.post("/__ui/scenario", { form: { scenario: "error" } });
+  await page.goto("/admin");
+  await expect(page.getByText("Files volume has a problem")).toBeVisible();
+  await expect(page.getByText("Not writable")).toHaveCount(2);
+});
+
+test("opens a job's runs and fixes its failed run in Details", async ({
   page,
 }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  await page.request.post("/__ui/scenario", { form: { scenario: "error" } });
   await page.goto("/admin/jobs");
   await page
     .getByRole("button", { name: "Details", exact: true })
     .first()
     .click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await expect(
-    page.getByRole("dialog").getByText("Events", { exact: true }),
-  ).toBeVisible();
+  const dialog = page.getByRole("dialog");
+  const runs = dialog.getByRole("list", { name: "Runs" });
+  await runs.getByRole("button").first().click();
+  await expect(runs.getByText("Started.")).toBeVisible();
+  await expect(runs.getByText("Job handler started.")).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await page
-    .getByRole("button", { name: "Preview files", exact: true })
-    .click();
+  await page.getByRole("button", { name: "1 failed", exact: true }).click();
+  const failed = dialog.getByRole("list", {
+    name: "Failed Clean temporary uploads runs",
+  });
+  await failed.getByRole("button", { name: "Dismiss", exact: true }).click();
+  await expect(page.getByText("1 run dismissed.")).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(
-    page.getByRole("heading", { name: "Preview files", exact: true }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "1 failed", exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "2 failed", exact: true }).click();
+  const previews = dialog.getByRole("list", {
+    name: "Failed Create preview files runs",
+  });
+  await expect(previews.getByText("Gave up after 5 tries")).toBeVisible();
+  await expect(previews.getByText("Failed again after a retry")).toBeVisible();
+  await expect(previews.getByText(/took/)).toHaveCount(0);
   expect(errors).toEqual([]);
+});
+
+test("keeps a person's changes until Save, and Discard puts them back", async ({
+  page,
+}) => {
+  await page.goto("/admin/users/member");
+  const name = page.getByRole("textbox", { name: "Name", exact: true });
+  const original = await name.inputValue();
+  await name.fill("Someone Else");
+  await expect(page.getByText("Unsaved changes")).toBeVisible();
+  await page.getByRole("button", { name: "Discard", exact: true }).click();
+  await expect(name).toHaveValue(original);
+  await expect(page.getByText("Unsaved changes")).toHaveCount(0);
+
+  await page
+    .getByRole("textbox", { name: "Storage limit", exact: true })
+    .fill("2");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await expect(page.getByText("Unsaved changes")).toHaveCount(0);
+  await page.reload();
+  await expect(
+    page.getByRole("textbox", { name: "Storage limit", exact: true }),
+  ).toHaveValue("2");
+  await expect(name).toHaveValue(original);
 });
 
 test("invites a sample user through the real admin form", async ({ page }) => {
   await page.goto("/admin/users");
   await page.getByRole("button", { name: "Invite", exact: true }).click();
-  await page
+  const form = page.getByRole("dialog");
+  await form
     .getByRole("textbox", { name: "Email", exact: true })
     .fill("browser-invite@staaash.test");
-  await page
-    .getByRole("dialog")
-    .getByRole("button", { name: "Invite", exact: true })
-    .click();
+  await form.getByText("Admin", { exact: true }).click();
+  await form
+    .getByRole("textbox", { name: "Password", exact: true })
+    .fill("sample-pass-1234");
+  await form.getByRole("button", { name: "Invite", exact: true }).click();
   await expect(
-    page
-      .getByRole("dialog")
-      .getByText("browser-invite@staaash.test", { exact: true }),
+    form.getByText("browser-invite@staaash.test", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    form.getByText("sample-pass-1234", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Done", exact: true }).click();
-  await expect(
-    page.getByText("browser-invite@staaash.test", { exact: true }),
-  ).toBeVisible();
+  const row = page.getByRole("link").filter({
+    hasText: "browser-invite@staaash.test",
+  });
+  await expect(row.getByText("Admin", { exact: true })).toBeVisible();
 });
 
 test("unlocks a nested public file and renders the actual image", async ({
@@ -291,19 +340,21 @@ for (const route of [
     ).toBeVisible();
   });
 
-test("retries a sample storage mutation from its admin panel", async ({
-  page,
-}) => {
+test("resolves a stopped storage change from Maintenance", async ({ page }) => {
   await page.goto("/__ui");
   await expect(
     page.getByRole("button", { name: "Reset samples" }),
   ).toBeVisible();
   await page.request.post("/__ui/scenario", { form: { scenario: "busy" } });
-  await page.goto("/admin/storage");
-  await page.getByRole("button", { name: "Retry now", exact: true }).click();
+  await page.goto("/admin/maintenance");
+  await page.getByRole("link", { name: "Review 1", exact: true }).click();
+  await page.getByRole("link", { name: "Review", exact: true }).click();
+  await page.getByRole("button", { name: "Finish", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/maintenance\/changes$/);
+  await page.goto("/admin/maintenance");
   await expect(
-    page.getByRole("button", { name: "Retry now", exact: true }),
-  ).toHaveCount(0);
+    page.getByText("Every move, rename and trash finished."),
+  ).toBeVisible();
   await page.goto("/files/f/owner-photos");
   await expect(
     page.getByRole("button", {
@@ -439,3 +490,27 @@ for (const [name, lines, truncated] of [
         viewer.getByText(`line ${lines}`, { exact: true }),
       ).toBeVisible();
   });
+
+test("search narrows both Settings pages to the matching rows", async ({
+  page,
+}) => {
+  await page.goto("/__ui");
+  await page.request.post("/__ui/scenario", { form: { scenario: "owner" } });
+  await page.goto("/settings");
+  await page.getByRole("button", { name: "Appearance" }).click();
+  const search = page.getByLabel("Search settings");
+  await search.fill("pins");
+  await expect(page.getByText("Show pins in the sidebar")).toBeVisible();
+  await expect(page.getByText("Start page", { exact: true })).toBeHidden();
+  await search.fill("");
+  await expect(page.getByText("Start page", { exact: true })).toBeVisible();
+
+  await page.goto("/admin/settings");
+  await page.getByLabel("Search settings").fill("upload timeout");
+  await expect(page.getByText("Upload timeout", { exact: true })).toBeVisible();
+  await expect(page.getByText("Max upload size", { exact: true })).toBeHidden();
+  await page.getByLabel("Search settings").fill("no such setting");
+  await expect(
+    page.getByText('No setting matches "no such setting".'),
+  ).toBeVisible();
+});

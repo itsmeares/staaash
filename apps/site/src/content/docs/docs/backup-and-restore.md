@@ -44,7 +44,7 @@ Stop everything first, so no file changes while you copy.
    SQL
    ```
 
-   Run it again until it prints `(0 rows)`. A change that says **Needs review** in admin **Storage** is not in this list. Leave it as it is, and read [Storage Check](/docs/storage-check/).
+   Run it again until it prints `(0 rows)`. A change that says **Needs review** in admin **Maintenance** is not in this list. Leave it as it is, and read [Storage Check](/docs/storage-check/).
 
    On Windows with Docker Desktop, run this in WSL or Git Bash.
 

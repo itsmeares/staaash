@@ -61,7 +61,6 @@ const makeDerivative = (
   videoCodec: "h264",
   audioCodec: "aac",
   error: null,
-  pinnedByAdmin: false,
   lastViewedAt: null,
   lastSharedAt: null,
   generatedAt: fixedNow,
