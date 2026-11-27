@@ -43,13 +43,19 @@ export const MCP_PATH = "/mcp";
 const KEY_ROUTES =
   /^\/(?:mcp$|api\/(?:files|uploads|shares|search|sync)(?:\/|$))/;
 
-/** A desktop device or a key sends its token in a header; browsers send the cookie. */
+/**
+ * A desktop device or a key sends its token in a header; browsers send the
+ * cookie. A key works only in the header, and only on the routes it is for,
+ * so every caller gets the same answer whether it uses requireUser or not.
+ */
 export const sessionToken = (c: Context) => {
-  if (c.req.header("authorization") === undefined) {
-    return getCookie(c, SESSION_COOKIE_NAME) ?? null;
-  }
-  const token = bearerToken(c.req.raw);
-  return isKeyToken(token) && !KEY_ROUTES.test(c.req.path) ? null : token;
+  const header = c.req.header("authorization") !== undefined;
+  const token = header
+    ? bearerToken(c.req.raw)
+    : (getCookie(c, SESSION_COOKIE_NAME) ?? null);
+  return isKeyToken(token) && !(header && KEY_ROUTES.test(c.req.path))
+    ? null
+    : token;
 };
 
 // A read-only key may still pack a zip of what it can read.
@@ -125,10 +131,8 @@ const sameOrigin = createMiddleware(async (c, next) => {
  */
 export const requireUser = createMiddleware<AppEnv>(async (c, next) => {
   const session = await getRequestSession(sessionToken(c));
-  // Device tokens and keys travel in a header and browser tokens in the
-  // cookie, never the other way round.
-  const misused =
-    session && (bearerToken(c.req.raw) ? !session.deviceName : session.key);
+  // Only device tokens and keys travel in a header; a browser session token does not.
+  const misused = session && bearerToken(c.req.raw) && !session.deviceName;
   if (!session || misused) {
     if (isPageLoad(c.req.raw)) {
       const url = new URL(c.req.url);

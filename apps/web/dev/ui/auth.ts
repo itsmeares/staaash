@@ -140,6 +140,7 @@ export function mountAuth(app: Hono<PreviewEnv>) {
     if (body.password !== body.confirmPassword)
       throw new PreviewError(400, "Passwords do not match.");
     c.var.state.passwords.set(c.var.state.userId!, body.password);
+    c.var.state.keys.delete(c.var.state.userId!);
     return c.json({ ok: true });
   });
   app.post("/api/user/sessions/revoke", async (c) => {
@@ -149,7 +150,11 @@ export function mountAuth(app: Hono<PreviewEnv>) {
     c.var.state.sessions = c.var.state.sessions.filter(
       (id) => id === "current" || keep(id),
     );
-    c.var.state.keys = c.var.state.keys.filter((key) => keep(key.id));
+    const { keys, userId } = c.var.state;
+    keys.set(
+      userId!,
+      (keys.get(userId!) ?? []).filter((key) => keep(key.id)),
+    );
     return c.json({ ok: true });
   });
   app.post("/api/user/keys", async (c) => {
@@ -179,7 +184,8 @@ export function mountAuth(app: Hono<PreviewEnv>) {
         : null,
       createdAt: timestamp,
     };
-    c.var.state.keys.unshift(key);
+    const { keys, userId } = c.var.state;
+    keys.set(userId!, [key, ...(keys.get(userId!) ?? [])]);
     return c.json(
       { token: "stsh_previewOnlyKeyThatOpensNothing0000000", key },
       201,

@@ -96,7 +96,7 @@ The Claude and ChatGPT websites cannot connect. They need a sign-in flow that St
 | `move`          | Moves or renames a file or folder.                                                              |
 | `trash`         | Moves a file or folder to Trash.                                                                |
 
-A read-only key gets only the first four. Everything an AI app changes can be undone from Trash. It cannot delete files for good, make share links, change your account, or open admin pages.
+A read-only key gets only the first four. What an AI app trashes, and the old version of a file it replaces, wait in Trash. To undo a move or rename, move or rename it back. An AI app cannot delete files for good, make share links, change your account, or open admin pages.
 
 A key held to one folder sees that folder as the top of the drive. It cannot reach anything outside it, even by name. If you trash or delete that folder, the key stops working.
 
@@ -110,10 +110,11 @@ An AI app reads what is in your files, and a file can hold text written to trick
 
 ## Use a key in a script
 
-Send the key in the `Authorization` header:
+Send the key in the `Authorization` header. Don't type the key into the command itself: the shell saves it in its history, and other people on the computer can see a running command. Paste it into `read` instead, and let `curl` read the header from its input:
 
 ```sh
-curl -H "Authorization: Bearer stsh_..." "https://drive.example.com/api/search?q=report"
+read -rs STAAASH_KEY
+printf 'Authorization: Bearer %s' "$STAAASH_KEY" | curl -H @- "https://drive.example.com/api/search?q=report"
 ```
 
 Script keys work on the routes for files, uploads, share links, search and sync. A **Read and change** key can do what you can do on those pages, including making share links and emptying Trash. A read-only key can read and download, including zip downloads, but cannot change anything. No key can change your account or open admin pages. The routes are described in [`openapi.json`](https://github.com/itsmeares/staaash/blob/main/apps/web/openapi.json).

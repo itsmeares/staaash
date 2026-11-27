@@ -87,7 +87,7 @@ export function mountAdmin(app: Hono<PreviewEnv>) {
         lastChange: row.lastContentActivityAt,
       },
       devices: devices(state),
-      keys: state.keys,
+      keys: state.keys.get(user.id) ?? [],
       signInUrl: `${c.var.site}/`,
     });
   });
@@ -334,6 +334,7 @@ export function mountAdmin(app: Hono<PreviewEnv>) {
       .parse(await jsonBody(c.req.raw));
     const temporaryPassword = sampleTemporaryPassword(body);
     c.var.state.passwords.set(user.id, temporaryPassword);
+    c.var.state.keys.delete(user.id);
     const firstRun = c.var.state.firstRuns.get(user.id);
     if (body.requirePasswordChange !== false) {
       c.var.state.firstRuns.set(
@@ -360,7 +361,12 @@ export function mountAdmin(app: Hono<PreviewEnv>) {
     c.var.state.sessions = c.var.state.sessions.filter(
       (id) => id !== sessionId,
     );
-    c.var.state.keys = c.var.state.keys.filter((key) => key.id !== sessionId);
+    const { keys } = c.var.state;
+    const userId = c.req.param("id");
+    keys.set(
+      userId,
+      (keys.get(userId) ?? []).filter((key) => key.id !== sessionId),
+    );
     return c.json({ ok: true });
   });
   app.post("/api/admin/derivatives/files/:id/regenerate", (c) => {

@@ -494,6 +494,26 @@ const registerChanges = (server: McpServer, session: Session) => {
     return hit !== null && hit.item.id !== found.item.id;
   };
 
+  /** Checked before any change, so a refused move leaves nothing half done. */
+  const refuseMove = async (
+    found: Found,
+    destination: FolderSummary,
+    name: string,
+    toPath: string,
+  ) => {
+    if (
+      found.kind === "folder" &&
+      (await repo.listFolderAncestors(ownerUserId, [destination.id])).some(
+        (folder) => folder.id === found.item.id,
+      )
+    ) {
+      throw new ToolError("A folder can't move into itself.");
+    }
+    if (await taken(found, destination.id, name)) {
+      throw new ToolError(`${toPath} already exists.`);
+    }
+  };
+
   /**
    * Moving first needs the old name free where it goes; renaming first needs
    * the new name free where it is. With neither, nothing changes.
@@ -697,12 +717,12 @@ const registerChanges = (server: McpServer, session: Session) => {
       if (!name)
         throw new ToolError('Give the new path, like "/Archive/notes.md".');
       const destination = await lookUpFolder(root, target);
-      // Checked before any change, so a refused move leaves nothing half done.
-      if (await taken(found, destination.id, name)) {
-        throw new ToolError(
-          `${joinPath(pathFrom(target), name)} already exists.`,
-        );
-      }
+      await refuseMove(
+        found,
+        destination,
+        name,
+        joinPath(pathFrom(target), name),
+      );
       const parentId =
         found.kind === "folder" ? found.item.parentId : found.item.folderId;
       // Where it is after each step, so the reply says what really happened.

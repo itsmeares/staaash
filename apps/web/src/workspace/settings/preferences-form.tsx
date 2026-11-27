@@ -755,6 +755,7 @@ export function PersonalSettings({
           <SettingsGroup title="Browsers and devices">
             <DeviceList
               devices={sessions}
+              hasKeys={keys.length > 0}
               onSignOut={(sessionId) =>
                 post("/api/user/sessions/revoke", { sessionId })
               }

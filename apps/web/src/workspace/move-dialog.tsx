@@ -276,6 +276,7 @@ function MovePicker({
           label={<span className="font-medium">{tree.instanceName}</span>}
           note={noteFor(root.id, here, movingIds)}
           picked={picked === root.id}
+          tabStop={picked === null}
           onPick={() => setPicked(root.id)}
         />
         {branch(root.id, 1)}

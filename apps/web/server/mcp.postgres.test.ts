@@ -267,6 +267,12 @@ describe("MCP", () => {
         })
       ).error,
     ).toMatch(/can't move and take its new name in one step/);
+    // "Trips" is taken where it would go, so a rename would run first.
+    await tool(token, "create_folder", { path: "/Trips/Inner/Trips" });
+    expect(
+      (await tool(token, "move", { from: "/Trips", to: "/Trips/Inner/Away" }))
+        .error,
+    ).toBe("A folder can't move into itself.");
     expect(
       (await tool(token, "read_file", { path: "/Trips/plan.md" })).text,
     ).toBe("Day 1: the coast");

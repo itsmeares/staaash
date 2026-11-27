@@ -20,7 +20,12 @@ vi.mock("@/server/auth/guards", () => ({
 }));
 
 import { SESSION_COOKIE_NAME } from "@/server/auth/session";
-import { createApp, requireDevice, requireUser } from "@/server/http/core";
+import {
+  createApp,
+  requireDevice,
+  requireUser,
+  sessionToken,
+} from "@/server/http/core";
 
 const app = createApp();
 const ok = () => Response.json({ ok: true });
@@ -31,6 +36,8 @@ app.post("/api/files/archives", requireUser, ok);
 app.get("/api/user/me", requireUser, ok);
 app.all("/mcp", requireUser, ok);
 app.get("/api/sync/device-only", requireUser, requireDevice, ok);
+// Like the account routes, which look the session up without requireUser.
+app.get("/api/auth/token", (c) => c.json({ token: sessionToken(c) }));
 app.get("/api/busy", () => {
   throw Object.assign(new Error("Storage is busy."), {
     code: "STORAGE_MUTATION_IN_PROGRESS",
@@ -183,6 +190,16 @@ describe("API keys", () => {
     const response = await call("GET", "/api/user/me", "stsh_script");
     expect(response.status).toBe(401);
     expect(await codeOf(response)).toBe("NOT_SIGNED_IN");
+  });
+
+  it("never hands a key in a cookie to routes that read the session themselves", async () => {
+    const response = await call(
+      "GET",
+      "/api/auth/token",
+      "stsh_read",
+      "cookie",
+    );
+    expect(await response.json()).toEqual({ token: null });
   });
 
   it("refuses a key sent as a browser cookie", async () => {

@@ -239,10 +239,12 @@ function FolderPick({
         </p>
       );
     }
-    return shown.map((folder) => (
+    const pickedShown = shown.some((folder) => folder.id === value);
+    return shown.map((folder, index) => (
       <FolderTreeRow
         depth={0}
         disabled={false}
+        tabStop={!pickedShown && index === 0}
         icon={<ItemIcon item={{ kind: "folder", color: folder.color }} />}
         key={folder.id}
         label={folder.path}
@@ -501,11 +503,10 @@ export function NewKeyButton() {
       // A stray click outside would lose a key that is only shown once.
       disablePointerDismissal={made !== null}
       open={open}
-      onOpenChange={setOpen}
-      onOpenChangeComplete={(isOpen) => {
-        if (isOpen || !made) return;
-        setMade(null);
-        void refresh();
+      onOpenChange={(next) => {
+        if (next) setMade(null);
+        else if (made) void refresh();
+        setOpen(next);
       }}
     >
       <DialogTrigger render={<Button size="sm" variant="outline" />}>
@@ -516,7 +517,13 @@ export function NewKeyButton() {
         {made ? (
           <KeyMade made={made} onDone={() => setOpen(false)} />
         ) : (
-          <KeyForm onMade={setMade} />
+          <KeyForm
+            onMade={(next) => {
+              // Closed while it was being made: open again, or the key is lost.
+              setMade(next);
+              setOpen(true);
+            }}
+          />
         )}
       </DialogPopup>
     </Dialog>

@@ -19,11 +19,14 @@ const PHONE = /iPhone|iPad|Android/;
 export function DeviceList({
   devices,
   hideAddresses = false,
+  hasKeys = false,
   onSignOut,
   onSignOutOthers,
 }: {
   devices: Device[];
   hideAddresses?: boolean;
+  /** Signing out everywhere else deletes keys too, so it is offered for them alone. */
+  hasKeys?: boolean;
   onSignOut?: (sessionId: string) => Promise<void>;
   onSignOutOthers?: () => Promise<void>;
 }) {
@@ -103,7 +106,8 @@ export function DeviceList({
             {showAddresses ? "Hide addresses" : "Show addresses"}
           </Button>
         ) : null}
-        {onSignOutOthers && devices.some((device) => !device.current) ? (
+        {onSignOutOthers &&
+        (hasKeys || devices.some((device) => !device.current)) ? (
           <Button
             size="sm"
             variant="outline"

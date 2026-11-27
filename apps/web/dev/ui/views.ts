@@ -389,7 +389,7 @@ export function settingsView(state: State) {
     isOwner: user.role === "owner",
     prefs: user.prefs,
     sessions: devices(state),
-    keys: state.keys,
+    keys: state.keys.get(user.id) ?? [],
     storage: storageView(state, user.id),
     profile: {
       name: user.displayName,
