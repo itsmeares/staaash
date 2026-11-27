@@ -211,6 +211,9 @@ test("lists a failed health check under Needs attention", async ({ page }) => {
   await page.goto("/admin");
   await expect(page.getByText("Files volume has a problem")).toBeVisible();
   await expect(page.getByText("Not writable")).toHaveCount(2);
+  await expect(
+    page.getByText("The restore check found a problem"),
+  ).toBeVisible();
 });
 
 test("opens a job's runs and fixes its failed run in Details", async ({
@@ -219,6 +222,8 @@ test("opens a job's runs and fixes its failed run in Details", async ({
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.request.post("/__ui/scenario", { form: { scenario: "error" } });
+  // Without live pushes, the failed count must come from the refresh.
+  await page.route("**/api/admin/live**", (route) => route.abort());
   await page.goto("/admin/jobs");
   await page
     .getByRole("button", { name: "Details", exact: true })
@@ -250,33 +255,67 @@ test("opens a job's runs and fixes its failed run in Details", async ({
   expect(errors).toEqual([]);
 });
 
+test("offers another try when the first run list fails to load", async ({
+  page,
+}) => {
+  let fail = true;
+  await page.route("**/api/admin/jobs?kind=**", (route) =>
+    fail ? route.fulfill({ status: 503 }) : route.fallback(),
+  );
+  await page.goto("/admin/jobs");
+  await page
+    .getByRole("button", { name: "Details", exact: true })
+    .first()
+    .click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Couldn't load the runs.")).toBeVisible();
+  await expect(dialog.getByText("No runs yet.")).toHaveCount(0);
+  fail = false;
+  await dialog.getByRole("button", { name: "Try again" }).click();
+  await expect(
+    dialog.getByRole("list", { name: "Runs" }).getByRole("listitem").first(),
+  ).toBeVisible();
+});
+
 test("keeps the newest runs when an older refresh's body lands late", async ({
   page,
 }) => {
   await page.request.post("/__ui/scenario", { form: { scenario: "error" } });
   // No live pushes, so only the two list reads below can change the card.
   await page.route("**/api/admin/live**", (route) => route.abort());
-  // The first run-list reply arrives at once, but its body comes later.
+  // The first run-list reply holds an extra old run, and its body waits for
+  // `releaseLate`. Taking it would show that run next to the new one.
   await page.addInitScript(() => {
-    const flags = window as unknown as Record<string, boolean>;
+    const flags = window as unknown as Record<string, unknown>;
     const original = window.fetch;
     window.fetch = async (input, init) => {
       const url = String(input instanceof Request ? input.url : input);
       if (flags.lateStarted || !url.includes("jobs?kind=staging.cleanup"))
         return original(input, init);
       flags.lateStarted = true;
+      const list = (await (await original(input, init)).json()) as {
+        items: { id: string }[];
+      };
+      list.items.push({ ...list.items[0]!, id: "stale-run" });
       const body = new ReadableStream({
         start(controller) {
-          setTimeout(() => {
-            controller.enqueue(new TextEncoder().encode('{"items":[]}'));
+          flags.releaseLate = () => {
+            controller.enqueue(new TextEncoder().encode(JSON.stringify(list)));
             controller.close();
-            flags.lateDone = true;
-          }, 1500);
+          };
         },
       });
-      return new Response(body, {
+      const res = new Response(body, {
         headers: { "content-type": "application/json" },
       });
+      const json = res.json.bind(res);
+      // Set once the page has handled the parsed body and drawn the result.
+      res.json = async () => {
+        const data: unknown = await json();
+        setTimeout(() => requestAnimationFrame(() => (flags.lateDone = true)));
+        return data;
+      };
+      return res;
     };
   });
   await page.goto("/admin/jobs");
@@ -288,8 +327,10 @@ test("keeps the newest runs when an older refresh's body lands late", async ({
   await card.getByRole("button", { name: "Details", exact: true }).click();
   const runs = page.getByRole("dialog").getByRole("list", { name: "Runs" });
   await expect(runs.getByRole("listitem")).toHaveCount(1);
+  await page.evaluate(() =>
+    (window as unknown as { releaseLate: () => void }).releaseLate(),
+  );
   await page.waitForFunction(() => "lateDone" in window);
-  await page.waitForTimeout(300);
   await expect(runs.getByRole("listitem")).toHaveCount(1);
   await page.keyboard.press("Escape");
   await expect(card.getByText("Hasn't run yet.")).toHaveCount(0);

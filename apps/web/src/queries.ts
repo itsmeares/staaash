@@ -122,9 +122,10 @@ export const adminMaintenanceQuery = queryOptions({
   queryKey: ["admin", "storage", "maintenance"],
   queryFn: () => read(admin.maintenance.$get()),
   staleTime: 0,
-  // The run button stays off until a started restore check finishes.
-  refetchInterval: (query) =>
-    ["queued", "running"].includes(query.state.data?.restore.runStatus ?? "")
+  // Nothing pushes when a restore check or an unfinished storage change ends.
+  refetchInterval: ({ state: { data } }) =>
+    ["queued", "running"].includes(data?.restore.runStatus ?? "") ||
+    data?.storage?.finishing
       ? 2_000
       : false,
 });

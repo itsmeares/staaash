@@ -286,7 +286,10 @@ function selectRepresentativeJob(
 ) {
   const now = new Date();
   return (
-    jobs.find((job) => workerRunningJobIds.has(job.id)) ??
+    // The worker can report a claim before the list shows it, never after it ends.
+    jobs.find(
+      (job) => !isFinishedJob(job) && workerRunningJobIds.has(job.id),
+    ) ??
     jobs.find((job) => job.status === "running") ??
     jobs.find((job) => job.status === "queued" && new Date(job.runAt) <= now) ??
     // A dismissed or cancelled run says less than the last real one.
@@ -759,14 +762,19 @@ const RUN_LIST =
   "m-0 list-none overflow-hidden rounded-xl border border-border bg-card p-0";
 
 function RunList({
-  history,
-  historyLoading,
+  runs: { history, status, retry },
   ...row
-}: Omit<Parameters<typeof RunRow>[0], "job"> & {
-  history: JsonBackgroundJob[] | null;
-  historyLoading: boolean;
-}) {
-  if (historyLoading) return <p className={JOB_NOTE}>Loading runs…</p>;
+}: Omit<Parameters<typeof RunRow>[0], "job"> & { runs: Runs }) {
+  if (status === "loading") return <p className={JOB_NOTE}>Loading runs…</p>;
+  if (status === "failed")
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <p className={JOB_NOTE}>Couldn't load the runs.</p>
+        <Button size="sm" variant="outline" onClick={retry}>
+          Try again
+        </Button>
+      </div>
+    );
   if (!history?.length) return <p className={JOB_NOTE}>No runs yet.</p>;
   return (
     <ul aria-label="Runs" className={RUN_LIST}>
@@ -996,12 +1004,11 @@ function BulkActions({
 function JobDetailsDialog({
   actionError,
   failedCount,
-  history,
-  historyLoading,
   kind,
   nowMs,
   onJobAction,
   onRefreshFailed,
+  runs,
   problems,
   setTab,
   tab,
@@ -1010,12 +1017,11 @@ function JobDetailsDialog({
 }: {
   actionError: string | null;
   failedCount: number;
-  history: JsonBackgroundJob[] | null;
-  historyLoading: boolean;
   kind: string;
   nowMs: number;
   onJobAction: (jobId: string, action: "retry" | "cancel") => void;
   onRefreshFailed: () => Promise<void>;
+  runs: Runs;
   problems: JsonBackgroundJob[];
   setTab: (tab: DetailsTab | null) => void;
   tab: DetailsTab | null;
@@ -1051,9 +1057,8 @@ function JobDetailsDialog({
             />
           ) : (
             <RunList
-              history={history}
-              historyLoading={historyLoading}
               nowMs={nowMs}
+              runs={runs}
               onJobAction={onJobAction}
               timeZone={timeZone}
               workerRunningJobIds={workerRunningJobIds}
@@ -1134,10 +1139,24 @@ const withRun = (jobs: JsonBackgroundJob[], run: JsonBackgroundJob) =>
       new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
   );
 
-/** The job's run list, read on each open and kept current after. */
-function useJobHistory(kind: string, lastRun: JsonBackgroundJob | null) {
+type Runs = {
+  history: JsonBackgroundJob[] | null;
+  status: "loading" | "failed" | "ready";
+  retry: () => void;
+};
+
+/**
+ * The job's run list, read on each open and kept current after. `onLoaded`
+ * gets each accepted read, so the card follows whichever read lands last.
+ */
+function useJobHistory(
+  kind: string,
+  lastRun: JsonBackgroundJob | null,
+  onLoaded: (jobs: JsonBackgroundJob[]) => void,
+) {
   const [history, setHistory] = useState<JsonBackgroundJob[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
   // A list read can land after a newer live update or a newer read.
   const pushed = useRef(lastRun);
   const reads = useRef(0);
@@ -1148,7 +1167,6 @@ function useJobHistory(kind: string, lastRun: JsonBackgroundJob | null) {
       setHistory((current) => (current ? withRun(current, lastRun) : current));
   }, [lastRun]);
 
-  /** The fresh list, or null when it failed or a newer one replaced it. */
   const loadHistory = async () => {
     const read = ++reads.current;
     const before = pushed.current;
@@ -1160,21 +1178,25 @@ function useJobHistory(kind: string, lastRun: JsonBackgroundJob | null) {
       if (!res.ok) throw new Error();
       jobs = ((await res.json()) as { items: JsonBackgroundJob[] }).items;
     } catch {
-      if (read === reads.current)
+      if (read === reads.current) {
+        setFailed(true);
         toastManager.add({
           title: "Could not refresh the runs. Reload to see them.",
           type: "error",
         });
-      return null;
+      }
+      return;
     }
-    if (read !== reads.current) return null;
+    if (read !== reads.current) return;
+    setFailed(false);
     const live = pushed.current;
+    // The card already shows a run pushed while this read was out.
     if (live !== before && live) {
       setHistory(withRun(jobs, live));
-      return null;
+      return;
     }
     setHistory(jobs);
-    return jobs;
+    onLoaded(jobs);
   };
 
   const loadOnOpen = async () => {
@@ -1186,7 +1208,16 @@ function useJobHistory(kind: string, lastRun: JsonBackgroundJob | null) {
     }
   };
 
-  return { history, historyLoading, loadHistory, loadOnOpen };
+  const runs: Runs = {
+    history,
+    status: historyLoading
+      ? "loading"
+      : failed && !history
+        ? "failed"
+        : "ready",
+    retry: () => void loadOnOpen(),
+  };
+  return { runs, loadHistory, loadOnOpen };
 }
 
 // One row per job kind: its state, counts and buttons; the logic is in the
@@ -1218,9 +1249,11 @@ function JobTaskCard({
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const { history, historyLoading, loadHistory, loadOnOpen } = useJobHistory(
+  const { runs, loadHistory, loadOnOpen } = useJobHistory(
     kind,
     lastRun,
+    (jobs) =>
+      onLastRunChange(kind, selectRepresentativeJob(jobs, workerRunningJobIds)),
   );
 
   const displayStatus = lastRun
@@ -1230,11 +1263,7 @@ function JobTaskCard({
   const canRunNow =
     MANUAL_RUN_JOB_KINDS.has(kind) && displayStatus !== "running";
 
-  const refreshJobs = async () => {
-    const jobs = await loadHistory();
-    if (jobs)
-      onLastRunChange(kind, selectRepresentativeJob(jobs, workerRunningJobIds));
-  };
+  const refreshJobs = loadHistory;
 
   const openDetails = (next: DetailsTab) => {
     setActionError(null);
@@ -1322,14 +1351,13 @@ function JobTaskCard({
       <JobDetailsDialog
         actionError={actionError}
         failedCount={failedCount}
-        history={history}
-        historyLoading={historyLoading}
         kind={kind}
         nowMs={nowMs}
         onJobAction={(jobId, action) => void postJobAction(jobId, action)}
         onRefreshFailed={async () => {
           await Promise.all([onRefreshProblems(), refreshJobs()]);
         }}
+        runs={runs}
         problems={problems}
         setTab={setTab}
         tab={tab}
@@ -1352,26 +1380,6 @@ const groupKinds = (kinds: string[]) => {
   }));
   return groups.filter((entry) => entry.kinds.length > 0);
 };
-
-function useProblemRefresh(setProblems: (jobs: JsonBackgroundJob[]) => void) {
-  const refreshVersion = useRef(0);
-  const refreshProblems = async () => {
-    const version = ++refreshVersion.current;
-    try {
-      const res = await fetch("/api/admin/jobs/problems");
-      if (!res.ok) throw new Error();
-      const data = (await res.json()) as { items: JsonBackgroundJob[] };
-      if (version === refreshVersion.current) setProblems(data.items);
-    } catch {
-      toastManager.add({
-        title:
-          "Could not refresh the jobs. Reconnect or reload to check their current state.",
-        type: "error",
-      });
-    }
-  };
-  return { refreshProblems, refreshVersion };
-}
 
 const runningJobIds = (workers: JsonWorker[]) =>
   new Set(
@@ -1401,19 +1409,47 @@ function useJobState(
   const [summary, setSummary] = useState(initialSummary);
   const [lastRuns, setLastRuns] = useState(initialLastRuns);
   const [problems, setProblems] = useState(initialProblems);
-  const { refreshProblems, refreshVersion } = useProblemRefresh(setProblems);
+  // A refresh can land after a newer push or a newer refresh.
+  const version = useRef(0);
+  const apply = (state: JsonJobState) => {
+    setSummary(state.summary);
+    setLastRuns(state.lastRuns);
+    setProblems(state.problems);
+  };
   useEffect(
     () =>
       subscribeLive("state", (data) => {
-        const state = data as JsonJobState;
-        setSummary(state.summary);
-        setLastRuns(state.lastRuns);
-        refreshVersion.current += 1;
-        setProblems(state.problems);
+        version.current += 1;
+        apply(data as JsonJobState);
       }),
     [],
   );
-  return { summary, lastRuns, setLastRuns, problems, refreshProblems };
+  /** Rows and counts together, for when live updates are not arriving. */
+  const refreshState = async () => {
+    const read = ++version.current;
+    try {
+      const res = await fetch("/api/views/admin/jobs");
+      if (!res.ok) throw new Error();
+      const data = (await res.json()) as {
+        initialSummary: JsonJobSummary;
+        initialLastRuns: Record<string, JsonBackgroundJob | null>;
+        initialProblems: JsonBackgroundJob[];
+      };
+      if (read === version.current)
+        apply({
+          summary: data.initialSummary,
+          lastRuns: data.initialLastRuns,
+          problems: data.initialProblems,
+        });
+    } catch {
+      toastManager.add({
+        title:
+          "Could not refresh the jobs. Reconnect or reload to check their current state.",
+        type: "error",
+      });
+    }
+  };
+  return { summary, lastRuns, setLastRuns, problems, refreshState };
 }
 
 /** The current time, ticking each second for "2m ago" style labels. */
@@ -1492,7 +1528,7 @@ export function JobOperations({
   initialSummary,
   jobKinds,
 }: Props) {
-  const { summary, lastRuns, setLastRuns, problems, refreshProblems } =
+  const { summary, lastRuns, setLastRuns, problems, refreshState } =
     useJobState(initialSummary, initialLastRuns, initialProblems);
   const { timeZone } = useTime();
   const nowMs = useClock();
@@ -1516,7 +1552,7 @@ export function JobOperations({
         timeZone={timeZone}
         workerRunningJobIds={workerRunningJobIds}
         onLastRunChange={updateLastRun(setLastRuns)}
-        onRefreshProblems={refreshProblems}
+        onRefreshProblems={refreshState}
       />
     </AdminPage>
   );

@@ -31,7 +31,6 @@ import {
   getAdminJobListResponse,
   getAdminJobStateSnapshot,
   getAdminProblemJobIds,
-  getAdminProblemJobs,
   parseAdminJobFilters,
 } from "./jobs";
 
@@ -82,7 +81,7 @@ describe("admin job data", () => {
   });
 
   it("reads each kind's failed runs on its own and leaves zips out", async () => {
-    await getAdminProblemJobs();
+    await getAdminJobStateSnapshot();
     const kinds = mocks.lastRuns.mock.calls.map(([filters]) => filters.kind);
     expect(kinds).toContain("restore.reconcile");
     expect(kinds).not.toContain("zip.archive.generate");
@@ -113,8 +112,9 @@ describe("admin job data", () => {
     const errors = [
       "Command failed: ffprobe /data/files/files/mia/a.mov",
       "File f1 not found or deleted.",
-      "Moving /data/files/files/mia/Storage is busy/a.mov",
-      "EACCES: /data/files/files/mia/a.mov",
+      "Source file has an unfinished storage mutation.",
+      "EACCES: /data/files/files/mia/Storage is busy/a.mov",
+      "Command failed: ffprobe /data/files/files/mia/not found or deleted.mov",
       "Cancelled by admin.",
       null,
     ];
@@ -132,6 +132,7 @@ describe("admin job data", () => {
       "The file was deleted.",
       "Storage is busy. Try again shortly.",
       "Couldn't make a preview.",
+      "Couldn't read this file.",
       "Cancelled by admin.",
       null,
     ]);

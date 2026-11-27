@@ -159,9 +159,6 @@ export function mountAdmin(app: Hono<PreviewEnv>) {
       statusCounts: jobsView(state).initialSummary.statusCounts,
     });
   });
-  app.get("/api/admin/jobs/problems", (c) =>
-    c.json({ items: jobsView(c.var.state).initialProblems }),
-  );
   app.get("/api/admin/jobs/problem-targets", (c) => {
     const kind = z.enum(jobKinds).parse(c.req.query("kind"));
     return c.json({

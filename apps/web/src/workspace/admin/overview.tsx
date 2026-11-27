@@ -140,6 +140,20 @@ const updateItem = (
   ];
 };
 
+const restoreItem = ({ health: { reconciliation } }: Summary): Item[] => {
+  if (reconciliation.status === "healthy") return [];
+  return [
+    {
+      key: "restore",
+      icon: AlertTriangle,
+      tone: reconciliation.status,
+      title: "The restore check found a problem",
+      detail: reconciliation.message,
+      action: linkButton("/admin/maintenance", "See check"),
+    },
+  ];
+};
+
 // The checks that stop the drive working; the others have their own items.
 const BLOCKING = new Set(["Database", "Files volume", "Worker", "Disk space"]);
 
@@ -164,6 +178,7 @@ function useAttention(summary: Summary): Item[] {
   return [
     ...healthItems(summary),
     ...reviewItem(summary),
+    ...restoreItem(summary),
     ...jobsItem(summary),
     ...limitItems(summary),
     ...updateItem(summary, notes),

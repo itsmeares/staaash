@@ -198,14 +198,24 @@ export function healthView(state: State): Plain<InstanceHealthSummary> {
       status: failed ? "warning" : "healthy",
       probeStatus: "healthy",
     },
-    reconciliation: {
-      status: "healthy",
-      runStatus: "succeeded",
-      lastCompletedAt: timestamp,
-      missingOriginalCount: 0,
-      orphanedStorageCount: 0,
-      message: "Sample files match their records.",
-    },
+    reconciliation:
+      state.scenario === "error"
+        ? {
+            status: "warning",
+            runStatus: "succeeded",
+            lastCompletedAt: timestamp,
+            missingOriginalCount: 1,
+            orphanedStorageCount: 0,
+            message: "1 sample file is missing from the disk.",
+          }
+        : {
+            status: "healthy",
+            runStatus: "succeeded",
+            lastCompletedAt: timestamp,
+            missingOriginalCount: 0,
+            orphanedStorageCount: 0,
+            message: "Sample files match their records.",
+          },
     storageMutations: mutationHealth(state),
     storageWarnings: {
       status: "healthy",

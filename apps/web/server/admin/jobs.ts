@@ -119,7 +119,7 @@ export const getAdminJobStateSnapshot = async () => {
  * Each kind's latest failed runs. One shared limit would let a burst of one
  * kind hide another's failure, and zips are left out like everywhere else.
  */
-export const getAdminProblemJobs = async () => {
+const getAdminProblemJobs = async () => {
   const perKind = await Promise.all(
     ADMIN_JOB_KINDS.map((kind) =>
       listAdminBackgroundJobItems({
@@ -266,19 +266,24 @@ export const getAdminJobListResponse = async (
   return { ...response, items: await addPreviewOwners(response.items) };
 };
 
+const STORAGE_BUSY_ERRORS = new Set([
+  "Another durable storage mutation owns this resource.",
+  "The durable storage mutation is being recovered.",
+  "The durable storage mutation requires operator recovery.",
+  "Storage is busy. Try again shortly.",
+  "Source file has an unfinished storage mutation.",
+]);
+
 // Preview jobs point at a member's file. Admins see whose drive it is and a
 // plain reason, never the file name or the raw error, which holds its path.
 const previewReason = (error: string | null) => {
   if (!error) return null;
   if (error === "Cancelled by admin.") return error;
-  // Fixed text: a raw message can hold a path that happens to match.
-  if (
-    /durable storage mutation|Storage is busy|unfinished storage mutation/.test(
-      error,
-    )
-  )
+  // Whole messages only: a path inside a raw error can hold the same words.
+  if (STORAGE_BUSY_ERRORS.has(error))
     return "Storage is busy. Try again shortly.";
-  if (error.includes("not found or deleted")) return "The file was deleted.";
+  if (/^File \S+ not found or deleted\.$/.test(error))
+    return "The file was deleted.";
   if (/ffprobe|ffmpeg/.test(error)) return "Couldn't read this file.";
   return "Couldn't make a preview.";
 };
