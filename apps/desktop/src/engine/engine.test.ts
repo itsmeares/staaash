@@ -242,8 +242,13 @@ it("keeps a folder's transfers going when only waiting files are skipped", async
           ctx = each;
           each.attach({
             waitingFiles: () => waitingFiles,
-            skip: () => !moving,
+            skip: () => {
+              if (moving) return false;
+              each.waiting({ files: 0, bytes: 0, uploadBytes: 0 });
+              return true;
+            },
           });
+          each.waiting({ files: 1, bytes: 9, uploadBytes: 9 });
           each.signal.addEventListener("abort", () =>
             reject(each.signal.reason),
           );
@@ -253,7 +258,7 @@ it("keeps a folder's transfers going when only waiting files are skipped", async
   await engine.configure(configOf([pair]));
   void engine.syncNow();
   await running;
-  expect(engine.status().waitingFiles).toEqual(waitingFiles);
+  expect(engine.status()).toMatchObject({ pendingFiles: 1, waitingFiles });
 
   // Settings apply at once; the rest of configure() waits for the pass.
   const skipped = engine.configure(
@@ -261,6 +266,8 @@ it("keeps a folder's transfers going when only waiting files are skipped", async
   );
   expect(ctx.signal.aborted).toBe(false);
   expect(ctx.current()).toBe(true);
+  // The skipped file leaves the counts at once, not when the next one starts.
+  expect(engine.status().pendingFiles).toBe(0);
 
   // A skipped file that is moving can only be stopped with the pass.
   moving = true;

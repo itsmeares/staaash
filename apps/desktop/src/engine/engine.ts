@@ -189,8 +189,12 @@ export class SyncEngine {
     const { syncing } = this;
     if (syncing && !this.current(syncing.pair, syncing.ignore)) {
       const now = config.pairs.find((pair) => pair.id === syncing.pair.id);
-      if (now && onlySkipsMore(syncing.pair, now) && syncing.pass?.skip(now)) {
+      if (now && onlySkipsMore(syncing.pair, now)) {
+        // Set first: skip() reports the shorter line, which only counts
+        // while the pass is current.
+        const before = syncing.pair;
         syncing.pair = now;
+        if (!syncing.pass?.skip(now)) syncing.pair = before;
       }
       if (!this.current(syncing.pair, syncing.ignore)) syncing.stop.abort();
     }

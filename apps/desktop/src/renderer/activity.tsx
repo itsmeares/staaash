@@ -372,6 +372,14 @@ function ActivityProgress({ activity }: { activity: Activity }) {
 
 type Stoppable = Pick<Activity, "pairId" | "rel">;
 
+/** Skips the file's path; resolves to why that failed, or null. */
+const skipFile = (file: Stoppable) =>
+  desktop.editPair(file.pairId, { skipPath: file.rel }).then(
+    ({ error }) => error,
+    (error: unknown) =>
+      error instanceof Error ? error.message : String(error),
+  );
+
 /**
  * Leaves one file out of its pair by path, as the folder chooser leaves out
  * folders. The engine takes a waiting file out of the line, or cancels its
@@ -394,10 +402,10 @@ function StopSyncDialog({
   const [quiet, setQuiet] = useState(false);
   const stop = async () => {
     setSaving(true);
-    const result = await desktop.editPair(file.pairId, { skipPath: file.rel });
+    const problem = await skipFile(file);
     setSaving(false);
-    if (result.error) {
-      setError(result.error);
+    if (problem) {
+      setError(problem);
       return;
     }
     if (quiet) void desktop.updateSettings({ confirmStopSync: false });
@@ -458,11 +466,9 @@ function useStopSync(asking: boolean) {
       setStopping({ file, failed: null });
       return;
     }
-    void desktop
-      .editPair(file.pairId, { skipPath: file.rel })
-      .then(({ error }) => {
-        if (error) setStopping({ file, failed: error });
-      });
+    void skipFile(file).then((problem) => {
+      if (problem) setStopping({ file, failed: problem });
+    });
   };
   const dialog = stopping ? (
     <StopSyncDialog
