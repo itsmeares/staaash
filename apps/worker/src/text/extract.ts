@@ -147,7 +147,8 @@ const ATTRIBUTES =
 
 const attribute = (tag: string, name: string) => {
   for (const [, key, double, single, bare] of tag.matchAll(ATTRIBUTES)) {
-    if (key === name) return double ?? single ?? bare;
+    // A path with & in it is written &amp;.
+    if (key === name) return decodeXML(double ?? single ?? bare ?? "");
   }
   return undefined;
 };
@@ -298,7 +299,7 @@ const xlsx = (entries: Map<string, string>) => {
     .map((tag) => {
       const xml = entries.get(sheets.get(attribute(tag, "r:id") ?? "") ?? "");
       return [
-        decodeXML(attribute(tag, "name") ?? ""),
+        attribute(tag, "name") ?? "",
         ...sheetRows(xml ?? "", strings),
       ].join("\n");
     })
