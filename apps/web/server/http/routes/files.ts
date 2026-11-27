@@ -34,10 +34,8 @@ import { getPrivatePreviewStatus } from "@/server/files/derivative-status";
 import { downloadPrivateFile } from "@/server/files/download";
 import { FilesError } from "@/server/files/errors";
 import {
-  BACKGROUND_FOLDER_ITEMS,
-  countFolderTreeItems,
   readFolderOperation,
-  startFolderOperation,
+  runFolderChange,
 } from "@/server/files/folder-operation";
 import { toBatchMoveOperationResponse } from "@/server/files/move-operation";
 import { filesService } from "@/server/files/service";
@@ -271,29 +269,23 @@ const folderChange = async (
   },
 ) => {
   const actor = actorOf(c.var.session);
-  const change = async (onPrepared?: (mutationId: string) => void) => {
-    const result = await run(actor, onPrepared);
-    await recordFolderAccessBestEffort({ ...actor, folderId, action: access });
-    return result;
-  };
-  if (/\brespond-async\b/i.test(c.req.header("prefer") ?? "")) {
-    const ownerUserId = actor.actorUserId;
-    const totalCount = await countFolderTreeItems(
-      ownerUserId,
-      folderId,
-      c.var.idempotencyKey,
-    );
-    if (totalCount > BACKGROUND_FOLDER_ITEMS) {
-      c.header("Preference-Applied", "respond-async");
-      return {
-        operation: await startFolderOperation({
-          ownerUserId,
-          run: change,
-        }),
-      };
-    }
-  }
-  return { result: await change() };
+  const outcome = await runFolderChange({
+    ownerUserId: actor.actorUserId,
+    folderId,
+    idempotencyKey: c.var.idempotencyKey,
+    background: /\brespond-async\b/i.test(c.req.header("prefer") ?? ""),
+    change: async (onPrepared) => {
+      const result = await run(actor, onPrepared);
+      await recordFolderAccessBestEffort({
+        ...actor,
+        folderId,
+        action: access,
+      });
+      return result;
+    },
+  });
+  if (outcome.operation) c.header("Preference-Applied", "respond-async");
+  return outcome;
 };
 
 const favoriteFile = createRoute({

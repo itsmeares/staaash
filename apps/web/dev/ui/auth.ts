@@ -16,8 +16,10 @@ import {
   bootstrapInputSchema,
   requiredPasswordChangeInputSchema,
   signInInputSchema,
+  keyInputSchema,
   preferencesInputSchema,
 } from "../../server/auth/schema";
+import { isDemo } from "../../lib/demo";
 
 export function mountAuth(app: Hono<PreviewEnv>) {
   app.get("/api/views/entry", (c) => {
@@ -142,12 +144,46 @@ export function mountAuth(app: Hono<PreviewEnv>) {
   });
   app.post("/api/user/sessions/revoke", async (c) => {
     const body = await jsonBody(c.req.raw);
+    const keep = (id: string) =>
+      typeof body.sessionId === "string" && id !== body.sessionId;
     c.var.state.sessions = c.var.state.sessions.filter(
-      (id) =>
-        id === "current" ||
-        (typeof body.sessionId === "string" && id !== body.sessionId),
+      (id) => id === "current" || keep(id),
     );
+    c.var.state.keys = c.var.state.keys.filter((key) => keep(key.id));
     return c.json({ ok: true });
+  });
+  app.post("/api/user/keys", async (c) => {
+    // The demo runs in the browser, so there is no server a key could open.
+    if (isDemo) {
+      throw new PreviewError(403, "Keys need your own Staaash server.");
+    }
+    const input = keyInputSchema.parse(await jsonBody(c.req.raw));
+    const key = {
+      id: `key-${crypto.randomUUID()}`,
+      name: input.name,
+      use: input.use,
+      readOnly: input.readOnly,
+      folder: input.folderId
+        ? {
+            id: input.folderId,
+            name:
+              c.var.state.folders.find((folder) => folder.id === input.folderId)
+                ?.name ?? null,
+          }
+        : null,
+      lastUsedAt: null,
+      expiresAt: input.endsInDays
+        ? new Date(
+            Date.parse(timestamp) + input.endsInDays * 86_400_000,
+          ).toISOString()
+        : null,
+      createdAt: timestamp,
+    };
+    c.var.state.keys.unshift(key);
+    return c.json(
+      { token: "stsh_previewOnlyKeyThatOpensNothing0000000", key },
+      201,
+    );
   });
   app.get("/api/auth/session", (c) =>
     c.json({

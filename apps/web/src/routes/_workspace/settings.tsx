@@ -14,6 +14,7 @@ function SettingsPage() {
       <PageHeader title="Settings" />
       <PersonalSettings
         isOwner={data.isOwner}
+        keys={data.keys}
         prefs={data.prefs}
         profile={data.profile}
         sessions={data.sessions}

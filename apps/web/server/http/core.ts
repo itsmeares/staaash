@@ -1,6 +1,6 @@
 import type { HttpBindings } from "@hono/node-server";
 import { OpenAPIHono, z } from "@hono/zod-openapi";
-import type { Context } from "hono";
+import type { Context, HonoRequest } from "hono";
 import { contextStorage } from "hono/context-storage";
 import { getCookie, setCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
@@ -10,7 +10,9 @@ import { ZodError } from "zod";
 import { canAccessAdminSurface } from "@/server/access";
 import { AuthError } from "@/server/auth/errors";
 import { getRequestSession } from "@/server/auth/guards";
+import { isKeyToken } from "@/server/auth/keys";
 import { SESSION_COOKIE_NAME } from "@/server/auth/session";
+import type { SessionKey } from "@/server/auth/types";
 import { getBaseUrl } from "@/server/request";
 import {
   attachStorageMutationHeader,
@@ -35,11 +37,33 @@ const bearerToken = (request: Request) => {
   return header?.startsWith("Bearer ") ? header.slice(7).trim() : null;
 };
 
-/** A desktop device sends its token in a header; browsers send the cookie. */
-export const sessionToken = (c: Context) =>
-  c.req.header("authorization") !== undefined
-    ? bearerToken(c.req.raw)
-    : (getCookie(c, SESSION_COOKIE_NAME) ?? null);
+export const MCP_PATH = "/mcp";
+
+/** Where an API key works at all. Anywhere else a key counts as no sign-in. */
+const KEY_ROUTES =
+  /^\/(?:mcp$|api\/(?:files|uploads|shares|search|sync)(?:\/|$))/;
+
+/** A desktop device or a key sends its token in a header; browsers send the cookie. */
+export const sessionToken = (c: Context) => {
+  if (c.req.header("authorization") === undefined) {
+    return getCookie(c, SESSION_COOKIE_NAME) ?? null;
+  }
+  const token = bearerToken(c.req.raw);
+  return isKeyToken(token) && !KEY_ROUTES.test(c.req.path) ? null : token;
+};
+
+// A read-only key may still pack a zip of what it can read.
+const READ_ONLY_POST = "/api/files/archives";
+
+/** AI keys work only through MCP, and read-only keys only read. */
+const assertKeyAllowed = (key: SessionKey, { path, method }: HonoRequest) => {
+  // The MCP tools apply read-only and the folder themselves.
+  if (path === MCP_PATH) return;
+  if (key.use === "ai") throw new AuthError("KEY_AI_ONLY");
+  const reads =
+    SAFE_METHODS.has(method) || (method === "POST" && path === READ_ONLY_POST);
+  if (key.readOnly && !reads) throw new AuthError("KEY_READ_ONLY");
+};
 
 export const actorOf = (session: Session) => ({
   actorUserId: session.user.id,
@@ -101,8 +125,10 @@ const sameOrigin = createMiddleware(async (c, next) => {
  */
 export const requireUser = createMiddleware<AppEnv>(async (c, next) => {
   const session = await getRequestSession(sessionToken(c));
-  // Only device tokens travel in a header; a browser session token does not.
-  const misused = session && bearerToken(c.req.raw) && !session.deviceName;
+  // Device tokens and keys travel in a header and browser tokens in the
+  // cookie, never the other way round.
+  const misused =
+    session && (bearerToken(c.req.raw) ? !session.deviceName : session.key);
   if (!session || misused) {
     if (isPageLoad(c.req.raw)) {
       const url = new URL(c.req.url);
@@ -117,13 +143,15 @@ export const requireUser = createMiddleware<AppEnv>(async (c, next) => {
     }
     throw new AuthError("NOT_SIGNED_IN");
   }
+  if (session.key) assertKeyAllowed(session.key, c.req);
   c.set("session", session);
   await next();
 });
 
 /** Routes only a desktop device calls, with its device token. */
 export const requireDevice = createMiddleware<AppEnv>(async (c, next) => {
-  if (!c.var.session.deviceName || !bearerToken(c.req.raw)) {
+  const { deviceName, key } = c.var.session;
+  if (!deviceName || key || !bearerToken(c.req.raw)) {
     throw httpError(
       403,
       "DEVICE_REQUIRED",

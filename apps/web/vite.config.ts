@@ -49,6 +49,7 @@ export default defineConfig(async ({ command, mode }) => {
       proxy: {
         "/api": { target: `http://localhost:${API_PORT}` },
         "/auth/device-callback": { target: `http://localhost:${API_PORT}` },
+        "/mcp": { target: `http://localhost:${API_PORT}` },
         "/s/": {
           target: `http://localhost:${API_PORT}`,
           bypass: (request) =>

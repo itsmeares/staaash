@@ -50,7 +50,7 @@ A limit stops a person from storing more than it. The list shows each person's u
 2. Choose a new temporary password, or let Staaash make one.
 3. Send it to them.
 
-Resetting signs them out everywhere. You can also sign out a single device from the same screen.
+Resetting signs them out everywhere and deletes their keys. You can also sign out a single device, or delete a single key, from the same screen.
 
 ## Sign-in time
 
@@ -64,6 +64,6 @@ The admin screens have no button to delete an account. If someone should lose ac
 2. If they are connected, open them in **Admin → Users** and press **Disconnect** next to the provider's name.
    If they never used their invite link, press **New invite link** instead and don't send it. That cancels the old link.
 3. If passwords are on, reset their password and keep the new password to yourself.
-4. Sign out their devices under **Signed in**. A password reset already does this.
+4. Sign out their devices and delete their keys under **Signed in**. A password reset already does this.
 
 Ask in [GitHub Discussions](https://github.com/itsmeares/staaash/discussions) if you need the account fully removed.

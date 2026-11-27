@@ -1,5 +1,5 @@
 import { ownerOnboardingSettingsSchema } from "@/server/admin/settings-schema";
-import { preferencesInputSchema } from "@/server/auth/schema";
+import { keyInputSchema, preferencesInputSchema } from "@/server/auth/schema";
 import { createRoute, z } from "@hono/zod-openapi";
 
 import type { Context } from "hono";
@@ -27,6 +27,7 @@ import {
   redeemWebSessionCode,
 } from "@/server/auth/device";
 import { AuthError } from "@/server/auth/errors";
+import { createKey } from "@/server/auth/keys";
 import { authService } from "@/server/auth/service";
 import type { AuthSession } from "@/server/auth/types";
 import {
@@ -172,6 +173,37 @@ const revokeSessions = createRoute({
     body: jsonBody(z.object({ sessionId: z.string().min(1).optional() })),
   },
   responses: { 200: json(OkSchema, "Signed out."), ...errorResponses },
+});
+
+const KeySchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    use: z.enum(["ai", "script"]),
+    readOnly: z.boolean(),
+    /** Null name: the folder is gone or in the trash, and the key is refused. */
+    folder: z
+      .object({ id: z.string(), name: z.string().nullable() })
+      .nullable(),
+    lastUsedAt: z.string().nullable(),
+    /** Null for no end date. */
+    expiresAt: z.string().nullable(),
+    createdAt: z.string(),
+  })
+  .openapi("ApiKey");
+
+const createKeyRoute = createRoute({
+  method: "post",
+  path: "/api/user/keys",
+  tags: ["Account"],
+  summary:
+    "Make an API key. Its token is only in this response; send it as `Authorization: Bearer <token>`. `ai` keys work only through MCP at /mcp. Sign a key out with /api/user/sessions/revoke.",
+  middleware: [requireUser],
+  request: { body: jsonBody(keyInputSchema) },
+  responses: {
+    201: json(z.object({ token: z.string(), key: KeySchema }), "Made."),
+    ...errorResponses,
+  },
 });
 
 const DeviceTokenBody = z.object({
@@ -379,6 +411,12 @@ export const authRoutes = router()
     const url = new URL("/auth/device-callback", getBaseUrl(c.req.raw.headers));
     url.searchParams.set("code", code);
     return c.json({ code, url: url.toString(), expiresAt }, 200);
+  })
+  .openapi(createKeyRoute, async (c) => {
+    const { session } = c.var;
+    // A browser makes keys; a device or a key can't make more.
+    if (session.deviceName) throw new AuthError("ACCESS_DENIED");
+    return c.json(await createKey(session.user.id, c.req.valid("json")), 201);
   })
   .openapi(revokeSessions, async (c) => {
     const { session } = c.var;

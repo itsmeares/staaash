@@ -12,11 +12,14 @@ export async function getSearchPage(
     limit = 50,
     kind,
     usableOnly = false,
+    withinFolderId,
   }: {
     offset?: number;
     limit?: number;
     kind?: "folder" | "file";
     usableOnly?: boolean;
+    /** Only what is inside this folder, not the folder itself. */
+    withinFolderId?: string;
   } = {},
 ) {
   const query = normalizeSearchText(text);
@@ -47,12 +50,21 @@ export async function getSearchPage(
       UNION
       SELECT id FROM "File" WHERE "ownerUserId" = ${userId} AND "deletedAt" IS NULL AND "storageStatus" = 'available'
       AND "folderId" IN (SELECT id FROM path_matches)
-    ), candidates AS (
-      SELECT f.id, 'folder'::text AS kind, f.name, COALESCE(p.path, 'Files / ' || f.name) AS path, f."updatedAt" AS updated
+    )${
+      withinFolderId
+        ? Prisma.sql`, within(id) AS (
+      SELECT id FROM "Folder" WHERE id = ${withinFolderId} AND "ownerUserId" = ${userId} AND "deletedAt" IS NULL
+      UNION
+      SELECT child.id FROM within JOIN "Folder" child ON child."parentId" = within.id
+      WHERE child."ownerUserId" = ${userId} AND child."deletedAt" IS NULL
+    )`
+        : Prisma.empty
+    }, candidates AS (
+      SELECT f.id, 'folder'::text AS kind, f.name, COALESCE(p.path, 'Files / ' || f.name) AS path, f."updatedAt" AS updated, f."parentId" AS parent
       FROM "Folder" f LEFT JOIN paths p ON p.id = f.id
       WHERE ${kind !== "file"} AND f."ownerUserId" = ${userId} AND NOT f."isFilesRoot" AND f."deletedAt" IS NULL
       UNION ALL
-      SELECT f.id, 'file', f."originalName", COALESCE(p.path, 'Files') || ' / ' || f."originalName", f."updatedAt"
+      SELECT f.id, 'file', f."originalName", COALESCE(p.path, 'Files') || ' / ' || f."originalName", f."updatedAt", f."folderId"
       FROM "File" f JOIN file_ids selected ON selected.id = f.id LEFT JOIN paths p ON p.id = f."folderId"
       WHERE ${kind !== "folder"} AND f."ownerUserId" = ${userId} AND f."deletedAt" IS NULL AND f."storageStatus" = 'available'
     ), normalized AS MATERIALIZED (
@@ -63,8 +75,14 @@ export async function getSearchPage(
         WHEN starts_with(n, ${query}) OR starts_with(p, ${query}) OR EXISTS (
           SELECT 1 FROM unnest(regexp_split_to_array(n || ' ' || p, '[^a-z0-9]+')) token WHERE starts_with(token, ${query})
         ) THEN 1 ELSE 2 END AS rank
-      FROM normalized WHERE (position(${query} in n) > 0 OR position(${query} in p) > 0)
+      FROM normalized WHERE (position(${query} in n) > 0 ${
+        // Paths run through folders above the limit, so they don't count.
+        withinFolderId
+          ? Prisma.empty
+          : Prisma.sql`OR position(${query} in p) > 0`
+      })
       ${kind ? Prisma.sql`AND kind = ${kind}` : Prisma.empty}
+      ${withinFolderId ? Prisma.sql`AND parent IN (SELECT id FROM within)` : Prisma.empty}
       ${usableOnly ? Prisma.sql`AND (${storageReadPredicate(userId, Prisma.sql`normalized.id`, Prisma.sql`normalized.kind`)})` : Prisma.empty}
     )
     SELECT page.*, totals.total FROM (SELECT COUNT(*) AS total FROM ranked) totals

@@ -74,9 +74,8 @@ function StorageCard({
 }
 
 export function AdminUserPage({ userId }: { userId: string }) {
-  const { canEdit, user, storage, devices, signInUrl, sso } = useSuspenseQuery(
-    adminUserQuery(userId),
-  ).data;
+  const { canEdit, user, storage, devices, keys, signInUrl, sso } =
+    useSuspenseQuery(adminUserQuery(userId)).data;
   const limit = user.storageLimitBytes;
   const note = user.note;
 
@@ -141,6 +140,7 @@ export function AdminUserPage({ userId }: { userId: string }) {
         <SignInCard
           canEdit={canEdit}
           devices={devices}
+          keys={keys}
           oidcLinked={user.oidcLinked}
           signInUrl={signInUrl}
           sso={sso}

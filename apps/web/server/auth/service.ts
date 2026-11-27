@@ -49,6 +49,7 @@ import {
   EMPTY_TREE_MANIFEST_DIGEST,
 } from "@staaash/db/storage-mutation-executor";
 
+import { KEY_IDLE_DAYS } from "./keys";
 import { runOrAwaitProvisioning } from "./provision-wait";
 import type { AuthRepository, CreateUserParams } from "./repository";
 
@@ -192,6 +193,17 @@ export const createAuthService = ({
     return {
       sessionMaxAgeDays: sessionMaxAgeDays ?? s.sessionMaxAgeDays,
     };
+  };
+
+  // A device stays signed in while it keeps syncing, and a key with no end
+  // date while it is used. A browser or a dated key keeps its end.
+  const extendOnUse = async (session: AuthSession, seenAt: Date) => {
+    if (session.key) {
+      return session.key.noEnd ? addDays(seenAt, KEY_IDLE_DAYS) : undefined;
+    }
+    return session.deviceName
+      ? addDays(seenAt, (await resolveSettings()).sessionMaxAgeDays)
+      : undefined;
   };
 
   const provisionUserStorage = async (user: AuthUser) => {
@@ -463,24 +475,18 @@ export const createAuthService = ({
         return null;
       }
 
-      // A device stays signed in while it keeps syncing.
-      const expiresAt = session.deviceName
-        ? addDays(seenAt, (await resolveSettings()).sessionMaxAgeDays)
-        : session.expiresAt;
-      await activeRepo.touchSessionLastSeen(
-        session.id,
-        seenAt,
-        session.deviceName ? expiresAt : undefined,
-      );
+      const extendedTo = await extendOnUse(session, seenAt);
+      await activeRepo.touchSessionLastSeen(session.id, seenAt, extendedTo);
 
       return {
         id: session.id,
-        expiresAt,
+        expiresAt: extendedTo ?? session.expiresAt,
         userAgent: session.userAgent,
         ipAddress: session.ipAddress,
         lastSeenAt: seenAt,
         deviceName: session.deviceName,
         deviceSessionId: session.deviceSessionId,
+        key: session.key,
         createdAt: session.createdAt,
         updatedAt: session.updatedAt,
         user: sessionUser(session.user),

@@ -355,6 +355,73 @@
           "error"
         ]
       },
+      "ApiKey": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "use": {
+            "type": "string",
+            "enum": [
+              "ai",
+              "script"
+            ]
+          },
+          "readOnly": {
+            "type": "boolean"
+          },
+          "folder": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name"
+            ]
+          },
+          "lastUsedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "use",
+          "readOnly",
+          "folder",
+          "lastUsedAt",
+          "expiresAt",
+          "createdAt"
+        ]
+      },
       "FileMutation": {
         "type": "object",
         "properties": {
@@ -2215,6 +2282,164 @@
                     "code",
                     "url",
                     "expiresAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found or inaccessible.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Busy or recovering. Retry after the Retry-After delay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/keys": {
+      "post": {
+        "tags": [
+          "Account"
+        ],
+        "summary": "Make an API key. Its token is only in this response; send it as `Authorization: Bearer <token>`. `ai` keys work only through MCP at /mcp. Sign a key out with /api/user/sessions/revoke.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "use": {
+                    "type": "string",
+                    "enum": [
+                      "ai",
+                      "script"
+                    ]
+                  },
+                  "readOnly": {
+                    "type": "boolean"
+                  },
+                  "folderId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 1,
+                    "default": null
+                  },
+                  "endsInDays": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "enum": [
+                          30
+                        ]
+                      },
+                      {
+                        "type": "number",
+                        "enum": [
+                          90
+                        ]
+                      },
+                      {
+                        "type": "number",
+                        "enum": [
+                          365
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "use",
+                  "readOnly",
+                  "endsInDays"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Made.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "key": {
+                      "$ref": "#/components/schemas/ApiKey"
+                    }
+                  },
+                  "required": [
+                    "token",
+                    "key"
                   ]
                 }
               }

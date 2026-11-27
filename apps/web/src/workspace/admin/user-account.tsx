@@ -3,10 +3,13 @@ import { useRef, useState } from "react";
 
 import { confirmAction } from "@/components/confirm-dialog";
 import { DeviceList } from "@/components/device-list";
+import { KeyList } from "@/components/key-list";
 import type { Device } from "@/lib/user-agent";
+import type { KeyView } from "@/server/auth/keys";
 import {
   BYTES,
   SettingsCard,
+  SettingsGroup,
   SettingsRow,
   SettingsText,
   UnitField,
@@ -278,11 +281,36 @@ function PasswordResetRow({
   );
 }
 
-/** Reset password (with the result shown once) and their devices. */
+/** A member's keys, which the owner can delete but never see or make. */
+function MemberKeys({
+  userId,
+  keys,
+  canEdit,
+}: {
+  userId: string;
+  keys: KeyView[];
+  canEdit: boolean;
+}) {
+  if (keys.length === 0) return null;
+  const remove = async (sessionId: string) => {
+    await sendAdmin(
+      `/api/admin/users/${userId}/sessions/${sessionId}`,
+      "DELETE",
+    );
+  };
+  return (
+    <SettingsGroup title="Keys">
+      <KeyList keys={keys} onDelete={canEdit ? remove : undefined} />
+    </SettingsGroup>
+  );
+}
+
+/** Reset password (with the result shown once), their devices, and their keys. */
 export function SignInCard({
   userId,
   signInUrl,
   devices,
+  keys,
   canEdit,
   sso,
   oidcLinked,
@@ -290,6 +318,7 @@ export function SignInCard({
   userId: string;
   signInUrl: string;
   devices: Device[];
+  keys: KeyView[];
   canEdit: boolean;
   sso: Sso | null;
   oidcLinked: boolean;
@@ -339,6 +368,7 @@ export function SignInCard({
             : undefined
         }
       />
+      <MemberKeys canEdit={canEdit} keys={keys} userId={userId} />
       <SignInDetailsDialog result={result} onClose={() => setResult(null)} />
     </div>
   );

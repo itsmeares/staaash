@@ -12,9 +12,11 @@ import type {
  * two-core server, a tree this size still finishes in about two seconds in
  * the request.
  */
-export const BACKGROUND_FOLDER_ITEMS = 2_000;
+const BACKGROUND_FOLDER_ITEMS = 2_000;
 
 /** Members the change touches, including the folder itself. */
+// Exported for its test.
+// fallow-ignore-next-line unused-export
 export const countFolderTreeItems = async (
   ownerUserId: string,
   folderId: string,
@@ -154,6 +156,8 @@ export const readFolderOperation = async (
 };
 
 /** Accepts a background change only once worker recovery can finish it. */
+// Exported for its test.
+// fallow-ignore-next-line unused-export
 export const startFolderOperation = async ({
   ownerUserId,
   run,
@@ -172,4 +176,35 @@ export const startFolderOperation = async ({
   const operation = await readFolderOperation(mutationId, ownerUserId);
   if (!operation) throw new Error("The folder change journal is unavailable.");
   return operation;
+};
+
+/**
+ * Runs a folder change in the request, or in the background when the caller
+ * can wait for it and the tree holds more than BACKGROUND_FOLDER_ITEMS.
+ */
+export const runFolderChange = async ({
+  ownerUserId,
+  folderId,
+  idempotencyKey,
+  background,
+  change,
+}: {
+  ownerUserId: string;
+  folderId: string;
+  idempotencyKey: string;
+  background: boolean;
+  change: (
+    onPrepared?: (mutationId: string) => void,
+  ) => Promise<FolderMutationResult>;
+}) => {
+  if (
+    background &&
+    (await countFolderTreeItems(ownerUserId, folderId, idempotencyKey)) >
+      BACKGROUND_FOLDER_ITEMS
+  ) {
+    return {
+      operation: await startFolderOperation({ ownerUserId, run: change }),
+    };
+  }
+  return { result: await change() };
 };

@@ -108,3 +108,14 @@ export const preferencesInputSchema = z.object({
   displayName: z.string().trim().max(80).nullable().optional(),
   avatarUrl: z.string().max(300000).nullable().optional(),
 });
+
+export const keyInputSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  use: z.enum(["ai", "script"]),
+  readOnly: z.boolean(),
+  folderId: z.string().min(1).nullable().default(null),
+  /** Null for no end date. */
+  endsInDays: z
+    .union([z.literal(30), z.literal(90), z.literal(365)])
+    .nullable(),
+});

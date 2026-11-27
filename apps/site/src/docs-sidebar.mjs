@@ -23,6 +23,7 @@ export const sidebar = [
       "docs/using-the-drive",
       "docs/sharing-files",
       "docs/desktop-app",
+      "docs/api-keys",
       "docs/your-account",
     ],
   },

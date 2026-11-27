@@ -87,6 +87,7 @@ export function mountAdmin(app: Hono<PreviewEnv>) {
         lastChange: row.lastContentActivityAt,
       },
       devices: devices(state),
+      keys: state.keys,
       signInUrl: `${c.var.site}/`,
     });
   });
@@ -355,9 +356,11 @@ export function mountAdmin(app: Hono<PreviewEnv>) {
   app.delete("/api/admin/users/:id/sessions/:sessionId", (c) => {
     if (requireUser(c.var.state).role !== "owner")
       throw new PreviewError(403, "Owner access required.");
+    const sessionId = c.req.param("sessionId");
     c.var.state.sessions = c.var.state.sessions.filter(
-      (id) => id !== c.req.param("sessionId"),
+      (id) => id !== sessionId,
     );
+    c.var.state.keys = c.var.state.keys.filter((key) => key.id !== sessionId);
     return c.json({ ok: true });
   });
   app.post("/api/admin/derivatives/files/:id/regenerate", (c) => {
