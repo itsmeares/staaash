@@ -179,17 +179,6 @@ const MANUAL_RUN_JOB_KINDS = new Set([
 
 const CLOCK_TICK_MS = 1000;
 const HISTORY_VISIBLE_RUNS = 20;
-type JsonJobListResponse = {
-  items: JsonBackgroundJob[];
-  nextCursor: string | null;
-  page: number;
-  pageCount: number;
-  pageSize: number;
-  totalCount: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-};
-
 function effectiveStatus(
   job: Pick<JsonBackgroundJob, "status" | "lastError">,
 ): JsonBackgroundJob["status"] {
@@ -562,30 +551,36 @@ const eventSentence = (event: JsonJobEvent, clock: (iso: string) => string) =>
     ? EVENT_SENTENCES[event.type]!(event, clock)
     : (event.message ?? event.type);
 
-/** A run's recorded steps, loaded when its row opens. */
-function useRunEvents(jobId: string | null) {
+/**
+ * A run's recorded steps, loaded when its row opens and again whenever the
+ * run changes, so a cancel or retry shows up in the story.
+ */
+function useRunEvents(jobId: string, version: string) {
   const [events, setEvents] = useState<JsonJobEvent[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    if (!jobId) return;
     let cancelled = false;
+    setFailed(false);
     void fetch(`/api/admin/jobs/${encodeURIComponent(jobId)}/events`)
       .then(async (res) => {
-        const data = res.ok ? await res.json() : null;
-        if (!cancelled) setEvents(data?.items ?? []);
+        if (!res.ok) throw new Error();
+        const data = (await res.json()) as { items: JsonJobEvent[] };
+        if (!cancelled) setEvents(data.items);
       })
       .catch(() => {
-        if (!cancelled) setEvents([]);
+        if (!cancelled) setFailed(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [jobId]);
-  return events;
+  }, [jobId, version, attempt]);
+  return { events, failed, retry: () => setAttempt((n) => n + 1) };
 }
 
 const copyRunDetails = async (
   job: JsonBackgroundJob,
-  events: JsonJobEvent[] | null,
+  events: JsonJobEvent[],
 ) => {
   const details = {
     id: job.id,
@@ -596,7 +591,7 @@ const copyRunDetails = async (
     createdAt: job.createdAt,
     startedAt: job.startedAt ?? null,
     completedAt: job.completedAt ?? null,
-    events: (events ?? []).map((event) => ({
+    events: events.map((event) => ({
       at: event.createdAt,
       type: event.type,
       message: event.message,
@@ -612,11 +607,24 @@ const copyRunDetails = async (
 
 function RunSteps({
   events,
+  failed,
+  onRetry,
   timeZone,
 }: {
   events: JsonJobEvent[] | null;
+  failed: boolean;
+  onRetry: () => void;
   timeZone: string;
 }) {
+  if (failed)
+    return (
+      <p className={cn(JOB_NOTE, "flex flex-wrap items-center gap-2")}>
+        Couldn&apos;t load the steps.
+        <Button size="xs" variant="ghost" onClick={onRetry}>
+          Try again
+        </Button>
+      </p>
+    );
   if (events === null) return <p className={JOB_NOTE}>Loading steps…</p>;
   const clock = (iso: string) =>
     getLocalDateParts(new Date(iso), timeZone).time;
@@ -641,6 +649,13 @@ function RunSteps({
   );
 }
 
+const runAction = (status: JsonBackgroundJob["status"]) =>
+  status === "queued" || status === "running"
+    ? "cancel"
+    : status === "succeeded"
+      ? null
+      : "retry";
+
 /** What a run did, step by step, and what you can do with it. */
 function RunStory({
   job,
@@ -651,17 +666,16 @@ function RunStory({
   onJobAction: (jobId: string, action: "retry" | "cancel") => void;
   timeZone: string;
 }) {
-  const events = useRunEvents(job.id);
-  const status = effectiveStatus(job);
-  const action =
-    status === "queued" || status === "running"
-      ? "cancel"
-      : status === "succeeded"
-        ? null
-        : "retry";
+  const { events, failed, retry } = useRunEvents(job.id, job.updatedAt);
+  const action = runAction(effectiveStatus(job));
   return (
     <div className="grid gap-3.5 ps-9 pe-4 pt-1 pb-4">
-      <RunSteps events={events} timeZone={timeZone} />
+      <RunSteps
+        events={events}
+        failed={failed}
+        timeZone={timeZone}
+        onRetry={retry}
+      />
       <div className="flex flex-wrap gap-1.5">
         {action ? (
           <Button
@@ -673,7 +687,8 @@ function RunStory({
           </Button>
         ) : null}
         <Button
-          onClick={() => void copyRunDetails(job, events)}
+          disabled={!events || failed}
+          onClick={() => events && void copyRunDetails(job, events)}
           size="xs"
           variant="outline"
         >
@@ -809,9 +824,13 @@ function useFailedActions(kind: string, onRefresh: () => Promise<void>) {
         type: "error",
       });
     } finally {
-      await onRefresh();
-      busy.current = false;
-      setPending(false);
+      // A failed refresh reports itself; the buttons must come back anyway.
+      await onRefresh()
+        .catch(() => {})
+        .finally(() => {
+          busy.current = false;
+          setPending(false);
+        });
     }
   };
   return { pending, errors, act };
@@ -1102,38 +1121,47 @@ function JobCounts({
   );
 }
 
-/** The job's run list, loaded on first open and kept current after. */
+const withRun = (jobs: JsonBackgroundJob[], run: JsonBackgroundJob) =>
+  [run, ...jobs.filter((job) => job.id !== run.id)].sort(
+    (left, right) =>
+      new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+  );
+
+/** The job's run list, read on each open and kept current after. */
 function useJobHistory(kind: string, lastRun: JsonBackgroundJob | null) {
   const [history, setHistory] = useState<JsonBackgroundJob[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  // A list read can land after a newer live update or a newer read.
+  const pushed = useRef(lastRun);
+  const reads = useRef(0);
 
   useEffect(() => {
-    if (!lastRun) return;
-    setHistory((current) =>
-      current
-        ? [lastRun, ...current.filter((job) => job.id !== lastRun.id)].sort(
-            (left, right) =>
-              new Date(right.updatedAt).getTime() -
-              new Date(left.updatedAt).getTime(),
-          )
-        : current,
-    );
+    pushed.current = lastRun;
+    if (lastRun)
+      setHistory((current) => (current ? withRun(current, lastRun) : current));
   }, [lastRun]);
 
+  /** The fresh list, or null when it failed or a newer one replaced it. */
   const loadHistory = async () => {
+    const read = ++reads.current;
+    const before = pushed.current;
     const res = await fetch(
       `/api/admin/jobs?kind=${encodeURIComponent(kind)}&limit=100`,
     );
-    if (!res.ok) return null;
+    if (!res.ok || read !== reads.current) return null;
     const data = await res.json();
     const jobs: JsonBackgroundJob[] = data.items ?? [];
+    const live = pushed.current;
+    if (live !== before && live) {
+      setHistory(withRun(jobs, live));
+      return null;
+    }
     setHistory(jobs);
     return jobs;
   };
 
-  const loadOnce = async () => {
-    if (history !== null) return;
-    setHistoryLoading(true);
+  const loadOnOpen = async () => {
+    if (history === null) setHistoryLoading(true);
     try {
       await loadHistory();
     } finally {
@@ -1141,7 +1169,7 @@ function useJobHistory(kind: string, lastRun: JsonBackgroundJob | null) {
     }
   };
 
-  return { history, historyLoading, loadHistory, loadOnce };
+  return { history, historyLoading, loadHistory, loadOnOpen };
 }
 
 // One row per job kind: its state, counts and buttons; the logic is in the
@@ -1173,7 +1201,7 @@ function JobTaskCard({
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const { history, historyLoading, loadHistory, loadOnce } = useJobHistory(
+  const { history, historyLoading, loadHistory, loadOnOpen } = useJobHistory(
     kind,
     lastRun,
   );
@@ -1194,7 +1222,7 @@ function JobTaskCard({
   const openDetails = (next: DetailsTab) => {
     setActionError(null);
     setTab(next);
-    void loadOnce();
+    void loadOnOpen();
   };
 
   const handleRun = async () => {
@@ -1313,11 +1341,9 @@ function useProblemRefresh(setProblems: (jobs: JsonBackgroundJob[]) => void) {
   const refreshProblems = async () => {
     const version = ++refreshVersion.current;
     try {
-      const res = await fetch(
-        "/api/admin/jobs?status=failed,dead&limit=20&page=1",
-      );
+      const res = await fetch("/api/admin/jobs/problems");
       if (!res.ok) throw new Error();
-      const data = (await res.json()) as JsonJobListResponse;
+      const data = (await res.json()) as { items: JsonBackgroundJob[] };
       if (version === refreshVersion.current) setProblems(data.items);
     } catch {
       toastManager.add({

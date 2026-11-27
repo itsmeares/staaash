@@ -70,7 +70,7 @@ export function AccountCard({
   below?: ReactNode;
 }) {
   return canEdit ? (
-    <AccountEditor account={account} below={below}>
+    <AccountEditor account={account} below={below} key={account.id}>
       {children}
     </AccountEditor>
   ) : (
@@ -104,12 +104,22 @@ function AccountEditor({
     setSaving(true);
     setError(null);
     try {
-      await sendAdmin(`/api/admin/users/${account.id}`, "PATCH", {
+      const values = {
         email: draft.email,
         displayName: draft.displayName ?? "",
-        isAdmin: draft.isOwner || draft.isAdmin,
+        isAdmin: draft.isAdmin,
         storageLimitBytes: draft.storageLimitBytes || null,
-      });
+      };
+      // Only what changed, so a stale tab can't put back another edit.
+      await sendAdmin(
+        `/api/admin/users/${account.id}`,
+        "PATCH",
+        Object.fromEntries(
+          Object.entries(values).filter(([key]) =>
+            changed(key as keyof Account),
+          ),
+        ),
+      );
       setSaved(draft);
       toastManager.add({ title: "Saved", type: "success", timeout: 1500 });
       void refresh();

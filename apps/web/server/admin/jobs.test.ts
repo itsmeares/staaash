@@ -31,6 +31,7 @@ import {
   getAdminJobListResponse,
   getAdminJobStateSnapshot,
   getAdminProblemJobIds,
+  getAdminProblemJobs,
   parseAdminJobFilters,
 } from "./jobs";
 
@@ -67,19 +68,29 @@ describe("admin job data", () => {
   });
 
   it("names whose drive a failed preview is in, never the file, and handles deleted files", async () => {
-    const snapshot = await getAdminJobStateSnapshot();
-    const list = await getAdminJobListResponse(
-      parseAdminJobFilters({ status: "failed,dead" }),
+    mocks.lastRuns.mockImplementation(async ({ kind, status }) =>
+      status && kind === "media.derivative.generate"
+        ? [previewJob("job-1", "file-1"), previewJob("job-2", "missing")]
+        : [],
     );
-    expect(snapshot.problems).toEqual(list.items);
+    const snapshot = await getAdminJobStateSnapshot();
     expect(snapshot.problems.map((job) => job.ownerName)).toEqual([
       "Mia Chen",
       null,
     ]);
     expect(JSON.stringify(snapshot)).not.toContain("holiday.mov");
-    expect(mocks.list).toHaveBeenCalledWith(
-      expect.objectContaining({ status: ["failed", "dead"], limit: 20 }),
-    );
+  });
+
+  it("reads each kind's failed runs on its own and leaves zips out", async () => {
+    await getAdminProblemJobs();
+    const kinds = mocks.lastRuns.mock.calls.map(([filters]) => filters.kind);
+    expect(kinds).toContain("restore.reconcile");
+    expect(kinds).not.toContain("zip.archive.generate");
+    expect(mocks.lastRuns).toHaveBeenCalledWith({
+      kind: "restore.reconcile",
+      status: ["failed", "dead"],
+      limit: 20,
+    });
   });
 
   it("captures only failed and dead IDs of the selected kind in one database read", async () => {
@@ -102,7 +113,7 @@ describe("admin job data", () => {
     const errors = [
       "Command failed: ffprobe /data/files/files/mia/a.mov",
       "File f1 not found or deleted.",
-      "Storage is busy. Try again shortly.",
+      "Moving /data/files/files/mia/Storage is busy/a.mov",
       "EACCES: /data/files/files/mia/a.mov",
       "Cancelled by admin.",
       null,

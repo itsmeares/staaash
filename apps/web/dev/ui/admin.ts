@@ -259,8 +259,8 @@ export function adminOverview(state: State) {
         owners: state.users.filter((u) => u.role === "owner").length,
         admins: state.users.filter((u) => u.role === "admin").length,
         members: state.users.filter((u) => u.role === "member").length,
-        notSetUp: state.users.filter((u) => u.note === "Hasn't finished setup")
-          .length,
+        // A pending first-run step is the sample's unfinished onboarding.
+        notSetUp: state.users.filter((u) => state.firstRuns.has(u.id)).length,
       },
       updates: updateView(state),
     },

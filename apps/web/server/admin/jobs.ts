@@ -98,9 +98,7 @@ export const getAdminJobStateSnapshot = async () => {
   const [lastRuns, summary, problems] = await Promise.all([
     getLastRunPerKind(),
     getAdminJobSummary(),
-    getAdminJobListResponse(
-      parseAdminJobFilters({ status: "failed,dead", limit: "20" }),
-    ),
+    getAdminProblemJobs(),
   ]);
 
   const entries = Object.entries(lastRuns);
@@ -113,8 +111,30 @@ export const getAdminJobStateSnapshot = async () => {
       entries.map(([kind, job]) => [kind, job ? byId.get(job.id)! : null]),
     ),
     summary,
-    problems: problems.items,
+    problems,
   };
+};
+
+/**
+ * Each kind's latest failed runs. One shared limit would let a burst of one
+ * kind hide another's failure, and zips are left out like everywhere else.
+ */
+export const getAdminProblemJobs = async () => {
+  const perKind = await Promise.all(
+    ADMIN_JOB_KINDS.map((kind) =>
+      listAdminBackgroundJobItems({
+        kind,
+        status: ["failed", "dead"],
+        limit: 20,
+      }),
+    ),
+  );
+  return addPreviewOwners(
+    perKind
+      .flat()
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+      .map(toJsonAdminJob),
+  );
 };
 
 export const getAdminJobEvents = async (jobId: string) => {
@@ -251,12 +271,13 @@ export const getAdminJobListResponse = async (
 const previewReason = (error: string | null) => {
   if (!error) return null;
   if (error === "Cancelled by admin.") return error;
+  // Fixed text: a raw message can hold a path that happens to match.
   if (
     /durable storage mutation|Storage is busy|unfinished storage mutation/.test(
       error,
     )
   )
-    return error;
+    return "Storage is busy. Try again shortly.";
   if (error.includes("not found or deleted")) return "The file was deleted.";
   if (/ffprobe|ffmpeg/.test(error)) return "Couldn't read this file.";
   return "Couldn't make a preview.";

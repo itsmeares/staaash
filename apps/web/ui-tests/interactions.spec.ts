@@ -502,6 +502,9 @@ test("search narrows both Settings pages to the matching rows", async ({
   await search.fill("pins");
   await expect(page.getByText("Show pins in the sidebar")).toBeVisible();
   await expect(page.getByText("Start page", { exact: true })).toBeHidden();
+  await search.fill("theme");
+  await expect(page.getByRole("radiogroup", { name: "Theme" })).toBeVisible();
+  await expect(page.getByText("Show pins in the sidebar")).toBeHidden();
   await search.fill("");
   await expect(page.getByText("Start page", { exact: true })).toBeVisible();
 

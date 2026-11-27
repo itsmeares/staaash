@@ -112,7 +112,7 @@ export const adminOverviewQuery = queryOptions({
 
 export const adminStorageQuery = (mutationId?: string) =>
   queryOptions({
-    queryKey: ["admin", "storage", mutationId],
+    queryKey: ["admin", "storage", "list", mutationId],
     queryFn: () => read(admin.storage.$get({ query: { mutationId } })),
     staleTime: 0,
   });
@@ -122,6 +122,11 @@ export const adminMaintenanceQuery = queryOptions({
   queryKey: ["admin", "storage", "maintenance"],
   queryFn: () => read(admin.maintenance.$get()),
   staleTime: 0,
+  // The run button stays off until a started restore check finishes.
+  refetchInterval: (query) =>
+    ["queued", "running"].includes(query.state.data?.restore.runStatus ?? "")
+      ? 2_000
+      : false,
 });
 
 export const adminStorageChangeQuery = (mutationId: string) =>

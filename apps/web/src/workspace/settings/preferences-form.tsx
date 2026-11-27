@@ -28,6 +28,7 @@ import {
   SettingsGroup,
   SettingsLayout,
   SettingsRow,
+  useSettingsSearch,
 } from "@/components/settings-layout";
 import { TimeZonePicker } from "@/components/time-zone-picker";
 import { Badge } from "@staaash/ui/components/badge";
@@ -430,12 +431,14 @@ function ProfileSettings({ profile }: { profile: Profile }) {
   const toggle = (which: "profile" | "password") => (open: boolean) =>
     setEditing(open ? which : null);
 
+  const search = useSettingsSearch("Profile", "Name Email Photo");
   return (
     <SettingsCard>
       <Collapsible
         className={expandRow}
         open={editing === "profile"}
         onOpenChange={toggle("profile")}
+        {...search}
       >
         <div className="flex items-center gap-3 px-4 py-3">
           <Avatar
@@ -485,12 +488,14 @@ function ProfileSettings({ profile }: { profile: Profile }) {
 
 function AppearanceSettings({ draft }: { draft: Draft }) {
   const { values, isChanged, set } = draft;
+  const search = useSettingsSearch("Theme", "System Light Dark");
   return (
     <SettingsCard>
       <div
         aria-label="Theme"
         className="grid grid-cols-3 gap-2 p-3.5"
         role="radiogroup"
+        {...search}
       >
         {THEMES.map((option) => {
           const selected = values.theme === option.value;
@@ -602,9 +607,13 @@ function StorageSettings({ storage }: { storage: StorageBreakdown }) {
   // Without a limit the bar shows how the used space splits.
   const scale = storage.limitBytes ?? Math.max(1, storage.usedBytes);
 
+  const search = useSettingsSearch(
+    "Space used",
+    KINDS.map((kind) => kind.label).join(" "),
+  );
   return (
     <SettingsCard>
-      <div className="grid gap-2.5 px-4 py-3.5">
+      <div className="grid gap-2.5 px-4 py-3.5" {...search}>
         <span className="text-body">
           <b className="font-semibold tabular-nums">
             {formatBytes(storage.usedBytes)}

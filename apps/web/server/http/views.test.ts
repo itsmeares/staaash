@@ -293,6 +293,7 @@ describe("view routes", () => {
         user: user({ role: "admin", isAdmin: true }),
       });
       mocks.getAdminHealthSummary.mockResolvedValue({
+        failures: [],
         storageMutations: { counts: { recovery_required: 2, retrying: 1 } },
         reconciliation: {
           status: "healthy",
@@ -307,6 +308,21 @@ describe("view routes", () => {
         restore: { runStatus: null },
         isOwner: false,
       });
+    });
+
+    it("says storage changes are unknown when they could not be read", async () => {
+      mocks.getRequestSession.mockResolvedValue({
+        id: "s1",
+        user: user({ role: "admin", isAdmin: true }),
+      });
+      mocks.getAdminHealthSummary.mockResolvedValue({
+        failures: ["STORAGE_MUTATION_HEALTH_UNAVAILABLE"],
+        storageMutations: { counts: {} },
+        reconciliation: { status: "healthy", runStatus: null, message: "" },
+      });
+      await expect(
+        (await get("/api/views/admin/maintenance")).json(),
+      ).resolves.toMatchObject({ storage: null });
     });
 
     it("refuses members", async () => {

@@ -15,6 +15,7 @@ import {
   getAdminJobEvents,
   getAdminProblemJobIds,
   getAdminJobListResponse,
+  getAdminProblemJobs,
   getAdminJobSummary,
   parseAdminJobFilters,
   retryAdminJob,
@@ -172,6 +173,9 @@ export const adminRoutes = admin
         }),
       ),
     ),
+  )
+  .get("/jobs/problems", async (c) =>
+    c.json({ items: await getAdminProblemJobs() }),
   )
   .get("/jobs/problem-targets", async (c) => {
     const kind = z.enum(ALL_SUPPORTED_JOB_KINDS).parse(c.req.query("kind"));

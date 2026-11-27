@@ -13,11 +13,16 @@ vi.mock("@/server/health", () => ({
     queue: { queued: 0, running: 0, failed: 0, dead: 0, cancelled: 0 },
   }),
 }));
-vi.mock("@/server/user-storage", () => ({
-  getUserStorageUsed: async (id: string) => ({
-    usedBytes: mocks.used.get(id) ?? 0n,
-  }),
-}));
+vi.mock("@/server/user-storage", async () => {
+  const { UploadAdmissionError } = await import("@/server/uploads/admission");
+  return {
+    getUserStorageUsed: async (id: string) => {
+      if (id === "held")
+        throw new UploadAdmissionError("UPLOAD_STORAGE_CAPACITY_UNAVAILABLE");
+      return { usedBytes: mocks.used.get(id) ?? 0n };
+    },
+  };
+});
 vi.mock("./updates", () => ({ getUpdateState: async () => ({}) }));
 vi.mock("./storage", () => ({
   getAdminStorageSummary: async () => ({
@@ -72,6 +77,16 @@ describe("admin overview", () => {
     expect(summary.nearLimit.map((entry) => entry.userId)).toEqual(["b", "d"]);
     expect(summary.users.notSetUp).toBe(1);
     expect(summary.shareLinks).toBe(4);
+  });
+
+  it("still loads when an account's usage is held for an audit", async () => {
+    mocks.listUsers.mockResolvedValue([
+      person("held", 100n),
+      person("b", 100n),
+    ]);
+    mocks.used.set("b", 95n);
+    const { nearLimit } = await getAdminOverviewSummary("a");
+    expect(nearLimit.map((entry) => entry.userId)).toEqual(["b"]);
   });
 
   it("lists space per person, largest first, by name or email", async () => {

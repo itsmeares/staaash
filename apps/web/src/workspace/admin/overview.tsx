@@ -85,16 +85,18 @@ const reviewItem = (summary: Summary): Item[] => {
 const jobsItem = ({ jobs: { failed, dead } }: Summary): Item[] => {
   if (failed + dead === 0) return [];
   // Failed jobs are retried by the worker; dead ones have given up.
-  const gaveUp = dead > 0;
+  const detail = !dead
+    ? "They try again on their own."
+    : !failed
+      ? "They won't try again on their own."
+      : `${dead} gave up and won't try again. ${failed} will try again on ${failed === 1 ? "its" : "their"} own.`;
   return [
     {
       key: "jobs",
       icon: ListChecks,
-      tone: gaveUp ? "error" : "warning",
-      title: `${plural(failed + dead, "job")} ${gaveUp ? "gave up" : "failed"}`,
-      detail: gaveUp
-        ? "They won't try again on their own."
-        : "They try again on their own.",
+      tone: dead ? "error" : "warning",
+      title: `${plural(failed + dead, "job")} ${failed ? "failed" : "gave up"}`,
+      detail,
       action: linkButton("/admin/jobs", "See jobs"),
     },
   ];

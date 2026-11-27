@@ -646,13 +646,15 @@ const adminViews = admin
     const { counts } = health.storageMutations;
     const review = counts.recovery_required ?? 0;
     const unfinished = Object.values(counts).reduce((sum, n) => sum + n, 0);
+    // Empty counts from a failed read must not look like an all-clear.
+    const unknown = health.failures.includes(
+      "STORAGE_MUTATION_HEALTH_UNAVAILABLE",
+    );
     return c.json(
       plain({
-        storage: {
-          review,
-          finishing: unfinished - review,
-          fixed: fixed.length,
-        },
+        storage: unknown
+          ? null
+          : { review, finishing: unfinished - review, fixed: fixed.length },
         restore: health.reconciliation,
         isOwner: c.var.session.user.isOwner,
       }),

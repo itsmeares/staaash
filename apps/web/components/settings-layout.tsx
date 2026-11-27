@@ -67,14 +67,21 @@ const countMatches = (root: HTMLElement | null, query: string) =>
     ),
   );
 
-/** Whether a row matches the search, and whether the search hides it. */
-function useSearchMatch(label: ReactNode, hint: ReactNode) {
+/**
+ * Props that let search find, count and hide a card's row. A block that is
+ * not a `SettingsRow`, such as the theme picker, spreads them with its words.
+ */
+export function useSettingsSearch(label: ReactNode, hint?: ReactNode) {
   const query = useContext(SearchQuery);
-  if (!query) return { match: false, hidden: false };
-  const match = `${textOf(label)} ${textOf(hint)}`
-    .toLowerCase()
-    .includes(query);
-  return { match, hidden: !match };
+  const match =
+    query !== "" &&
+    `${textOf(label)} ${textOf(hint)}`.toLowerCase().includes(query);
+  return {
+    "data-setting-row": "",
+    "data-setting-match": match ? "" : undefined,
+    // Hidden, not removed: the row's field stays in the surrounding form.
+    hidden: query !== "" && !match,
+  };
 }
 
 /** Unsaved changes: the bar under the categories saves or drops them. */
@@ -228,6 +235,10 @@ export function SettingsLayout({
         type="search"
         value={search}
         onChange={(event) => setSearch(event.target.value)}
+        // Enter would submit the settings form around it and save a draft.
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.preventDefault();
+        }}
       />
     </InputGroup>
   );
@@ -368,14 +379,10 @@ export function SettingsRow({
   changed?: boolean;
   children?: ReactNode;
 }) {
-  const { match, hidden } = useSearchMatch(label, hint);
   return (
     <div
       className="grid min-h-14 items-center gap-x-4 gap-y-2 border-t border-border px-4 py-2.5 first:border-t-0 data-setting-match:bg-primary/7 sm:grid-cols-[minmax(0,1fr)_12.5rem] in-data-searching:[&:not([data-setting-row]:not([hidden])~&)]:border-t-0"
-      data-setting-match={match ? "" : undefined}
-      data-setting-row=""
-      // Hidden, not removed: the row's field stays in the surrounding form.
-      hidden={hidden}
+      {...useSettingsSearch(label, hint)}
     >
       <div className="grid min-w-0 gap-0.5">
         <span className="flex items-center gap-2">

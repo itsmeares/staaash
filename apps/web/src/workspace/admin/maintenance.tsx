@@ -79,6 +79,15 @@ function StorageReview({
 }
 
 function StorageCheck({ storage, isOwner }: Pick<Data, "storage" | "isOwner">) {
+  if (!storage) {
+    return (
+      <Check
+        sentence="Staaash couldn't read them, so it can't tell whether any stopped halfway."
+        title="Storage changes"
+        tone="error"
+      />
+    );
+  }
   if (storage.review > 0) {
     return <StorageReview count={storage.review} isOwner={isOwner} />;
   }

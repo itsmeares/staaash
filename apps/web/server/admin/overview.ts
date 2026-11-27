@@ -2,6 +2,7 @@ import { getPrisma } from "@staaash/db/client";
 
 import { authService } from "@/server/auth/service";
 import { getAdminHealthSummary } from "@/server/health";
+import { UploadAdmissionError } from "@/server/uploads/admission";
 import { getUserStorageUsed } from "@/server/user-storage";
 
 import { getAdminStorageSummary } from "./storage";
@@ -29,8 +30,22 @@ export const getAdminOverviewSummary = async (
   const admins = users.filter((user) => user.isAdmin && !user.isOwner).length;
   const members = users.length - owners - admins;
   const limited = users.filter((user) => user.storageLimitBytes !== null);
+  // An account held for a usage audit has no usage to read; skip it, not
+  // the whole page.
   const usage = await Promise.all(
-    limited.map(async (user) => (await getUserStorageUsed(user.id)).usedBytes),
+    limited.map((user) =>
+      getUserStorageUsed(user.id).then(
+        ({ usedBytes }) => usedBytes,
+        (error: unknown) => {
+          if (
+            error instanceof UploadAdmissionError &&
+            error.code === "UPLOAD_STORAGE_CAPACITY_UNAVAILABLE"
+          )
+            return null;
+          throw error;
+        },
+      ),
+    ),
   );
 
   return {
@@ -48,9 +63,11 @@ export const getAdminOverviewSummary = async (
       bytes: row.retainedBytes,
     })),
     nearLimit: limited.flatMap((user, index) => {
-      const used = usage[index]!;
+      const used = usage[index];
       const limit = user.storageLimitBytes!;
-      return limit > 0n && used * 100n >= limit * NEAR_LIMIT_PERCENT
+      return used != null &&
+        limit > 0n &&
+        used * 100n >= limit * NEAR_LIMIT_PERCENT
         ? [
             {
               userId: user.id,
