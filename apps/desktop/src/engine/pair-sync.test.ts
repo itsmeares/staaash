@@ -304,6 +304,28 @@ it("takes newly skipped files out of the line and syncs the rest", async () => {
   expect(await readFile(path.join(r.directory, "b.txt"), "utf8")).toBe("b.txt");
 });
 
+it("leaves a file skipped during the scan out of the line", async () => {
+  const r = await rig(["a.txt", "b.txt"]);
+  let skipped = false;
+  let queued: Waiting | undefined;
+  let listed: string[] | undefined;
+  await syncPair({
+    ...r.ctx,
+    // The scan is done but the plan is not made yet.
+    scanned: () => {
+      skipped = r.passes[0]!.skip({ ...r.ctx.pair, skipPaths: ["b.txt"] });
+    },
+    waiting: (each) => {
+      if (!skipped || queued || each.files === 0) return;
+      queued = each;
+      listed = r.passes[0]!.waitingFiles().next.map((file) => file.rel);
+    },
+  });
+  expect(queued).toEqual({ files: 1, bytes: 5, uploadBytes: 5 });
+  expect(listed).toEqual(["a.txt"]);
+  expect(r.start.mock.calls.map(([input]) => input.name)).toEqual(["a.txt"]);
+});
+
 it("will not skip a file while it uploads", async () => {
   const r = await rig(["a.txt"]);
   const upload = r.start.getMockImplementation()!;

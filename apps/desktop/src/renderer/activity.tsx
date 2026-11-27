@@ -493,6 +493,29 @@ function useStopSync(asking: boolean) {
 
 type WaitingOrder = "next" | "biggest";
 
+/** How many waiting files the list leaves out. */
+function NotListed({
+  count,
+  listed,
+  order,
+}: {
+  count: number;
+  listed: number;
+  order: WaitingOrder;
+}) {
+  const hidden = count - listed;
+  // The count and the lists arrive apart; with no rows, a "more" line has
+  // nothing to follow.
+  if (listed === 0 || hidden <= 0) return null;
+  return (
+    <p className="m-0 px-5 pt-2 text-label text-muted-foreground">
+      {order === "next"
+        ? `${hidden.toLocaleString()} more after these.`
+        : `${hidden.toLocaleString()} smaller file${hidden === 1 ? " is" : "s are"} not listed.`}
+    </p>
+  );
+}
+
 /** The files waiting for their turn, with a way to drop any of them. */
 function WaitingDialog({
   state,
@@ -508,9 +531,6 @@ function WaitingDialog({
   const [order, setOrder] = useState<WaitingOrder>("next");
   const stopSync = useStopSync(state.settings.confirmStopSync);
   const files = state.status?.waitingFiles[order] ?? [];
-  // The count and the lists arrive apart; with no rows, a "more" line has
-  // nothing to follow.
-  const hidden = files.length > 0 ? Math.max(0, count - files.length) : 0;
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogPopup className="sm:max-w-120">
@@ -548,13 +568,7 @@ function WaitingDialog({
               Nothing is waiting now.
             </p>
           )}
-          {hidden > 0 ? (
-            <p className="m-0 px-5 pt-2 text-label text-muted-foreground">
-              {order === "next"
-                ? `${hidden.toLocaleString()} more after these.`
-                : `${hidden.toLocaleString()} smaller file${hidden === 1 ? " is" : "s are"} not listed.`}
-            </p>
-          ) : null}
+          <NotListed count={count} listed={files.length} order={order} />
         </DialogPanel>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>

@@ -682,7 +682,14 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
   // comes back, so the lists skip the started ones only once.
   let starts: number[] = [];
   const queue = (actions: Action[]) => {
-    queued = new Set(actions.filter((action) => transferSize(action) !== null));
+    // A skip that came in while this round scanned is already in force.
+    queued = new Set(
+      actions.filter(
+        (action) =>
+          transferSize(action) !== null &&
+          !pathsOf(action).some((rel) => isLeftOut(rel)),
+      ),
+    );
     waiting = { files: queued.size, bytes: 0, uploadBytes: 0 };
     for (const action of queued) {
       waiting.bytes += transferSize(action) ?? 0;
