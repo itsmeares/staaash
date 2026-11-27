@@ -273,6 +273,8 @@ export function SettingsLayout({
           data-searching={query ? "" : undefined}
           ref={sections}
         >
+          {/* A phone hides the index, so the filter stays visible and clearable. */}
+          {!wide && query ? <div className="mb-3.5">{searchBox}</div> : null}
           {categories.map(({ id, label, content, onReset }) => (
             <section
               aria-label={label}

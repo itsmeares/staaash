@@ -250,6 +250,7 @@ export const getAdminJobListResponse = async (
 // plain reason, never the file name or the raw error, which holds its path.
 const previewReason = (error: string | null) => {
   if (!error) return null;
+  if (error === "Cancelled by admin.") return error;
   if (
     /durable storage mutation|Storage is busy|unfinished storage mutation/.test(
       error,

@@ -505,6 +505,17 @@ test("search narrows both Settings pages to the matching rows", async ({
   await search.fill("");
   await expect(page.getByText("Start page", { exact: true })).toBeVisible();
 
+  // A phone shows one category at a time, so the filter must stay in view.
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.getByRole("button", { name: "Back to Settings" }).click();
+  await page.getByLabel("Search settings").fill("pins");
+  await page.getByRole("button", { name: /Appearance/ }).click();
+  await expect(page.getByLabel("Search settings")).toHaveValue("pins");
+  await expect(page.getByText("Start page", { exact: true })).toBeHidden();
+  await page.getByLabel("Search settings").fill("");
+  await expect(page.getByText("Start page", { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 900 });
+
   await page.goto("/admin/settings");
   await page.getByLabel("Search settings").fill("upload timeout");
   await expect(page.getByText("Upload timeout", { exact: true })).toBeVisible();

@@ -7,11 +7,11 @@ You decide who can use your drive. This page is for the owner.
 
 ## The roles
 
-| Role   | What they can do                                                                                                                                                                                                                                   |
-| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Owner  | The account that set up the instance. Runs the admin area.                                                                                                                                                                                         |
-| Admin  | A person the owner gave **Admin access**. They can look at Overview, Users, Storage and Jobs, but they cannot change anything. Settings and every change still need the owner. Give it only to people you trust to see everyone's names and usage. |
-| Member | A normal person. Has their own files, shares and settings.                                                                                                                                                                                         |
+| Role   | What they can do                                                                                                                                                                                                                                       |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Owner  | The account that set up the instance. Runs the admin area.                                                                                                                                                                                             |
+| Admin  | A person the owner gave **Admin access**. They can look at Overview, Users, Jobs and Maintenance, but they cannot change anything. Settings and every change still need the owner. Give it only to people you trust to see everyone's names and usage. |
+| Member | A normal person. Has their own files, shares and settings.                                                                                                                                                                                             |
 
 Everyone has a private space. The owner cannot read a member's files by being the owner.
 

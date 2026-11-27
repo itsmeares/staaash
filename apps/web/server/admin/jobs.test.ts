@@ -104,6 +104,7 @@ describe("admin job data", () => {
       "File f1 not found or deleted.",
       "Storage is busy. Try again shortly.",
       "EACCES: /data/files/files/mia/a.mov",
+      "Cancelled by admin.",
       null,
     ];
     mocks.list.mockResolvedValue({
@@ -120,6 +121,7 @@ describe("admin job data", () => {
       "The file was deleted.",
       "Storage is busy. Try again shortly.",
       "Couldn't make a preview.",
+      "Cancelled by admin.",
       null,
     ]);
   });
