@@ -37,9 +37,17 @@ const writeAtomic = async (target: string, data: string | Buffer) => {
   await rename(temp, target);
 };
 
+const THEMES = new Set(["system", "light", "dark"]);
+
 export const loadSettings = (): Settings => {
   try {
-    return { ...defaults(), ...JSON.parse(readFileSync(file(), "utf8")) };
+    const saved: Settings = {
+      ...defaults(),
+      ...JSON.parse(readFileSync(file(), "utf8")),
+    };
+    // Electron takes only these three, and a hand-edited file may hold more.
+    if (!THEMES.has(saved.theme)) saved.theme = "system";
+    return saved;
   } catch {
     return defaults();
   }

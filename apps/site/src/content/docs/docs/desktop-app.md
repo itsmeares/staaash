@@ -45,7 +45,7 @@ Use the tray menu to pause for 1 hour, 1 day, 1 week, or until you resume. The s
 The app starts in the tray when you log in. On Hyprland, add `exec-once = staaash --hidden` to your config for the same.
 
 :::note[Coming in 2.1]
-**Theme**, under **General**, picks **System**, **Light** or **Dark** for the app. The drive window follows the theme set in your account instead. **Files at once**, under **Speed**, sets how many files upload and download at the same time, from 1 to 20. The default is 4. More helps with many small files and uses more memory.
+**Theme**, under **General**, picks **System**, **Light** or **Dark** for the app. The drive window follows the theme set in your account instead. **Files at once**, under **Speed**, sets how many files upload and download at the same time, from 1 to 20. The default is 4. Files up to 10 MB upload four times as many at once, up to 32. More helps with many small files and uses more memory.
 :::
 
 ## Updates
