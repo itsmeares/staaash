@@ -16,6 +16,7 @@ import {
   writeHeartbeat,
 } from "./storage-maintenance.js";
 import { detectFfmpeg } from "./ffmpeg.js";
+import { detectTextTools } from "./text/read.js";
 import { schedulePeriodicJobs } from "./job-registry.js";
 import { WorkerRunner } from "./runner.js";
 import { resolveWorkerVersion } from "./runtime-version.js";
@@ -32,12 +33,12 @@ const workerId = `${os.hostname()}-${process.pid}-${Date.now()}`;
 const workerVersion = resolveWorkerVersion();
 const workerHeartbeatMs = 30_000;
 const maintenanceMs = 60_000;
-const workers = (["general", "small-archive", "small-media"] as const).map(
-  (lane) => {
-    const id = `${workerId}-${lane}`;
-    return { id, lane };
-  },
-);
+const workers = (
+  ["general", "small-archive", "small-media", "text"] as const
+).map((lane) => {
+  const id = `${workerId}-${lane}`;
+  return { id, lane };
+});
 
 const runMaintenance = async () => {
   await recoverPendingDeletes({
@@ -82,6 +83,10 @@ const main = async () => {
   await mkdir(storagePaths.tmpRoot, { recursive: true });
   await writeHeartbeat(storagePaths.heartbeatPath);
   await verifyCommittedStorageUsage();
+  const [ffmpegHealth, textTools] = await Promise.all([
+    detectFfmpeg(),
+    detectTextTools(),
+  ]);
 
   for (const worker of workers) {
     await registerWorkerInstance({
@@ -93,6 +98,10 @@ const main = async () => {
         platform: process.platform,
         node: process.version,
         lane: worker.lane,
+        // The admin page shows what the text reader can do on this machine.
+        ...(worker.lane === "text"
+          ? { cpus: os.availableParallelism(), textTools }
+          : {}),
       },
     });
   }
@@ -102,7 +111,6 @@ const main = async () => {
     heartbeatPath: storagePaths.heartbeatPath,
   });
 
-  const ffmpegHealth = await detectFfmpeg();
   if (!ffmpegHealth.available) {
     console.warn(
       "[worker] FFmpeg not available — media preview generation disabled.",
@@ -112,6 +120,13 @@ const main = async () => {
     console.info("[worker] FFmpeg detected.", {
       ffmpegVersion: ffmpegHealth.ffmpegVersion,
       ffprobeVersion: ffmpegHealth.ffprobeVersion,
+    });
+  }
+
+  if (!textTools.pdftotext || !textTools.tesseract) {
+    console.warn("[worker] Some file text readers are missing.", {
+      pdftotext: textTools.pdftotext !== null,
+      tesseract: textTools.tesseract !== null,
     });
   }
 
@@ -141,6 +156,11 @@ const main = async () => {
     storagePaths,
     lane: "small-media",
   });
+  const textRunner = new WorkerRunner({
+    workerId: workers[3].id,
+    storagePaths,
+    lane: "text",
+  });
 
   const stop = async (signal: NodeJS.Signals) => {
     console.info("[worker] Shutdown requested.", { signal });
@@ -150,6 +170,7 @@ const main = async () => {
       generalRunner.stop(),
       smallArchiveRunner.stop(),
       smallMediaRunner.stop(),
+      textRunner.stop(),
     ]);
     await Promise.all(
       workers.map(({ id }) =>
@@ -166,6 +187,7 @@ const main = async () => {
     generalRunner.start(),
     smallArchiveRunner.start(),
     smallMediaRunner.start(),
+    textRunner.start(),
   ]);
 };
 

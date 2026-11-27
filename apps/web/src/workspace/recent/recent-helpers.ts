@@ -32,6 +32,8 @@ export type RecentClientItem = {
   /** When it was added, or last used in activity lists. */
   at: string;
   lastAction?: RecentAction | null;
+  /** In search: words around the match when only the file's text matched. */
+  snippet?: string;
 };
 
 export type RecentFilterType = WorkspaceItemFilterType;
@@ -45,6 +47,7 @@ export function toRecentClientItem(item: RetrievalItem): RecentClientItem {
     deletedAt: item.deletedAt?.toISOString() ?? null,
     isFavorite: item.isFavorite,
     at: item.updatedAt.toISOString(),
+    ...(item.kind === "file" && item.snippet ? { snippet: item.snippet } : {}),
   };
 }
 

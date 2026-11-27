@@ -24,9 +24,22 @@ RUN pnpm run db:generate && pnpm build && \
     pnpm --filter worker deploy --prod --legacy /deploy/worker && \
     cp -r apps/worker/dist /deploy/worker/dist
 
+# ── OCR languages ─────────────────────────────────────────────────────────────
+# Tesseract's fast models for the languages in packages/config/src/ocr.ts,
+# pinned to one commit and checked against scripts/tessdata.sha256.
+FROM node:24.22.3-alpine AS tessdata
+ARG TESSDATA_COMMIT=87416418657359cb625c412a48b6e1d6d41c29bd
+WORKDIR /tessdata
+COPY scripts/tessdata.sha256 /tmp/tessdata.sha256
+RUN for model in $(awk '{print $2}' /tmp/tessdata.sha256); do \
+      wget -q -O "$model" "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/$TESSDATA_COMMIT/$model" || exit 1; \
+    done && sha256sum -c /tmp/tessdata.sha256
+
 # ── Runner ────────────────────────────────────────────────────────────────────
 FROM node:24.22.3-alpine AS runner
-RUN apk add --no-cache openssl ffmpeg
+# Poppler reads PDFs and Tesseract reads scans, for search.
+RUN apk add --no-cache openssl ffmpeg poppler-utils tesseract-ocr
+COPY --link --from=tessdata /tessdata/ /usr/share/tessdata/
 WORKDIR /app
 ENV NODE_ENV=production
 

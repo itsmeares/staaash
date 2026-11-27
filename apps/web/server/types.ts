@@ -2,7 +2,8 @@ import type { StorageMutationStatus } from "@staaash/db/storage-mutations";
 
 export type UserRole = "owner" | "admin" | "member";
 
-export type SearchMatchKind = "exact" | "prefix" | "substring";
+/** How a search result matched: by name, or only by words inside the file. */
+export type SearchMatchKind = "exact" | "prefix" | "substring" | "text";
 
 export type HealthCheckStatus = "healthy" | "warning" | "error";
 

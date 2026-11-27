@@ -27,6 +27,8 @@ export type RetrievalItem =
       deletedAt: Date | null;
       isFavorite: boolean;
       matchKind?: SearchMatchKind;
+      /** Words around the match, when only the file's text matched. */
+      snippet?: string;
       folderId: string | null;
       mimeType: string;
       sizeBytes: number;

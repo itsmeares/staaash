@@ -4,7 +4,9 @@ import {
   DEFAULT_MAINTENANCE_RUN_TIME,
   DEFAULT_TIME_ZONE,
 } from "@staaash/config/time-zone";
+import { FILE_TEXT_READ_MAX_ATTEMPTS } from "@staaash/db/file-text";
 import {
+  FILE_TEXT_READ_JOB_KIND,
   MEDIA_DERIVATIVE_CLEANUP_JOB_KIND,
   MEDIA_DERIVATIVE_GENERATE_JOB_KIND,
   RESTORE_RECONCILE_JOB_KIND,
@@ -28,6 +30,7 @@ import { handleMediaDerivativeGenerate } from "./handlers/media-derivative.js";
 import { handleMediaDerivativeCleanup } from "./handlers/media-derivative-cleanup.js";
 import { handleZipArchiveGenerate } from "./handlers/zip-archive.js";
 import { handleZipArchiveCleanup } from "./handlers/zip-archive-cleanup.js";
+import { handleFileTextRead, nextFileTextRunAt } from "./handlers/file-text.js";
 import type { JobContext } from "./job-context.js";
 import { TerminalJobError } from "./job-context.js";
 import { nextDailyRunAtUtc, nextDailyWindowEndUtc } from "./scheduling.js";
@@ -202,6 +205,17 @@ const JOB_REGISTRY: Record<SupportedBackgroundJobKind, JobRegistryEntry> = {
     scheduleDaily: true,
     parsePayload: parseWith(emptyPayloadSchema),
     run: handleZipArchiveCleanup,
+  },
+  [FILE_TEXT_READ_JOB_KIND]: {
+    kind: FILE_TEXT_READ_JOB_KIND,
+    maxAttempts: FILE_TEXT_READ_MAX_ATTEMPTS,
+    // A run stops itself after 15 minutes and the next one starts at once.
+    timeoutMs: 30 * 60 * 1000,
+    cancellable: true,
+    scheduleNext: nextFileTextRunAt,
+    runOnStart: async () => true,
+    parsePayload: parseWith(emptyPayloadSchema),
+    run: handleFileTextRead,
   },
 };
 

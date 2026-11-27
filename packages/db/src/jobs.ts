@@ -9,10 +9,15 @@ export const MEDIA_DERIVATIVE_GENERATE_JOB_KIND = "media.derivative.generate";
 export const MEDIA_DERIVATIVE_CLEANUP_JOB_KIND = "media.derivative.cleanup";
 export const ZIP_ARCHIVE_GENERATE_JOB_KIND = "zip.archive.generate" as const;
 export const ZIP_ARCHIVE_CLEANUP_JOB_KIND = "zip.archive.cleanup" as const;
+export const FILE_TEXT_READ_JOB_KIND = "file.text.read" as const;
 
 export const DEFAULT_BACKGROUND_JOB_QUEUE = "default";
 const SMALL_ARCHIVE_PRIORITY = 1;
-export type BackgroundJobLane = "general" | "small-archive" | "small-media";
+export type BackgroundJobLane =
+  | "general"
+  | "small-archive"
+  | "small-media"
+  | "text";
 export const STAGING_CLEANUP_SCHEDULE_WINDOW_MS = 15 * 60 * 1000;
 export const BACKGROUND_JOB_LEASE_MS = 60_000;
 export const BACKGROUND_JOB_RETRY_DELAY_MS = 30_000;
@@ -27,7 +32,8 @@ export type SupportedBackgroundJobKind =
   | typeof MEDIA_DERIVATIVE_GENERATE_JOB_KIND
   | typeof MEDIA_DERIVATIVE_CLEANUP_JOB_KIND
   | typeof ZIP_ARCHIVE_GENERATE_JOB_KIND
-  | typeof ZIP_ARCHIVE_CLEANUP_JOB_KIND;
+  | typeof ZIP_ARCHIVE_CLEANUP_JOB_KIND
+  | typeof FILE_TEXT_READ_JOB_KIND;
 
 export const ALL_SUPPORTED_JOB_KINDS: SupportedBackgroundJobKind[] = [
   STAGING_CLEANUP_JOB_KIND,
@@ -38,6 +44,7 @@ export const ALL_SUPPORTED_JOB_KINDS: SupportedBackgroundJobKind[] = [
   MEDIA_DERIVATIVE_CLEANUP_JOB_KIND,
   ZIP_ARCHIVE_GENERATE_JOB_KIND,
   ZIP_ARCHIVE_CLEANUP_JOB_KIND,
+  FILE_TEXT_READ_JOB_KIND,
 ];
 
 export type BackgroundJobStatus =
@@ -451,21 +458,31 @@ export const claimDueBackgroundJob = async ({
           ? smallArchive
           : lane === "small-media"
             ? smallMedia
-            : {
-                kind: { in: ALL_SUPPORTED_JOB_KINDS },
-                NOT: smallArchive,
-                // A missing JSON key does not satisfy NOT in PostgreSQL.
-                AND: [
-                  {
-                    OR: [
-                      { NOT: smallMedia },
-                      {
-                        payloadJson: { path: ["kind"], equals: Prisma.AnyNull },
-                      },
-                    ],
+            : lane === "text"
+              ? { kind: FILE_TEXT_READ_JOB_KIND }
+              : {
+                  // Reading text takes hours on a new drive, so it has its own lane.
+                  kind: {
+                    in: ALL_SUPPORTED_JOB_KINDS.filter(
+                      (kind) => kind !== FILE_TEXT_READ_JOB_KIND,
+                    ),
                   },
-                ],
-              }),
+                  NOT: smallArchive,
+                  // A missing JSON key does not satisfy NOT in PostgreSQL.
+                  AND: [
+                    {
+                      OR: [
+                        { NOT: smallMedia },
+                        {
+                          payloadJson: {
+                            path: ["kind"],
+                            equals: Prisma.AnyNull,
+                          },
+                        },
+                      ],
+                    },
+                  ],
+                }),
         queueName,
         OR: [
           { status: "queued", runAt: { lte: now } },

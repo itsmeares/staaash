@@ -76,6 +76,10 @@ model SystemSettings {
   mediaPreviewMaxHeight              Int      @default(1080)
   zipArchiveRetentionDays            Int      @default(7)
   mediaPreviewCrf                    Int      @default(22)
+  /// "off", "pdf" (scanned PDF pages) or "all" (also pictures); null picks by the worker's CPU count.
+  ocrMode                            String?
+  /// Tesseract language codes used to read scans, such as "eng" or "tur".
+  ocrLanguages                       String[] @default(["eng"])
   createdAt                          DateTime @default(now())
   updatedAt                          DateTime @updatedAt
 }
@@ -273,6 +277,7 @@ model File {
   recents                 RecentFile[]
   shareLink               ShareLink?        @relation("ShareLinkFile")
   derivatives             MediaDerivative[]
+  text                    FileText?
   committedUploadSessions UploadSession[]   @relation("UploadSessionCommittedFile")
   trashEntry              TrashEntry?       @relation(fields: [trashEntryId], references: [id], onDelete: SetNull)
 
@@ -457,6 +462,47 @@ model RestoreReconciliationRun {
 
   @@index([status, createdAt])
   @@index([createdAt])
+}
+
+enum FileTextStatus {
+  /// Someone asked for the text before the worker reached the file.
+  pending
+  ready
+  failed
+  skipped
+}
+
+/// Words read from inside a file for search and the AI read tool. It only
+/// counts while sourceChecksum and sourceSize match the file, so text from
+/// older content never matches.
+model FileText {
+  fileId         String         @id
+  ownerUserId    String
+  sourceChecksum String?
+  sourceSize     BigInt?
+  status         FileTextStatus
+  /// text, pdf, office, epub, html or image.
+  source         String?
+  /// PDF pages are separated by form feeds.
+  text           String         @default("")
+  /// Set by a trigger from text.
+  words          Unsupported("tsvector")?
+  /// The text hit the size limit and the rest was left out.
+  truncated      Boolean        @default(false)
+  /// PDF pages with no text layer, or [1] for a picture, read by OCR in order.
+  ocrPages       Int[]
+  ocrDone        Int            @default(0)
+  ocrLanguages   String[]
+  /// Why there is no text, such as too-large or encrypted.
+  error          String?
+  /// Someone is waiting for this file, so the worker reads it first.
+  wantedAt       DateTime?
+  readAt         DateTime       @default(now())
+  file           File           @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  /// btree_gin lets one index hold the owner and the words, so a common word
+  /// does not scan every drive.
+  @@index([ownerUserId(ops: raw("text_ops")), words(ops: raw("tsvector_ops"))], type: Gin, map: "FileText_owner_words_idx")
 }
 
 model MediaDerivative {

@@ -13,6 +13,7 @@ import {
   PreviewError,
 } from "./state";
 import { owned } from "./mutations";
+import { sampleText } from "./fixtures";
 import { updateView } from "./admin";
 import {
   filesView,
@@ -172,35 +173,70 @@ export function mountViews(app: Hono<PreviewEnv>) {
       });
     });
   }
+  // Name matches first, then files whose sample text has every word.
+  const searchItems = (state: PreviewEnv["Variables"]["state"], q: string) => {
+    const name = q.replaceAll('"', "").trim().toLowerCase();
+    const items = ownedItems(state).flatMap(
+      (item): { item: typeof item; snippet: string | null }[] => {
+        if (name && item.name.toLowerCase().includes(name)) {
+          return [{ item, snippet: null }];
+        }
+        const snippet = "asset" in item ? textSnippet(item.asset, q) : null;
+        return snippet ? [{ item, snippet }] : [];
+      },
+    );
+    return [
+      ...items.filter((match) => !match.snippet),
+      ...items.filter((match) => match.snippet),
+    ].map(({ item, snippet }) => ({
+      ...recentItem(state, item),
+      ...(snippet ? { snippet } : {}),
+    }));
+  };
   app.get("/api/views/search", (c) => {
-    const q = c.req.query("q") ?? "";
     const limit = Math.min(200, Number(c.req.query("pageSize")) || 50);
     const offset = Math.max(0, (Number(c.req.query("page")) || 1) - 1) * limit;
-    return c.json(
-      windowItems(
-        ownedItems(c.var.state).map((i) => recentItem(c.var.state, i)),
-        { find: q, offset, limit },
-      ),
-    );
+    const items = searchItems(c.var.state, c.req.query("q") ?? "");
+    return c.json({
+      total: items.length,
+      items: items.slice(offset, offset + limit),
+    });
   });
   app.get("/api/search", (c) => {
-    const q = (c.req.query("q") ?? "").toLowerCase();
-    const matching = ownedItems(c.var.state).filter((i) =>
-      i.name.toLowerCase().includes(q),
-    );
+    const matching = searchItems(c.var.state, c.req.query("q") ?? "");
     return c.json({
       total: matching.length,
-      results: matching.slice(0, 8).map((item) => {
-        const i = recentItem(c.var.state, item);
-        return {
-          id: i.id,
-          kind: i.kind,
-          name: i.name,
-          href: i.href,
-          mimeType: i.mimeType ?? null,
-          location: i.locationLabel,
-        };
-      }),
+      results: matching.slice(0, 8).map((i) => ({
+        id: i.id,
+        kind: i.kind,
+        name: i.name,
+        href: i.href,
+        mimeType: i.mimeType ?? null,
+        location: i.locationLabel,
+        match: i.snippet ? "text" : "name",
+        ...(i.snippet ? { snippet: i.snippet } : {}),
+      })),
     });
   });
 }
+
+const fold = (value: string) =>
+  value.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase();
+
+/** Words around the first hit when every searched word starts a word of the sample text. */
+const textSnippet = (asset: string, q: string) => {
+  const text = sampleText[asset];
+  const words = fold(q)
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((word) => word.length > 1);
+  if (!text || words.length === 0) return null;
+  const hits = words.map((word) =>
+    fold(text).search(new RegExp(`(?<![\\p{L}\\p{N}])${word}`, "u")),
+  );
+  if (hits.some((at) => at < 0)) return null;
+  const at = Math.min(...hits);
+  // Whole words around the hit, as PostgreSQL's ts_headline gives them.
+  const before = text.slice(0, at).split(/\s+/).slice(-12);
+  const after = text.slice(at).split(/\s+/).slice(0, 12);
+  return [...before, ...after].join(" ").replace(/\s+/g, " ").trim();
+};

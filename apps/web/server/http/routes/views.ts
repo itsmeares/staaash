@@ -64,6 +64,7 @@ import {
   recordFileAccessBestEffort,
 } from "@/server/retrieval/recent-tracking";
 import { getSearchPage } from "@/server/retrieval/search-page";
+import { getTextReadingStatus } from "@/server/file-text";
 import { getSystemSettings } from "@/server/settings";
 import { SHARE_ACCESS_COOKIE_NAME } from "@/server/sharing/access-cookie";
 import { isShareError, ShareError } from "@/server/sharing/errors";
@@ -751,11 +752,12 @@ const adminViews = admin
     );
   })
   .get("/settings", requireOwner, async (c) => {
-    const [settings, updateState] = await Promise.all([
+    const [settings, updateState, textReading] = await Promise.all([
       getSystemSettings(),
       getUpdateState(),
+      getTextReadingStatus(),
     ]);
-    return c.json(plain({ settings, updateState }));
+    return c.json(plain({ settings, updateState, textReading }));
   });
 
 const entryView = router().get("/api/views/entry", async (c) => {

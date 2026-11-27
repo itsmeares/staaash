@@ -40,6 +40,18 @@ You can also drag items onto a folder to move them. Select several items with `C
 - **Favorites** lists what you marked. Click **Pin** on a favorite to keep it in the sidebar.
 - The list and grid buttons at the top of a page switch the view. **Type** shows only one kind of file, like photos or PDFs.
 
+### Words inside files
+
+:::note[Coming in v2.1.0]
+Older versions search names only.
+:::
+
+Search also finds words inside your files: text files, PDFs, Word, Excel and PowerPoint files, OpenDocument files, EPUB books and saved web pages. Name matches come first. A match inside a file shows the words around it.
+
+Every word you type must be in the file, at the start of a word. `inv 2024` finds a PDF that says "Invoice no. 2024-17". Put words in quotes, like `"due friday"`, to find them in that order.
+
+New uploads are searchable within a minute or so. Scanned PDFs and photos of paper take longer, because each page is read one by one. Your drive's owner decides whether scans are read at all.
+
 ## Look at files
 
 Click a file to open it. Photos, videos, music, PDFs and text files open right in the browser. Use the arrow keys to go to the next file in the folder.

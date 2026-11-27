@@ -26,6 +26,7 @@ import { canAccessPrivateNamespace } from "@/server/access";
 import { listFolderPreviewFileIds } from "@/server/files/folder-previews";
 import { shouldGenerateMediaPreview } from "@/server/media/preview-generation-policy";
 import { getSystemSettings } from "@/server/settings";
+import { scheduleFileTextRead } from "@staaash/db/file-text";
 import {
   assertUserStorageQuotaAvailable,
   withUserQuotaWrite,
@@ -2254,8 +2255,9 @@ export const createFilesService = ({
   };
 
   // Best-effort: a queue failure must not fail an upload that is already saved.
-  const scheduleUploadDerivatives = (files: FileSummary[]) =>
+  const scheduleUploadWork = (files: FileSummary[]) =>
     void (async () => {
+      await scheduleFileTextRead(now());
       const settings = await getSystemSettings();
       const thumbnails = isDerivativeKindEnabled(
         settings,
@@ -2289,7 +2291,7 @@ export const createFilesService = ({
         ]),
       );
     })().catch((error) => {
-      console.error("[files] Failed to schedule preview generation.", error);
+      console.error("[files] Failed to schedule reading or previews.", error);
     });
 
   const scheduleStagingCleanup = async (runAt = now()) => {
@@ -6129,7 +6131,7 @@ export const createFilesService = ({
         return uploaded ? [uploaded] : [];
       });
       if (uploadedFiles.length > 0) {
-        scheduleUploadDerivatives(uploadedFiles);
+        scheduleUploadWork(uploadedFiles);
       }
 
       return {
@@ -6614,7 +6616,7 @@ export const createFilesService = ({
           }
 
           const summary = toFileSummary(createdFile);
-          scheduleUploadDerivatives([summary]);
+          scheduleUploadWork([summary]);
           return summary;
         },
       });

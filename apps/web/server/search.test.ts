@@ -5,7 +5,9 @@ import {
   getSearchMatchKind,
   normalizeSearchText,
   prepareSearchCandidate,
+  splitSearchWords,
 } from "@/server/search";
+import { matchedWords, startNearMatch } from "@/lib/matched-words";
 
 describe("search normalization", () => {
   it("is case-insensitive", () => {
@@ -123,5 +125,45 @@ describe("search normalization", () => {
       .sort(compareSearchResults);
 
     expect(ranked.map((item) => item.id)).toEqual(["a", "c", "b"]);
+  });
+});
+
+describe("splitSearchWords", () => {
+  it("keeps quoted phrases apart from loose words", () => {
+    expect(splitSearchWords('invoice "due friday" 2024 "open')).toEqual({
+      words: "invoice   2024  open",
+      phrases: ["due friday"],
+    });
+    expect(splitSearchWords('""').phrases).toEqual([]);
+  });
+});
+
+describe("matchedWords", () => {
+  it("marks words that start with each searched word, ignoring case and accents", () => {
+    const text = "Çağrı paid the INVOICE; invoiced again. Kicağrı not.";
+    expect(
+      matchedWords(text, 'cagri "invoice" x').map(([start, end]) =>
+        text.slice(start, end),
+      ),
+    ).toEqual(["Çağrı", "INVOICE", "invoice"]);
+  });
+
+  it("maps marks back through characters that fold to several", () => {
+    const text = "ﬁle ﬁnal";
+    expect(
+      matchedWords(text, "final").map(([start, end]) => text.slice(start, end)),
+    ).toEqual(["ﬁnal"]);
+  });
+
+  it("starts a long snippet three words before its first match", () => {
+    expect(
+      startNearMatch(
+        "Pack the camera and a spare battery. Meet at the lighthouse.",
+        "lighthouse",
+      ),
+    ).toBe("…Meet at the lighthouse.");
+    expect(startNearMatch("Meet at the lighthouse.", "lighthouse")).toBe(
+      "Meet at the lighthouse.",
+    );
   });
 });

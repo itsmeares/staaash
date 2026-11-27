@@ -14,6 +14,8 @@
     "@staaash/config": "workspace:*",
     "@staaash/db": "workspace:*",
     "date-fns": "^4.4.0",
+    "entities": "^9.0.0",
+    "fflate": "^0.8.3",
     "tsx": "^4.23.15",
     "zod": "^4.6.7"
   },

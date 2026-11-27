@@ -134,6 +134,13 @@ export type BackgroundJobEvent = Prisma.BackgroundJobEventModel
  */
 export type RestoreReconciliationRun = Prisma.RestoreReconciliationRunModel
 /**
+ * Model FileText
+ * Words read from inside a file for search and the AI read tool. It only
+ * counts while sourceChecksum and sourceSize match the file, so text from
+ * older content never matches.
+ */
+export type FileText = Prisma.FileTextModel
+/**
  * Model MediaDerivative
  * 
  */

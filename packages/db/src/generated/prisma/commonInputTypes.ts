@@ -416,6 +416,23 @@ export type EnumRestoreReconciliationStatusWithAggregatesFilter<$PrismaModel = n
   _max?: Prisma.NestedEnumRestoreReconciliationStatusFilter<$PrismaModel>
 }
 
+export type EnumFileTextStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.FileTextStatus | Prisma.EnumFileTextStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.FileTextStatus[] | Prisma.ListEnumFileTextStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.FileTextStatus[] | Prisma.ListEnumFileTextStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumFileTextStatusFilter<$PrismaModel> | $Enums.FileTextStatus
+}
+
+export type EnumFileTextStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.FileTextStatus | Prisma.EnumFileTextStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.FileTextStatus[] | Prisma.ListEnumFileTextStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.FileTextStatus[] | Prisma.ListEnumFileTextStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumFileTextStatusWithAggregatesFilter<$PrismaModel> | $Enums.FileTextStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumFileTextStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumFileTextStatusFilter<$PrismaModel>
+}
+
 export type IntNullableFilter<$PrismaModel = never> = {
   equals?: number | Prisma.IntFieldRefInput<$PrismaModel> | null
   in?: number[] | Prisma.ListIntFieldRefInput<$PrismaModel> | null
@@ -840,6 +857,23 @@ export type NestedEnumRestoreReconciliationStatusWithAggregatesFilter<$PrismaMod
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumRestoreReconciliationStatusFilter<$PrismaModel>
   _max?: Prisma.NestedEnumRestoreReconciliationStatusFilter<$PrismaModel>
+}
+
+export type NestedEnumFileTextStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.FileTextStatus | Prisma.EnumFileTextStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.FileTextStatus[] | Prisma.ListEnumFileTextStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.FileTextStatus[] | Prisma.ListEnumFileTextStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumFileTextStatusFilter<$PrismaModel> | $Enums.FileTextStatus
+}
+
+export type NestedEnumFileTextStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.FileTextStatus | Prisma.EnumFileTextStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.FileTextStatus[] | Prisma.ListEnumFileTextStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.FileTextStatus[] | Prisma.ListEnumFileTextStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumFileTextStatusWithAggregatesFilter<$PrismaModel> | $Enums.FileTextStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumFileTextStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumFileTextStatusFilter<$PrismaModel>
 }
 
 export type NestedIntNullableWithAggregatesFilter<$PrismaModel = never> = {

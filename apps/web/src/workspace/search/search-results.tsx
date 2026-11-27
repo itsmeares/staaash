@@ -10,6 +10,7 @@ import { Empty, EmptyHeader, EmptyTitle } from "@staaash/ui/components/empty";
 import {
   FileList,
   Highlight,
+  HighlightWords,
   ItemIcon,
   type FileListColumn,
   type FileListItem,
@@ -54,6 +55,7 @@ export function SearchResults({
   const [view, setView] = useViewMode("search");
   const [filterType, setFilterType] = useState<WorkspaceItemFilterType>("all");
   const actions = useWorkspaceItemActions(currentPath);
+  const nameQuery = query.replaceAll('"', "").trim();
   const visible = filterWorkspaceItems(
     items.filter((item) => !actions.trashedIds.has(item.id)),
     filterType,
@@ -110,7 +112,7 @@ export function SearchResults({
                 <ItemIcon item={folder} />
                 <div className="grid min-w-0">
                   <span className="truncate text-body font-medium">
-                    <Highlight query={query} text={folder.name} />
+                    <Highlight query={nameQuery} text={folder.name} />
                   </span>
                   <span className="text-label text-muted-foreground">
                     {blockedLabel(
@@ -133,7 +135,7 @@ export function SearchResults({
                   <ItemIcon item={folder} />
                   <span className="grid min-w-0">
                     <span className="truncate text-body font-medium">
-                      <Highlight query={query} text={folder.name} />
+                      <Highlight query={nameQuery} text={folder.name} />
                     </span>
                     <span className="truncate text-label text-muted-foreground">
                       {folder.locationLabel}
@@ -170,8 +172,15 @@ export function SearchResults({
             </Button>
           )}
           renderName={(item) => (
-            <span className="block truncate font-medium" title={item.name}>
-              <Highlight query={query} text={item.name} />
+            <span className="grid min-w-0">
+              <span className="block truncate font-medium" title={item.name}>
+                <Highlight query={nameQuery} text={item.name} />
+              </span>
+              {item.data.snippet ? (
+                <span className="line-clamp-2 text-label text-muted-foreground">
+                  <HighlightWords query={query} text={item.data.snippet} />
+                </span>
+              ) : null}
             </span>
           )}
           selection={selection}

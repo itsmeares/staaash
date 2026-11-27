@@ -1,67 +1,25 @@
-import { execFile, spawn } from "node:child_process";
+import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+
+import { runProcess } from "./process.js";
 
 const execFileAsync = promisify(execFile);
 
 const FRAME_TIMEOUT_MS = 2 * 60_000;
 const PROBE_TIMEOUT_MS = 60_000;
-const KILL_GRACE_MS = 5_000;
 
-const runFfmpegProcess = (
+const runFfmpegProcess = async (
   args: string[],
   signal?: AbortSignal,
   timeoutMs?: number,
-): Promise<void> =>
-  new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(signal.reason);
-      return;
-    }
-    const proc = spawn(
-      "ffmpeg",
-      ["-nostdin", "-threads", "1", "-filter_threads", "1", ...args],
-      { stdio: "ignore" },
-    );
-    let stopped = false;
-    let timedOut = false;
-    let killTimer: NodeJS.Timeout | undefined;
-    const terminate = () => {
-      if (stopped) return;
-      stopped = true;
-      proc.kill("SIGTERM");
-      killTimer = setTimeout(() => proc.kill("SIGKILL"), KILL_GRACE_MS);
-      killTimer.unref();
-    };
-    const timeout =
-      timeoutMs === undefined
-        ? undefined
-        : setTimeout(() => {
-            timedOut = true;
-            terminate();
-          }, timeoutMs);
-    signal?.addEventListener("abort", terminate, { once: true });
-    const cleanup = () => {
-      clearTimeout(timeout);
-      clearTimeout(killTimer);
-      signal?.removeEventListener("abort", terminate);
-    };
-    proc.on("close", (code) => {
-      cleanup();
-      if (stopped) {
-        reject(
-          new DOMException(
-            timedOut ? "ffmpeg timed out." : "ffmpeg aborted.",
-            timedOut ? "TimeoutError" : "AbortError",
-          ),
-        );
-      } else if (code === 0) resolve();
-      else reject(new Error(`ffmpeg exited with code ${String(code)}.`));
-    });
-    proc.on("error", (error) => {
-      cleanup();
-      reject(error);
-    });
-  });
+) => {
+  const { code } = await runProcess(
+    "ffmpeg",
+    ["-nostdin", "-threads", "1", "-filter_threads", "1", ...args],
+    { signal, timeoutMs },
+  );
+  if (code !== 0) throw new Error(`ffmpeg exited with code ${String(code)}.`);
+};
 
 export type FfmpegHealth = {
   available: boolean;

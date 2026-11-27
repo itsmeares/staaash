@@ -59,3 +59,13 @@ export const RecentAction = {
 } as const
 
 export type RecentAction = (typeof RecentAction)[keyof typeof RecentAction]
+
+
+export const FileTextStatus = {
+  pending: 'pending',
+  ready: 'ready',
+  failed: 'failed',
+  skipped: 'skipped'
+} as const
+
+export type FileTextStatus = (typeof FileTextStatus)[keyof typeof FileTextStatus]

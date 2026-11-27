@@ -1,10 +1,11 @@
 import { createRequire } from "node:module";
 
+import { FILE_TEXT_CHANGED_CHANNEL } from "@staaash/db/file-text";
 import { UPDATE_STATE_CHANGED_CHANNEL } from "@staaash/db/instance";
 import { BACKGROUND_JOB_STATE_CHANGED_CHANNEL } from "@staaash/db/jobs";
 import { STORAGE_CHANGES_CHANNEL } from "@staaash/db/storage-changes";
 
-type LiveChannel = "jobs" | "updates" | "changes";
+type LiveChannel = "jobs" | "updates" | "changes" | "text";
 
 type PgClient = {
   connect(): Promise<void>;
@@ -26,6 +27,7 @@ const CHANNELS: Record<string, LiveChannel> = {
   [BACKGROUND_JOB_STATE_CHANGED_CHANNEL]: "jobs",
   [UPDATE_STATE_CHANGED_CHANNEL]: "updates",
   [STORAGE_CHANGES_CHANNEL]: "changes",
+  [FILE_TEXT_CHANGED_CHANNEL]: "text",
 };
 const RECONNECT_MS = 2000;
 
@@ -80,7 +82,7 @@ const ensureConnected = async () => {
   await live.connecting;
 };
 
-/** Calls `listener` for each job, update, or storage change until the returned function runs. */
+/** Calls `listener` for each job, update, storage change, or file text saved, until the returned function runs. */
 export const subscribeLiveEvents = async (listener: Listener) => {
   live.listeners.add(listener);
   try {

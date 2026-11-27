@@ -5,10 +5,12 @@ import {
   Film,
   KeyRound,
   RefreshCw,
+  ScanText,
   Upload,
 } from "lucide-react";
 import { useActionState, useState, type ReactNode } from "react";
 
+import { OCR_LANGUAGES, automaticOcrMode } from "@staaash/config/ocr";
 import type { SystemSettings } from "@staaash/db/client";
 
 import { formatAdminDateTime } from "@/src/workspace/admin/admin-format";
@@ -37,6 +39,7 @@ import { getUpdateStatusLabel, type UpdateState } from "@/lib/update-status";
 import { api } from "@/lib/api";
 import { useRefresh } from "@/lib/use-refresh";
 import type { Plain } from "@/lib/plain";
+import type { getTextReadingStatus } from "@/server/file-text";
 import {
   SETTINGS_DEFAULTS,
   toSettingsValues,
@@ -69,6 +72,70 @@ const CHANNELS = [
   { value: "rc", label: "Release candidates" },
 ];
 
+const SCAN_MODES: Record<string, string> = {
+  auto: "Automatic",
+  off: "Off",
+  pdf: "Scanned PDFs",
+  all: "PDFs and pictures",
+};
+
+// Measured on one CPU core: about 3 seconds a page for one language, 7 for five.
+const SCAN_HINTS: Record<string, string> = {
+  off: "Only files that hold text can be searched",
+  pdf: "Reads PDF pages that are pictures of paper, 3 to 7 seconds a page",
+  all: "Also reads every photo and screenshot, 3 to 7 seconds each",
+};
+
+type TextReading = Plain<Awaited<ReturnType<typeof getTextReadingStatus>>>;
+
+const count = (value: number, one: string, many = `${one}s`) =>
+  `${value.toLocaleString("en-GB")} ${value === 1 ? one : many}`;
+
+const languageList = (value: string) =>
+  value.split(",").filter((code) => code in OCR_LANGUAGES);
+
+/** What the worker lacks for reading text, if anything. */
+const workerNote = (tools: TextReading["tools"], chosen: string[]) => {
+  if (!tools) return "The worker has not started since this update";
+  if (!tools.pdftotext) return "The worker has no PDF reader, so PDFs wait";
+  if (!tools.tesseract) return "The worker has no OCR, so nothing is scanned";
+  const missing = chosen.filter((code) => !tools.languages.includes(code));
+  return missing.length > 0
+    ? `Not installed on the worker: ${missing.map((code) => OCR_LANGUAGES[code]).join(", ")}`
+    : null;
+};
+
+/** How far the reader got, and what the worker is missing. */
+const readingStatus = ({ summary, tools }: TextReading, chosen: string[]) => ({
+  label:
+    summary.waiting > 0
+      ? `Reading files: ${summary.read.toLocaleString("en-GB")} of ${(summary.read + summary.waiting).toLocaleString("en-GB")} done`
+      : `${count(summary.read, "file")} read`,
+  hint:
+    [
+      summary.pagesWaiting > 0 &&
+        `${count(summary.pagesWaiting, "scanned page")} waiting`,
+      summary.failed > 0 &&
+        `${count(summary.failed, "file")} could not be read`,
+      workerNote(tools, chosen),
+    ]
+      .filter((note) => typeof note === "string")
+      .join(". ") || undefined,
+});
+
+/** The cost of the chosen scan setting, or what Automatic picked. */
+const scanHint = (mode: string, cpus: number | null) => {
+  if (mode !== "auto") return SCAN_HINTS[mode];
+  if (cpus === null) return "Picked when the worker starts";
+  const picked = automaticOcrMode(cpus);
+  return `${SCAN_MODES[picked]} for this server's ${count(cpus, "CPU core")}. ${SCAN_HINTS[picked]}`;
+};
+
+const languageLabel = (codes: string[]) =>
+  codes.length > 2
+    ? `${OCR_LANGUAGES[codes[0]!]} and ${codes.length - 1} more`
+    : codes.map((code) => OCR_LANGUAGES[code]).join(", ");
+
 // The settings each category holds, for its changed dot and reset.
 const SECTIONS: Record<string, SettingsField[]> = {
   uploads: [
@@ -91,6 +158,7 @@ const SECTIONS: Record<string, SettingsField[]> = {
   ],
   sessions: ["sessionMaxAgeDays", "shareMaxAgeDays"],
   downloads: ["zipArchiveRetentionDays"],
+  search: ["ocrMode", "ocrLanguages"],
   updates: ["updateCheckEnabled", "updateChannel", "updateCheckRepository"],
   scheduling: ["timeZone", "maintenanceRunTime"],
   worker: ["workerHeartbeatMaxAgeSeconds"],
@@ -106,10 +174,12 @@ const differs = (
 export function SettingsForm({
   settings,
   updateState,
+  textReading,
   section,
 }: {
   settings: Plain<SystemSettings>;
   updateState: UpdateState;
+  textReading: TextReading;
   section?: string | null;
 }) {
   const { timeZone } = useTime();
@@ -190,6 +260,9 @@ export function SettingsForm({
       {control}
     </SettingsRow>
   );
+
+  const languages = languageList(draft.ocrLanguages);
+  const status = readingStatus(textReading, languages);
 
   const checkNow = async () => {
     setChecking(true);
@@ -339,6 +412,82 @@ export function SettingsForm({
             "0 keeps them forever",
             unit("zipArchiveRetentionDays", fixed("days")),
           )}
+        </SettingsCard>
+      ),
+    },
+    {
+      id: "search",
+      label: "Search",
+      icon: ScanText,
+      content: (
+        <SettingsCard>
+          {row(
+            "ocrMode",
+            "Read scans",
+            scanHint(draft.ocrMode, textReading.cpus),
+            <>
+              <input name="ocrMode" type="hidden" value={draft.ocrMode} />
+              <Select
+                value={draft.ocrMode}
+                onValueChange={(value) => set("ocrMode", String(value))}
+              >
+                <SelectTrigger
+                  className="w-full sm:w-50"
+                  id="settings-ocrMode"
+                  size="sm"
+                >
+                  <SelectValue>
+                    {(value: string) => SCAN_MODES[value]}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent align="end" alignItemWithTrigger={false}>
+                  {Object.entries(SCAN_MODES).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>,
+          )}
+          {row(
+            "ocrLanguages",
+            "Scan languages",
+            "Each one more makes scans slower",
+            <>
+              <input
+                name="ocrLanguages"
+                type="hidden"
+                value={draft.ocrLanguages}
+              />
+              <Select
+                multiple
+                value={languages}
+                onValueChange={(value) =>
+                  set("ocrLanguages", (value as string[]).join(","))
+                }
+              >
+                <SelectTrigger
+                  aria-invalid={Boolean(errors?.ocrLanguages)}
+                  className="w-full sm:w-50"
+                  id="settings-ocrLanguages"
+                  size="sm"
+                >
+                  <SelectValue placeholder="Pick a language">
+                    {languageLabel}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent align="end" alignItemWithTrigger={false}>
+                  {Object.entries(OCR_LANGUAGES).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>,
+          )}
+          <SettingsRow hint={status.hint} label={status.label} />
         </SettingsCard>
       ),
     },

@@ -7694,7 +7694,7 @@
         "tags": [
           "Search"
         ],
-        "summary": "Quick results by name: a few folders, then files. With no query, what was opened lately.",
+        "summary": "Quick results by name or by words inside files: a few folders, then files. With no query, what was opened lately.",
         "parameters": [
           {
             "schema": {
@@ -7745,6 +7745,18 @@
                           },
                           "location": {
                             "type": "string"
+                          },
+                          "match": {
+                            "type": "string",
+                            "enum": [
+                              "name",
+                              "text"
+                            ],
+                            "description": "What matched the query: the name, or only words inside the file. Missing without a query."
+                          },
+                          "snippet": {
+                            "type": "string",
+                            "description": "Words around the match, for a text match."
                           }
                         },
                         "required": [

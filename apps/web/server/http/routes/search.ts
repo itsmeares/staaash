@@ -10,7 +10,7 @@ const search = createRoute({
   path: "/api/search",
   tags: ["Search"],
   summary:
-    "Quick results by name: a few folders, then files. With no query, what was opened lately.",
+    "Quick results by name or by words inside files: a few folders, then files. With no query, what was opened lately.",
   middleware: [requireUser],
   request: { query: z.object({ q: z.string().optional() }) },
   responses: {
@@ -25,6 +25,16 @@ const search = createRoute({
             href: z.string(),
             mimeType: z.string().nullable(),
             location: z.string(),
+            match: z
+              .enum(["name", "text"])
+              .optional()
+              .describe(
+                "What matched the query: the name, or only words inside the file. Missing without a query.",
+              ),
+            snippet: z
+              .string()
+              .optional()
+              .describe("Words around the match, for a text match."),
           }),
         ),
       }),
@@ -50,6 +60,12 @@ export const searchRoutes = router().openapi(search, async (c) => {
         href: item.href,
         mimeType: item.kind === "file" ? item.mimeType : null,
         location: getWorkspaceLocationLabel(item),
+        ...(item.matchKind
+          ? { match: item.matchKind === "text" ? "text" : "name" }
+          : {}),
+        ...(item.kind === "file" && item.snippet
+          ? { snippet: item.snippet }
+          : {}),
       })),
     },
     200,

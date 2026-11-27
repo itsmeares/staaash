@@ -168,6 +168,10 @@ const JOB_META: Record<
     icon: ScanSearch,
     group: "Check",
   },
+  "file.text.read": {
+    name: "Read words in files",
+    desc: "Read the text inside files for search and AI apps, and scan pages that are pictures.",
+  },
 };
 
 const MANUAL_RUN_JOB_KINDS = new Set([

@@ -41,15 +41,16 @@ The list of people, their role, and how much storage each person uses. Press **I
 
 Jobs are tasks the worker does in the background. Each row says when the job last ran or runs next. If no worker is online, a warning shows at the top, and previews and cleanup stop until the worker is back.
 
-| Job                     | What it does                                                      | Run by hand?   |
-| ----------------------- | ----------------------------------------------------------------- | -------------- |
-| Clean temporary uploads | Removes leftovers of unfinished uploads.                          | Yes            |
-| Empty trash             | Permanently deletes files that stayed in trash too long.          | Yes            |
-| Check for updates       | Looks for a new Staaash release.                                  | Yes            |
-| Restore check           | Compares files on disk with the database. Run it after a restore. | Yes            |
-| Create preview files    | Makes video preview files.                                        | Automatic only |
-| Clean preview files     | Removes old preview files.                                        | Automatic only |
-| Clean zip files         | Removes old zip files.                                            | Automatic only |
+| Job                     | What it does                                                          | Run by hand?   |
+| ----------------------- | --------------------------------------------------------------------- | -------------- |
+| Clean temporary uploads | Removes leftovers of unfinished uploads.                              | Yes            |
+| Empty trash             | Permanently deletes files that stayed in trash too long.              | Yes            |
+| Check for updates       | Looks for a new Staaash release.                                      | Yes            |
+| Restore check           | Compares files on disk with the database. Run it after a restore.     | Yes            |
+| Create preview files    | Makes video preview files.                                            | Automatic only |
+| Clean preview files     | Removes old preview files.                                            | Automatic only |
+| Clean zip files         | Removes old zip files.                                                | Automatic only |
+| Read words in files     | Reads the text inside files for search, and scans pages without text. | Automatic only |
 
 Press **Details** to see a job's latest runs. Press a run to see each step it took. When runs fail, the row shows how many. Press that count to open the failed runs and **Retry** or **Dismiss** each one, or all at once. A failed preview names whose file it was, not the file, and it never stops the file itself from working.
 

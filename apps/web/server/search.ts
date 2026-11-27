@@ -3,6 +3,14 @@ import type { SearchMatchKind, SearchResultItem } from "@/server/types";
 export const normalizeSearchText = (value: string) =>
   value.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().trim();
 
+/** A search's loose words and its "quoted phrases", which match in order. */
+export const splitSearchWords = (text: string) => ({
+  words: text.replace(/"[^"]*"/g, " ").replaceAll('"', " "),
+  phrases: [...text.matchAll(/"([^"]*)"/g)]
+    .map(([, phrase = ""]) => phrase.trim())
+    .filter(Boolean),
+});
+
 const splitSearchTokens = (normalized: string) =>
   normalized.split(/[^a-z0-9]+/g).filter(Boolean);
 
@@ -56,6 +64,7 @@ const matchRank: Record<SearchMatchKind, number> = {
   exact: 0,
   prefix: 1,
   substring: 2,
+  text: 3,
 };
 
 type SearchSortCandidate = Pick<

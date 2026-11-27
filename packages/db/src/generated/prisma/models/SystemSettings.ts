@@ -83,6 +83,7 @@ export type SystemSettingsMinAggregateOutputType = {
   mediaPreviewMaxHeight: number | null
   zipArchiveRetentionDays: number | null
   mediaPreviewCrf: number | null
+  ocrMode: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -112,6 +113,7 @@ export type SystemSettingsMaxAggregateOutputType = {
   mediaPreviewMaxHeight: number | null
   zipArchiveRetentionDays: number | null
   mediaPreviewCrf: number | null
+  ocrMode: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -141,6 +143,8 @@ export type SystemSettingsCountAggregateOutputType = {
   mediaPreviewMaxHeight: number
   zipArchiveRetentionDays: number
   mediaPreviewCrf: number
+  ocrMode: number
+  ocrLanguages: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -204,6 +208,7 @@ export type SystemSettingsMinAggregateInputType = {
   mediaPreviewMaxHeight?: true
   zipArchiveRetentionDays?: true
   mediaPreviewCrf?: true
+  ocrMode?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -233,6 +238,7 @@ export type SystemSettingsMaxAggregateInputType = {
   mediaPreviewMaxHeight?: true
   zipArchiveRetentionDays?: true
   mediaPreviewCrf?: true
+  ocrMode?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -262,6 +268,8 @@ export type SystemSettingsCountAggregateInputType = {
   mediaPreviewMaxHeight?: true
   zipArchiveRetentionDays?: true
   mediaPreviewCrf?: true
+  ocrMode?: true
+  ocrLanguages?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -378,6 +386,8 @@ export type SystemSettingsGroupByOutputType = {
   mediaPreviewMaxHeight: number
   zipArchiveRetentionDays: number
   mediaPreviewCrf: number
+  ocrMode: string | null
+  ocrLanguages: string[]
   createdAt: Date
   updatedAt: Date
   _count: SystemSettingsCountAggregateOutputType | null
@@ -430,6 +440,8 @@ export type SystemSettingsWhereInput = {
   mediaPreviewMaxHeight?: Prisma.IntFilter<"SystemSettings"> | number
   zipArchiveRetentionDays?: Prisma.IntFilter<"SystemSettings"> | number
   mediaPreviewCrf?: Prisma.IntFilter<"SystemSettings"> | number
+  ocrMode?: Prisma.StringNullableFilter<"SystemSettings"> | string | null
+  ocrLanguages?: Prisma.StringNullableListFilter<"SystemSettings">
   createdAt?: Prisma.DateTimeFilter<"SystemSettings"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"SystemSettings"> | Date | string
 }
@@ -459,6 +471,8 @@ export type SystemSettingsOrderByWithRelationInput = {
   mediaPreviewMaxHeight?: Prisma.SortOrder
   zipArchiveRetentionDays?: Prisma.SortOrder
   mediaPreviewCrf?: Prisma.SortOrder
+  ocrMode?: Prisma.SortOrderInput | Prisma.SortOrder
+  ocrLanguages?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -491,6 +505,8 @@ export type SystemSettingsWhereUniqueInput = Prisma.AtLeast<{
   mediaPreviewMaxHeight?: Prisma.IntFilter<"SystemSettings"> | number
   zipArchiveRetentionDays?: Prisma.IntFilter<"SystemSettings"> | number
   mediaPreviewCrf?: Prisma.IntFilter<"SystemSettings"> | number
+  ocrMode?: Prisma.StringNullableFilter<"SystemSettings"> | string | null
+  ocrLanguages?: Prisma.StringNullableListFilter<"SystemSettings">
   createdAt?: Prisma.DateTimeFilter<"SystemSettings"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"SystemSettings"> | Date | string
 }, "id">
@@ -520,6 +536,8 @@ export type SystemSettingsOrderByWithAggregationInput = {
   mediaPreviewMaxHeight?: Prisma.SortOrder
   zipArchiveRetentionDays?: Prisma.SortOrder
   mediaPreviewCrf?: Prisma.SortOrder
+  ocrMode?: Prisma.SortOrderInput | Prisma.SortOrder
+  ocrLanguages?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.SystemSettingsCountOrderByAggregateInput
@@ -557,6 +575,8 @@ export type SystemSettingsScalarWhereWithAggregatesInput = {
   mediaPreviewMaxHeight?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
   zipArchiveRetentionDays?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
   mediaPreviewCrf?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
+  ocrMode?: Prisma.StringNullableWithAggregatesFilter<"SystemSettings"> | string | null
+  ocrLanguages?: Prisma.StringNullableListFilter<"SystemSettings">
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"SystemSettings"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"SystemSettings"> | Date | string
 }
@@ -586,6 +606,8 @@ export type SystemSettingsCreateInput = {
   mediaPreviewMaxHeight?: number
   zipArchiveRetentionDays?: number
   mediaPreviewCrf?: number
+  ocrMode?: string | null
+  ocrLanguages?: Prisma.SystemSettingsCreateocrLanguagesInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -615,6 +637,8 @@ export type SystemSettingsUncheckedCreateInput = {
   mediaPreviewMaxHeight?: number
   zipArchiveRetentionDays?: number
   mediaPreviewCrf?: number
+  ocrMode?: string | null
+  ocrLanguages?: Prisma.SystemSettingsCreateocrLanguagesInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -644,6 +668,8 @@ export type SystemSettingsUpdateInput = {
   mediaPreviewMaxHeight?: Prisma.IntFieldUpdateOperationsInput | number
   zipArchiveRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewCrf?: Prisma.IntFieldUpdateOperationsInput | number
+  ocrMode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ocrLanguages?: Prisma.SystemSettingsUpdateocrLanguagesInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -673,6 +699,8 @@ export type SystemSettingsUncheckedUpdateInput = {
   mediaPreviewMaxHeight?: Prisma.IntFieldUpdateOperationsInput | number
   zipArchiveRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewCrf?: Prisma.IntFieldUpdateOperationsInput | number
+  ocrMode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ocrLanguages?: Prisma.SystemSettingsUpdateocrLanguagesInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -702,6 +730,8 @@ export type SystemSettingsCreateManyInput = {
   mediaPreviewMaxHeight?: number
   zipArchiveRetentionDays?: number
   mediaPreviewCrf?: number
+  ocrMode?: string | null
+  ocrLanguages?: Prisma.SystemSettingsCreateocrLanguagesInput | string[]
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -731,6 +761,8 @@ export type SystemSettingsUpdateManyMutationInput = {
   mediaPreviewMaxHeight?: Prisma.IntFieldUpdateOperationsInput | number
   zipArchiveRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewCrf?: Prisma.IntFieldUpdateOperationsInput | number
+  ocrMode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ocrLanguages?: Prisma.SystemSettingsUpdateocrLanguagesInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -760,8 +792,18 @@ export type SystemSettingsUncheckedUpdateManyInput = {
   mediaPreviewMaxHeight?: Prisma.IntFieldUpdateOperationsInput | number
   zipArchiveRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewCrf?: Prisma.IntFieldUpdateOperationsInput | number
+  ocrMode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ocrLanguages?: Prisma.SystemSettingsUpdateocrLanguagesInput | string[]
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type StringNullableListFilter<$PrismaModel = never> = {
+  equals?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel> | null
+  has?: string | Prisma.StringFieldRefInput<$PrismaModel> | null
+  hasEvery?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
+  hasSome?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
+  isEmpty?: boolean
 }
 
 export type SystemSettingsCountOrderByAggregateInput = {
@@ -789,6 +831,8 @@ export type SystemSettingsCountOrderByAggregateInput = {
   mediaPreviewMaxHeight?: Prisma.SortOrder
   zipArchiveRetentionDays?: Prisma.SortOrder
   mediaPreviewCrf?: Prisma.SortOrder
+  ocrMode?: Prisma.SortOrder
+  ocrLanguages?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -834,6 +878,7 @@ export type SystemSettingsMaxOrderByAggregateInput = {
   mediaPreviewMaxHeight?: Prisma.SortOrder
   zipArchiveRetentionDays?: Prisma.SortOrder
   mediaPreviewCrf?: Prisma.SortOrder
+  ocrMode?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -863,6 +908,7 @@ export type SystemSettingsMinOrderByAggregateInput = {
   mediaPreviewMaxHeight?: Prisma.SortOrder
   zipArchiveRetentionDays?: Prisma.SortOrder
   mediaPreviewCrf?: Prisma.SortOrder
+  ocrMode?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -883,6 +929,10 @@ export type SystemSettingsSumOrderByAggregateInput = {
   mediaPreviewCrf?: Prisma.SortOrder
 }
 
+export type SystemSettingsCreateocrLanguagesInput = {
+  set: string[]
+}
+
 export type BigIntFieldUpdateOperationsInput = {
   set?: bigint | number
   increment?: bigint | number
@@ -893,6 +943,11 @@ export type BigIntFieldUpdateOperationsInput = {
 
 export type BoolFieldUpdateOperationsInput = {
   set?: boolean
+}
+
+export type SystemSettingsUpdateocrLanguagesInput = {
+  set?: string[]
+  push?: string | string[]
 }
 
 
@@ -922,6 +977,8 @@ export type SystemSettingsSelect<ExtArgs extends runtime.Types.Extensions.Intern
   mediaPreviewMaxHeight?: boolean
   zipArchiveRetentionDays?: boolean
   mediaPreviewCrf?: boolean
+  ocrMode?: boolean
+  ocrLanguages?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["systemSettings"]>
@@ -951,6 +1008,8 @@ export type SystemSettingsSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   mediaPreviewMaxHeight?: boolean
   zipArchiveRetentionDays?: boolean
   mediaPreviewCrf?: boolean
+  ocrMode?: boolean
+  ocrLanguages?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["systemSettings"]>
@@ -980,6 +1039,8 @@ export type SystemSettingsSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   mediaPreviewMaxHeight?: boolean
   zipArchiveRetentionDays?: boolean
   mediaPreviewCrf?: boolean
+  ocrMode?: boolean
+  ocrLanguages?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["systemSettings"]>
@@ -1009,11 +1070,13 @@ export type SystemSettingsSelectScalar = {
   mediaPreviewMaxHeight?: boolean
   zipArchiveRetentionDays?: boolean
   mediaPreviewCrf?: boolean
+  ocrMode?: boolean
+  ocrLanguages?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type SystemSettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionMaxAgeDays" | "shareMaxAgeDays" | "maxUploadBytes" | "uploadTimeoutMinutes" | "uploadStagingRetentionHours" | "resumableMaxReservedBytesPerUser" | "resumableMaxReservedBytesInstance" | "workerHeartbeatMaxAgeSeconds" | "updateCheckEnabled" | "updateChannel" | "updateCheckRepository" | "timeZone" | "maintenanceRunTime" | "mediaThumbnailsEnabled" | "mediaPreviewEnabled" | "mediaPreviewGenerateOnUpload" | "mediaPreviewGenerateOnFirstView" | "mediaPreviewGenerateOnShare" | "mediaPreviewThresholdBytes" | "mediaPreviewRetentionDays" | "mediaPreviewMaxHeight" | "zipArchiveRetentionDays" | "mediaPreviewCrf" | "createdAt" | "updatedAt", ExtArgs["result"]["systemSettings"]>
+export type SystemSettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionMaxAgeDays" | "shareMaxAgeDays" | "maxUploadBytes" | "uploadTimeoutMinutes" | "uploadStagingRetentionHours" | "resumableMaxReservedBytesPerUser" | "resumableMaxReservedBytesInstance" | "workerHeartbeatMaxAgeSeconds" | "updateCheckEnabled" | "updateChannel" | "updateCheckRepository" | "timeZone" | "maintenanceRunTime" | "mediaThumbnailsEnabled" | "mediaPreviewEnabled" | "mediaPreviewGenerateOnUpload" | "mediaPreviewGenerateOnFirstView" | "mediaPreviewGenerateOnShare" | "mediaPreviewThresholdBytes" | "mediaPreviewRetentionDays" | "mediaPreviewMaxHeight" | "zipArchiveRetentionDays" | "mediaPreviewCrf" | "ocrMode" | "ocrLanguages" | "createdAt" | "updatedAt", ExtArgs["result"]["systemSettings"]>
 
 export type $SystemSettingsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "SystemSettings"
@@ -1049,6 +1112,14 @@ export type $SystemSettingsPayload<ExtArgs extends runtime.Types.Extensions.Inte
     mediaPreviewMaxHeight: number
     zipArchiveRetentionDays: number
     mediaPreviewCrf: number
+    /**
+     * "off", "pdf" (scanned PDF pages) or "all" (also pictures); null picks by the worker's CPU count.
+     */
+    ocrMode: string | null
+    /**
+     * Tesseract language codes used to read scans, such as "eng" or "tur".
+     */
+    ocrLanguages: string[]
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["systemSettings"]>
@@ -1498,6 +1569,8 @@ export interface SystemSettingsFieldRefs {
   readonly mediaPreviewMaxHeight: Prisma.FieldRef<"SystemSettings", 'Int'>
   readonly zipArchiveRetentionDays: Prisma.FieldRef<"SystemSettings", 'Int'>
   readonly mediaPreviewCrf: Prisma.FieldRef<"SystemSettings", 'Int'>
+  readonly ocrMode: Prisma.FieldRef<"SystemSettings", 'String'>
+  readonly ocrLanguages: Prisma.FieldRef<"SystemSettings", 'String[]'>
   readonly createdAt: Prisma.FieldRef<"SystemSettings", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"SystemSettings", 'DateTime'>
 }

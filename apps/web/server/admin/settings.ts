@@ -1,6 +1,7 @@
 import type { z } from "zod";
 
 import { getPrisma } from "@staaash/db/client";
+import { scheduleFileTextRead } from "@staaash/db/file-text";
 import { notifyUpdateStateChanged } from "@staaash/db/instance";
 
 import {
@@ -49,6 +50,13 @@ export async function saveSystemSettings(
   }
   // Open pages show the switch and channel too, and a check may never run.
   await notifyUpdateStateChanged();
+  // New scan choices start scanning now instead of at the next run.
+  if (
+    previous?.ocrMode !== parsed.data.ocrMode ||
+    previous?.ocrLanguages.join() !== parsed.data.ocrLanguages.join()
+  ) {
+    await scheduleFileTextRead();
+  }
 
   return { success: true, values: toSettingsValues(parsed.data) };
 }
