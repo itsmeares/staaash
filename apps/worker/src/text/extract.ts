@@ -63,15 +63,56 @@ function* tokens(markup: string): Generator<Token> {
       at = end + 3;
       continue;
     }
-    const close = markup.indexOf(">", open + 1);
+    const close = tagEnd(markup, open + 1);
     if (close < 0) return;
-    yield* tagTokens(markup.slice(open + 1, close));
-    at = close + 1;
+    const tag = markup.slice(open + 1, close);
+    yield* tagTokens(tag);
+    at = yield* rawText(markup, tag, close + 1);
   }
 }
 
+/** Where a tag ends: its first `>` outside a quoted attribute value, or -1. */
+const tagEnd = (markup: string, from: number) => {
+  let afterEquals = false;
+  for (let at = from; at < markup.length; at++) {
+    const char = markup[at];
+    if (char === ">") return at;
+    if (afterEquals && (char === '"' || char === "'")) {
+      at = markup.indexOf(char, at + 1);
+      if (at < 0) return -1;
+    }
+    // Spaces may sit between `=` and the quote.
+    if (char === "=") afterEquals = true;
+    else if (char! > " ") afterEquals = false;
+  }
+  return -1;
+};
+
+const tagName = (tag: string) =>
+  (/^\/?([^\s/]*)/.exec(tag)?.[1] ?? "").toLowerCase();
+
+// Their text may hold `<`, as in `if (a < b)`, so it runs to the closing tag.
+const RAW_TEXT = new Set(["script", "style"]);
+
+/** A script's or style's text after its start tag. Returns where it ends. */
+function* rawText(
+  markup: string,
+  tag: string,
+  at: number,
+): Generator<Token, number> {
+  const name = tagName(tag);
+  if (!RAW_TEXT.has(name) || tag.startsWith("/") || tag.endsWith("/")) {
+    return at;
+  }
+  const closing = new RegExp(`</${name}[\\s/>]`, "gi");
+  closing.lastIndex = at;
+  const end = closing.exec(markup)?.index ?? markup.length;
+  if (end > at) yield { text: markup.slice(at, end) };
+  return end;
+}
+
 function* tagTokens(tag: string): Generator<Token> {
-  const name = (/^\/?([^\s/]*)/.exec(tag)?.[1] ?? "").toLowerCase();
+  const name = tagName(tag);
   const closing = tag.startsWith("/");
   if (!closing) yield { tag, name, end: false };
   if (closing || tag.endsWith("/")) yield { tag, name, end: true };

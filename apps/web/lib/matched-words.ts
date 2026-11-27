@@ -7,6 +7,8 @@ const LETTERS: Record<string, string> = {
   ß: "ss",
   æ: "ae",
   œ: "oe",
+  // Lowercasing a whole word gives a final ς, one letter at a time gives σ.
+  ς: "σ",
 };
 
 const fold = (value: string) =>
@@ -14,7 +16,7 @@ const fold = (value: string) =>
     .normalize("NFKD")
     .replace(/\p{M}/gu, "")
     .toLowerCase()
-    .replace(/[ıłøđßæœ]/g, (letter) => LETTERS[letter]!);
+    .replace(/[ıłøđßæœς]/g, (letter) => LETTERS[letter]!);
 
 /** Where each query word starts a word of the text, ignoring case and accents. */
 export const matchedWords = (text: string, query: string) => {

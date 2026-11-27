@@ -203,7 +203,7 @@ it("queues wanted and unread files, then scans, and counts progress", async () =
     data: { contentChecksum: "replaced" },
   });
   await saveScannedPage(
-    { id: read.id, contentChecksum: "stale", sizeBytes: read.sizeBytes },
+    { ...read, contentChecksum: "stale" },
     {
       text: "ghost",
       truncated: false,
@@ -215,4 +215,28 @@ it("queues wanted and unread files, then scans, and counts progress", async () =
   );
   expect((await findFileText(read.id))?.text).toBe("done");
   expect(await getSearchPage(owner.id, "done")).toMatchObject({ total: 0 });
+
+  // After a rename, another file can take the old path, so what was read
+  // there is not this file's text.
+  const moved = await add("moved.pdf");
+  for (const { id } of [moved, unread]) {
+    await db.file.update({ where: { id }, data: { storageKey: randomUUID() } });
+  }
+  const ghost = {
+    status: "ready" as const,
+    source: "pdf" as const,
+    text: "ghost",
+    finished: true,
+  };
+  expect(await saveFileText(moved, ghost)).toBe(false);
+  expect(await findFileText(moved.id)).toBeNull();
+  await saveScannedPage(unread, {
+    text: "ghost",
+    finished: true,
+    truncated: false,
+    ocrPages: [2],
+    ocrDone: 1,
+    ocrLanguages: ["eng"],
+  });
+  expect((await findFileText(unread.id))?.text).toBe("first\fsecond\fthird");
 });

@@ -150,14 +150,31 @@ export type FileTextResult = {
   finished: boolean;
 };
 
-/** Saves what the fast pass read, for the bytes the file had when it began. */
+type ReadFile = Pick<
+  FileToRead,
+  "id" | "storageKey" | "contentChecksum" | "sizeBytes"
+>;
+
+// A path names a file only while it sits there: after a rename, another file
+// uploaded under the old name takes the old path.
+const sameFile = (file: ReadFile) => ({
+  storageKey: file.storageKey,
+  contentChecksum: file.contentChecksum,
+  sizeBytes: file.sizeBytes,
+});
+
+/**
+ * Saves what the fast pass read, for the bytes the file had when it began.
+ * False, saving nothing, when the file has moved or changed since.
+ */
 export const saveFileText = async (
-  file: Pick<
-    FileToRead,
-    "id" | "ownerUserId" | "contentChecksum" | "sizeBytes"
-  >,
+  file: ReadFile & Pick<FileToRead, "ownerUserId">,
   result: FileTextResult,
 ) => {
+  const still = await getPrisma().file.count({
+    where: { id: file.id, ...sameFile(file) },
+  });
+  if (still === 0) return false;
   const data = {
     sourceChecksum: file.contentChecksum,
     sourceSize: file.sizeBytes,
@@ -178,14 +195,15 @@ export const saveFileText = async (
     update: data,
   });
   await notifyFileText(file.id);
+  return true;
 };
 
 /**
- * Saves one scanned page. Nothing is saved when the file changed since the
- * scan began; the reader starts over on the new bytes.
+ * Saves one scanned page. Nothing is saved when the file moved or changed
+ * since the scan began; the reader starts over from where it is now.
  */
 export const saveScannedPage = async (
-  file: Pick<FileToScan, "id" | "contentChecksum" | "sizeBytes">,
+  file: ReadFile,
   update: {
     text: string;
     truncated: boolean;
@@ -203,6 +221,7 @@ export const saveScannedPage = async (
       fileId: file.id,
       sourceChecksum: file.contentChecksum,
       sourceSize: file.sizeBytes,
+      file: sameFile(file),
     },
     data: {
       ...data,

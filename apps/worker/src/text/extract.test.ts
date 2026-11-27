@@ -115,6 +115,16 @@ describe("htmlText", () => {
   });
 });
 
+describe("markup that looks like tags", () => {
+  it("reads past a comparison in a script and a `>` in an attribute", () => {
+    expect(
+      htmlText(
+        '<script>if (a < b) run();</script><p title="a > lighthouse">coast</p><style>p<b {}</style>shore',
+      ),
+    ).toBe("coast\nshore");
+  });
+});
+
 describe("unfinished markup", () => {
   it("ends the text at an unclosed script, comment, or tag, as a browser does", () => {
     expect(htmlText("<p>Kept</p><script>var x = 1; <p>hidden")).toBe("Kept");

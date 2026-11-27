@@ -155,6 +155,13 @@ describe("matchedWords", () => {
     ).toEqual(["ﬁnal"]);
   });
 
+  it("marks a Greek word whatever form its last sigma takes", () => {
+    const text = "ΣΟΦΟΣ ήρθε";
+    expect(
+      matchedWords(text, "ΣΟΦΟΣ").map(([start, end]) => text.slice(start, end)),
+    ).toEqual(["ΣΟΦΟΣ"]);
+  });
+
   it("marks the right words after characters that take two UTF-16 units", () => {
     const text = "😀 Meet at the lighthouse";
     expect(

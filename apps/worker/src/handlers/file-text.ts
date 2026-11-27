@@ -138,21 +138,22 @@ const readOne = async (
     signal.throwIfAborted();
     if (isMissingFile(error)) return "skip";
     const code = errorCode(error);
-    await saveFileText(file, {
+    const saved = await saveFileText(file, {
       status: code === "not-text" ? "skipped" : "failed",
       source,
       error: code,
       finished: true,
     });
-    return "read";
+    return saved ? "read" : "skip";
   }
-  await saveFileText(file, {
+  const saved = await saveFileText(file, {
     status: "ready",
     source,
     ...result,
     finished: result.ocrPages.length === 0 || !scanSources.includes(source),
   });
-  return "read";
+  // Moved or changed while it was read: a later run reads it where it is.
+  return saved ? "read" : "skip";
 };
 
 const scanOne = async (

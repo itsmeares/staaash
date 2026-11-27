@@ -99,6 +99,9 @@ const workerNote = (tools: TextReading["tools"], chosen: string[]) => {
   if (!tools) return "The worker has not started since this update";
   if (!tools.pdftotext) return "The worker has no PDF reader, so PDFs wait";
   if (!tools.tesseract) return "The worker has no OCR, so nothing is scanned";
+  if (!tools.pdftoppm) {
+    return "The worker can't turn PDF pages into pictures, so scanned PDFs aren't read";
+  }
   const missing = chosen.filter((code) => !tools.languages.includes(code));
   return missing.length > 0
     ? `Not installed on the worker: ${missing.map((code) => OCR_LANGUAGES[code]).join(", ")}`

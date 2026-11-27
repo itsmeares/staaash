@@ -95,6 +95,7 @@ beforeEach(() => {
   });
   mocks.saveFileText.mockImplementation(async (file: { id: string }) => {
     order.push(`read ${file.id}`);
+    return true;
   });
   mocks.saveScannedPage.mockImplementation(async (file: { id: string }) => {
     order.push(`scan ${file.id}`);
@@ -149,6 +150,17 @@ describe("reading file text", () => {
     expect(mocks.saveFileText).not.toHaveBeenCalled();
     expect(mocks.listFilesToRead).toHaveBeenLastCalledWith(
       expect.objectContaining({ skip: ["moving"] }),
+    );
+  });
+
+  it("leaves a file that moved while it was read for a later run", async () => {
+    rounds([[fileToRead("renamed")]], []);
+    mocks.saveFileText.mockResolvedValueOnce(false);
+
+    await handleFileTextRead(null, storagePaths, context());
+
+    expect(mocks.listFilesToRead).toHaveBeenLastCalledWith(
+      expect.objectContaining({ skip: ["renamed"] }),
     );
   });
 

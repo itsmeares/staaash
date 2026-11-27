@@ -362,7 +362,8 @@ const waitForText = async (
 ) => {
   const deadline = Date.now() + TEXT_WAIT_MS;
   let wake = () => {};
-  const unsubscribe = await subscribeLiveEvents((channel, payload) => {
+  // Listens at once; the wait doesn't hold for the connection, which polling covers.
+  const subscribed = subscribeLiveEvents((channel, payload) => {
     if (channel === "text" && payload === fileId) wake();
   }).catch(() => null);
   const progressToken = ctx.mcpReq._meta?.progressToken;
@@ -406,7 +407,7 @@ const waitForText = async (
       });
     }
   } finally {
-    unsubscribe?.();
+    void subscribed.then((unsubscribe) => unsubscribe?.());
   }
 };
 
