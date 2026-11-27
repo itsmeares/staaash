@@ -143,7 +143,7 @@ describe("epubText", () => {
       zip({
         mimetype: "application/epub+zip",
         "META-INF/container.xml":
-          "<container><rootfiles><rootfile full-path='OEBPS/content.opf' media-type='application/oebps-package+xml'/></rootfiles></container>",
+          "<container><rootfiles><rootfile note=\" full-path='missing.opf'\" full-path='OEBPS/content.opf' media-type='application/oebps-package+xml'/></rootfiles></container>",
         "OEBPS/content.opf": `<package><manifest><item id = 'a' href="text/one.xhtml" media-type="application/xhtml+xml"/><item href="text/two%20b.xhtml" id="b" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="b"/><itemref idref="a"/></spine></package>`,
         "OEBPS/text/one.xhtml": "<html><body><p>Chapter one</p></body></html>",
         "OEBPS/text/two b.xhtml": "<html><body><p>Preface</p></body></html>",

@@ -139,13 +139,17 @@ const tagsNamed = (markup: string, name: string) =>
     "name" in token && token.name === name && !token.end ? [token.tag] : [],
   );
 
-// Either quote, as XML allows. No closing quote needed, so a hostile tag
-// can't make the search rescan it.
+// Each attribute in turn, so words inside one value never read as another.
+// Either quote, as XML allows. A closing quote is optional and the value is
+// too, so a hostile tag can't make the search back up and rescan it.
+const ATTRIBUTES =
+  /\s([^\s=]+)(?:\s*=\s*(?:"([^"]*)"?|'([^']*)'?|([^\s"']*)))?/g;
+
 const attribute = (tag: string, name: string) => {
-  const match = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)|'([^']*))`).exec(
-    tag,
-  );
-  return match?.[1] ?? match?.[2];
+  for (const [, key, double, single, bare] of tag.matchAll(ATTRIBUTES)) {
+    if (key === name) return double ?? single ?? bare;
+  }
+  return undefined;
 };
 
 /** Whitespace with a line break between two tags only lays out the XML. */
