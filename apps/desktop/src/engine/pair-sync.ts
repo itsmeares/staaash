@@ -676,11 +676,8 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
   // quadratic: 100,000 queued files froze the engine for most of a minute.
   let queued = new Set<Action>();
   let waiting: Waiting = { files: 0, bytes: 0, uploadBytes: 0 };
-  let lanes: Action[][] = [];
-  let biggest: Action[] = [];
-  // Where each list's waiting files begin. A file that left the line never
-  // comes back, so the lists skip the started ones only once.
-  let starts: number[] = [];
+  // Each lane in the order it starts files, then every transfer biggest first.
+  let lists: Action[][] = [];
   const queue = (actions: Action[]) => {
     // A skip that came in while this round scanned is already in force.
     queued = new Set(
@@ -695,11 +692,12 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       waiting.bytes += transferSize(action) ?? 0;
       waiting.uploadBytes += uploadSize(action) ?? 0;
     }
-    lanes = transferLanes([...queued]).map((lane) => lane.items);
-    biggest = [...queued].sort(
-      (a, b) => (transferSize(b) ?? 0) - (transferSize(a) ?? 0),
-    );
-    starts = [...lanes, biggest].map(() => 0);
+    lists = [
+      ...transferLanes([...queued]).map((lane) => lane.items),
+      [...queued].sort(
+        (a, b) => (transferSize(b) ?? 0) - (transferSize(a) ?? 0),
+      ),
+    ];
     ctx.waiting(waiting);
   };
   const unqueue = (action: Action) => {
@@ -718,47 +716,33 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     direction: action.kind === "download" ? "down" : "up",
     bytes: transferSize(action) ?? 0,
   });
-  const firstWaiting = (list: Action[], index: number) => {
-    let i = starts[index]!;
-    while (i < list.length && !queued.has(list[i]!)) i += 1;
-    starts[index] = i;
-    return i;
+  /** Up to LISTED files from `lists[index]` that are still waiting, in order. */
+  const stillWaiting = (index: number) => {
+    const taken: Action[] = [];
+    let gaps = 0;
+    // Before the first plan there are no lists.
+    for (const action of lists[index] ?? []) {
+      if (taken.length === LISTED) break;
+      if (queued.has(action)) taken.push(action);
+      else gaps += 1;
+    }
+    // Started and skipped files leave gaps anywhere in a list. Dropping them
+    // once a read steps over many keeps every read near LISTED steps.
+    if (gaps > LISTED) {
+      lists[index] = lists[index]!.filter((action) => queued.has(action));
+    }
+    return taken;
   };
   // The lanes run side by side, so the next to start take turns between them.
   const nextUp = () => {
+    const heads = lists.slice(0, -1).map((_, index) => stillWaiting(index));
     const next: Action[] = [];
-    const at = lanes.map((lane, index) => firstWaiting(lane, index));
-    let more = true;
-    while (more && next.length < LISTED) {
-      more = false;
-      for (const [index, lane] of lanes.entries()) {
-        let i = at[index]!;
-        while (i < lane.length && !queued.has(lane[i]!)) i += 1;
-        if (i < lane.length && next.length < LISTED) {
-          next.push(lane[i]!);
-          more = true;
-          i += 1;
-        }
-        at[index] = i;
-      }
+    for (let at = 0; next.length < LISTED; at += 1) {
+      const turn = heads.filter((head) => at < head.length);
+      if (turn.length === 0) break;
+      for (const head of turn) if (next.length < LISTED) next.push(head[at]!);
     }
     return next;
-  };
-  const biggestWaiting = () => {
-    const top: Action[] = [];
-    let gaps = 0;
-    let i = firstWaiting(biggest, lanes.length);
-    for (; i < biggest.length && top.length < LISTED; i += 1) {
-      if (queued.has(biggest[i]!)) top.push(biggest[i]!);
-      else gaps += 1;
-    }
-    // Lanes start files of any size, so started ones leave gaps all through
-    // this list. Dropping them once a read steps over many keeps reads short.
-    if (gaps > LISTED) {
-      biggest = biggest.filter((action) => queued.has(action));
-      starts[lanes.length] = 0;
-    }
-    return top;
   };
 
   let leftOut = leftOutOf(pair);
@@ -771,7 +755,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
   ctx.attach({
     waitingFiles: () => ({
       next: nextUp().map(waitingFile),
-      biggest: biggestWaiting().map(waitingFile),
+      biggest: stillWaiting(lists.length - 1).map(waitingFile),
     }),
     skip: (next) => {
       const rules = leftOutOf(next);
