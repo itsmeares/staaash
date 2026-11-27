@@ -922,7 +922,9 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     for (const stage of [0, 1, 2, 3, 4, 5]) {
       const batch = sorted.filter((action) => order[action.kind] === stage);
       if (stage === 4)
-        await pool(transferLanes(batch, ctx.filesAtOnce), run, () => fatal.abort());
+        await pool(transferLanes(batch, ctx.filesAtOnce), run, () =>
+          fatal.abort(),
+        );
       else for (const action of batch) await run(action);
     }
     if (pullAgain) break;

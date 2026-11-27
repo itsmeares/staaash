@@ -39,11 +39,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@staaash/ui/components/toggle-group";
-import {
-  BYTES,
-  UnitField,
-  type Unit,
-} from "@staaash/ui/components/unit-field";
+import { BYTES, UnitField, type Unit } from "@staaash/ui/components/unit-field";
 import type { Theme } from "@/lib/theme";
 
 import type {

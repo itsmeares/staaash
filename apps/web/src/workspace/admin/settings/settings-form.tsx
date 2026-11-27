@@ -18,11 +18,7 @@ import {
   SettingsRow,
   SettingsText,
 } from "@/components/settings-layout";
-import {
-  BYTES,
-  UnitField,
-  type Unit,
-} from "@staaash/ui/components/unit-field";
+import { BYTES, UnitField, type Unit } from "@staaash/ui/components/unit-field";
 import { useTime } from "@/components/time-provider";
 import { TimeZonePicker } from "@/components/time-zone-picker";
 import { Button } from "@staaash/ui/components/button";
