@@ -372,13 +372,14 @@ function ActivityProgress({ activity }: { activity: Activity }) {
 
 type Stoppable = Pick<Activity, "pairId" | "rel">;
 
+const why = (failure: unknown) =>
+  failure instanceof Error ? failure.message : String(failure);
+
 /** Skips the file's path; resolves to why that failed, or null. */
 const skipFile = (file: Stoppable) =>
-  desktop.editPair(file.pairId, { skipPath: file.rel }).then(
-    ({ error }) => error,
-    (error: unknown) =>
-      error instanceof Error ? error.message : String(error),
-  );
+  desktop
+    .editPair(file.pairId, { skipPath: file.rel })
+    .then(({ error }) => error, why);
 
 /**
  * Leaves one file out of its pair by path, as the folder chooser leaves out
@@ -408,7 +409,16 @@ function StopSyncDialog({
       setError(problem);
       return;
     }
-    if (quiet) void desktop.updateSettings({ confirmStopSync: false });
+    if (quiet) {
+      // The file is skipped either way; pressing Stop again only retries this.
+      const saved = await desktop
+        .updateSettings({ confirmStopSync: false })
+        .then(() => null, why);
+      if (saved) {
+        setError(`Stopped, but "Don't ask again" wasn't saved. ${saved}`);
+        return;
+      }
+    }
     onClose();
   };
   return (
