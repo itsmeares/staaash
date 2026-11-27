@@ -824,7 +824,7 @@ function useFailedActions(kind: string, onRefresh: () => Promise<void>) {
         type: "error",
       });
     } finally {
-      // A failed refresh reports itself; the buttons must come back anyway.
+      // Each refresh reports its own failure; the buttons come back anyway.
       await onRefresh()
         .catch(() => {})
         .finally(() => {
@@ -1145,12 +1145,22 @@ function useJobHistory(kind: string, lastRun: JsonBackgroundJob | null) {
   const loadHistory = async () => {
     const read = ++reads.current;
     const before = pushed.current;
-    const res = await fetch(
-      `/api/admin/jobs?kind=${encodeURIComponent(kind)}&limit=100`,
-    );
-    if (!res.ok || read !== reads.current) return null;
-    const data = await res.json();
-    const jobs: JsonBackgroundJob[] = data.items ?? [];
+    let jobs: JsonBackgroundJob[];
+    try {
+      const res = await fetch(
+        `/api/admin/jobs?kind=${encodeURIComponent(kind)}&limit=100`,
+      );
+      if (!res.ok) throw new Error();
+      jobs = ((await res.json()) as { items: JsonBackgroundJob[] }).items;
+    } catch {
+      if (read === reads.current)
+        toastManager.add({
+          title: "Could not refresh the runs. Reload to see them.",
+          type: "error",
+        });
+      return null;
+    }
+    if (read !== reads.current) return null;
     const live = pushed.current;
     if (live !== before && live) {
       setHistory(withRun(jobs, live));
