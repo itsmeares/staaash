@@ -44,7 +44,6 @@ export async function showDesktop(page: Page) {
       });
       const state: AppState = {
         appVersion: "2.0.0",
-        platform: "win32",
         signedIn: true,
         avatarUrl: null,
         versionProblem: null,
@@ -68,6 +67,8 @@ export async function showDesktop(page: Page) {
           setupSkipped: false,
           updateChannel: "auto",
           confirmStopSync: true,
+          filesAtOnce: 4,
+          theme: "system",
         },
         status: {
           state: "syncing",
@@ -166,6 +167,7 @@ export async function showDesktop(page: Page) {
         resolvePair: done,
         takeCommand: async () => null,
         onCommand: () => () => {},
+        onDriveTheme: () => () => {},
         installUpdate: done,
         checkForUpdates: async () => "current",
         signOut: done,

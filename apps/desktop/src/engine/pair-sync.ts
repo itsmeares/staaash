@@ -22,7 +22,7 @@ import type { Throttle, UploadMeter } from "./transfer";
 import {
   downloadToTemp,
   freeBytes,
-  LANES,
+  lanes,
   moveIntoPlace,
   pool,
   SMALL_UPLOAD_BYTES,
@@ -37,6 +37,7 @@ export type PairContext = {
   deviceName: string;
   ignore: (name: string) => boolean;
   minFreeBytes: number;
+  filesAtOnce: number;
   uploads: Throttle;
   uploadMeter: UploadMeter;
   downloads: Throttle;
@@ -120,15 +121,16 @@ const pathsOf = (action: Action) =>
   "rel" in action ? [action.rel] : [action.from, action.to];
 
 /** Downloads, big uploads and small uploads each get their own lane. */
-const transferLanes = (actions: Action[]) => {
+const transferLanes = (actions: Action[], filesAtOnce: number) => {
+  const sizes = lanes(filesAtOnce);
   const lane = (action: Action) => {
     const size = uploadSize(action);
     if (size === null) return "downloads";
     return size <= SMALL_UPLOAD_BYTES ? "smallUploads" : "bigUploads";
   };
-  return (Object.keys(LANES) as (keyof typeof LANES)[]).map((name) => ({
+  return (Object.keys(sizes) as (keyof typeof sizes)[]).map((name) => ({
     items: actions.filter((action) => lane(action) === name),
-    size: LANES[name],
+    size: sizes[name],
   }));
 };
 
@@ -136,7 +138,7 @@ const diskMessage = (error: NodeJS.ErrnoException) =>
   error.code === "ENOSPC"
     ? "This computer is out of space."
     : error.code === "EBUSY" || error.code === "EPERM"
-      ? "Another app is using this file. Sync tries again soon."
+      ? "Another app is using this file. Trying again soon."
       : error.code === "EACCES"
         ? "Staaash isn't allowed to read or write this."
         : `Couldn't use this file (${error.code ?? "disk error"}).`;
@@ -145,15 +147,15 @@ type Outcome = Pick<Activity, "state" | "reason">;
 
 const changed: Outcome = {
   state: "waiting",
-  reason: "Changed on the server. Sync looks again.",
+  reason: "Changed on the server. Checking again.",
 };
 const changedHere: Outcome = {
   state: "waiting",
-  reason: "Changed on this computer. Sync looks again.",
+  reason: "Changed on this computer. Checking again.",
 };
 const paused: Outcome = {
   state: "waiting",
-  reason: "Paused. Starts again when you resume.",
+  reason: "Paused.",
 };
 
 /** Words for an error the engine does not expect; the sync log has the rest. */
@@ -353,7 +355,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       retrySoon = true;
       return {
         state: "waiting",
-        reason: "The server is busy. Sync tries again soon.",
+        reason: "The server is busy. Trying again soon.",
       };
     }
     const full = serverFull.get(error.code ?? "");
@@ -693,7 +695,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       waiting.uploadBytes += uploadSize(action) ?? 0;
     }
     lists = [
-      ...transferLanes([...queued]).map((lane) => lane.items),
+      ...transferLanes([...queued], ctx.filesAtOnce).map((lane) => lane.items),
       [...queued].sort(
         (a, b) => (transferSize(b) ?? 0) - (transferSize(a) ?? 0),
       ),
@@ -920,7 +922,9 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     for (const stage of [0, 1, 2, 3, 4, 5]) {
       const batch = sorted.filter((action) => order[action.kind] === stage);
       if (stage === 4)
-        await pool(transferLanes(batch), run, () => fatal.abort());
+        await pool(transferLanes(batch, ctx.filesAtOnce), run, () =>
+          fatal.abort(),
+        );
       else for (const action of batch) await run(action);
     }
     if (pullAgain) break;

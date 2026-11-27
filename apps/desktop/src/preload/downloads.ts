@@ -20,4 +20,22 @@ if (process.isMainFrame) {
     clearFinished: () => ipcRenderer.invoke("downloads:clear"),
   };
   contextBridge.exposeInMainWorld("staaashDownloads", api);
+
+  // The window's top row and buttons follow the drive's own theme, which the
+  // account picks, so they never split from the page below.
+  window.addEventListener("DOMContentLoaded", () => {
+    const root = document.documentElement;
+    let reported: boolean | null = null;
+    const report = () => {
+      const dark = root.classList.contains("dark");
+      if (dark === reported) return;
+      reported = dark;
+      ipcRenderer.send("drive-theme", dark);
+    };
+    new MutationObserver(report).observe(root, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    report();
+  });
 }

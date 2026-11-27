@@ -12,6 +12,7 @@ import type {
   SizeReading,
   SyncPair,
 } from "../shared/types";
+import { clampFilesAtOnce } from "../shared/files-at-once";
 import type { Api } from "./api";
 import { ApiError, SignedOutError, createApi, fetchVersion } from "./api";
 import { localPath } from "./local";
@@ -609,6 +610,7 @@ export class SyncEngine {
             deviceName: config.deviceName,
             ignore: createIgnore(config.ignore),
             minFreeBytes: config.minFreeBytes,
+            filesAtOnce: clampFilesAtOnce(config.filesAtOnce),
             uploads: this.uploads,
             uploadMeter: this.uploadMeter,
             downloads: this.downloads,

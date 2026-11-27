@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { app, safeStorage } from "electron";
 
+import { FILES_AT_ONCE } from "../shared/files-at-once";
 import type { Settings } from "../shared/types";
 
 const GB = 1024 ** 3;
@@ -17,11 +18,13 @@ const defaults = (): Settings => ({
   minFreeBytes: 5 * GB,
   uploadLimitKBps: null,
   downloadLimitKBps: null,
+  filesAtOnce: FILES_AT_ONCE.default,
   pausedUntil: null,
   startAtLogin: true,
   setupSkipped: false,
   updateChannel: "auto",
   confirmStopSync: true,
+  theme: "system",
 });
 
 const file = () => path.join(app.getPath("userData"), "settings.json");
@@ -34,9 +37,17 @@ const writeAtomic = async (target: string, data: string | Buffer) => {
   await rename(temp, target);
 };
 
+const THEMES = new Set(["system", "light", "dark"]);
+
 export const loadSettings = (): Settings => {
   try {
-    return { ...defaults(), ...JSON.parse(readFileSync(file(), "utf8")) };
+    const saved: Settings = {
+      ...defaults(),
+      ...JSON.parse(readFileSync(file(), "utf8")),
+    };
+    // Electron takes only these three, and a hand-edited file may hold more.
+    if (!THEMES.has(saved.theme)) saved.theme = "system";
+    return saved;
   } catch {
     return defaults();
   }

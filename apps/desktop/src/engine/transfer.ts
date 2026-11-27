@@ -109,9 +109,16 @@ export class UploadMeter {
 
 /** Up to one session chunk: one request, no session, nothing to resume. */
 export const SMALL_UPLOAD_BYTES = 10 * 1024 * 1024;
-// A big file sends a few chunks at once, so a handful of them fill the line.
-// Small files hold no upload session, so many more can go at once.
-export const LANES = { downloads: 4, bigUploads: 4, smallUploads: 16 };
+/**
+ * Each lane's size for the "files at once" setting. A big file sends a few
+ * chunks at once, so a handful of them fill the line. Small files hold no
+ * upload session, so more go at once, capped because each sits in memory.
+ */
+export const lanes = (filesAtOnce: number) => ({
+  downloads: filesAtOnce,
+  bigUploads: filesAtOnce,
+  smallUploads: Math.min(32, filesAtOnce * 4),
+});
 const CHUNKS_AT_ONCE = 3;
 
 /**

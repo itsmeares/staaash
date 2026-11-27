@@ -27,7 +27,7 @@ import {
 
 import type { EngineConfig, EngineEvent, SyncMode } from "../shared/types";
 import { SyncEngine } from "./engine";
-import { LANES } from "./transfer";
+import { lanes } from "./transfer";
 
 /**
  * The engine against a real Staaash server: the system test stack sets
@@ -184,6 +184,7 @@ const rig = async (
     minFreeBytes: 0,
     uploadLimitKBps: null,
     downloadLimitKBps: null,
+    filesAtOnce: 4,
     paused: false,
     ...extra,
   };
@@ -522,7 +523,7 @@ describe.skipIf(!origin)("sync against a real server", () => {
     const r = await rig("two-way", undefined, { paused: true });
     // More files than run at once, so a full account stops the rest.
     const names = Array.from(
-      { length: LANES.smallUploads + 4 },
+      { length: lanes(4).smallUploads + 4 },
       (_, index) => `f${index}.txt`,
     ).sort();
     for (const name of names) await writeOld(r.at(name), name);
@@ -544,7 +545,7 @@ describe.skipIf(!origin)("sync against a real server", () => {
       const status = r.engine.status();
       const tried = status.activity.filter((each) => each.direction === "up");
       expect(tried.length).toBeGreaterThan(0);
-      expect(tried.length).toBeLessThanOrEqual(LANES.smallUploads);
+      expect(tried.length).toBeLessThanOrEqual(lanes(4).smallUploads);
       expect(status.issues).toEqual([
         expect.objectContaining({ rel: "", kind: "quota" }),
       ]);
@@ -1156,7 +1157,7 @@ describe.skipIf(!origin)("sync against a real server", () => {
 
     it("stops a pass before its next upload when an ignore rule is added", async () => {
       const r = await rig("two-way", undefined, { uploadLimitKBps: 1024 });
-      const count = LANES.smallUploads + 8;
+      const count = lanes(4).smallUploads + 8;
       for (let index = 0; index < count; index += 1) {
         await writeOld(r.at(`f${index}.bin`), "x".repeat(512 * 1024));
       }
@@ -1167,7 +1168,7 @@ describe.skipIf(!origin)("sync against a real server", () => {
       await syncing;
       // Only what had finished, plus the uploads already running.
       const sent = (await r.remote()).size;
-      expect(sent).toBeLessThanOrEqual(done + LANES.smallUploads);
+      expect(sent).toBeLessThanOrEqual(done + lanes(4).smallUploads);
       expect(sent).toBeLessThan(count);
       await r.sync();
       expect((await r.remote()).size).toBe(sent);

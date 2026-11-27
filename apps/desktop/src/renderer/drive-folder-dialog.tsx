@@ -209,7 +209,7 @@ export function DriveFolderDialog({
             Cancel
           </Button>
           <Button disabled={!picked} onClick={() => picked && onPick(picked)}>
-            {pickedName ? `Put in ${pickedName}` : "Put here"}
+            {pickedName ? `Choose ${pickedName}` : "Choose"}
           </Button>
         </DialogFooter>
       </DialogPopup>

@@ -13,14 +13,12 @@ import type { SystemSettings } from "@staaash/db/client";
 
 import { formatAdminDateTime } from "@/src/workspace/admin/admin-format";
 import {
-  BYTES,
   SettingsCard,
   SettingsLayout,
   SettingsRow,
   SettingsText,
-  UnitField,
-  type Unit,
 } from "@/components/settings-layout";
+import { BYTES, UnitField, type Unit } from "@staaash/ui/components/unit-field";
 import { useTime } from "@/components/time-provider";
 import { TimeZonePicker } from "@/components/time-zone-picker";
 import { Button } from "@staaash/ui/components/button";

@@ -52,7 +52,7 @@ export const statusLine = (state: AppState, withBytes = false) => {
     case "offline":
       return "Can't reach the server";
     case "problem":
-      return "Sync hit a problem";
+      return "Can't sync right now";
     case "signed-out":
       return "Signed out";
     case "syncing":

@@ -40,6 +40,11 @@ const api: DesktopApi = {
     ipcRenderer.on("command", handler);
     return () => ipcRenderer.removeListener("command", handler);
   },
+  onDriveTheme: (listener) => {
+    const handler = (_event: unknown, dark: boolean) => listener(dark);
+    ipcRenderer.on("drive-theme", handler);
+    return () => ipcRenderer.off("drive-theme", handler);
+  },
   installUpdate: call("install-update") as DesktopApi["installUpdate"],
   checkForUpdates: call("check-updates") as DesktopApi["checkForUpdates"],
   signOut: call("sign-out") as DesktopApi["signOut"],

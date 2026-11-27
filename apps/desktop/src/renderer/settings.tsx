@@ -1,5 +1,11 @@
 import { Cloud, Folder, FolderOpen, Monitor, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 
 import { formatBytes } from "@/lib/format-bytes";
 import { Alert, AlertDescription } from "@staaash/ui/components/alert";
@@ -21,12 +27,6 @@ import {
 } from "@staaash/ui/components/field";
 import { Input } from "@staaash/ui/components/input";
 import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-  InputGroupText,
-} from "@staaash/ui/components/input-group";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -35,6 +35,12 @@ import {
 } from "@staaash/ui/components/select";
 import { Switch } from "@staaash/ui/components/switch";
 import { Textarea } from "@staaash/ui/components/textarea";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@staaash/ui/components/toggle-group";
+import { BYTES, UnitField, type Unit } from "@staaash/ui/components/unit-field";
+import type { Theme } from "@/lib/theme";
 
 import type {
   AppState,
@@ -43,12 +49,11 @@ import type {
   SyncPair,
   UpdateChannel,
 } from "../shared/types";
+import { clampFilesAtOnce, FILES_AT_ONCE } from "../shared/files-at-once";
 import { wantsCandidates } from "../shared/version";
 import { DriveGlyph } from "@staaash/ui/drive-glyph";
 import { FolderChooser, ModeSelect } from "./folder-chooser";
 import { desktop } from "./state";
-
-const GB = 1024 ** 3;
 
 function Screen({
   title,
@@ -300,7 +305,7 @@ function SkippedDialog({
 function PageBody({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="min-h-0 flex-1 scrollbar-thin overflow-y-auto">
-      <div className="mx-auto grid w-full max-w-165 gap-6 px-5 pt-4.5 pb-6">
+      <div className="mx-auto grid w-full max-w-165 grid-cols-1 gap-6 px-5 pt-4.5 pb-6">
         <h1 className="m-0 font-heading text-headline font-medium">{title}</h1>
         {children}
       </div>
@@ -445,60 +450,114 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 
 function Row({
   label,
+  htmlFor,
   description,
   children,
 }: {
   label: string;
+  htmlFor?: string;
   description?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="grid min-h-13.5 grid-cols-[minmax(0,1fr)_11.5rem] items-center gap-4 px-3.5 py-3 max-sm:grid-cols-[minmax(0,1fr)_8rem]">
+    <div className="grid min-h-13.5 grid-cols-1 items-center gap-x-4 gap-y-2 px-3.5 py-3 sm:grid-cols-[minmax(0,1fr)_12.5rem]">
       <div className="min-w-0">
-        <p className="m-0 text-body font-medium">{label}</p>
+        <label className="block text-body font-medium" htmlFor={htmlFor}>
+          {label}
+        </label>
         {description ? (
           <p className="m-0 mt-0.5 max-w-md text-label text-muted-foreground">
             {description}
           </p>
         ) : null}
       </div>
-      <div className="flex justify-end">{children}</div>
+      <div className="flex min-w-0 sm:justify-end">{children}</div>
     </div>
   );
 }
 
-/** A number field that saves when it loses focus; empty means "no limit". */
-function NumberSetting({
+const SPEED: Unit[] = [
+  { label: "KB/s", factor: 1 },
+  { label: "MB/s", factor: 1024 },
+];
+
+/** A number with a unit menu that saves when it loses focus; empty is null. */
+function UnitSetting({
+  id,
   value,
-  unit,
-  label,
+  units,
+  placeholder,
+  emptyUnit,
   onSave,
 }: {
+  id: string;
+  /** In the first unit's base, or null for empty. */
   value: number | null;
-  unit: string;
-  label: string;
+  units: Unit[];
+  placeholder: string;
+  emptyUnit?: string;
   onSave: (value: number | null) => void;
 }) {
-  const [text, setText] = useState(value === null ? "" : String(value));
+  const [text, setText] = useState(value ? String(value) : "");
+  // A unit change saves in the same event, before the new text renders.
+  const latest = useRef(text);
   return (
-    <InputGroup>
-      <InputGroupInput
-        aria-label={label}
-        inputMode="numeric"
-        placeholder="No limit"
-        value={text}
-        onBlur={() => {
-          const parsed = Number(text);
-          onSave(text.trim() === "" || !(parsed > 0) ? null : parsed);
-        }}
-        onChange={(event) => setText(event.target.value.replace(/[^\d.]/g, ""))}
-      />
-      <InputGroupAddon align="inline-end">
-        <InputGroupText>{unit}</InputGroupText>
-      </InputGroupAddon>
-    </InputGroup>
+    <UnitField
+      emptyUnit={emptyUnit}
+      id={id}
+      name={id}
+      placeholder={placeholder}
+      units={units}
+      value={text}
+      onChange={(next) => {
+        latest.current = next;
+        setText(next);
+      }}
+      onCommit={() => {
+        const parsed = Number(latest.current);
+        onSave(parsed > 0 ? parsed : null);
+      }}
+    />
   );
 }
+
+function FilesAtOnce({
+  value,
+  onSave,
+}: {
+  value: number;
+  onSave: (value: number) => void;
+}) {
+  const [text, setText] = useState(String(value));
+  const commit = () => {
+    const next = clampFilesAtOnce(text.trim() ? Number(text) : value);
+    setText(String(next));
+    if (next !== value) onSave(next);
+  };
+  return (
+    <Input
+      className="w-full sm:w-50"
+      id="files-at-once"
+      inputMode="numeric"
+      max={FILES_AT_ONCE.max}
+      min={FILES_AT_ONCE.min}
+      size="sm"
+      type="number"
+      value={text}
+      onBlur={commit}
+      onChange={(event) => setText(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") commit();
+      }}
+    />
+  );
+}
+
+const THEMES: Record<Theme, string> = {
+  system: "System",
+  light: "Light",
+  dark: "Dark",
+};
 
 type UpdateCheck = Awaited<ReturnType<typeof desktop.checkForUpdates>>;
 
@@ -511,10 +570,10 @@ const CHANNELS: Record<UpdateChannel, string> = {
 
 const channelDescription = (channel: UpdateChannel, appVersion: string) => {
   if (channel === "auto")
-    return `Following this install: ${wantsCandidates(channel, appVersion) ? "release candidates" : "stable"}.`;
+    return `Now on ${wantsCandidates(channel, appVersion) ? "release candidates" : "stable"}.`;
   if (channel === "rc")
     return "New versions before their release. They can have bugs.";
-  return "Finished releases only.";
+  return undefined;
 };
 
 const updateDescription = (
@@ -526,7 +585,7 @@ const updateDescription = (
   if (check === "checking") return "Checking for updates…";
   if (check === "current") return "You have the newest version.";
   if (check === "failed") return "Could not check. Try again later.";
-  return "Updates are checked every few hours.";
+  return undefined;
 };
 
 function UpdateRow({ state }: { state: AppState }) {
@@ -610,15 +669,25 @@ export function SettingsPage({ state }: { state: AppState }) {
           />
         </Row>
       </Group>
-      <Group title="Startup and space">
-        <Row
-          description={
-            state.platform === "linux"
-              ? "Starts in the tray. On Hyprland, add exec-once = staaash --hidden"
-              : "Starts in the tray."
-          }
-          label="Start at login"
-        >
+      <Group title="General">
+        <Row label="Theme">
+          <ToggleGroup
+            aria-label="Theme"
+            value={[settings.theme]}
+            variant="outline"
+            onValueChange={(next) => {
+              const theme = next[0] as Theme | undefined;
+              if (theme) update({ theme });
+            }}
+          >
+            {(Object.keys(THEMES) as Theme[]).map((theme) => (
+              <ToggleGroupItem key={theme} value={theme}>
+                {THEMES[theme]}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </Row>
+        <Row description="Starts in the tray." label="Start at login">
           <Switch
             aria-label="Start at login"
             checked={settings.startAtLogin}
@@ -626,32 +695,49 @@ export function SettingsPage({ state }: { state: AppState }) {
           />
         </Row>
         <Row
-          description="Downloads stop below this."
+          description="Downloads pause below this."
+          htmlFor="keep-free"
           label="Keep free on this computer"
         >
-          <NumberSetting
-            label="Free space to keep, in GB"
-            unit="GB"
-            value={settings.minFreeBytes / GB}
-            onSave={(gb) => update({ minFreeBytes: (gb ?? 0) * GB })}
+          <UnitSetting
+            emptyUnit="GB"
+            id="keep-free"
+            placeholder="0"
+            units={BYTES}
+            value={settings.minFreeBytes}
+            onSave={(bytes) => update({ minFreeBytes: bytes ?? 0 })}
           />
         </Row>
       </Group>
       <Group title="Speed">
-        <Row label="Upload limit">
-          <NumberSetting
-            label="Upload limit in KB/s"
-            unit="KB/s"
+        <Row htmlFor="upload-limit" label="Upload limit">
+          <UnitSetting
+            emptyUnit="MB/s"
+            id="upload-limit"
+            placeholder="No limit"
+            units={SPEED}
             value={settings.uploadLimitKBps}
             onSave={(uploadLimitKBps) => update({ uploadLimitKBps })}
           />
         </Row>
-        <Row label="Download limit">
-          <NumberSetting
-            label="Download limit in KB/s"
-            unit="KB/s"
+        <Row htmlFor="download-limit" label="Download limit">
+          <UnitSetting
+            emptyUnit="MB/s"
+            id="download-limit"
+            placeholder="No limit"
+            units={SPEED}
             value={settings.downloadLimitKBps}
             onSave={(downloadLimitKBps) => update({ downloadLimitKBps })}
+          />
+        </Row>
+        <Row
+          description="Uploads and downloads."
+          htmlFor="files-at-once"
+          label="Files at once"
+        >
+          <FilesAtOnce
+            value={settings.filesAtOnce}
+            onSave={(filesAtOnce) => update({ filesAtOnce })}
           />
         </Row>
       </Group>
@@ -660,8 +746,7 @@ export function SettingsPage({ state }: { state: AppState }) {
           <div>
             <p className="m-0 text-body font-medium">Don't sync these names</p>
             <p className="m-0 mt-0.5 text-label text-muted-foreground">
-              One per line. * matches anything, ? one character. System files
-              like .DS_Store and Thumbs.db are always skipped.
+              One per line. * matches any text.
             </p>
           </div>
           <Textarea
@@ -718,13 +803,10 @@ export function SettingsPage({ state }: { state: AppState }) {
           </Select>
         </Row>
       </Group>
-      <Group title="About">
-        <Row
-          description="What went wrong while syncing. It stays on this computer."
-          label="Sync log"
-        >
+      <Group title="Help">
+        <Row label="Log">
           <Button variant="outline" onClick={() => void desktop.openSyncLog()}>
-            Open log
+            Open
           </Button>
         </Row>
       </Group>

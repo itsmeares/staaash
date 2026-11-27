@@ -23,7 +23,7 @@ import {
 } from "./pair-sync";
 import { RemoteTree } from "./remote";
 import { Store } from "./store";
-import { LANES, SMALL_UPLOAD_BYTES, Throttle, UploadMeter } from "./transfer";
+import { lanes, SMALL_UPLOAD_BYTES, Throttle, UploadMeter } from "./transfer";
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -82,6 +82,7 @@ const rig = async (names = ["a.txt", "b.txt"]) => {
     deviceName: "Fake PC",
     ignore: () => false,
     minFreeBytes: 0,
+    filesAtOnce: 4,
     uploads: new Throttle(null),
     uploadMeter: new UploadMeter(() => {}),
     downloads: new Throttle(null),
@@ -126,7 +127,7 @@ it.each([
   });
   const first = await syncPair(r.ctx);
   expect(r.start.mock.calls.length).toBeGreaterThan(0);
-  expect(r.start.mock.calls.length).toBeLessThanOrEqual(LANES.smallUploads);
+  expect(r.start.mock.calls.length).toBeLessThanOrEqual(lanes(4).smallUploads);
   expect(first.retrySoon).toBe(false);
   expect(first.issues).toEqual([
     expect.objectContaining({ rel: "", source: "scan", kind: "quota" }),
@@ -150,6 +151,26 @@ it.each([
   expect(second.issues).toEqual([]);
   expect(r.store.baseEntries(r.ctx.pair.id)).toHaveLength(names.length);
 });
+
+it.each([1, 20])(
+  "uploads at most what %i files at once allows",
+  async (filesAtOnce) => {
+    const names = Array.from({ length: 90 }, (_, i) => `f${i + 10}.txt`);
+    const r = await rig(names);
+    const fake = r.start.getMockImplementation()!;
+    let running = 0;
+    let most = 0;
+    r.start.mockImplementation(async (...args) => {
+      most = Math.max(most, ++running);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      running -= 1;
+      return fake(...args);
+    });
+    await syncPair({ ...r.ctx, filesAtOnce });
+    expect(r.start).toHaveBeenCalledTimes(90);
+    expect(most).toBe(lanes(filesAtOnce).smallUploads);
+  },
+);
 
 it("reports every planned transfer until it starts, not just the running ones", async () => {
   const names = Array.from({ length: 20 }, (_, i) => `f${i + 10}.txt`);
@@ -581,7 +602,7 @@ it("preserves a local edit made while a download was running", async () => {
   expect(r.ctx.resolved).not.toHaveBeenCalled();
   expect(r.activity.at(-1)).toMatchObject({
     state: "waiting",
-    reason: "Changed on this computer. Sync looks again.",
+    reason: "Changed on this computer. Checking again.",
   });
   expect(await readFile(path.join(r.directory, "a.txt"), "utf8")).toBe(
     "local edit",
@@ -666,7 +687,7 @@ it("shows an upload stopped by a pause as waiting, not failed", async () => {
   expect(r.activity.at(-1)).toMatchObject({
     rel: "a.txt",
     state: "waiting",
-    reason: "Paused. Starts again when you resume.",
+    reason: "Paused.",
   });
   expect(r.ctx.log).not.toHaveBeenCalled();
 });
