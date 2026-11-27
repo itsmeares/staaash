@@ -198,6 +198,53 @@ describe("MCP", () => {
     ]);
   });
 
+  it("lists a big folder a page at a time", async () => {
+    const { id, work } = await drive();
+    const token = await key(id);
+    await db.file.createMany({
+      data: Array.from({ length: 201 }, (_, index) => ({
+        ownerUserId: id,
+        folderId: work,
+        originalName: `log-${String(index).padStart(3, "0")}.txt`,
+        storageKey: randomUUID(),
+        mimeType: "text/plain",
+        sizeBytes: 1,
+      })),
+    });
+    const first = json(
+      (await tool(token, "list_folder", { path: "/Work" })).text,
+    );
+    expect(first).toMatchObject({ total: 202, nextOffset: 200 });
+    expect(first.entries).toHaveLength(200);
+    const last = json(
+      (await tool(token, "list_folder", { path: "/Work", offset: 200 })).text,
+    );
+    expect(last.nextOffset).toBeUndefined();
+    expect(last.entries).toEqual([
+      expect.objectContaining({ path: "/Work/log-200.txt" }),
+      expect.objectContaining({ path: "/Work/secret.txt" }),
+    ]);
+  });
+
+  it("renames first when the old name is taken where it goes", async () => {
+    const { id } = await drive();
+    const token = await key(id);
+    await tool(token, "write_file", { path: "/Work/plan.md", content: "B" });
+
+    const moved = await tool(token, "move", {
+      from: "/Trips/plan.md",
+      to: "/Work/day-one.md",
+    });
+    expect(moved.error).toBeNull();
+    expect(json(moved.text).to).toBe("/Work/day-one.md");
+    expect(
+      (await tool(token, "read_file", { path: "/Work/day-one.md" })).text,
+    ).toBe("Day 1: the coast");
+    expect(
+      (await tool(token, "read_file", { path: "/Work/plan.md" })).text,
+    ).toBe("B");
+  });
+
   it("sees the whole drive without a folder", async () => {
     const { id } = await drive();
     const token = await key(id);

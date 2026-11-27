@@ -18,6 +18,7 @@ import { buildFolderMap } from "@/server/files/path-labels";
 import { prismaFilesRepository as repo } from "@/server/files/repository";
 import { filesService } from "@/server/files/service";
 import type {
+  FileSummary,
   FolderMutationResult,
   FolderSummary,
   StoredFile,
@@ -189,7 +190,12 @@ const underRoot = async (
   });
 };
 
-const describe = (path: string, found: Found) =>
+const describe = (
+  path: string,
+  found:
+    | { kind: "folder"; item: FolderSummary }
+    | { kind: "file"; item: FileSummary },
+) =>
   found.kind === "folder"
     ? {
         path,
@@ -359,24 +365,27 @@ const registerReads = (server: McpServer, session: Session) => {
       const segments = segmentsOf(path);
       const folder = await lookUpFolder(root, segments);
       const here = pathFrom(segments);
-      const [folders, files] = await Promise.all([
-        repo.listChildFolders(ownerUserId, folder.id),
-        repo.listChildFiles(ownerUserId, folder.id),
-      ]);
-      const entries = [
-        ...folders.map((item) =>
-          describe(joinPath(here, item.name), { kind: "folder", item }),
-        ),
-        ...files.map((item) =>
-          describe(joinPath(here, item.name), { kind: "file", item }),
-        ),
-      ];
+      // The Files page's own paged listing: folders first, then by name.
+      const { childFolders, files, total } = await filesService.getFilesListing(
+        {
+          ...actorOf(session),
+          folderId: folder.id,
+          query: { offset, limit: LIST_PAGE },
+        },
+      );
       const next = offset + LIST_PAGE;
       return reply({
         path: here,
-        entries: entries.slice(offset, next),
-        total: entries.length,
-        ...(next < entries.length ? { nextOffset: next } : {}),
+        entries: [
+          ...childFolders.map((item) =>
+            describe(joinPath(here, item.name), { kind: "folder", item }),
+          ),
+          ...files.map((item) =>
+            describe(joinPath(here, item.name), { kind: "file", item }),
+          ),
+        ],
+        total,
+        ...(next < total ? { nextOffset: next } : {}),
       });
     }),
   );
@@ -461,64 +470,36 @@ const registerChanges = (server: McpServer, session: Session) => {
       : null;
   };
 
-  /** Moves, then renames, one file. */
-  const moveFile = async (
-    file: StoredFile,
-    destinationFolderId: string,
-    name: string,
-  ) => {
-    const fileId = file.id;
-    if (destinationFolderId !== file.folderId) {
-      await filesService.moveFile({
-        ...actor,
-        fileId,
-        destinationFolderId,
-        idempotencyKey: randomUUID(),
-      });
-      await recordFileAccessBestEffort({ ...actor, fileId, action: "moved" });
+  /** Moves a file or folder; a note when a big folder finishes later. */
+  const moveItem = async (found: Found, destinationFolderId: string) => {
+    if (found.kind === "folder") {
+      const folderId = found.item.id;
+      return changeFolder(found.item, "moved", (idempotencyKey, onPrepared) =>
+        filesService.moveFolder({
+          ...actor,
+          folderId,
+          destinationFolderId,
+          idempotencyKey,
+          onStorageMutationPrepared: onPrepared,
+        }),
+      );
     }
-    if (name !== file.name) {
-      await filesService.renameFile({
-        ...actor,
-        fileId,
-        name,
-        idempotencyKey: randomUUID(),
-      });
-      await recordFileAccessBestEffort({ ...actor, fileId, action: "renamed" });
-    }
+    const fileId = found.item.id;
+    await filesService.moveFile({
+      ...actor,
+      fileId,
+      destinationFolderId,
+      idempotencyKey: randomUUID(),
+    });
+    await recordFileAccessBestEffort({ ...actor, fileId, action: "moved" });
+    return null;
   };
 
-  /** Moves, then renames, one folder; notes when it runs in the background. */
-  const moveFolder = async (
-    folder: FolderSummary,
-    destinationFolderId: string,
-    name: string,
-  ) => {
-    const folderId = folder.id;
-    const moved =
-      destinationFolderId === folder.parentId
-        ? null
-        : await changeFolder(folder, "moved", (idempotencyKey, onPrepared) =>
-            filesService.moveFolder({
-              ...actor,
-              folderId,
-              destinationFolderId,
-              idempotencyKey,
-              onStorageMutationPrepared: onPrepared,
-            }),
-          );
-    if (name === folder.name) return { name, note: moved };
-    // Not an error: the move is under way, and a retry would start another.
-    if (moved) {
-      return {
-        name: folder.name,
-        note: `${moved} It keeps its name until then; call move again to rename it.`,
-      };
-    }
-    const note = await changeFolder(
-      folder,
-      "renamed",
-      (idempotencyKey, onPrepared) =>
+  /** Renames a file or folder; a note when a big folder finishes later. */
+  const renameItem = async (found: Found, name: string) => {
+    if (found.kind === "folder") {
+      const folderId = found.item.id;
+      return changeFolder(found.item, "renamed", (idempotencyKey, onPrepared) =>
         filesService.renameFolder({
           ...actor,
           folderId,
@@ -526,8 +507,17 @@ const registerChanges = (server: McpServer, session: Session) => {
           idempotencyKey,
           onStorageMutationPrepared: onPrepared,
         }),
-    );
-    return { name, note };
+      );
+    }
+    const fileId = found.item.id;
+    await filesService.renameFile({
+      ...actor,
+      fileId,
+      name,
+      idempotencyKey: randomUUID(),
+    });
+    await recordFileAccessBestEffort({ ...actor, fileId, action: "renamed" });
+    return null;
   };
 
   server.registerTool(
@@ -655,17 +645,55 @@ const registerChanges = (server: McpServer, session: Session) => {
       if (!name)
         throw new ToolError('Give the new path, like "/Archive/notes.md".');
       const destination = await lookUpFolder(root, target);
-      let moved: { name: string; note: string | null } = { name, note: null };
-      if (found.kind === "file") {
-        await moveFile(found.item, destination.id, name);
-      } else {
-        moved = await moveFolder(found.item, destination.id, name);
+      const parentId =
+        found.kind === "folder" ? found.item.parentId : found.item.folderId;
+      // Where it is after each step, so the reply says what really happened.
+      const at = {
+        parent: pathFrom(segmentsOf(from).slice(0, -1)),
+        name: found.item.name,
+      };
+      const move =
+        destination.id !== parentId &&
+        (async () => {
+          const note = await moveItem(found, destination.id);
+          at.parent = pathFrom(target);
+          return note;
+        });
+      const rename =
+        name !== found.item.name &&
+        (async () => {
+          const note = await renameItem(found, name);
+          at.name = name;
+          return note;
+        });
+      // Its old name may be taken where it goes while the new one is free.
+      const clash =
+        move &&
+        rename &&
+        (await repo.findActiveNameConflict({
+          ownerUserId,
+          parentId: destination.id,
+          name: found.item.name,
+        }));
+      const steps = (clash ? [rename, move] : [move, rename]).filter(
+        (step) => step !== false,
+      );
+      for (const [index, step] of steps.entries()) {
+        const note = await step();
+        // A step left to the background ends this call; a retry would repeat it.
+        if (note) {
+          const rest =
+            index < steps.length - 1
+              ? " Call move again to finish once that is done."
+              : "";
+          return reply({
+            from,
+            to: joinPath(at.parent, at.name),
+            note: note + rest,
+          });
+        }
       }
-      return reply({
-        from,
-        to: joinPath(pathFrom(target), moved.name),
-        ...(moved.note ? { note: moved.note } : {}),
-      });
+      return reply({ from, to: joinPath(at.parent, at.name) });
     }),
   );
 
