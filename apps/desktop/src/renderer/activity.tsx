@@ -243,7 +243,7 @@ function RowMenu({
           onClick={() => void desktop.syncNow()}
         >
           <RotateCw aria-hidden />
-          {paused ? "Resume sync to retry" : "Retry"}
+          {paused ? "Resume to retry" : "Retry"}
         </ContextMenuItem>
       ) : null}
       {onOpen ? (
@@ -674,7 +674,7 @@ const headline = (state: AppState) => {
       Icon: TriangleAlert,
       color: "var(--warning)",
       title: statusLine(state),
-      detail: "Syncing tries again soon.",
+      detail: "Trying again soon.",
     };
   }
   if (status?.state === "syncing" || status?.state === "starting") {

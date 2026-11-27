@@ -34,6 +34,7 @@ vi.mock("electron", () => ({
     handle: (channel: string, handler: (...args: unknown[]) => unknown) =>
       mocks.handlers.set(channel, handler),
   },
+  nativeTheme: { themeSource: "system" },
   Notification: { isSupported: () => false },
   powerMonitor: { on: vi.fn() },
   utilityProcess: { fork: mocks.fork },
@@ -63,6 +64,8 @@ vi.mock("./settings", () => ({
     setupSkipped: true,
     updateChannel: "auto",
     confirmStopSync: true,
+    filesAtOnce: 4,
+    theme: "system",
   }),
   loadToken: () => "first-token",
   saveSettings: mocks.saveSettings,

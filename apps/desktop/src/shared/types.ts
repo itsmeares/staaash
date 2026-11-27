@@ -1,5 +1,7 @@
 /** Types shared by the main process, the sync engine and the windows. */
 
+import type { Theme } from "@/lib/theme";
+
 /** two-way, server to computer only, or computer to server only. */
 export type SyncMode = "two-way" | "download" | "upload";
 
@@ -40,6 +42,8 @@ export type Settings = {
   minFreeBytes: number;
   uploadLimitKBps: number | null;
   downloadLimitKBps: number | null;
+  /** Files that sync at the same time, in each direction. */
+  filesAtOnce: number;
   /** Epoch ms; 0 pauses until resumed. */
   pausedUntil: number | null;
   startAtLogin: boolean;
@@ -49,6 +53,7 @@ export type Settings = {
   updateChannel: UpdateChannel;
   /** Ask before stopping one file from syncing. */
   confirmStopSync: boolean;
+  theme: Theme;
 };
 
 export type EngineConfig = {
@@ -60,6 +65,7 @@ export type EngineConfig = {
   minFreeBytes: number;
   uploadLimitKBps: number | null;
   downloadLimitKBps: number | null;
+  filesAtOnce: number;
   paused: boolean;
 };
 
@@ -179,7 +185,6 @@ export type ServerFolder = {
 /** Everything the windows show, pushed from the main process. */
 export type AppState = {
   appVersion: string;
-  platform: NodeJS.Platform;
   settings: Settings;
   signedIn: boolean;
   avatarUrl: string | null;
@@ -232,6 +237,8 @@ export type DesktopApi = {
   /** What the tray last asked this window to show, once. */
   takeCommand: () => Promise<WindowCommand | null>;
   onCommand: (listener: () => void) => () => void;
+  /** The drive window's top row follows the web page below it. */
+  onDriveTheme: (listener: (dark: boolean) => void) => () => void;
   installUpdate: () => Promise<void>;
   checkForUpdates: () => Promise<"found" | "current" | "failed">;
   signOut: () => Promise<void>;

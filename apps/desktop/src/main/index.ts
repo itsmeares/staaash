@@ -6,6 +6,7 @@ import {
   app,
   dialog,
   ipcMain,
+  nativeTheme,
   Notification,
   powerMonitor,
   shell,
@@ -82,7 +83,6 @@ const mainLog: SyncLog = (stage, error) => {
 
 const state = (): AppState => ({
   appVersion: app.getVersion(),
-  platform: process.platform,
   settings,
   signedIn: Boolean(token && settings.serverUrl),
   avatarUrl,
@@ -155,6 +155,7 @@ const configureEngine = () => {
       minFreeBytes: settings.minFreeBytes,
       uploadLimitKBps: settings.uploadLimitKBps,
       downloadLimitKBps: settings.downloadLimitKBps,
+      filesAtOnce: settings.filesAtOnce,
       paused: paused(),
     },
   });
@@ -178,6 +179,9 @@ const armResumeTimer = () => {
 
 const updateSettings = async (patch: Partial<Settings>) => {
   settings = { ...settings, ...patch };
+  // Window buttons, menus and macOS window frames follow it.
+  if (nativeTheme.themeSource !== settings.theme)
+    nativeTheme.themeSource = settings.theme;
   await saveSettings(settings);
   armResumeTimer();
   configureEngine();

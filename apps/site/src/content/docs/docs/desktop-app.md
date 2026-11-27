@@ -34,13 +34,19 @@ The installers are not code signed yet, so your computer may stop the first laun
 - **Download only.** Your computer gets what is in the drive. Nothing goes back.
 - **Upload only.** Your computer sends files up. Nothing comes down.
 
-Under **Files to skip** you can leave out names you do not want to sync.
+Under **Files to skip** you can leave out names you do not want to sync, one per line. `*` matches any text and `?` one character. System files such as `.DS_Store` and `Thumbs.db` are always skipped.
 
 :::note[Coming in 2.1]
 To stop syncing one file, such as a big video that is uploading, press the **X** next to it in **Activity**. Both copies stay as they are. To drop a file before it starts, open **N more files waiting**. It lists the next files to sync, and **Biggest** puts the largest first. Under **Folders**, **N skipped** lists every file and folder left out, and **Sync again** brings one back. To stop without the question, tick **Don't ask again**, or turn off **Ask before you stop syncing a file** in Settings.
 :::
 
 Use the tray menu to pause for 1 hour, 1 day, 1 week, or until you resume. The settings also have limits for upload and download speed and for free space on your computer.
+
+The app starts in the tray when you log in. On Hyprland, add `exec-once = staaash --hidden` to your config for the same.
+
+:::note[Coming in 2.1]
+**Theme**, under **General**, picks **System**, **Light** or **Dark** for the app. The drive window follows the theme set in your account instead. **Files at once**, under **Speed**, sets how many files upload and download at the same time, from 1 to 20. The default is 4. More helps with many small files and uses more memory.
+:::
 
 ## Updates
 

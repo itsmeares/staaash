@@ -702,13 +702,13 @@ export function FolderChooser({
               {problem ? note(problem, "text-destructive-foreground") : null}
               {each.skips.length > 0
                 ? note(
-                    `Skips ${[...each.skips].sort().join(", ")}. They stay where they are and do not sync.`,
+                    `Leaves out ${[...each.skips].sort().join(", ")}.`,
                     "text-muted-foreground",
                   )
                 : null}
               {!problem && merges
                 ? note(
-                    "This folder is already on your drive. Their files will be combined.",
+                    "Already on your drive. Files from both are merged.",
                     "text-warning-foreground",
                   )
                 : null}

@@ -3,7 +3,7 @@ import { ChevronRight, Plus } from "lucide-react";
 import { AppLink } from "@/components/app-link";
 import { useState } from "react";
 
-import { BYTES, UnitField } from "@/components/settings-layout";
+import { BYTES, UnitField } from "@staaash/ui/components/unit-field";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@staaash/ui/components/badge";
 import { Button } from "@staaash/ui/components/button";

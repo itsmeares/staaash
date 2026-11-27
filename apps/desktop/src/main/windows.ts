@@ -16,9 +16,11 @@ export const browserDownloads = new BrowserDownloads();
 const PRELOAD = path.join(__dirname, "../preload/index.cjs");
 const PAGE = path.join(__dirname, "../renderer/index.html");
 
-const background = () =>
+const systemDark = () => nativeTheme.shouldUseDarkColors;
+
+const background = (dark = systemDark()) =>
   // The app's dark and light canvas, so a window never flashes white.
-  nativeTheme.shouldUseDarkColors ? "#090807" : "#f6f4f2";
+  dark ? "#090807" : "#f6f4f2";
 
 const ICON = app.isPackaged
   ? path.join(process.resourcesPath, "icon.png")
@@ -33,9 +35,9 @@ const customTitleBar = hasCustomTitleBar(
   process.env.XDG_CURRENT_DESKTOP,
 );
 
-const buttons = () => ({
-  color: background(),
-  symbolColor: nativeTheme.shouldUseDarkColors ? "#efeeec" : "#1d1a17",
+const buttons = (dark = systemDark()) => ({
+  color: background(dark),
+  symbolColor: dark ? "#efeeec" : "#1d1a17",
   height: BUTTONS_HEIGHT,
 });
 
@@ -49,10 +51,18 @@ const titleBar = (): Electron.BrowserWindowConstructorOptions => {
     : { titleBarStyle: "hidden", titleBarOverlay: buttons() };
 };
 
+const paint = (window: BrowserWindow, dark: boolean) => {
+  window.setBackgroundColor(background(dark));
+  if (customTitleBar && process.platform !== "darwin")
+    window.setTitleBarOverlay(buttons(dark));
+};
+
+/** The web drive's theme, once its page reports one. */
+let driveDark: boolean | null = null;
+
 nativeTheme.on("updated", () => {
-  if (!customTitleBar || process.platform === "darwin") return;
   for (const window of BrowserWindow.getAllWindows()) {
-    window.setTitleBarOverlay(buttons());
+    if (window !== appWindow || driveDark === null) paint(window, systemDark());
   }
 });
 
@@ -172,7 +182,18 @@ export const openAppWindow = async (
   });
   window.on("closed", () => {
     appWindow = null;
+    driveDark = null;
     if (!contents.isDestroyed()) contents.close();
+  });
+  contents.ipc.on("drive-theme", (_event, dark: unknown) => {
+    if (typeof dark !== "boolean" || window.isDestroyed()) return;
+    driveDark = dark;
+    paint(window, dark);
+    window.webContents.send("drive-theme", dark);
+  });
+  // The drive may report before the top row is listening.
+  window.webContents.on("did-finish-load", () => {
+    if (driveDark !== null) window.webContents.send("drive-theme", driveDark);
   });
   if (customTitleBar) void window.loadFile(PAGE, { search: "top-row" });
   // Server pages may link anywhere; only web links leave the app.

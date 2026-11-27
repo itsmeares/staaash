@@ -86,6 +86,7 @@ const configOf = (pairs: SyncPair[]): EngineConfig =>
     minFreeBytes: 0,
     uploadLimitKBps: null,
     downloadLimitKBps: null,
+    filesAtOnce: 4,
     paused: false,
   }) as EngineConfig;
 

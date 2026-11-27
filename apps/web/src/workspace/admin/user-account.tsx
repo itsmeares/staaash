@@ -7,13 +7,12 @@ import { KeyList } from "@/components/key-list";
 import type { Device } from "@/lib/user-agent";
 import type { KeyView } from "@/server/auth/keys";
 import {
-  BYTES,
   SettingsCard,
   SettingsGroup,
   SettingsRow,
   SettingsText,
-  UnitField,
 } from "@/components/settings-layout";
+import { BYTES, UnitField } from "@staaash/ui/components/unit-field";
 import { Alert } from "@staaash/ui/components/alert";
 import { Badge } from "@staaash/ui/components/badge";
 import { Button } from "@staaash/ui/components/button";

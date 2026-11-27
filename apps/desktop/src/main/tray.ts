@@ -39,11 +39,17 @@ const iconFor = (state: AppState): TrayIcon => {
 };
 
 const image = (icon: TrayIcon) => {
-  // macOS tints "Template" images for light and dark menu bars itself.
+  // macOS tints "Template" images for light and dark menu bars itself. The
+  // icon sits on the taskbar, so on Windows it follows the taskbar's theme,
+  // not the app's; Linux has no way to tell the two apart.
+  const darkBar =
+    process.platform === "win32"
+      ? nativeTheme.shouldUseDarkColorsForSystemIntegratedUI
+      : nativeTheme.shouldUseDarkColors;
   const file =
     process.platform === "darwin"
       ? `${icon}Template.png`
-      : `${icon}-${nativeTheme.shouldUseDarkColors ? "light" : "dark"}.png`;
+      : `${icon}-${darkBar ? "light" : "dark"}.png`;
   return nativeImage.createFromPath(path.join(iconDir(), file));
 };
 
