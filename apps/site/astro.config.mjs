@@ -27,6 +27,16 @@ export default defineConfig({
       pagination: true,
       head: [
         ...umamiHead("staaash.org"),
+        // Google Search does not list SVG as a favicon format.
+        {
+          tag: "link",
+          attrs: {
+            rel: "icon",
+            href: "/favicon-96.png",
+            sizes: "96x96",
+            type: "image/png",
+          },
+        },
         ...previewImage(
           "og-docs.png",
           "Staaash docs, with the pixel drive mark.",
