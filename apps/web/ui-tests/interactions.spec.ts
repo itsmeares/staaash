@@ -250,38 +250,49 @@ test("opens a job's runs and fixes its failed run in Details", async ({
   expect(errors).toEqual([]);
 });
 
-test("keeps the newest run list when an older read lands late", async ({
+test("keeps the newest runs when an older refresh's body lands late", async ({
   page,
 }) => {
   await page.request.post("/__ui/scenario", { form: { scenario: "error" } });
-  let late: () => void;
-  const landed = new Promise<void>((resolve) => (late = resolve));
-  let first = true;
-  await page.route(/\/api\/admin\/jobs\?kind=media/, async (route) => {
-    if (!first) return route.continue();
-    first = false;
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    await route.fulfill({ json: { items: [] } });
-    late();
+  // No live pushes, so only the two list reads below can change the card.
+  await page.route("**/api/admin/live**", (route) => route.abort());
+  // The first run-list reply arrives at once, but its body comes later.
+  await page.addInitScript(() => {
+    const flags = window as unknown as Record<string, boolean>;
+    const original = window.fetch;
+    window.fetch = async (input, init) => {
+      const url = String(input instanceof Request ? input.url : input);
+      if (flags.lateStarted || !url.includes("jobs?kind=staging.cleanup"))
+        return original(input, init);
+      flags.lateStarted = true;
+      const body = new ReadableStream({
+        start(controller) {
+          setTimeout(() => {
+            controller.enqueue(new TextEncoder().encode('{"items":[]}'));
+            controller.close();
+            flags.lateDone = true;
+          }, 1500);
+        },
+      });
+      return new Response(body, {
+        headers: { "content-type": "application/json" },
+      });
+    };
   });
   await page.goto("/admin/jobs");
-  const details = page
+  const card = page
     .getByRole("article")
-    .filter({ hasText: "Create preview files" })
-    .getByRole("button", { name: "Details", exact: true });
-  await details.click();
-  await page.keyboard.press("Escape");
-  await details.click();
-  await page.getByRole("tab", { name: "All runs" }).click();
-  const rows = page
-    .getByRole("dialog")
-    .getByRole("list", { name: "Runs" })
-    .getByRole("listitem");
-  await expect(rows.nth(1)).toBeVisible();
-  const count = await rows.count();
-  await landed;
+    .filter({ hasText: "Clean temporary uploads" });
+  await card.getByRole("button", { name: "Run now" }).click();
+  await page.waitForFunction(() => "lateStarted" in window);
+  await card.getByRole("button", { name: "Details", exact: true }).click();
+  const runs = page.getByRole("dialog").getByRole("list", { name: "Runs" });
+  await expect(runs.getByRole("listitem")).toHaveCount(1);
+  await page.waitForFunction(() => "lateDone" in window);
   await page.waitForTimeout(300);
-  await expect(rows).toHaveCount(count);
+  await expect(runs.getByRole("listitem")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(card.getByText("Hasn't run yet.")).toHaveCount(0);
 });
 
 test("keeps a person's changes until Save, and Discard puts them back", async ({
