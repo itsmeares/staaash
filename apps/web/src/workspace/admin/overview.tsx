@@ -141,13 +141,19 @@ const updateItem = (
 };
 
 const restoreItem = ({ health: { reconciliation } }: Summary): Item[] => {
-  if (reconciliation.status === "healthy") return [];
+  // A queued or running check reports a warning too, but has no result yet.
+  const { status, runStatus } = reconciliation;
+  if (status === "healthy" || runStatus === "queued" || runStatus === "running")
+    return [];
   return [
     {
       key: "restore",
       icon: AlertTriangle,
-      tone: reconciliation.status,
-      title: "The restore check found a problem",
+      tone: status,
+      title:
+        runStatus === "failed"
+          ? "The restore check failed"
+          : "The restore check found a problem",
       detail: reconciliation.message,
       action: linkButton("/admin/maintenance", "See check"),
     },
