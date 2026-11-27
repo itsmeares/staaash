@@ -746,9 +746,17 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
   };
   const biggestWaiting = () => {
     const top: Action[] = [];
+    let gaps = 0;
     let i = firstWaiting(biggest, lanes.length);
     for (; i < biggest.length && top.length < LISTED; i += 1) {
       if (queued.has(biggest[i]!)) top.push(biggest[i]!);
+      else gaps += 1;
+    }
+    // Lanes start files of any size, so started ones leave gaps all through
+    // this list. Dropping them once a read steps over many keeps reads short.
+    if (gaps > LISTED) {
+      biggest = biggest.filter((action) => queued.has(action));
+      starts[lanes.length] = 0;
     }
     return top;
   };
