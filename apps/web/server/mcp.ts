@@ -35,6 +35,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_WRITE_CHARS = 1_000_000;
 const LIST_PAGE = 200;
 const SEARCH_RESULTS = 25;
+const RECENT_PAGE = 500;
 // What vision models take; HEIC and the rest would only waste the call.
 const PICTURE_TYPES = new Set([
   "image/png",
@@ -156,6 +157,36 @@ const folderPaths = async (root: FolderSummary, folderIds: string[]) => {
     }
     return null;
   };
+};
+
+/** Search and recent items as paths below the root; the rest is left out. */
+const underRoot = async (
+  root: FolderSummary,
+  items: Awaited<ReturnType<typeof getRetrievalPage>>["items"],
+) => {
+  const pathOf = await folderPaths(
+    root,
+    items.flatMap((item) =>
+      item.kind === "folder" ? [item.id] : item.folderId ? [item.folderId] : [],
+    ),
+  );
+  return items.flatMap((item) => {
+    if (item.kind === "folder") {
+      const path = pathOf(item.id);
+      return path && path !== "/" ? [{ path, kind: "folder" }] : [];
+    }
+    const parent = pathOf(item.folderId);
+    return parent
+      ? [
+          {
+            path: joinPath(parent, item.name),
+            kind: "file",
+            type: item.mimeType,
+            bytes: item.sizeBytes,
+          },
+        ]
+      : [];
+  });
 };
 
 const describe = (path: string, found: Found) =>
@@ -284,44 +315,30 @@ const registerReads = (server: McpServer, session: Session) => {
     },
     run(async ({ query }) => {
       const root = await rootOf(session);
-      const page = query.trim()
-        ? await getSearchPage(ownerUserId, query, {
-            limit: SEARCH_RESULTS,
-            usableOnly: true,
-            withinFolderId: session.key?.folderId ?? undefined,
-          })
-        : await getRetrievalPage(ownerUserId, "recent", {
-            limit: 50,
-            liveOnly: true,
-            usableOnly: true,
-          });
-      const pathOf = await folderPaths(
-        root,
-        page.items.flatMap((item) =>
-          item.kind === "folder"
-            ? [item.id]
-            : item.folderId
-              ? [item.folderId]
-              : [],
-        ),
-      );
-      const results = page.items.flatMap((item) => {
-        if (item.kind === "folder") {
-          const path = pathOf(item.id);
-          return path && path !== "/" ? [{ path, kind: "folder" }] : [];
-        }
-        const parent = pathOf(item.folderId);
-        return parent
-          ? [
-              {
-                path: joinPath(parent, item.name),
-                kind: "file",
-                type: item.mimeType,
-                bytes: item.sizeBytes,
-              },
-            ]
-          : [];
-      });
+      if (query.trim()) {
+        const page = await getSearchPage(ownerUserId, query, {
+          limit: SEARCH_RESULTS,
+          usableOnly: true,
+          withinFolderId: session.key?.folderId ?? undefined,
+        });
+        return reply({ results: await underRoot(root, page.items) });
+      }
+      // Recent covers the whole drive, so a folder key reads on past the rest.
+      const results = [];
+      for (
+        let offset = 0;
+        results.length < SEARCH_RESULTS;
+        offset += RECENT_PAGE
+      ) {
+        const page = await getRetrievalPage(ownerUserId, "recent", {
+          offset,
+          limit: RECENT_PAGE,
+          liveOnly: true,
+          usableOnly: true,
+        });
+        results.push(...(await underRoot(root, page.items)));
+        if (page.items.length < RECENT_PAGE) break;
+      }
       return reply({ results: results.slice(0, SEARCH_RESULTS) });
     }),
   );
@@ -471,12 +488,11 @@ const registerChanges = (server: McpServer, session: Session) => {
     }
   };
 
-  /** Moves, then renames, one folder; says so when it runs in the background. */
+  /** Moves, then renames, one folder; notes when it runs in the background. */
   const moveFolder = async (
     folder: FolderSummary,
     destinationFolderId: string,
     name: string,
-    from: string,
   ) => {
     const folderId = folder.id;
     const moved =
@@ -491,21 +507,27 @@ const registerChanges = (server: McpServer, session: Session) => {
               onStorageMutationPrepared: onPrepared,
             }),
           );
-    if (name === folder.name) return moved;
+    if (name === folder.name) return { name, note: moved };
+    // Not an error: the move is under way, and a retry would start another.
     if (moved) {
-      throw new ToolError(
-        `Moving ${from} started. ${moved} Rename it once that is done.`,
-      );
+      return {
+        name: folder.name,
+        note: `${moved} It keeps its name until then; call move again to rename it.`,
+      };
     }
-    return changeFolder(folder, "renamed", (idempotencyKey, onPrepared) =>
-      filesService.renameFolder({
-        ...actor,
-        folderId,
-        name,
-        idempotencyKey,
-        onStorageMutationPrepared: onPrepared,
-      }),
+    const note = await changeFolder(
+      folder,
+      "renamed",
+      (idempotencyKey, onPrepared) =>
+        filesService.renameFolder({
+          ...actor,
+          folderId,
+          name,
+          idempotencyKey,
+          onStorageMutationPrepared: onPrepared,
+        }),
     );
+    return { name, note };
   };
 
   server.registerTool(
@@ -633,16 +655,16 @@ const registerChanges = (server: McpServer, session: Session) => {
       if (!name)
         throw new ToolError('Give the new path, like "/Archive/notes.md".');
       const destination = await lookUpFolder(root, target);
-      let note: string | null = null;
+      let moved: { name: string; note: string | null } = { name, note: null };
       if (found.kind === "file") {
         await moveFile(found.item, destination.id, name);
       } else {
-        note = await moveFolder(found.item, destination.id, name, from);
+        moved = await moveFolder(found.item, destination.id, name);
       }
       return reply({
         from,
-        to: joinPath(pathFrom(target), name),
-        ...(note ? { note } : {}),
+        to: joinPath(pathFrom(target), moved.name),
+        ...(moved.note ? { note: moved.note } : {}),
       });
     }),
   );

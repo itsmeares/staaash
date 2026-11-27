@@ -160,6 +160,44 @@ describe("MCP", () => {
     ).toBe("Nothing is at /Work/secret.txt.");
   });
 
+  it("finds a folder key's recent files behind many newer ones elsewhere", async () => {
+    const { id, trips, work } = await drive();
+    const token = await key(id, { folderId: trips });
+    const plan = await db.file.findFirstOrThrow({
+      where: { ownerUserId: id, folderId: trips },
+    });
+    const elsewhere = Array.from({ length: 520 }, (_, index) => ({
+      id: randomUUID(),
+      ownerUserId: id,
+      folderId: work,
+      originalName: `log-${index}.txt`,
+      storageKey: randomUUID(),
+      mimeType: "text/plain",
+      sizeBytes: 1,
+    }));
+    await db.file.createMany({ data: elsewhere });
+    const now = Date.now();
+    await db.recentFile.createMany({
+      data: [
+        {
+          userId: id,
+          fileId: plan.id,
+          lastInteractedAt: new Date(now - 60_000_000),
+        },
+        ...elsewhere.map((file, index) => ({
+          userId: id,
+          fileId: file.id,
+          lastInteractedAt: new Date(now - index * 1000),
+        })),
+      ],
+    });
+
+    const recent = json((await tool(token, "search")).text);
+    expect(recent.results).toEqual([
+      expect.objectContaining({ path: "/plan.md" }),
+    ]);
+  });
+
   it("sees the whole drive without a folder", async () => {
     const { id } = await drive();
     const token = await key(id);
