@@ -110,9 +110,9 @@ An AI app reads what is in your files, and a file can hold text written to trick
 
 ## Use a key in a script
 
-Send the key in the `Authorization` header. Don't type the key into the command itself: the shell saves it in its history, and other people on the computer can see a running command. Paste it into `read` instead, and let `curl` read the header from its input:
+Send the key in the `Authorization` header. Don't type the key into the command itself: the shell saves it in its history, and other people on the computer can see a running command. In Bash or Zsh, paste it into `read` instead, and let `curl` read the header from its input:
 
-```sh
+```bash
 read -rs STAAASH_KEY
 printf 'Authorization: Bearer %s' "$STAAASH_KEY" | curl -H @- "https://drive.example.com/api/search?q=report"
 ```

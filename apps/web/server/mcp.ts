@@ -26,6 +26,7 @@ import type {
 } from "@/server/files/types";
 import { actorOf, type Session } from "@/server/http/core";
 import { hydrateRetrievalPage } from "@/server/retrieval/page";
+import { storageReadPredicate } from "@/server/storage-read-guard";
 import {
   recordFileAccessBestEffort,
   recordFolderAccessBestEffort,
@@ -182,7 +183,9 @@ const recentUnder = async (root: FolderSummary) => {
       FROM "RecentFolder" r JOIN "Folder" f ON f.id = r."folderId"
       WHERE r."userId" = ${userId} AND f."deletedAt" IS NULL
         AND f."parentId" IN (SELECT id FROM within)
-    ) recent ORDER BY at DESC, id LIMIT ${SEARCH_RESULTS}`);
+    ) recent
+    WHERE ${storageReadPredicate(userId, Prisma.sql`recent.id`, Prisma.sql`recent.kind`)}
+    ORDER BY at DESC, id LIMIT ${SEARCH_RESULTS}`);
   const page = await hydrateRetrievalPage(userId, {
     items: rows,
     total: rows.length,

@@ -505,7 +505,6 @@ export function NewKeyButton() {
       open={open}
       onOpenChange={(next) => {
         if (next) setMade(null);
-        else if (made) void refresh();
         setOpen(next);
       }}
     >
@@ -522,6 +521,7 @@ export function NewKeyButton() {
               // Closed while it was being made: open again, or the key is lost.
               setMade(next);
               setOpen(true);
+              void refresh();
             }}
           />
         )}

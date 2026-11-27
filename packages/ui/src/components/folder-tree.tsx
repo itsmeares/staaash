@@ -80,7 +80,7 @@ export function FolderTreeRow({
       aria-level={depth + 1}
       aria-selected={picked}
       className={cn(
-        "relative flex h-9 cursor-pointer items-center gap-1.5 rounded-lg pe-2 text-body outline-none select-none hover:bg-hover aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-selected:selected-pill",
+        "relative flex h-9 cursor-pointer items-center gap-1.5 rounded-lg pe-2 text-body outline-none select-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-selected:selected-pill",
       )}
       ref={ref}
       role="treeitem"
