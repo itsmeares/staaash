@@ -34,6 +34,12 @@ Staaash shows a notice in the app when a new version exists. Admins can also pre
 
 Staaash updates its own database when it starts. Give it a minute.
 
+:::note[Coming in v2.1.0]
+The compose file no longer has a separate `migrate` service. The first `docker compose up -d` with the new file warns about an orphan container from it. Remove it with `docker compose up -d --remove-orphans`.
+
+If a tool manages your compose file for you, such as CasaOS, import the new `docker-compose.yml` instead of only changing the version. Some tools set the old `migrate` service to restart forever, which leaves the server and worker at **Created**. If that already happened, run `docker update --restart=no staaash-migrate-1`, wait until it shows as exited, then run `docker start staaash_server staaash_worker`.
+:::
+
 On the Windows server installer, run the newer installer instead. See [Windows Server](/docs/windows-server/).
 
 ## Check that it worked

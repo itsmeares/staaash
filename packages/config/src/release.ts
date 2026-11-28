@@ -383,10 +383,13 @@ export const renderReleaseCompose = ({
   releaseTag: string;
 }) => {
   requireReleaseTag(releaseTag);
+  // Every service that runs Staaash must take its image from the fallback,
+  // so a generated file can never pin some other image.
   const count = countMatches(source, RELEASE_IMAGE_FALLBACK_PATTERN);
-  if (count !== 3) {
+  const references = countMatches(source, /ghcr\.io\/itsmeares\/staaash\b/gu);
+  if (count === 0 || count !== references) {
     throw new Error(
-      `Expected 3 Staaash image fallbacks in Compose source; found ${count}.`,
+      `Expected every Staaash image in Compose source to use the release fallback; found ${count} of ${references}.`,
     );
   }
 
@@ -420,12 +423,17 @@ export const renderReleaseEnv = ({
 export const findResolvedReleaseImageErrors = ({
   images,
   expectedReference,
+  expectedCount,
 }: {
   images: string[];
   expectedReference: string;
+  /** Services that run Staaash in the generated Compose file. */
+  expectedCount: number;
 }): string[] => {
-  if (images.length !== 3) {
-    return [`resolved ${images.length} Staaash images; expected 3`];
+  if (expectedCount < 1 || images.length !== expectedCount) {
+    return [
+      `resolved ${images.length} Staaash images; expected ${expectedCount}`,
+    ];
   }
   return images.every((image) => image === expectedReference)
     ? []

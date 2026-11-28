@@ -313,8 +313,6 @@ describe("release policy", () => {
     (releaseTag) => {
       const composeSource = [
         "services:",
-        "  migrate:",
-        "    image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}",
         "  web:",
         "    image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}",
         "  worker:",
@@ -330,7 +328,7 @@ describe("release policy", () => {
       });
       const environment = renderReleaseEnv({ source: envSource, releaseTag });
 
-      expect(compose.match(new RegExp(releaseTag, "gu"))).toHaveLength(3);
+      expect(compose.match(new RegExp(releaseTag, "gu"))).toHaveLength(2);
       expect(compose).toContain(
         `ghcr.io/scratch/staaash:\${STAAASH_VERSION:-${releaseTag}}`,
       );
@@ -360,7 +358,7 @@ describe("release policy", () => {
       releaseTag,
     });
 
-    expect(compose.match(/v1\.2\.3/gu)).toHaveLength(3);
+    expect(compose.match(/v1\.2\.3/gu)).toHaveLength(2);
     expect(compose).not.toContain("${STAAASH_VERSION:-latest}");
     expect(compose).not.toContain("@sha256:");
     expect(environment).toContain(`STAAASH_VERSION=${releaseTag}`);
@@ -371,16 +369,32 @@ describe("release policy", () => {
     const immutableReference = `${tagReference}@${DIGEST_A}`;
     expect(
       findResolvedReleaseImageErrors({
-        images: [tagReference, tagReference, tagReference],
+        images: [tagReference, tagReference],
         expectedReference: tagReference,
+        expectedCount: 2,
       }),
     ).toEqual([]);
     expect(
       findResolvedReleaseImageErrors({
-        images: [immutableReference, immutableReference, immutableReference],
+        images: [immutableReference, immutableReference],
         expectedReference: immutableReference,
+        expectedCount: 2,
       }),
     ).toEqual([]);
+    expect(
+      findResolvedReleaseImageErrors({
+        images: [tagReference],
+        expectedReference: tagReference,
+        expectedCount: 2,
+      }),
+    ).toEqual(["resolved 1 Staaash images; expected 2"]);
+    expect(
+      findResolvedReleaseImageErrors({
+        images: [],
+        expectedReference: tagReference,
+        expectedCount: 0,
+      }),
+    ).toEqual(["resolved 0 Staaash images; expected 0"]);
   });
 
   it("fails closed when generated tags or source anchors drift", () => {
@@ -390,7 +404,23 @@ describe("release policy", () => {
         imageRepository: IMAGE_REPOSITORY,
         releaseTag: "v1.2.3",
       }),
-    ).toThrow("Expected 3 Staaash image fallbacks");
+    ).toThrow(
+      "Expected every Staaash image in Compose source to use the release fallback",
+    );
+    expect(() =>
+      renderReleaseCompose({
+        source: [
+          "services:",
+          "  web:",
+          "    image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}",
+          "  worker:",
+          "    image: ghcr.io/itsmeares/staaash:v2.0.0",
+          "",
+        ].join("\n"),
+        imageRepository: IMAGE_REPOSITORY,
+        releaseTag: "v1.2.3",
+      }),
+    ).toThrow("found 1 of 2");
     expect(() =>
       renderReleaseEnv({
         source: "STAAASH_VERSION=v1.2.2\n",

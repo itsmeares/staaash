@@ -23,16 +23,24 @@ const withClient = async <T>(
   databaseUrl: string,
   work: (client: Client) => Promise<T>,
 ) => {
+  // A probe that hangs on a stalled network would hang its caller too: the
+  // readiness route, or the worker's migration wait and its heartbeat.
   const client = new Client({
     connectionString: databaseUrl,
+    connectionTimeoutMillis: 5_000,
+    query_timeout: 10_000,
   });
+  // A dropped connection also rejects the pending query, which is how the
+  // caller hears of it. Unheard, the event alone would crash the process.
+  client.on("error", () => {});
 
   await client.connect();
 
   try {
     return await work(client);
   } finally {
-    await client.end();
+    // Closing waits on the same network, so it is not awaited either.
+    client.end().catch(() => {});
   }
 };
 
@@ -60,6 +68,34 @@ export const probeDatabaseReachability = async (
       message: getErrorMessage(error),
     };
   }
+};
+
+// The newest folder in prisma/migrations, set at build time (vite.config.ts).
+declare const __STAAASH_LATEST_MIGRATION__: string;
+
+/**
+ * Whether the database has every migration this build ships: the newest one
+ * finished and none left half applied. Throws while the database cannot be
+ * reached or has never been migrated.
+ */
+export const areMigrationsApplied = async (
+  databaseUrl = process.env.DATABASE_URL,
+) => {
+  if (!databaseUrl) throw new Error("DATABASE_URL is not configured.");
+  return withClient(databaseUrl, async (client) => {
+    const result = await client.query<{ ready: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM "_prisma_migrations"
+         WHERE migration_name = $1
+           AND finished_at IS NOT NULL AND rolled_back_at IS NULL
+       ) AND NOT EXISTS (
+         SELECT 1 FROM "_prisma_migrations"
+         WHERE finished_at IS NULL AND rolled_back_at IS NULL
+       ) AS ready`,
+      [__STAAASH_LATEST_MIGRATION__],
+    );
+    return result.rows[0]?.ready === true;
+  });
 };
 
 export const getQueueBacklogSummary = async (

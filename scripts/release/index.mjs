@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import {
   mkdtemp,
   mkdir,
@@ -1113,6 +1113,7 @@ const requireResolvedReleaseImages = ({
   images,
   imageRepository,
   expectedReference,
+  expectedCount,
   mode,
 }) => {
   const applicationImages = images.filter((image) =>
@@ -1121,6 +1122,7 @@ const requireResolvedReleaseImages = ({
   const errors = findResolvedReleaseImageErrors({
     images: applicationImages,
     expectedReference,
+    expectedCount,
   });
   if (errors.length > 0) {
     throw new Error(
@@ -1136,12 +1138,18 @@ const validateRenderedAssets = ({
   immutableReference,
 }) => {
   const baseEnvironment = withoutStaaashVersion();
+  // renderReleaseCompose put the release fallback on every Staaash image.
+  const expectedCount =
+    readFileSync(path.join(directory, "docker-compose.yml"), "utf8").split(
+      `${imageRepository}:\${STAAASH_VERSION:-${releaseTag}}`,
+    ).length - 1;
   requireResolvedReleaseImages({
     images: resolveComposeImages({
       directory,
       environment: baseEnvironment,
     }),
     imageRepository,
+    expectedCount,
     expectedReference: `${imageRepository}:${releaseTag}`,
     mode: "tag default",
   });
@@ -1158,6 +1166,7 @@ const validateRenderedAssets = ({
       },
     }),
     imageRepository,
+    expectedCount,
     expectedReference: immutableReference,
     mode: "immutable override",
   });
@@ -1173,6 +1182,7 @@ const validateRenderedAssets = ({
         files: ["docker-compose.yml", "compose.https.yml"],
       }),
       imageRepository,
+      expectedCount,
       expectedReference: `${imageRepository}:${releaseTag}`,
       mode: "HTTPS",
     });

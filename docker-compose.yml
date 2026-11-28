@@ -10,21 +10,12 @@ x-logging: &logging
     max-file: "3"
 
 services:
-  migrate:
-    image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}
-    command: prisma migrate deploy
-    environment:
-      DATABASE_URL: *database-url
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: "no"
-    logging: *logging
-
   staaash:
     container_name: staaash_server
     image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}
-    command: node dist/server/main.mjs
+    # The image's own command runs the database migrations, then the server.
+    # The worker waits for them itself, so no one-time job has to stay
+    # stopped, whatever restart policy a tool like CasaOS writes.
 
     environment:
       NODE_ENV: production
@@ -49,8 +40,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
 
     ports:
       - "${STAAASH_PORT:-2113}:2113"
@@ -93,8 +82,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
 
     restart: always
     logging: *logging
