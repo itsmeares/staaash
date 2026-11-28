@@ -31,12 +31,13 @@ const build = `${version} ${JSON.stringify(__DEMO_ASSET_SIZES__)}`;
 let drive: ReturnType<typeof openSavedDrive> | undefined;
 const { app } = createPreviewApp(async (c, next) => {
   // A failed start is retried on the next request instead of kept.
-  drive ??= openSavedDrive(build, () => seedState(assets, "demo")).catch(
-    (error: unknown) => {
-      drive = undefined;
-      throw error;
-    },
-  );
+  // The root demo keeps "staaash-demo", so visitors keep their drives.
+  drive ??= openSavedDrive(`staaash-demo${base}`, build, () =>
+    seedState(assets, "demo"),
+  ).catch((error: unknown) => {
+    drive = undefined;
+    throw error;
+  });
   const { state, save } = await drive;
   c.set("state", state);
   c.set("assets", assets);

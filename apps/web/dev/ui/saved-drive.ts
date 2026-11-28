@@ -19,8 +19,8 @@ const result = <T>(request: IDBRequest<T>) =>
     request.onerror = () => reject(request.error);
   });
 
-function open() {
-  const request = indexedDB.open("staaash-demo", 1);
+function open(name: string) {
+  const request = indexedDB.open(name, 1);
   request.onupgradeneeded = () => {
     request.result.createObjectStore("drive");
     request.result.createObjectStore("blobs");
@@ -64,8 +64,16 @@ export function restoreDrive(
   return { state, kept: false };
 }
 
-export async function openSavedDrive(version: string, seed: () => State) {
-  const db = await open();
+/**
+ * `name` is the browser storage to use. Demos on one site need their own, or
+ * opening one would reset the other's drive.
+ */
+export async function openSavedDrive(
+  name: string,
+  version: string,
+  seed: () => State,
+) {
+  const db = await open(name);
   const { saved, blobs } = await readSaved(db);
   const { state, kept } = restoreDrive(saved, version, seed);
   state.blobs = kept ? blobs : new Map();

@@ -1,10 +1,18 @@
-import { ArrowUpRight, Link2, RotateCcw } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  FlaskConical,
+  Link2,
+  RotateCcw,
+} from "lucide-react";
 import { useEffect } from "react";
 
 import { confirmAction } from "@/components/confirm-dialog";
 import { appPath } from "@/lib/app-path";
+import { version } from "../../../../package.json";
 import { onDemoUpdate } from "@/dev/ui/start-demo";
-import { demoShareToken } from "@/lib/demo";
+import { demoCandidate, demoShareToken, demoStable } from "@/lib/demo";
+import { Badge } from "@staaash/ui/components/badge";
 import { Button } from "@staaash/ui/components/button";
 import { toastManager } from "@staaash/ui/components/toast";
 
@@ -24,10 +32,33 @@ async function resetDemo() {
   window.location.assign(appPath("/"));
 }
 
+/** A long label, and a short one where a phone has no room for it. */
+function Label({ long, short }: { long: string; short: string }) {
+  return (
+    <>
+      <span className="max-sm:hidden">{long}</span>
+      <span className="sm:hidden">{short}</span>
+    </>
+  );
+}
+
+/** 2.1.0-rc.1 reads as 2.1, and 2.1.1-rc.1 as 2.1.1. */
+const shortVersion = (version: string) =>
+  version.split("-")[0]!.replace(/\.0$/, "");
+
 /** The public demo's own controls, above the drive. */
 export function DemoBar() {
   return (
     <div className="flex shrink-0 items-center gap-1 px-3 pb-2 sm:ps-0.5 sm:pe-3.5">
+      {demoStable ? (
+        <Badge
+          className="ms-2 me-1.5 sm:ms-1.5"
+          title={`v${version}`}
+          variant="warning"
+        >
+          <Label long="Release candidate" short="RC" />
+        </Badge>
+      ) : null}
       <Button
         render={
           <a
@@ -40,14 +71,44 @@ export function DemoBar() {
         variant="ghost-muted"
       >
         <Link2 aria-hidden className="max-xs:hidden" />
-        Try a share link
+        <Label long="Try a share link" short="Share link" />
       </Button>
       <Button size="xs" variant="ghost-muted" onClick={() => void resetDemo()}>
         <RotateCcw aria-hidden className="max-xs:hidden" />
-        Reset demo
+        <Label long="Reset demo" short="Reset" />
       </Button>
+      {demoStable ? (
+        <Button
+          className="ms-auto"
+          // The RC demo sits one folder below the stable one.
+          render={<a href={`${import.meta.env.BASE_URL}../`} />}
+          size="xs"
+          variant="ghost-muted"
+        >
+          <ArrowLeft aria-hidden />
+          <Label
+            long={`Back to v${demoStable}`}
+            short={`v${shortVersion(demoStable)}`}
+          />
+        </Button>
+      ) : null}
+      {demoCandidate ? (
+        <Button
+          className="ms-auto"
+          render={<a href={`${import.meta.env.BASE_URL}rc/`} />}
+          size="xs"
+          title={`v${demoCandidate}, a release candidate`}
+          variant="outline"
+        >
+          <FlaskConical aria-hidden className="max-xs:hidden" />
+          <Label
+            long={`Try v${shortVersion(demoCandidate)} early`}
+            short={`Try v${shortVersion(demoCandidate)}`}
+          />
+        </Button>
+      ) : null}
       <Button
-        className="ms-auto"
+        className={demoStable || demoCandidate ? undefined : "ms-auto"}
         render={
           <a
             href="https://staaash.org/docs/installation/"
@@ -58,7 +119,7 @@ export function DemoBar() {
         size="xs"
         variant="tinted"
       >
-        Install Staaash
+        <Label long="Install Staaash" short="Install" />
         <ArrowUpRight aria-hidden />
       </Button>
     </div>

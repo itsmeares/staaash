@@ -80,8 +80,10 @@ storage, authentication, database, and worker verification.
 The public demo is the same preview built to run entirely in the browser: a
 service worker answers the API and saves each visitor's drive in browser
 storage. `pnpm --filter web demo:build` writes it to `apps/web/dist/demo`.
-`STAAASH_DEMO_URL` sets its address and base path. Each release publishes it to
-GitHub Pages at demo.staaash.org.
+`STAAASH_DEMO_URL` sets its address and base path. Each release publishes the
+newest stable release to GitHub Pages at demo.staaash.org, and a newer release
+candidate, if there is one, at demo.staaash.org/rc/. Each demo links to the
+other from its demo bar.
 
 The desktop app lives in `apps/desktop`. Run it with
 `pnpm desktop:dev`, then sign in to

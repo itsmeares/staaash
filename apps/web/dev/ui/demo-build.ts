@@ -56,18 +56,29 @@ export function demoBuild(): Plugin {
           `<meta name="twitter:card" content="summary_large_image" />`,
         ].join("\n    "),
       ),
-      // Umami on stats.staaash.org counts visits and heatmaps, only on the
-      // public demo's own domain.
-      tags: ["script.js", "recorder.js"].map((file) => ({
-        tag: "script",
-        attrs: {
-          src: `https://stats.staaash.org/${file}`,
-          defer: true,
-          "data-website-id": "ea6c5694-5f6c-4062-96ce-b833a9dc7366",
-          "data-domains": new URL(siteUrl).hostname,
+      tags: [
+        // Umami on stats.staaash.org counts visits and heatmaps, only on the
+        // public demo's own domain.
+        ...["script.js", "recorder.js"].map((file) => ({
+          tag: "script",
+          attrs: {
+            src: `https://stats.staaash.org/${file}`,
+            defer: true,
+            "data-website-id": "ea6c5694-5f6c-4062-96ce-b833a9dc7366",
+            "data-domains": new URL(siteUrl).hostname,
+          },
+          injectTo: "head" as const,
+        })),
+        // A deep link into a demo under a sub-path reaches Pages' root 404
+        // page, which forwards it here (scripts/ci/demo-pages.mjs). The
+        // address goes back before the router reads it.
+        {
+          tag: "script",
+          // Only a path on this site: the browser refuses another origin.
+          children: `(function(){var p=new URLSearchParams(location.search).get("demo-path");if(p&&p.charAt(0)==="/"&&p.charAt(1)!=="/")history.replaceState(null,"",p)})()`,
+          injectTo: "head-prepend" as const,
         },
-        injectTo: "head",
-      })),
+      ],
     }),
     async closeBundle() {
       cpSync(assetsDir, path.join(outDir, "samples"), {
