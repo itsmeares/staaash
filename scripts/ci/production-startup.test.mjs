@@ -8,34 +8,36 @@ import { test } from "node:test";
 
 const image = process.env.STAAASH_TEST_IMAGE;
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 test(
-  "production startup waits for long migrations and blocks migration failures",
+  "production startup waits for long migrations, blocks failed ones, and survives any restart policy",
   {
     skip: !image,
     timeout: 480_000,
   },
-  (t) => {
+  async (t) => {
     const project = `staaash-startup-${randomBytes(6).toString("hex")}`;
     const scratch = mkdtempSync(path.join(tmpdir(), `${project}-`));
     const evidence = path.resolve(".data/ci", project);
     mkdirSync(evidence, { recursive: true });
     const override = path.join(scratch, "override.json");
+    // CasaOS rewrites restart policies to unless-stopped when it saves an
+    // app, so startup must not need any container to stay stopped.
     const config = {
       services: {
-        migrate: {
-          container_name: `${project}-migrate`,
-          image,
-          command: ["sh", "-c", "sleep 25; prisma migrate deploy"],
-          restart: "no",
-          cpus: 0.5,
-          mem_limit: "1g",
-        },
         staaash: {
           container_name: `${project}-web`,
           image,
+          // A migration much longer than the web health deadline below.
+          command: [
+            "sh",
+            "-c",
+            "sleep 25; prisma migrate deploy && node dist/server/main.mjs",
+          ],
           ports: [],
           volumes: ["startup-files:/data/files"],
-          restart: "no",
+          restart: "unless-stopped",
           cpus: 0.5,
           mem_limit: "1g",
         },
@@ -43,14 +45,14 @@ test(
           container_name: `${project}-worker`,
           image,
           volumes: ["startup-files:/data/files"],
-          restart: "no",
+          restart: "unless-stopped",
           cpus: 2,
           mem_limit: "512m",
         },
         db: {
           container_name: `${project}-db`,
           volumes: ["startup-db:/var/lib/postgresql"],
-          restart: "no",
+          restart: "unless-stopped",
           cpus: 0.5,
           mem_limit: "512m",
         },
@@ -66,6 +68,11 @@ test(
       },
     );
     const isolated = JSON.parse(base);
+    assert.deepEqual(Object.keys(isolated.services).sort(), [
+      "db",
+      "staaash",
+      "worker",
+    ]);
     for (const [name, service] of Object.entries(config.services)) {
       const original = isolated.services[name];
       Object.assign(original, service);
@@ -88,14 +95,13 @@ test(
           start_period: "2s",
         };
       }
-      if (name !== "migrate")
-        original.volumes = [
-          {
-            type: "volume",
-            source: name === "db" ? "startup-db" : "startup-files",
-            target: name === "db" ? "/var/lib/postgresql" : "/data/files",
-          },
-        ];
+      original.volumes = [
+        {
+          type: "volume",
+          source: name === "db" ? "startup-db" : "startup-files",
+          target: name === "db" ? "/var/lib/postgresql" : "/data/files",
+        },
+      ];
     }
     isolated.volumes = config.volumes;
     isolated.networks = { default: {} };
@@ -117,6 +123,14 @@ test(
           encoding: "utf8",
         }),
       )[0];
+    const logs = (service) => compose("logs", "--no-color", service);
+    const waitForLog = async (service, pattern, label) => {
+      const deadline = Date.now() + 180_000;
+      while (!pattern.test(logs(service))) {
+        assert.ok(Date.now() < deadline, `timed out waiting for ${label}`);
+        await delay(2_000);
+      }
+    };
     t.after(() => {
       try {
         writeFileSync(
@@ -130,26 +144,38 @@ test(
     });
 
     compose("up", "-d");
+    await waitForLog(
+      "worker",
+      /Waiting for database migrations/,
+      "the worker to wait",
+    );
+    await waitForLog(
+      "staaash",
+      /All migrations have been successfully applied/,
+      "the migrations",
+    );
+    await waitForLog("staaash", /Staaash is listening/, "the web server");
+    await waitForLog(
+      "worker",
+      /Database migrations done/,
+      "the worker to start after the migrations",
+    );
+    // Its next step queries the database and waits for the owner account.
+    await waitForLog(
+      "worker",
+      /Storage protocol cutover waiting for instance setup/,
+      "the worker's first queries",
+    );
     const worker = inspect("worker");
     const web = inspect("web");
-    const migration = inspect("migrate");
-    assert.equal(migration.State.Status, "exited");
-    assert.equal(migration.State.ExitCode, 0);
-    for (const service of [web, worker]) {
-      assert.ok(
-        Date.parse(service.State.StartedAt) >=
-          Date.parse(migration.State.FinishedAt),
-      );
-    }
-    assert.equal(worker.RestartCount, 0);
+    assert.equal(web.State.Status, "running");
     assert.equal(worker.State.Status, "running");
+    assert.equal(web.RestartCount, 0);
+    assert.equal(worker.RestartCount, 0, "the worker must wait, not crash");
+    assert.doesNotMatch(logs("worker"), /Fatal startup error/);
     writeFileSync(
       path.join(evidence, "startup.json"),
-      JSON.stringify({
-        migration: migration.State,
-        web: web.State,
-        worker: worker.State,
-      }),
+      JSON.stringify({ web: web.State, worker: worker.State }),
     );
     writeFileSync(
       path.join(evidence, "fresh.log"),
@@ -157,19 +183,29 @@ test(
     );
 
     compose("down", "--volumes", "--remove-orphans");
-    isolated.services.migrate.command = [
+    isolated.services.staaash.command = [
       "sh",
       "-c",
-      "DATABASE_URL=postgresql://postgres:wrong@db:5432/staaash prisma migrate deploy",
+      "DATABASE_URL=postgresql://postgres:wrong@db:5432/staaash prisma migrate deploy && node dist/server/main.mjs",
     ];
+    isolated.services.staaash.restart = "no";
     saveConfig();
-    assert.throws(() => compose("up", "-d"));
-    assert.match(compose("logs", "--no-color", "migrate"), /P1000/);
-    assert.equal(inspect("web").State.Status, "created");
-    assert.equal(
-      inspect("worker").State.Status,
-      "created",
-      "failed migrations must prevent worker startup",
+    compose("up", "-d");
+    await waitForLog("staaash", /P1000/, "the failed migration");
+    await waitForLog(
+      "worker",
+      /Waiting for database migrations/,
+      "the worker to wait",
+    );
+    await delay(10_000);
+    assert.equal(inspect("web").State.Status, "exited");
+    assert.notEqual(inspect("web").State.ExitCode, 0);
+    assert.doesNotMatch(logs("staaash"), /Staaash is listening/);
+    assert.equal(inspect("worker").State.Status, "running");
+    assert.doesNotMatch(
+      logs("worker"),
+      /Database migrations done|Storage protocol|Fatal startup error/,
+      "failed migrations must keep the worker waiting",
     );
   },
 );

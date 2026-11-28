@@ -1,7 +1,24 @@
+import { readdirSync } from "node:fs";
+
 import { sourceCoverage } from "../../test-coverage";
 import { defineConfig } from "vite-plus";
 
+// The worker waits for this migration before it starts (health.ts).
+const latestMigration = readdirSync(
+  new URL("prisma/migrations", import.meta.url),
+  { withFileTypes: true },
+)
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+  .sort()
+  .at(-1);
+if (!latestMigration) throw new Error("No migrations in prisma/migrations.");
+const define = {
+  __STAAASH_LATEST_MIGRATION__: JSON.stringify(latestMigration),
+};
+
 export default defineConfig({
+  define,
   test: { coverage: sourceCoverage(["src/**/*.ts"]) },
   run: {
     tasks: {
@@ -34,6 +51,7 @@ export default defineConfig({
     },
     format: ["esm"],
     platform: "node",
+    define,
     outDir: "dist",
     dts: true,
     fixedExtension: false,

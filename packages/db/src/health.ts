@@ -62,6 +62,34 @@ export const probeDatabaseReachability = async (
   }
 };
 
+// The newest folder in prisma/migrations, set at build time (vite.config.ts).
+declare const __STAAASH_LATEST_MIGRATION__: string;
+
+/**
+ * Whether the database has every migration this build ships: the newest one
+ * finished and none left half applied. Throws while the database cannot be
+ * reached or has never been migrated.
+ */
+export const areMigrationsApplied = async (
+  databaseUrl = process.env.DATABASE_URL,
+) => {
+  if (!databaseUrl) throw new Error("DATABASE_URL is not configured.");
+  return withClient(databaseUrl, async (client) => {
+    const result = await client.query<{ ready: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM "_prisma_migrations"
+         WHERE migration_name = $1
+           AND finished_at IS NOT NULL AND rolled_back_at IS NULL
+       ) AND NOT EXISTS (
+         SELECT 1 FROM "_prisma_migrations"
+         WHERE finished_at IS NULL AND rolled_back_at IS NULL
+       ) AS ready`,
+      [__STAAASH_LATEST_MIGRATION__],
+    );
+    return result.rows[0]?.ready === true;
+  });
+};
+
 export const getQueueBacklogSummary = async (
   databaseUrl = process.env.DATABASE_URL,
 ): Promise<QueueBacklogSummary> => {

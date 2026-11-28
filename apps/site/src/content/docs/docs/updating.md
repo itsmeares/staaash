@@ -34,6 +34,10 @@ Staaash shows a notice in the app when a new version exists. Admins can also pre
 
 Staaash updates its own database when it starts. Give it a minute.
 
+:::note[Coming in v2.1.0]
+The compose file no longer has a separate `migrate` service. The first `docker compose up -d` with the new file warns about an orphan container from it. Remove it with `docker compose up -d --remove-orphans`.
+:::
+
 On the Windows server installer, run the newer installer instead. See [Windows Server](/docs/windows-server/).
 
 ## Check that it worked

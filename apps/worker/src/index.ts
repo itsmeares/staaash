@@ -26,7 +26,10 @@ import {
   initializeStorageProtocol,
   recoverUnjournaledUserStorageProvisioning,
 } from "./storage-protocol-cutover.js";
-import { waitForStorageProtocolReady } from "./startup-readiness.js";
+import {
+  waitForMigrations,
+  waitForStorageProtocolReady,
+} from "./startup-readiness.js";
 
 const storagePaths = getWorkerStoragePaths();
 const workerId = `${os.hostname()}-${process.pid}-${Date.now()}`;
@@ -82,6 +85,7 @@ const runMaintenanceSafely = () => {
 const main = async () => {
   await mkdir(storagePaths.tmpRoot, { recursive: true });
   await writeHeartbeat(storagePaths.heartbeatPath);
+  await waitForMigrations({ heartbeatPath: storagePaths.heartbeatPath });
   await verifyCommittedStorageUsage();
   const [ffmpegHealth, textTools] = await Promise.all([
     detectFfmpeg(),
