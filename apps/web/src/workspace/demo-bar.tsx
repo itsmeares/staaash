@@ -42,7 +42,9 @@ function Label({ long, short }: { long: string; short: string }) {
   );
 }
 
-const minor = (version: string) => version.split(".").slice(0, 2).join(".");
+/** 2.1.0-rc.1 reads as 2.1, and 2.1.1-rc.1 as 2.1.1. */
+const shortVersion = (version: string) =>
+  version.split("-")[0]!.replace(/\.0$/, "");
 
 /** The public demo's own controls, above the drive. */
 export function DemoBar() {
@@ -86,7 +88,7 @@ export function DemoBar() {
           <ArrowLeft aria-hidden />
           <Label
             long={`Back to v${demoStable}`}
-            short={`v${minor(demoStable)}`}
+            short={`v${shortVersion(demoStable)}`}
           />
         </Button>
       ) : null}
@@ -100,8 +102,8 @@ export function DemoBar() {
         >
           <FlaskConical aria-hidden className="max-xs:hidden" />
           <Label
-            long={`Try v${minor(demoCandidate)} early`}
-            short={`Try v${minor(demoCandidate)}`}
+            long={`Try v${shortVersion(demoCandidate)} early`}
+            short={`Try v${shortVersion(demoCandidate)}`}
           />
         </Button>
       ) : null}
