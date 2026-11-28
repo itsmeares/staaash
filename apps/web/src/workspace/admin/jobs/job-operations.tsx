@@ -15,6 +15,7 @@ import {
   Copy,
   Film,
   ScanSearch,
+  ScanText,
   Trash2,
   Upload,
   type LucideIcon,
@@ -170,7 +171,9 @@ const JOB_META: Record<
   },
   "file.text.read": {
     name: "Read words in files",
-    desc: "Read the text inside files for search and AI apps, and scan pages that are pictures.",
+    desc: "Reads the text inside files for search and AI apps, and scans pages that are pictures.",
+    icon: ScanText,
+    group: "Make",
   },
 };
 
