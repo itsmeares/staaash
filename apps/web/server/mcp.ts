@@ -471,7 +471,7 @@ const textNotes = (
       `[Bytes ${offset} to ${next} of ${length} of the text. Call read_file with offset ${next} for the rest.]`,
     next >= length &&
       text.truncated &&
-      "[Staaash keeps the first 1 MiB of each file's text. The rest is left out.]",
+      "[Staaash kept only part of this file's text. The rest is left out.]",
     notScanned > 0 &&
       text.status === "ready" &&
       `[${notScanned} pages have no text, and this drive does not scan them.]`,

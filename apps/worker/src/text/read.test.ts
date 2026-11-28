@@ -105,6 +105,16 @@ describe("readText", () => {
     );
     expect(result.text).toBe("Hello there");
   });
+
+  it("marks a page cut short when it runs past what is read", async () => {
+    const page = `<p>Hello</p><script>${"x".repeat(16 * MIB)}</script><p>more</p>`;
+    const result = await readText(
+      await file("long.html", page),
+      "html",
+      "long.html",
+    );
+    expect(result).toEqual({ text: "Hello", truncated: true, ocrPages: [] });
+  });
 });
 
 describe("readPdfText", () => {

@@ -81,7 +81,7 @@ Text files, PDFs with text, Office files, books and web pages are always read fo
 - Each language you add makes every page slower: English alone took 2.8 seconds a page on one core, five languages 6.7 seconds. Pick the languages your papers are written in.
 - **PDFs and pictures** scans every photo in every drive. On a big photo library that takes days.
 
-Files over 100 MB are not read, except plain text. Each file keeps at most 1 MiB of text, about 300 pages. Changing the languages reads scanned pages again in the new ones.
+Files over 100 MB are not read, except plain text. Of a web page, the first 16 MB is read, and of an Office file or book, the first 256 MB once unpacked. Each file keeps at most 1 MiB of text, about 300 pages. Changing the languages reads scanned pages again in the new ones.
 
 ## Per-person limits
 

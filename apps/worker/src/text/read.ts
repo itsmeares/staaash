@@ -6,7 +6,13 @@ import { decodeTextPage, type FileTextSource } from "@staaash/config/text";
 import { FILE_TEXT_MAX_BYTES } from "@staaash/db/file-text";
 
 import { runProcess } from "../process.js";
-import { epubText, htmlText, officeText, tidyText } from "./extract.js";
+import {
+  type ExtractedText,
+  epubText,
+  htmlText,
+  officeText,
+  tidyText,
+} from "./extract.js";
 
 /** Web pages are mostly markup; more than this is never needed for 1 MiB of text. */
 const MAX_HTML_BYTES = 16 * 1024 * 1024;
@@ -80,6 +86,26 @@ export const readPdfText = async (file: string, signal: AbortSignal) => {
   };
 };
 
+const readMarkup = async (
+  file: string,
+  source: "html" | "epub" | "office",
+  name: string,
+): Promise<ExtractedText> => {
+  if (source === "html") {
+    const start = await readStart(file, MAX_HTML_BYTES + 1);
+    return {
+      text: htmlText(
+        new TextDecoder().decode(start.subarray(0, MAX_HTML_BYTES)),
+      ),
+      cut: start.length > MAX_HTML_BYTES,
+    };
+  }
+  const zip = await readFile(file);
+  return source === "epub"
+    ? epubText(zip)
+    : officeText(zip, path.extname(name).slice(1).toLowerCase());
+};
+
 /** Reads what a file says without OCR. */
 export const readText = async (
   file: string,
@@ -92,18 +118,9 @@ export const readText = async (
     if (!page) throw new UnreadableFileError("not-text");
     return { ...limitText(page.text.replace(/^\uFEFF/, "")), ocrPages: [] };
   }
-  const text =
-    source === "html"
-      ? htmlText(
-          new TextDecoder().decode(await readStart(file, MAX_HTML_BYTES)),
-        )
-      : source === "epub"
-        ? epubText(await readFile(file))
-        : officeText(
-            await readFile(file),
-            path.extname(name).slice(1).toLowerCase(),
-          );
-  return { ...limitText(text), ocrPages: [] };
+  const { text, cut } = await readMarkup(file, source, name);
+  const kept = limitText(text);
+  return { ...kept, truncated: kept.truncated || cut, ocrPages: [] };
 };
 
 const ocr = async (image: Buffer, languages: string[], signal: AbortSignal) => {

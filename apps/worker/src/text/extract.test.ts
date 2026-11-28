@@ -32,7 +32,7 @@ describe("officeText", () => {
         "word/media/image1.png": "not text",
       }),
       "docx",
-    );
+    ).text;
     expect(text).toBe(
       "Invoice\tNo. 42 & more\nÇağrı paid\n\nA footnote\n\nLetterhead",
     );
@@ -55,7 +55,7 @@ describe("officeText", () => {
           '<worksheet><sheetData><row r="1"><c r="A1" t="str"><f>SUM(B1)</f><v>Total</v></c></row></sheetData></worksheet>',
       }),
       "xlsx",
-    );
+    ).text;
     expect(text).toBe(
       "Summary\nTotal\n\nQ1 & Q2\nRent\t1200\nElectricity\tunpaid",
     );
@@ -81,7 +81,7 @@ describe("officeText", () => {
           "<p:notes><a:p><a:t>Say hello</a:t></a:p></p:notes>",
       }),
       "pptx",
-    );
+    ).text;
     expect(text).toBe("First\n\nSay hello\n\nSecond");
   });
 
@@ -93,7 +93,7 @@ describe("officeText", () => {
             '<office:document-content><text:h>Plan</text:h><text:p>One<text:s/>two<text:tab/>three</text:p><table:table><table:table-row><table:table-cell><text:p>A</text:p></table:table-cell><table:table-cell table:number-columns-repeated="3"/><table:table-cell><text:p>B</text:p></table:table-cell></table:table-row></table:table></office:document-content>',
         }),
         "ods",
-      ),
+      ).text,
     ).toBe("Plan\nOne two\tthree\nA\t\tB");
   });
 
@@ -114,7 +114,17 @@ describe("officeText", () => {
     // The zip's end record points at the entry list, which holds each size.
     const entry = view.getUint32(file.length - 6, true);
     view.setUint32(entry + 24, 1, true);
-    expect(officeText(file, "docx")).toBe("");
+    expect(officeText(file, "docx")).toEqual({ text: "", cut: true });
+  });
+
+  it("marks a zip cut short when its parts unpack too large", () => {
+    const file = zipSync({
+      "word/document.xml": strToU8("<w:p><w:t>lighthouse</w:t></w:p>"),
+    });
+    const view = new DataView(file.buffer);
+    const entry = view.getUint32(file.length - 6, true);
+    view.setUint32(entry + 24, 300 * 1024 * 1024, true);
+    expect(officeText(file, "docx")).toEqual({ text: "", cut: true });
   });
 
   it("reads CDATA as written", () => {
@@ -125,7 +135,7 @@ describe("officeText", () => {
             "<w:p><w:t><![CDATA[light <b> &amp; house]]></w:t></w:p>",
         }),
         "docx",
-      ),
+      ).text,
     ).toBe("light <b> &amp; house");
   });
 });
@@ -185,7 +195,7 @@ describe("epubText", () => {
           "<html><body><p>Chapter one</p></body></html>",
         "OEBPS/text/two b.xhtml": "<html><body><p>Preface</p></body></html>",
       }),
-    );
+    ).text;
     expect(text).toBe("Preface\n\nChapter one");
   });
 });

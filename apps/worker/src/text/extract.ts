@@ -10,24 +10,32 @@ import { unzipSync } from "fflate";
 // worker thread if that ever matters.
 const MAX_UNZIPPED_BYTES = 256 * 1024 * 1024;
 
+/** A file's text, and whether part of the file was left unread. */
+export type ExtractedText = { text: string; cut: boolean };
+
 const readZip = (zip: Uint8Array, wanted: (name: string) => boolean) => {
   let total = 0;
+  let cut = false;
   const entries = unzipSync(zip, {
     filter: (entry) => {
       if (!wanted(entry.name)) return false;
-      // fflate copies a stored entry's packed size, so it must match the size counted.
-      if (!entry.compression && entry.size !== entry.originalSize) return false;
       total += entry.originalSize;
-      return total <= MAX_UNZIPPED_BYTES;
+      // fflate copies a stored entry's packed size, so it must match the size counted.
+      const read =
+        total <= MAX_UNZIPPED_BYTES &&
+        (entry.compression > 0 || entry.size === entry.originalSize);
+      cut ||= !read;
+      return read;
     },
   });
   const decoder = new TextDecoder();
-  return new Map(
+  const parts = new Map(
     Object.entries(entries).map(([name, bytes]) => [
       name,
       decoder.decode(bytes),
     ]),
   );
+  return { parts, cut };
 };
 
 /** Joins lines, drops trailing spaces and NULs, and keeps at most one empty line. */
@@ -370,20 +378,19 @@ const OFFICE_PARTS: Record<string, RegExp> = {
 };
 
 /** Text of a Word, Excel, or PowerPoint file, or their OpenDocument kin. */
-export const officeText = (zip: Uint8Array, extension: string) => {
+export const officeText = (
+  zip: Uint8Array,
+  extension: string,
+): ExtractedText => {
   if (!(extension in OFFICE_PARTS)) {
-    return xmlText(
-      readZip(zip, (name) => name === "content.xml").get("content.xml") ?? "",
-    );
+    const { parts, cut } = readZip(zip, (name) => name === "content.xml");
+    return { text: xmlText(parts.get("content.xml") ?? ""), cut };
   }
-  const entries = readZip(zip, (name) => OFFICE_PARTS[extension]!.test(name));
-  return tidyText(
-    extension === "docx"
-      ? docx(entries)
-      : extension === "xlsx"
-        ? xlsx(entries)
-        : pptx(entries),
+  const { parts, cut } = readZip(zip, (name) =>
+    OFFICE_PARTS[extension]!.test(name),
   );
+  const read = extension === "docx" ? docx : extension === "xlsx" ? xlsx : pptx;
+  return { text: tidyText(read(parts)), cut };
 };
 
 const HTML_BLOCKS = new Set(
@@ -426,8 +433,8 @@ export const htmlText = (html: string) => {
 };
 
 /** Chapters of an EPUB book in reading order. */
-export const epubText = (zip: Uint8Array) => {
-  const entries = readZip(zip, (name) =>
+export const epubText = (zip: Uint8Array): ExtractedText => {
+  const { parts: entries, cut } = readZip(zip, (name) =>
     /^META-INF\/container\.xml$|\.(opf|x?html?)$/i.test(name),
   );
   const packagePath = attribute(
@@ -441,7 +448,7 @@ export const epubText = (zip: Uint8Array) => {
       attribute(tag, "href"),
     ]),
   );
-  return tidyText(
+  const text = tidyText(
     tagsNamed(opf, "itemref")
       .map((tag) => items.get(attribute(tag, "idref")))
       .filter((href) => href !== undefined)
@@ -457,4 +464,5 @@ export const epubText = (zip: Uint8Array) => {
       .map(htmlText)
       .join("\n\n"),
   );
+  return { text, cut };
 };
