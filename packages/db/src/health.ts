@@ -30,6 +30,9 @@ const withClient = async <T>(
     connectionTimeoutMillis: 5_000,
     query_timeout: 10_000,
   });
+  // A dropped connection also rejects the pending query, which is how the
+  // caller hears of it. Unheard, the event alone would crash the process.
+  client.on("error", () => {});
 
   await client.connect();
 
