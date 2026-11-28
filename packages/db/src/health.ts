@@ -36,7 +36,8 @@ const withClient = async <T>(
   try {
     return await work(client);
   } finally {
-    await client.end();
+    // Closing waits on the same network, so it is not awaited either.
+    client.end().catch(() => {});
   }
 };
 
