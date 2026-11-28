@@ -533,10 +533,10 @@ describe.skipIf(!origin)("sync against a real server", () => {
       }
     ).user.id;
     const limit = (limitBytes: string | null) =>
-      web(`/api/admin/users/${owner}/storage-limit`, {
+      web(`/api/admin/users/${owner}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ limitBytes }),
+        body: JSON.stringify({ storageLimitBytes: limitBytes }),
       });
     await limit("1");
     try {

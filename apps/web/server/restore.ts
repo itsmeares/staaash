@@ -1,19 +1,6 @@
 import type { RestoreReconciliationRunRecord } from "@staaash/db/reconciliation";
 
-import type {
-  RestoreReconciliationHealthSummary,
-  RestoreReconciliationReport,
-} from "@/server/types";
-
-export const createRestoreReconciliationReport = (
-  report: Partial<RestoreReconciliationReport> = {},
-): RestoreReconciliationReport => ({
-  missingOriginalIds: report.missingOriginalIds ?? [],
-  orphanedStorageKeys: report.orphanedStorageKeys ?? [],
-});
-
-export const hasRestoreIssues = (report: RestoreReconciliationReport) =>
-  report.missingOriginalIds.length > 0 || report.orphanedStorageKeys.length > 0;
+import type { RestoreReconciliationHealthSummary } from "@/server/types";
 
 export const buildRestoreReconciliationHealthSummary = (
   run: RestoreReconciliationRunRecord | null,
@@ -27,7 +14,7 @@ export const buildRestoreReconciliationHealthSummary = (
       lastCompletedAt: null,
       missingOriginalCount: 0,
       orphanedStorageCount: 0,
-      message: "Not run yet. Run it from Jobs after a restore.",
+      message: "Not run yet. Run it after a restore.",
     };
   }
 

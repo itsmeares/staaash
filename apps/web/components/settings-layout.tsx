@@ -2,18 +2,31 @@ import {
   ChevronLeft,
   ChevronRight,
   RotateCcw,
+  Search,
   type LucideIcon,
 } from "lucide-react";
 import {
+  Children,
+  createContext,
+  isValidElement,
+  useContext,
   useEffect,
+  useLayoutEffect,
+  useRef,
   useState,
   type ComponentProps,
   type ReactNode,
 } from "react";
 
 import { useMediaQuery } from "@/src/workspace/use-media-query";
+import { Badge } from "@staaash/ui/components/badge";
 import { Button } from "@staaash/ui/components/button";
 import { Input } from "@staaash/ui/components/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@staaash/ui/components/input-group";
 import { GlidingPill, useGlidingPill } from "@/components/gliding-pill";
 import { cn } from "@staaash/ui/utils";
 
@@ -27,6 +40,49 @@ export type SettingsCategory = {
   /** Puts this category back to its defaults; left out when it already is. */
   onReset?: () => void;
 };
+
+/** What the settings search box holds, lowercased; empty when not searching. */
+const SearchQuery = createContext("");
+
+/** The words a label or hint shows, so search can match them. */
+const textOf = (node: ReactNode): string =>
+  Children.toArray(node)
+    .map((child) =>
+      isValidElement<{ children?: ReactNode }>(child)
+        ? textOf(child.props.children)
+        : typeof child === "string" || typeof child === "number"
+          ? String(child)
+          : "",
+    )
+    .join(" ");
+
+/** Matching rows per category; every category stays mounted, so all count. */
+const countMatches = (root: HTMLElement | null, query: string) =>
+  Object.fromEntries(
+    [...(root?.querySelectorAll<HTMLElement>("[data-category]") ?? [])].map(
+      (section) => [
+        section.dataset.category!,
+        query ? section.querySelectorAll("[data-setting-match]").length : 0,
+      ],
+    ),
+  );
+
+/**
+ * Props that let search find, count and hide a card's row. A block that is
+ * not a `SettingsRow`, such as the theme picker, spreads them with its words.
+ */
+export function useSettingsSearch(label: ReactNode, hint?: ReactNode) {
+  const query = useContext(SearchQuery);
+  const match =
+    query !== "" &&
+    `${textOf(label)} ${textOf(hint)}`.toLowerCase().includes(query);
+  return {
+    "data-setting-row": "",
+    "data-setting-match": match ? "" : undefined,
+    // Hidden, not removed: the row's field stays in the surrounding form.
+    hidden: query !== "" && !match,
+  };
+}
 
 /** Unsaved changes: the bar under the categories saves or drops them. */
 export type SettingsPending = {
@@ -47,9 +103,20 @@ export function ChangedDot() {
   );
 }
 
-function SaveBar({ pending }: { pending: SettingsPending }) {
+export function SaveBar({
+  pending,
+  className,
+}: {
+  pending: SettingsPending;
+  className?: string;
+}) {
   return (
-    <div className="sticky bottom-4 z-10 flex animate-in items-center gap-2 rounded-2xl border border-border bg-popover py-2 ps-4 pe-2 shadow-floating duration-200 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none max-sm:bottom-[calc(76px+env(safe-area-inset-bottom))] lg:col-start-2">
+    <div
+      className={cn(
+        "sticky bottom-4 z-10 flex animate-in items-center gap-2 rounded-2xl border border-border bg-popover py-2 ps-4 pe-2 shadow-floating duration-200 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none max-sm:bottom-[calc(76px+env(safe-area-inset-bottom))]",
+        className,
+      )}
+    >
       <ChangedDot />
       <span className="flex-1 text-body font-medium">Unsaved changes</span>
       <Button
@@ -69,6 +136,43 @@ function SaveBar({ pending }: { pending: SettingsPending }) {
         {pending.saving ? "Saving…" : "Save"}
       </Button>
     </div>
+  );
+}
+
+function CategoryButton({
+  category: { label, icon: Icon, changed },
+  count,
+  current,
+  faded,
+  wide,
+  onOpen,
+}: {
+  category: SettingsCategory;
+  count: number;
+  current: boolean;
+  faded: boolean;
+  wide: boolean;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      aria-current={current ? "page" : undefined}
+      className={cn(
+        "flex cursor-pointer items-center gap-2.5 text-left text-body outline-none focus-visible:ring-2 focus-visible:ring-ring data-faded:opacity-45 [&_svg]:size-4 [&_svg]:shrink-0",
+        wide
+          ? "relative h-9 rounded-lg px-2.5 text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground aria-[current=page]:font-semibold aria-[current=page]:text-foreground aria-[current=page]:not-group-data-ready/nav:selected-pill aria-[current=page]:hover:bg-transparent motion-reduce:transition-none aria-[current=page]:[&_svg]:text-primary"
+          : "min-h-13 border-t border-border px-4 first:border-t-0 hover:bg-hover [&_svg]:text-muted-foreground",
+      )}
+      data-faded={faded ? "" : undefined}
+      type="button"
+      onClick={onOpen}
+    >
+      <Icon aria-hidden />
+      <span className="flex-1">{label}</span>
+      {changed ? <ChangedDot /> : null}
+      {count ? <Badge variant="accent">{count}</Badge> : null}
+      {wide ? null : <ChevronRight aria-hidden />}
+    </button>
   );
 }
 
@@ -93,7 +197,21 @@ export function SettingsLayout({
   const [open, setOpen] = useState<string | null>(
     categories.some((category) => category.id === initial) ? initial : null,
   );
+  const [search, setSearch] = useState("");
+  const query = search.trim().toLowerCase();
+  const [matches, setMatches] = useState<Record<string, number>>({});
+  const sections = useRef<HTMLDivElement>(null);
   const current = open ?? (wide ? categories[0]?.id : null);
+
+  // Counted after render, from the rows each category drew.
+  useLayoutEffect(() => {
+    const counts = countMatches(sections.current, query);
+    setMatches(counts);
+    if (!wide || !query || !current || counts[current]) return;
+    const first = categories.find((category) => counts[category.id]);
+    if (first) setOpen(first.id);
+  }, [query]);
+  const found = Object.values(matches).reduce((sum, n) => sum + n, 0);
   const showIndex = wide || current === null;
   const { ref, pill } = useGlidingPill<HTMLElement>(`${current}:${wide}`);
   const dirty = pending !== null;
@@ -106,86 +224,117 @@ export function SettingsLayout({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
+  const searchBox = (
+    <InputGroup className={cn(wide ? "w-full" : "w-full sm:max-w-80")}>
+      <InputGroupAddon>
+        <Search aria-hidden />
+      </InputGroupAddon>
+      <InputGroupInput
+        aria-label="Search settings"
+        placeholder="Search settings"
+        type="search"
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        // Enter would submit the settings form around it and save a draft.
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.preventDefault();
+        }}
+      />
+    </InputGroup>
+  );
+
   return (
-    <div className="grid items-start gap-8 lg:grid-cols-[12.5rem_minmax(0,40rem)]">
-      {showIndex ? (
-        <nav
-          aria-label="Settings"
-          className={cn(
-            "group/nav relative grid gap-px",
-            !wide &&
-              "animate-in overflow-hidden rounded-2xl border border-border duration-200 ease-out fade-in slide-in-from-left-3 motion-reduce:animate-none",
-          )}
-          data-ready={wide && pill ? "" : undefined}
-          ref={ref}
-        >
-          {wide ? <GlidingPill pill={pill} /> : null}
-          {categories.map(({ id, label, icon: Icon, changed }) => (
-            <button
-              aria-current={id === current ? "page" : undefined}
+    <SearchQuery value={query}>
+      <div className="grid items-start gap-8 lg:grid-cols-[12.5rem_minmax(0,1fr)]">
+        {showIndex ? (
+          <div className="grid gap-3">
+            {searchBox}
+            <nav
+              aria-label="Settings"
               className={cn(
-                "flex cursor-pointer items-center gap-2.5 text-left text-body outline-none focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4 [&_svg]:shrink-0",
-                wide
-                  ? "relative h-9 rounded-lg px-2.5 text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground aria-[current=page]:font-semibold aria-[current=page]:text-foreground aria-[current=page]:not-group-data-ready/nav:selected-pill aria-[current=page]:hover:bg-transparent motion-reduce:transition-none aria-[current=page]:[&_svg]:text-primary"
-                  : "min-h-13 border-t border-border px-4 first:border-t-0 hover:bg-hover [&_svg]:text-muted-foreground",
+                "group/nav relative grid gap-px",
+                !wide &&
+                  "animate-in overflow-hidden rounded-2xl border border-border duration-200 ease-out fade-in slide-in-from-left-3 motion-reduce:animate-none",
+              )}
+              data-ready={wide && pill ? "" : undefined}
+              ref={ref}
+            >
+              {wide ? <GlidingPill pill={pill} /> : null}
+              {categories.map((category) => (
+                <CategoryButton
+                  category={category}
+                  count={matches[category.id] ?? 0}
+                  current={category.id === current}
+                  faded={query !== "" && !matches[category.id]}
+                  key={category.id}
+                  wide={wide}
+                  onOpen={() => setOpen(category.id)}
+                />
+              ))}
+            </nav>
+            {query && !found ? (
+              <p className="m-0 px-1 text-meta text-muted-foreground">
+                No setting matches "{search.trim()}".
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        <div
+          className={cn(!wide && current === null && "hidden")}
+          data-searching={query ? "" : undefined}
+          ref={sections}
+        >
+          {/* A phone hides the index, so the filter stays visible and clearable. */}
+          {!wide && query ? <div className="mb-3.5">{searchBox}</div> : null}
+          {categories.map(({ id, label, content, onReset }) => (
+            <section
+              aria-label={label}
+              data-category={id}
+              className={cn(
+                "grid animate-in gap-3.5 duration-200 ease-out fade-in slide-in-from-bottom-1 motion-reduce:animate-none",
+                !wide && "slide-in-from-bottom-0 slide-in-from-right-3",
+                id !== current && "hidden",
               )}
               key={id}
-              type="button"
-              onClick={() => setOpen(id)}
             >
-              <Icon aria-hidden />
-              <span className="flex-1">{label}</span>
-              {changed ? <ChangedDot /> : null}
-              {wide ? null : <ChevronRight aria-hidden />}
-            </button>
+              <div className="flex items-center gap-1">
+                {wide ? null : (
+                  <Button
+                    aria-label="Back to Settings"
+                    className="-ms-2"
+                    size="icon-sm"
+                    variant="ghost-muted"
+                    onClick={() => setOpen(null)}
+                  >
+                    <ChevronLeft aria-hidden />
+                  </Button>
+                )}
+                <h2 className="m-0 flex-1 font-heading text-lg font-semibold">
+                  {label}
+                </h2>
+                {onReset ? (
+                  <Button size="sm" variant="ghost-muted" onClick={onReset}>
+                    <RotateCcw aria-hidden />
+                    Reset to defaults
+                  </Button>
+                ) : null}
+              </div>
+              {content}
+            </section>
           ))}
-        </nav>
-      ) : null}
-      <div className={cn(!wide && current === null && "hidden")}>
-        {categories.map(({ id, label, content, onReset }) => (
-          <section
-            aria-label={label}
-            className={cn(
-              "grid animate-in gap-3.5 duration-200 ease-out fade-in slide-in-from-bottom-1 motion-reduce:animate-none",
-              !wide && "slide-in-from-bottom-0 slide-in-from-right-3",
-              id !== current && "hidden",
-            )}
-            key={id}
-          >
-            <div className="flex items-center gap-1">
-              {wide ? null : (
-                <Button
-                  aria-label="Back to Settings"
-                  className="-ms-2"
-                  size="icon-sm"
-                  variant="ghost-muted"
-                  onClick={() => setOpen(null)}
-                >
-                  <ChevronLeft aria-hidden />
-                </Button>
-              )}
-              <h2 className="m-0 flex-1 font-heading text-lg font-semibold">
-                {label}
-              </h2>
-              {onReset ? (
-                <Button size="sm" variant="ghost-muted" onClick={onReset}>
-                  <RotateCcw aria-hidden />
-                  Reset to defaults
-                </Button>
-              ) : null}
-            </div>
-            {content}
-          </section>
-        ))}
+        </div>
+        {pending ? (
+          <SaveBar className="lg:col-start-2" pending={pending} />
+        ) : null}
       </div>
-      {pending ? <SaveBar pending={pending} /> : null}
-    </div>
+    </SearchQuery>
   );
 }
 
 export function SettingsCard({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    // A search that hides every row hides the card too.
+    <div className="overflow-hidden rounded-2xl border border-border bg-card [&:has([data-setting-row]):not(:has([data-setting-row]:not([hidden])))]:hidden">
       {children}
     </div>
   );
@@ -231,7 +380,10 @@ export function SettingsRow({
   children?: ReactNode;
 }) {
   return (
-    <div className="grid min-h-14 items-center gap-x-4 gap-y-2 border-t border-border px-4 py-2.5 first:border-t-0 sm:grid-cols-[minmax(0,1fr)_12.5rem]">
+    <div
+      className="grid min-h-14 items-center gap-x-4 gap-y-2 border-t border-border px-4 py-2.5 first:border-t-0 data-setting-match:bg-primary/7 sm:grid-cols-[minmax(0,1fr)_12.5rem] in-data-searching:[&:not([data-setting-row]:not([hidden])~&)]:border-t-0"
+      {...useSettingsSearch(label, hint)}
+    >
       <div className="grid min-w-0 gap-0.5">
         <span className="flex items-center gap-2">
           <label className="text-body font-medium" htmlFor={htmlFor}>

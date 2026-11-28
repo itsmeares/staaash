@@ -9,11 +9,14 @@ type CopyState = "idle" | "copied" | "failed";
 type UserDetailCopyButtonProps = {
   label: string;
   value: string;
+  /** Just the icon, for tight spots. */
+  compact?: boolean;
 };
 
 export function UserDetailCopyButton({
   label,
   value,
+  compact = false,
 }: UserDetailCopyButtonProps) {
   const [copyState, setCopyState] = useState<CopyState>("idle");
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -42,14 +45,14 @@ export function UserDetailCopyButton({
 
   return (
     <Button
-      variant={isCopied ? "secondary" : "outline"}
-      size="xs"
+      variant={compact ? "ghost-muted" : isCopied ? "secondary" : "outline"}
+      size={compact ? "icon-xs" : "xs"}
       onClick={copyValue}
       aria-label={`Copy ${label}`}
       title={`Copy ${label}`}
     >
       {isCopied ? <Check aria-hidden /> : <Copy aria-hidden />}
-      <span aria-live="polite">
+      <span aria-live="polite" className={compact ? "sr-only" : undefined}>
         {copyState === "failed" ? "Failed" : isCopied ? "Copied" : "Copy"}
       </span>
     </Button>

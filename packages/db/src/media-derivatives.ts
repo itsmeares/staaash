@@ -83,7 +83,6 @@ export type MediaDerivativeRecord = {
   videoCodec: string | null;
   audioCodec: string | null;
   error: string | null;
-  pinnedByAdmin: boolean;
   lastViewedAt: Date | null;
   lastSharedAt: Date | null;
   generatedAt: Date | null;
@@ -327,21 +326,6 @@ export const markDerivativeStale = async (
       status: DERIVATIVE_STATUS_STALE,
       storageKey: null,
       sizeBytes: null,
-    },
-  });
-};
-
-export const listReadyDerivativesForCleanup = async (
-  retentionCutoff: Date,
-  client?: DerivativeClient,
-): Promise<MediaDerivativeRecord[]> => {
-  const db = client ?? (getPrisma() as unknown as DerivativeClient);
-  return db.mediaDerivative.findMany({
-    where: {
-      status: DERIVATIVE_STATUS_READY,
-      pinnedByAdmin: false,
-      storageKey: { not: null },
-      updatedAt: { lt: retentionCutoff },
     },
   });
 };

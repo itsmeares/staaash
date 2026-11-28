@@ -10,7 +10,7 @@ import { WorkspaceLoading } from "@/src/workspace/workspace-loading";
 function SettingsPage() {
   const { data } = useSuspenseQuery(settingsQuery);
   return (
-    <WorkspacePage className="w-full content-start gap-6">
+    <WorkspacePage className="w-full max-w-5xl content-start gap-6">
       <PageHeader title="Settings" />
       <PersonalSettings
         isOwner={data.isOwner}

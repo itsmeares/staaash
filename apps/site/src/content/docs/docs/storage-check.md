@@ -11,13 +11,17 @@ Sometimes it cannot tell what happened. Then it stops that one change and keeps 
 
 - **In the drive**, the file or folder shows **Finishing storage operation** while a change is still running. You cannot select it or open its actions until the change is done.
 - If Staaash stopped the change, the item shows **Needs a storage check** instead. Click it to see a reference number.
-- **In Admin → Storage**, a running change is listed under **Unfinished changes**, with its operation ID and the paths it touches. A stopped change is listed under **Needs review**.
+- **In Admin → Maintenance**, the **Storage changes** line says how many changes are open. Open it to see the list: a running change is under **Unfinished changes**, with its operation ID and the paths it touches. A stopped change is under **Needs review**.
+
+:::note[Coming in v2.1.0]
+On v2.0, the same list is in Admin → Storage.
+:::
 
 The rest of the drive works as usual.
 
 ## Most of the time it finishes by itself
 
-A change in Admin → Storage with a yellow badge, such as **Retrying**, says **Finishing on its own**. It is waiting for something, like a full disk, a missing drive or a folder Staaash cannot write to.
+A change in the storage changes list with a yellow badge, such as **Retrying**, says **Finishing on its own**. It is waiting for something, like a full disk, a missing drive or a folder Staaash cannot write to.
 
 1. Fix the cause. Free up disk space, reconnect the drive, or fix the folder permissions.
 2. Wait a minute for the worker, or click **Retry now** next to the change.
@@ -32,7 +36,7 @@ A red **Needs review** badge means Staaash found something it will not guess abo
 
 Staaash fixes some of these by itself within a minute, when only one answer keeps every byte. For example, if a moved folder is already complete in its new place and only empty folders are left in the old one, it removes the empty folders. It never deletes a file to fix a change. Anything left over becomes a copy in the person's drive.
 
-The rest wait for you under **Needs review** in Admin → Storage. Click **Review**. The page checks the disk, shows what it found in each place, and offers only the choices that fit:
+The rest wait for you under **Needs review** in the storage changes list. Click **Review**. The page checks the disk, shows what it found in each place, and offers only the choices that fit:
 
 - **Finish** lets the change go ahead. Anything still in the old place becomes a copy.
 - **Keep** accepts the file or folder the way it is on disk now.

@@ -37,8 +37,8 @@ export function StorageRecoveryHelp({
             <AppLink
               href={
                 mutationId
-                  ? `/admin/storage/changes/${encodeURIComponent(mutationId)}`
-                  : "/admin/storage"
+                  ? `/admin/maintenance/changes/${encodeURIComponent(mutationId)}`
+                  : "/admin/maintenance/changes"
               }
             />
           }

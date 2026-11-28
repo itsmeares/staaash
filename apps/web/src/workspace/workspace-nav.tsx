@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Clock,
   FolderOpen,
-  HardDrive,
   Heart,
   Home,
   LayoutDashboard,
@@ -14,6 +13,7 @@ import {
   Shield,
   Trash2,
   Users,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import { AppLink } from "@/components/app-link";
@@ -27,7 +27,7 @@ import { toastManager } from "@staaash/ui/components/toast";
 import type { ShellPin } from "./app-sidebar";
 import { dropTargetProps, type DraggedItems } from "./drag-items";
 import { submitMove } from "./files/files-move";
-import { showMoveFailure } from "./files/move-notifications";
+import { reportMoved, showMoveFailure } from "./files/move-notifications";
 import { moveWithUndo } from "./trash-moves";
 
 export type WorkspaceNavItem = {
@@ -54,8 +54,8 @@ export const driveNavItems: WorkspaceNavItem[] = [
 export const adminNavItems: WorkspaceNavItem[] = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
   { href: "/admin/users", label: "Users", icon: Users },
-  { href: "/admin/storage", label: "Storage", icon: HardDrive },
   { href: "/admin/jobs", label: "Jobs", icon: ListChecks },
+  { href: "/admin/maintenance", label: "Maintenance", icon: Wrench },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
@@ -114,14 +114,8 @@ function useDropActions() {
       moveWithUndo(items, "trash", () => void refresh()),
     moveTo: async ({ items, from }: DraggedItems, folder: ShellPin) => {
       try {
-        const result = await submitMove(items, folder.id);
-        const moved = items.filter((item) =>
-          result.results.some((r) => r.id === item.id && r.status === "moved"),
-        );
+        const moved = reportMoved(items, await submitMove(items, folder.id));
         void refresh();
-        if (result.failedCount > 0) {
-          showMoveFailure(`${result.failedCount} could not be moved.`, result);
-        }
         if (moved.length === 0) return;
         toastManager.add({
           title: `Moved ${itemsLabel(moved.length)} to ${folder.name}`,

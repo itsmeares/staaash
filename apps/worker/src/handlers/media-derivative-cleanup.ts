@@ -23,7 +23,6 @@ type MediaDerivativeRecord = {
   fileId: string;
   status: string;
   storageKey: string | null;
-  pinnedByAdmin: boolean;
   lastViewedAt: Date | null;
   lastSharedAt: Date | null;
   generatedAt: Date | null;
@@ -228,7 +227,6 @@ const processDerivativeCandidate = async ({
   retentionCutoff: Date;
   storagePaths: WorkerStoragePaths;
 }) => {
-  if (derivative.pinnedByAdmin) return;
   if (latestDerivativeReference(derivative) >= retentionCutoff) return;
   if (await hasDirectShare(prisma, derivative, now)) return;
   if (await isFileProtectedByFolderShare(prisma, derivative.fileId, now))
@@ -270,7 +268,6 @@ export const handleMediaDerivativeCleanup = async (
     where: {
       kind: DERIVATIVE_KIND_PREVIEW,
       status: DERIVATIVE_STATUS_READY,
-      pinnedByAdmin: false,
       storageKey: { not: null },
     } as object,
   });

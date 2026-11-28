@@ -30,7 +30,7 @@ describe("storage recovery help", () => {
         canAdmin: true,
       }),
     );
-    expect(markup).toContain("/admin/storage/changes/operation%3F26");
+    expect(markup).toContain("/admin/maintenance/changes/operation%3F26");
     expect(markup).toContain("Staaash stopped this change");
     expect(markup).not.toContain("Files are safe");
   });

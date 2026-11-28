@@ -7,7 +7,7 @@ import { toast, toastManager } from "@staaash/ui/components/toast";
 import { startValidatedDownload } from "@/lib/transfers/download";
 
 import { submitMove } from "./files/files-move";
-import { showMoveFailure } from "./files/move-notifications";
+import { reportMoved, showMoveFailure } from "./files/move-notifications";
 import { chooseMoveDestination } from "./move-dialog";
 import type { SelectionBarAction } from "./selection-bar";
 import { useTransferContext } from "./transfer-context";
@@ -85,17 +85,14 @@ export function useWorkspaceItemActions(redirectTo: string) {
     );
     if (!destination) return;
     try {
-      const result = await submitMove(
-        targets.map(({ id, kind }) => ({ id, kind })),
-        destination.id,
-      );
-      const moved = targets.filter((item) =>
-        result.results.some((r) => r.id === item.id && r.status === "moved"),
+      const moved = reportMoved(
+        targets,
+        await submitMove(
+          targets.map(({ id, kind }) => ({ id, kind })),
+          destination.id,
+        ),
       );
       void refresh();
-      if (result.failedCount > 0) {
-        showMoveFailure(`${result.failedCount} could not be moved.`, result);
-      }
       if (moved.length === 0) return;
       const what = moved.length === 1 ? "1 item" : `${moved.length} items`;
       toastManager.add({

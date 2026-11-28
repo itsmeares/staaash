@@ -4,13 +4,7 @@ import type { Plain } from "../../lib/plain";
 import type { InstanceHealthSummary } from "../../server/types";
 import type { UpdateState } from "../../server/admin/updates";
 import { version } from "../../../../package.json";
-import {
-  type State,
-  timestamp,
-  jobKinds,
-  previewStatus,
-  sampleDisk,
-} from "./state";
+import { type State, timestamp, jobKinds, sampleDisk } from "./state";
 import { storageView } from "./views";
 import {
   activeReviewSamples,
@@ -135,28 +129,6 @@ export function jobsView(state: State) {
       (j) => j.status === "failed" || j.status === "dead",
     ),
     initialSummary: summary,
-    initialDerivatives: {
-      rows: state.files
-        .filter(
-          (f) =>
-            f.viewerKind === "video" && previewStatus(state, f.id) !== "none",
-        )
-        .map((f) => ({
-          id: `derivative-${f.id}`,
-          fileId: f.id,
-          status: previewStatus(state, f.id),
-          sizeBytes: String(f.sizeBytes),
-          generatedAt: timestamp,
-          pinnedByAdmin: state.pinnedPreviews.has(f.id),
-          error:
-            state.scenario === "error" ? "Sample conversion failed." : null,
-          originalName: f.name,
-          originalSizeBytes: String(f.sizeBytes),
-          ownerLabel: state.users.find((u) => u.id === f.ownerUserId)!
-            .displayName!,
-        })),
-      deletedCount: 0,
-    },
     jobKinds: [...jobKinds],
   } satisfies InferResponseType<typeof api.api.views.admin.jobs.$get, 200>;
 }
@@ -226,14 +198,24 @@ export function healthView(state: State): Plain<InstanceHealthSummary> {
       status: failed ? "warning" : "healthy",
       probeStatus: "healthy",
     },
-    reconciliation: {
-      status: "healthy",
-      runStatus: "succeeded",
-      lastCompletedAt: timestamp,
-      missingOriginalCount: 0,
-      orphanedStorageCount: 0,
-      message: "Sample files match their records.",
-    },
+    reconciliation:
+      state.scenario === "error"
+        ? {
+            status: "warning",
+            runStatus: "succeeded",
+            lastCompletedAt: timestamp,
+            missingOriginalCount: 1,
+            orphanedStorageCount: 0,
+            message: "1 sample file is missing from the disk.",
+          }
+        : {
+            status: "healthy",
+            runStatus: "succeeded",
+            lastCompletedAt: timestamp,
+            missingOriginalCount: 0,
+            orphanedStorageCount: 0,
+            message: "Sample files match their records.",
+          },
     storageMutations: mutationHealth(state),
     storageWarnings: {
       status: "healthy",
@@ -257,11 +239,38 @@ export function adminOverview(state: State) {
       health,
       storage,
       jobs: { ...health.queue, total: state.jobs.length },
+      space: [...storage.rows]
+        .sort((a, b) => Number(b.retainedBytes) - Number(a.retainedBytes))
+        .map((row) => ({
+          userId: row.userId,
+          name: row.displayName ?? row.email,
+          bytes: row.retainedBytes,
+        })),
+      nearLimit: state.users.flatMap((u) => {
+        const used = storageView(state, u.id).usedBytes;
+        const limit = Number(u.storageLimitBytes ?? 0);
+        return limit > 0 && used * 100 >= limit * 90
+          ? [
+              {
+                userId: u.id,
+                name: u.displayName ?? u.email,
+                usedBytes: String(used),
+                limitBytes: String(limit),
+              },
+            ]
+          : [];
+      }),
+      shareLinks: state.shares.filter(
+        (share) =>
+          !share.revokedAt && new Date(share.expiresAt).getTime() > Date.now(),
+      ).length,
       users: {
         total: state.users.length,
         owners: state.users.filter((u) => u.role === "owner").length,
         admins: state.users.filter((u) => u.role === "admin").length,
         members: state.users.filter((u) => u.role === "member").length,
+        // A pending first-run step is the sample's unfinished onboarding.
+        notSetUp: state.users.filter((u) => state.firstRuns.has(u.id)).length,
       },
       updates: updateView(state),
     },
@@ -276,12 +285,24 @@ export function adminStorage(state: State, mutationId?: string) {
         (mutation) => !mutationId || mutation.id === mutationId,
       )
       .map((mutation) => ({ ...mutation, review: reviewSummary(mutation.id) })),
-    disk,
     fixed: fixedChangesView(state),
     isOwner: state.userId === "owner",
   } satisfies InferResponseType<typeof api.api.views.admin.storage.$get, 200>;
 }
+export function adminMaintenance(state: State) {
+  const health = healthView(state);
+  const review = activeReviewSamples(state).length;
+  return {
+    storage: { review, finishing: 0, fixed: fixedChangesView(state).length },
+    restore: health.reconciliation,
+    isOwner: state.userId === "owner",
+  } satisfies InferResponseType<
+    typeof api.api.views.admin.maintenance.$get,
+    200
+  >;
+}
 export function adminUsers(state: State, origin: string) {
+  const rowOf = new Map(storageSummary(state).rows.map((r) => [r.userId, r]));
   return {
     canInvite: state.userId === "owner",
     sso: null,
@@ -289,6 +310,8 @@ export function adminUsers(state: State, origin: string) {
     users: state.users.map((u) => ({
       ...u,
       storageUsedBytes: String(storageView(state, u.id).usedBytes),
+      files: rowOf.get(u.id)?.retainedFileCount ?? 0,
+      lastActiveAt: rowOf.get(u.id)?.lastContentActivityAt ?? null,
     })),
   } satisfies InferResponseType<typeof api.api.views.admin.users.$get, 200>;
 }

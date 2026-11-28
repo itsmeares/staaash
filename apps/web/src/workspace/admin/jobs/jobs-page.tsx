@@ -9,7 +9,6 @@ export function AdminJobsPage() {
   return (
     <main className="m-0 w-full p-0">
       <JobOperations
-        initialDerivatives={data.initialDerivatives}
         initialLastRuns={data.initialLastRuns}
         initialProblems={data.initialProblems}
         initialSummary={data.initialSummary}

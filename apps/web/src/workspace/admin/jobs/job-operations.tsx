@@ -1,63 +1,54 @@
-import { useRefresh } from "@/lib/use-refresh";
-import { formatBytes } from "@/lib/format-bytes";
-import { AppLink } from "@/components/app-link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
+import {
+  Archive,
+  ArchiveX,
+  ChevronDown,
+  Clapperboard,
+  CloudDownload,
+  Copy,
+  Film,
+  ScanSearch,
+  Trash2,
+  Upload,
+  type LucideIcon,
 } from "lucide-react";
 
 import { Alert } from "@staaash/ui/components/alert";
 import { Badge } from "@staaash/ui/components/badge";
-import { PageHeader } from "@/components/page-header";
-import { subscribeLive } from "@/lib/live-events";
 import { Button } from "@staaash/ui/components/button";
 import {
   Dialog,
+  DialogClose,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
+  DialogPanel,
   DialogPopup,
   DialogTitle,
 } from "@staaash/ui/components/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@staaash/ui/components/select";
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@staaash/ui/components/toggle-group";
-
-import { formatAdminDateTime } from "@/src/workspace/admin/admin-format";
-import { AdminPanel } from "@/src/workspace/admin/admin-panel";
-import { useTime } from "@/components/time-provider";
+import { Tabs, TabsList, TabsTab } from "@staaash/ui/components/tabs";
+import { toastManager } from "@staaash/ui/components/toast";
 import { cn } from "@staaash/ui/utils";
-import type {
-  JsonAdminMediaDerivativeRow,
-  JsonAdminMediaDerivativeSummary,
-} from "@/server/admin/media-derivatives";
+import { PageHeader } from "@/components/page-header";
+import { useTime } from "@/components/time-provider";
+import { copyText } from "@/lib/clipboard";
+import { subscribeLive } from "@/lib/live-events";
 
-import {
-  JOB_NOTE,
-  JOB_TONE_TEXT,
-  JobDot,
-  type JobTone,
-  ModalHeading,
-} from "./job-parts";
-import { MediaDerivativeRowActions } from "./media-derivative-row-actions";
+import { AdminPage } from "../admin-panel";
+import { JOB_NOTE, JobDot, type JobTone } from "./job-parts";
 import {
   describeJobFailure,
   collectProblemJobIds,
   applyProblemJobAction,
   applyProblemJobActions,
 } from "./job-problems";
-import { copyText } from "@/lib/clipboard";
 
 type JsonBackgroundJob = {
   id: string;
@@ -76,7 +67,7 @@ type JsonBackgroundJob = {
   maxAttempts: number;
   dedupeKey: string | null;
   payloadJson: Record<string, unknown> | null;
-  fileName?: string | null;
+  ownerName?: string | null;
 };
 
 type JsonWorker = {
@@ -121,38 +112,61 @@ type JsonJobEvent = {
   createdAt: string;
 };
 
-const JOB_META: Record<string, { name: string; desc: string }> = {
+const GROUPS = ["Clean up", "Make", "Check"] as const;
+
+const JOB_META: Record<
+  string,
+  {
+    name: string;
+    desc: string;
+    /** What the row says before the first run. */
+    idle?: string;
+    icon: LucideIcon;
+    group: (typeof GROUPS)[number];
+  }
+> = {
   "staging.cleanup": {
     name: "Clean temporary uploads",
-    desc: "Remove expired temporary upload files from storage.",
+    desc: "Removes unfinished uploads after they expire.",
+    icon: Upload,
+    group: "Clean up",
   },
   "trash.retention": {
     name: "Empty trash",
-    desc: "Permanently delete files that stayed in trash past the cleanup window.",
-  },
-  "update.check": {
-    name: "Check for updates",
-    desc: "Check GitHub for a new Staaash release.",
-  },
-  "restore.reconcile": {
-    name: "Restore check",
-    desc: "Check restored files against database records. Run after a restore.",
-  },
-  "media.derivative.generate": {
-    name: "Create preview files",
-    desc: "Create video preview files. One job is queued per file.",
+    desc: "Deletes files that stayed in trash past the cleanup window.",
+    icon: Trash2,
+    group: "Clean up",
   },
   "media.derivative.cleanup": {
     name: "Clean preview files",
-    desc: "Remove stale or orphaned preview files from storage.",
-  },
-  "zip.archive.generate": {
-    name: "Create zip files",
-    desc: "Build downloadable zip archives for selected files and folders.",
+    desc: "Removes old preview files and ones whose video is gone.",
+    icon: Film,
+    group: "Clean up",
   },
   "zip.archive.cleanup": {
     name: "Clean zip files",
-    desc: "Remove expired generated zip archives from storage.",
+    desc: "Removes download zips after they expire.",
+    icon: ArchiveX,
+    group: "Clean up",
+  },
+  "media.derivative.generate": {
+    name: "Create preview files",
+    desc: "Makes a preview of each uploaded video, one run per video.",
+    idle: "Makes a preview when someone uploads a video. None yet.",
+    icon: Clapperboard,
+    group: "Make",
+  },
+  "update.check": {
+    name: "Check for updates",
+    desc: "Checks GitHub for a new Staaash release.",
+    icon: CloudDownload,
+    group: "Check",
+  },
+  "restore.reconcile": {
+    name: "Restore check",
+    desc: "Checks restored files against the database. Run it after a restore.",
+    icon: ScanSearch,
+    group: "Check",
   },
 };
 
@@ -164,39 +178,7 @@ const MANUAL_RUN_JOB_KINDS = new Set([
 ]);
 
 const CLOCK_TICK_MS = 1000;
-const HISTORY_VISIBLE_RUNS = 12;
-const ACTIVITY_PAGE_SIZE = 25;
-
-type ActivityFilter = "all" | "active" | "failed" | "done";
-type ActivityView = "jobs" | "derivatives";
-
-type JsonJobListResponse = {
-  items: JsonBackgroundJob[];
-  nextCursor: string | null;
-  page: number;
-  pageCount: number;
-  pageSize: number;
-  totalCount: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-};
-
-const ACTIVITY_FILTER_LABELS: Record<ActivityFilter, string> = {
-  all: "All",
-  active: "Active",
-  failed: "Failed",
-  done: "Done",
-};
-
-const ACTIVITY_FILTER_STATUSES: Record<
-  Exclude<ActivityFilter, "all">,
-  JsonBackgroundJob["status"][]
-> = {
-  active: ["queued", "running"],
-  failed: ["failed", "dead"],
-  done: ["succeeded", "cancelled"],
-};
-
+const HISTORY_VISIBLE_RUNS = 20;
 function effectiveStatus(
   job: Pick<JsonBackgroundJob, "status" | "lastError">,
 ): JsonBackgroundJob["status"] {
@@ -275,30 +257,6 @@ function formatTimelineDate(
   }).format(date);
 }
 
-function formatRelativeTime(dateStr: string, nowMs: number): string {
-  const diff = nowMs - new Date(dateStr).getTime();
-  const absoluteSeconds = Math.max(0, Math.floor(Math.abs(diff) / 1000));
-  const suffix = diff < 0 ? "from now" : "ago";
-  if (absoluteSeconds < 60) return `${absoluteSeconds}s ${suffix}`;
-  const minutes = Math.floor(absoluteSeconds / 60);
-  if (minutes < 60) return `${minutes}m ${suffix}`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ${suffix}`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ${suffix}`;
-}
-
-function formatDuration(seconds: number | null) {
-  if (seconds === null) return "none";
-  const minutes = Math.floor(seconds / 60);
-  if (seconds < 60) return `${seconds}s`;
-  const hours = Math.floor(minutes / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const days = Math.floor(hours / 24);
-  if (hours < 24) return `${hours}h`;
-  return `${days}d`;
-}
-
 function formatJobKind(kind: string) {
   return (
     JOB_META[kind]?.name ??
@@ -328,9 +286,14 @@ function selectRepresentativeJob(
 ) {
   const now = new Date();
   return (
-    jobs.find((job) => workerRunningJobIds.has(job.id)) ??
+    // The worker can report a claim before the list shows it, never after it ends.
+    jobs.find(
+      (job) => !isFinishedJob(job) && workerRunningJobIds.has(job.id),
+    ) ??
     jobs.find((job) => job.status === "running") ??
     jobs.find((job) => job.status === "queued" && new Date(job.runAt) <= now) ??
+    // A dismissed or cancelled run says less than the last real one.
+    jobs.find((job) => isFinishedJob(job) && job.status !== "cancelled") ??
     jobs.find(isFinishedJob) ??
     jobs.find((job) => job.status === "queued") ??
     null
@@ -356,641 +319,763 @@ function getJobTone(status: JsonBackgroundJob["status"] | null): JobTone {
   return "idle";
 }
 
-// One line per job state.
+const isRetrying = (job: JsonBackgroundJob | null) =>
+  job?.status === "queued" && job.attemptCount > 0 && Boolean(job.lastError);
+
+const reasonOf = (error: string | null) => {
+  const first = error?.split(/(?<=\.)\s/)[0]?.trim();
+  if (!first) return "";
+  const short = first.length > 90 ? `${first.slice(0, 89)}…` : first;
+  return ` ${short}${/[.!?…]$/.test(short) ? "" : "."}`;
+};
+
+const times = (count: number) => (count === 1 ? "once" : `${count} times`);
+
+// One plain sentence per job state.
 // fallow-ignore-next-line complexity
-function getJobStateLine({
+function getJobSentence({
   job,
+  kind,
   nowMs,
   status,
   timeZone,
 }: {
   job: JsonBackgroundJob | null;
+  kind: string;
   nowMs: number;
   status: JsonBackgroundJob["status"] | null;
   timeZone: string;
 }) {
-  if (!job || !status) return "Never run";
-
-  if (status === "failed" || status === "dead") {
-    return `Failed ${formatTimelineDate(
-      job.completedAt ?? job.updatedAt,
-      nowMs,
-      timeZone,
-    )} · attempt ${job.attemptCount} of ${job.maxAttempts}`;
+  if (!job || !status) return JOB_META[kind]?.idle ?? "Hasn't run yet.";
+  const when = (value: string | null | undefined) =>
+    formatTimelineDate(value ?? job.updatedAt, nowMs, timeZone, "scheduled");
+  if (status === "dead") {
+    return `Gave up after ${job.attemptCount} tries.${reasonOf(job.lastError)}`;
   }
-
+  if (status === "failed") {
+    return `Failed ${when(job.completedAt)}.${reasonOf(job.lastError)}`;
+  }
   if (status === "running") {
-    return `Running since ${formatTimelineDate(
-      job.startedAt ?? job.lockedAt ?? job.updatedAt,
-      nowMs,
-      timeZone,
-    )}`;
+    return `Running since ${when(job.startedAt ?? job.lockedAt)}.`;
   }
-
+  if (isRetrying(job)) {
+    return `Failed ${times(job.attemptCount)}.${reasonOf(job.lastError)} Tries again ${when(job.runAt)}.`;
+  }
   if (status === "queued") {
-    const runAtMs = new Date(job.runAt).getTime();
-    if (runAtMs > nowMs) {
-      return `Scheduled for ${formatTimelineDate(
-        job.runAt,
-        nowMs,
-        timeZone,
-        "scheduled",
-      )}`;
-    }
-    return `Queued for ${formatTimelineDate(job.runAt, nowMs, timeZone)}`;
+    return new Date(job.runAt).getTime() > nowMs
+      ? `Runs ${when(job.runAt)}.`
+      : "Waiting to start.";
   }
-
   if (status === "cancelled") {
-    return `Cancelled ${formatTimelineDate(
-      job.cancelledAt ?? job.updatedAt,
-      nowMs,
-      timeZone,
-    )}`;
+    return `Cancelled ${when(job.cancelledAt)}.`;
   }
-
-  return `Last run ${formatTimelineDate(
-    job.completedAt ?? job.updatedAt,
-    nowMs,
-    timeZone,
-  )}`;
+  return `Ran fine ${when(job.completedAt)}.`;
 }
 
-// One fact per job state.
+function JobSentence({
+  error,
+  ...state
+}: Parameters<typeof getJobSentence>[0] & { error: string | null }) {
+  const alarming =
+    getJobTone(state.status) === "failed" || isRetrying(state.job) || error;
+  return (
+    <p
+      className={cn(
+        "m-0 text-meta",
+        alarming ? "text-destructive-foreground" : "text-muted-foreground",
+      )}
+    >
+      {getJobSentence(state)}
+      {error ? ` ${error}` : null}
+    </p>
+  );
+}
+
+const PREVIEW_KIND = "media.derivative.generate";
+
+const tries = (count: number) => `${count} ${count === 1 ? "try" : "tries"}`;
+
+const plural = (count: number, word: string) =>
+  `${count} ${count === 1 ? word : `${word}s`}`;
+
+/** The first sentence of why a run failed, without its full stop. */
+const shortReason = (job: JsonBackgroundJob) => {
+  const first =
+    describeJobFailure(job)
+      .split(/(?<=\.)\s/)[0]
+      ?.trim() ?? "";
+  const short = first.length > 90 ? `${first.slice(0, 89)}…` : first;
+  return short.replace(/\.$/, "");
+};
+
+// One short title per run state, plus the reason when it failed.
 // fallow-ignore-next-line complexity
-function getJobLastFact({
+function runTitle(
+  job: JsonBackgroundJob,
+  status: JsonBackgroundJob["status"],
+  nowMs: number,
+  timeZone: string,
+): { what: string; why?: string } {
+  const when = (value: string) =>
+    formatTimelineDate(value, nowMs, timeZone, "scheduled");
+  if (status === "dead") {
+    return {
+      // Retry keeps the try count, so more tries than allowed means an admin
+      // retried it after it gave up.
+      what:
+        job.attemptCount > job.maxAttempts
+          ? "Failed again after a retry"
+          : `Gave up after ${tries(job.attemptCount)}`,
+      why: shortReason(job),
+    };
+  }
+  if (status === "failed") return { what: "Failed", why: shortReason(job) };
+  if (status === "running") return { what: "Running" };
+  if (isRetrying(job)) {
+    return {
+      what: `Failed ${times(job.attemptCount)}, tries again ${when(job.runAt)}`,
+      why: shortReason(job),
+    };
+  }
+  if (status === "queued") {
+    return {
+      what:
+        new Date(job.runAt).getTime() > nowMs
+          ? `Runs ${when(job.runAt)}`
+          : "Waiting to start",
+    };
+  }
+  if (status === "cancelled") {
+    // A dismissed run keeps the error it failed with.
+    return job.lastError && job.lastError !== "Cancelled by admin."
+      ? { what: "Dismissed", why: shortReason(job) }
+      : { what: "Cancelled" };
+  }
+  return { what: job.kind === PREVIEW_KIND ? "Made a preview" : "Ran fine" };
+}
+
+const formatDuration = (ms: number) => {
+  const seconds = Math.max(0, Math.round(ms / 1000));
+  if (seconds < 1) return "under a second";
+  if (seconds < 60) return `${seconds} s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+};
+
+const ownerPart = (job: JsonBackgroundJob) =>
+  job.kind === PREVIEW_KIND
+    ? [job.ownerName ? `${job.ownerName}'s file` : "A deleted file"]
+    : [];
+
+// startedAt is the first try, so after more tries the gap counts the waits.
+const tookPart = ({
+  attemptCount,
+  startedAt,
+  completedAt,
+}: JsonBackgroundJob) =>
+  attemptCount === 1 && startedAt && completedAt
+    ? [
+        `took ${formatDuration(
+          new Date(completedAt).getTime() - new Date(startedAt).getTime(),
+        )}`,
+      ]
+    : [];
+
+/** Whose file it was (previews only), when it ended and how long it took. */
+const runMeta = (job: JsonBackgroundJob, nowMs: number, timeZone: string) => {
+  const at = job.completedAt ?? job.cancelledAt ?? job.startedAt;
+  return [
+    ...ownerPart(job),
+    ...(at ? [formatTimelineDate(at, nowMs, timeZone, "scheduled")] : []),
+    ...tookPart(job),
+  ].join(" · ");
+};
+
+function RunText({
   job,
   nowMs,
   status,
+  timeZone,
 }: {
-  job: JsonBackgroundJob | null;
-  nowMs: number;
-  status: JsonBackgroundJob["status"] | null;
-}) {
-  if (!job || !status) return "Never run";
-
-  if (status === "running") {
-    return `Started ${formatRelativeTime(
-      job.startedAt ?? job.lockedAt ?? job.updatedAt,
-      nowMs,
-    )}`;
-  }
-
-  if (status === "queued") {
-    return `Queued ${formatRelativeTime(job.createdAt, nowMs)}`;
-  }
-
-  if (status === "failed" || status === "dead") {
-    return `Failed ${formatRelativeTime(
-      job.completedAt ?? job.updatedAt,
-      nowMs,
-    )}`;
-  }
-
-  if (status === "cancelled") {
-    return `Cancelled ${formatRelativeTime(
-      job.cancelledAt ?? job.updatedAt,
-      nowMs,
-    )}`;
-  }
-
-  return `Succeeded ${formatRelativeTime(
-    job.completedAt ?? job.updatedAt,
-    nowMs,
-  )}`;
-}
-
-function getPrimaryActionLabel({
-  canRunManually,
-  lastRun,
-  status,
-}: {
-  canRunManually: boolean;
-  lastRun: JsonBackgroundJob | null;
-  status: JsonBackgroundJob["status"] | null;
-}) {
-  if (
-    lastRun &&
-    (status === "failed" || status === "dead" || status === "cancelled")
-  ) {
-    return "Retry";
-  }
-
-  if (status === "running") {
-    return "Running";
-  }
-
-  if (canRunManually) {
-    return "Run now";
-  }
-
-  return "Auto-run only";
-}
-
-function buildJobsUrl({
-  cursor,
-  kind,
-  limit = ACTIVITY_PAGE_SIZE,
-  page = 1,
-  status,
-  statuses,
-}: {
-  cursor?: string | null;
-  kind?: string | null;
-  limit?: number;
-  page?: number;
-  status?: JsonBackgroundJob["status"] | null;
-  statuses?: JsonBackgroundJob["status"][] | null;
-}) {
-  const params = new URLSearchParams({
-    limit: String(limit),
-    page: String(page),
-  });
-  if (cursor) params.set("cursor", cursor);
-  if (kind) params.set("kind", kind);
-  if (statuses?.length) {
-    params.set("status", statuses.join(","));
-  } else if (status) {
-    params.set("status", status);
-  }
-  return `/api/admin/jobs?${params.toString()}`;
-}
-
-function sortJobsByUpdatedAt(jobs: JsonBackgroundJob[]) {
-  return [...jobs].sort(
-    (left, right) =>
-      new Date(right.updatedAt).getTime() -
-        new Date(left.updatedAt).getTime() || right.id.localeCompare(left.id),
-  );
-}
-
-function mergeJobsById(
-  current: JsonBackgroundJob[],
-  incoming: JsonBackgroundJob[],
-) {
-  const byId = new Map<string, JsonBackgroundJob>();
-  for (const job of [...current, ...incoming]) {
-    byId.set(job.id, job);
-  }
-  return sortJobsByUpdatedAt([...byId.values()]);
-}
-
-async function fetchActivityJobs({
-  filter,
-  kind,
-  page,
-}: {
-  filter: ActivityFilter;
-  kind: string | null;
-  page: number;
-}) {
-  const res = await fetch(
-    buildJobsUrl({
-      kind,
-      page,
-      statuses: filter === "all" ? null : ACTIVITY_FILTER_STATUSES[filter],
-    }),
-  );
-  if (!res.ok) throw new Error(`Request failed (${res.status}).`);
-  return (await res.json()) as JsonJobListResponse;
-}
-
-function getPayloadFileId(job: JsonBackgroundJob | null) {
-  const payload = job?.payloadJson;
-  if (!payload || typeof payload !== "object") return null;
-  const fileId = (payload as { fileId?: unknown }).fileId;
-  return typeof fileId === "string" ? fileId : null;
-}
-
-function formatBytesString(value: string | null) {
-  return value ? formatBytes(BigInt(value)) : "n/a";
-}
-
-function getDerivativeTone(status: string) {
-  if (status === "ready") return "succeeded";
-  if (status === "queued" || status === "processing") return "running";
-  if (status === "failed") return "failed";
-  return "idle";
-}
-
-function jobMatchesActivityView({
-  filter,
-  job,
-  kind,
-}: {
-  filter: ActivityFilter;
   job: JsonBackgroundJob;
-  kind: string | null;
+  nowMs: number;
+  status: JsonBackgroundJob["status"];
+  timeZone: string;
 }) {
-  if (kind && job.kind !== kind) return false;
-  if (filter === "all") return true;
-  return ACTIVITY_FILTER_STATUSES[filter].includes(effectiveStatus(job));
-}
-
-type PaginationMarker = "start-ellipsis" | "end-ellipsis";
-type PaginationItem = number | PaginationMarker;
-
-function getPaginationItems(page: number, pageCount: number): PaginationItem[] {
-  if (pageCount <= 7) {
-    return Array.from({ length: pageCount }, (_, index) => index + 1);
-  }
-
-  const items: PaginationItem[] = [1];
-  const start = Math.max(2, page - 1);
-  const end = Math.min(pageCount - 1, page + 1);
-
-  if (start > 2) {
-    items.push("start-ellipsis");
-  } else {
-    for (let pageNumber = 2; pageNumber < start; pageNumber += 1) {
-      items.push(pageNumber);
-    }
-  }
-
-  for (let pageNumber = start; pageNumber <= end; pageNumber += 1) {
-    items.push(pageNumber);
-  }
-
-  if (end < pageCount - 1) {
-    items.push("end-ellipsis");
-  } else {
-    for (let pageNumber = end + 1; pageNumber < pageCount; pageNumber += 1) {
-      items.push(pageNumber);
-    }
-  }
-
-  items.push(pageCount);
-  return items;
-}
-
-function JsonBlock({ value }: { value: Record<string, unknown> | null }) {
-  if (!value || Object.keys(value).length === 0) {
-    return <p className={JOB_NOTE}>No payload recorded.</p>;
-  }
-
+  const { what, why } = runTitle(job, status, nowMs, timeZone);
+  const meta = runMeta(job, nowMs, timeZone);
   return (
-    <pre className="m-0 max-h-45 overflow-auto rounded-md bg-hover p-2.5 font-mono text-xs leading-normal text-foreground md:text-meta">
-      {JSON.stringify(value, null, 2)}
-    </pre>
-  );
-}
-
-function MediaDerivativeCard({
-  compact = false,
-  derivative,
-}: {
-  compact?: boolean;
-  derivative: JsonAdminMediaDerivativeRow;
-}) {
-  const tone = getDerivativeTone(derivative.status);
-  const { timeZone } = useTime();
-
-  return (
-    <article
-      className={cn(
-        "grid grid-cols-[minmax(220px,0.85fr)_minmax(260px,1fr)_auto] items-center gap-3.5 rounded-lg border border-hairline bg-card p-3 max-lg:grid-cols-1",
-        compact && "grid-cols-1",
-      )}
-    >
-      <div className="flex min-w-0 items-center gap-2.5">
-        <JobDot tone={tone} />
-        <div className="grid min-w-0 grid-cols-1 gap-0.5">
-          <strong className="truncate text-label font-semibold text-foreground md:text-meta">
-            {derivative.originalName}
-          </strong>
-          <small className="truncate text-xs text-muted-foreground md:text-meta">
-            {derivative.ownerLabel}
-          </small>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 text-xs text-muted-foreground md:text-meta">
-        <span
-          className={cn(
-            "inline-flex items-center gap-2 font-semibold capitalize",
-            JOB_TONE_TEXT[tone],
-          )}
-        >
-          {derivative.status}
-        </span>
-        {derivative.pinnedByAdmin ? <Badge size="sm">Pinned</Badge> : null}
-        <span>{formatBytesString(derivative.originalSizeBytes)} original</span>
-        <span>{formatBytesString(derivative.sizeBytes)} preview</span>
-        <span>{formatAdminDateTime(derivative.generatedAt, timeZone)}</span>
-      </div>
-
-      {derivative.error ? (
-        <p
-          className="col-span-full m-0 rounded-md bg-destructive/10 px-2.5 py-2 text-xs text-destructive-foreground md:text-meta"
-          title={derivative.error}
-        >
-          {derivative.error.length > 120
-            ? `${derivative.error.slice(0, 120)}...`
-            : derivative.error}
-        </p>
+    <span className="grid min-w-0 flex-1 gap-0.5">
+      <span className="text-body wrap-anywhere">
+        {what}
+        {why ? <span className="text-muted-foreground"> · {why}</span> : null}
+      </span>
+      {meta ? (
+        <span className="text-meta text-muted-foreground">{meta}</span>
       ) : null}
-
-      <MediaDerivativeRowActions
-        fileId={derivative.fileId}
-        id={derivative.id}
-        pinnedByAdmin={derivative.pinnedByAdmin}
-        status={derivative.status}
-      />
-    </article>
+    </span>
   );
 }
 
-function JobEventList({
+const withoutStop = (message: string | null) =>
+  message?.trim().replace(/\.$/, "") || "Failed";
+
+/** Each recorded step as a plain sentence; null hides the step. */
+const EVENT_SENTENCES: Record<
+  string,
+  (event: JsonJobEvent, clock: (iso: string) => string) => string | null
+> = {
+  queued: () => "Added to the queue.",
+  claimed: () => "Started.",
+  started: () => null,
+  succeeded: () => "Finished.",
+  retry_scheduled: (event, clock) => {
+    const next = event.metadataJson.nextRunAt;
+    return `${withoutStop(event.message)}. Tries again${
+      typeof next === "string" ? ` at ${clock(next)}` : ""
+    }.`;
+  },
+  dead: (event) => {
+    const count = event.metadataJson.attemptCount;
+    return `${withoutStop(event.message)}. Gave up${
+      typeof count === "number" ? ` after ${tries(count)}` : ""
+    }.`;
+  },
+  failed: (event) => `${withoutStop(event.message)}. Stopped.`,
+  cancelled: () => "Cancelled by an admin.",
+  cancel_ack: () => "The worker stopped.",
+  retry_requested: () => "An admin asked for a retry.",
+  dismissed: () => "An admin dismissed it.",
+};
+
+const eventSentence = (event: JsonJobEvent, clock: (iso: string) => string) =>
+  event.type in EVENT_SENTENCES
+    ? EVENT_SENTENCES[event.type]!(event, clock)
+    : (event.message ?? event.type);
+
+/**
+ * A run's recorded steps, loaded when its row opens and again whenever the
+ * run changes, so a cancel or retry shows up in the story.
+ */
+function useRunEvents(jobId: string, version: string) {
+  const [events, setEvents] = useState<JsonJobEvent[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    setFailed(false);
+    setLoading(true);
+    void fetch(`/api/admin/jobs/${encodeURIComponent(jobId)}/events`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error();
+        const data = (await res.json()) as { items: JsonJobEvent[] };
+        if (!cancelled) setEvents(data.items);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [jobId, version, attempt]);
+  // Steps shown during a reload may be out of date, so copying waits.
+  const ready = !loading && !failed ? events : null;
+  return { events, failed, ready, retry: () => setAttempt((n) => n + 1) };
+}
+
+const copyRunDetails = async (
+  job: JsonBackgroundJob,
+  events: JsonJobEvent[],
+) => {
+  const details = {
+    id: job.id,
+    kind: job.kind,
+    status: job.status,
+    attempts: `${job.attemptCount} of ${job.maxAttempts}`,
+    lastError: job.lastError,
+    createdAt: job.createdAt,
+    startedAt: job.startedAt ?? null,
+    completedAt: job.completedAt ?? null,
+    events: events.map((event) => ({
+      at: event.createdAt,
+      type: event.type,
+      message: event.message,
+    })),
+  };
+  try {
+    await copyText(JSON.stringify(details, null, 2));
+    toastManager.add({ title: "Details copied.", type: "success" });
+  } catch {
+    toastManager.add({ title: "Could not copy the details.", type: "error" });
+  }
+};
+
+function RunSteps({
   events,
+  failed,
+  onRetry,
   timeZone,
 }: {
   events: JsonJobEvent[] | null;
+  failed: boolean;
+  onRetry: () => void;
   timeZone: string;
 }) {
-  if (events === null) {
-    return <p className={JOB_NOTE}>Loading events...</p>;
-  }
-
-  if (events.length === 0) {
-    return <p className={JOB_NOTE}>No events recorded.</p>;
-  }
-
+  if (failed)
+    return (
+      <p className={cn(JOB_NOTE, "flex flex-wrap items-center gap-2")}>
+        Couldn&apos;t load the steps.
+        <Button size="xs" variant="ghost" onClick={onRetry}>
+          Try again
+        </Button>
+      </p>
+    );
+  if (events === null) return <p className={JOB_NOTE}>Loading steps…</p>;
+  const clock = (iso: string) =>
+    getLocalDateParts(new Date(iso), timeZone).time;
+  const steps = events.flatMap((event) => {
+    const sentence = eventSentence(event, clock);
+    return sentence
+      ? [{ id: event.id, at: clock(event.createdAt), sentence }]
+      : [];
+  });
+  if (steps.length === 0) return <p className={JOB_NOTE}>No steps recorded.</p>;
   return (
-    <div className="grid grid-cols-1 gap-0">
-      {events.map((event) => (
-        <div
-          className="grid grid-cols-[140px_minmax(0,1fr)] gap-3.5 border-b border-hairline py-2 text-label leading-snug last:border-b-0 max-md:grid-cols-1 max-md:gap-1 md:text-meta"
-          key={event.id}
-        >
-          <span className="text-muted-foreground tabular-nums">
-            {formatAdminDateTime(event.createdAt, timeZone)}
+    <ol className="m-0 grid list-none grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 p-0 text-meta">
+      {steps.map((step) => (
+        <li className="col-span-2 grid grid-cols-subgrid" key={step.id}>
+          <span className="text-muted-foreground tabular-nums">{step.at}</span>
+          <span className="wrap-anywhere text-foreground/80">
+            {step.sentence}
           </span>
-          <span className="grid min-w-0 grid-cols-1 gap-0.5">
-            <strong className="capitalize">{event.type}</strong>
-            {event.message || event.workerId ? (
-              <span className="wrap-anywhere text-muted-foreground">
-                {event.message ?? event.workerId}
-              </span>
-            ) : null}
-          </span>
-        </div>
+        </li>
       ))}
+    </ol>
+  );
+}
+
+const runAction = (status: JsonBackgroundJob["status"]) =>
+  status === "queued" || status === "running"
+    ? "cancel"
+    : status === "succeeded"
+      ? null
+      : "retry";
+
+/** What a run did, step by step, and what you can do with it. */
+function RunStory({
+  job,
+  onJobAction,
+  timeZone,
+}: {
+  job: JsonBackgroundJob;
+  onJobAction: (jobId: string, action: "retry" | "cancel") => void;
+  timeZone: string;
+}) {
+  const { events, failed, ready, retry } = useRunEvents(job.id, job.updatedAt);
+  const action = runAction(effectiveStatus(job));
+  return (
+    <div className="grid gap-3.5 ps-9 pe-4 pt-1 pb-4">
+      <RunSteps
+        events={events}
+        failed={failed}
+        timeZone={timeZone}
+        onRetry={retry}
+      />
+      <div className="flex flex-wrap gap-1.5">
+        {action ? (
+          <Button
+            onClick={() => onJobAction(job.id, action)}
+            size="xs"
+            variant={action === "cancel" ? "destructive-outline" : "outline"}
+          >
+            {action === "cancel" ? "Cancel" : "Retry"}
+          </Button>
+        ) : null}
+        <Button
+          disabled={!ready}
+          onClick={() => ready && void copyRunDetails(job, ready)}
+          size="xs"
+          variant="outline"
+        >
+          <Copy aria-hidden />
+          Copy details
+        </Button>
+      </div>
     </div>
   );
 }
 
-// Shows every job field; the branches are optional fields.
-// fallow-ignore-next-line complexity
-function JobDetailsModal({
-  actionError,
-  derivatives,
-  events,
-  history,
-  historyLoading,
-  timeZone,
-  jobName,
+function RunRow({
+  job,
   nowMs,
   onJobAction,
-  onSelectHistoryJob,
-  open,
-  selectedHistoryJob,
-  setOpen,
+  timeZone,
   workerRunningJobIds,
 }: {
-  actionError: string | null;
-  derivatives: JsonAdminMediaDerivativeRow[];
-  events: JsonJobEvent[] | null;
-  history: JsonBackgroundJob[] | null;
-  historyLoading: boolean;
-  timeZone: string;
-  jobName: string;
+  job: JsonBackgroundJob;
   nowMs: number;
   onJobAction: (jobId: string, action: "retry" | "cancel") => void;
-  onSelectHistoryJob: (jobId: string) => void;
-  open: boolean;
-  selectedHistoryJob: JsonBackgroundJob | null;
-  setOpen: (open: boolean) => void;
+  timeZone: string;
   workerRunningJobIds: Set<string>;
 }) {
-  const selectedStatus = selectedHistoryJob
-    ? getJobDisplayStatus(selectedHistoryJob, workerRunningJobIds)
-    : null;
-  const selectedTone = getJobTone(selectedStatus);
-  const selectedFileId = getPayloadFileId(selectedHistoryJob);
-  const selectedDerivative = selectedFileId
-    ? (derivatives.find((row) => row.fileId === selectedFileId) ?? null)
-    : null;
-
+  const [open, setOpen] = useState(false);
+  const status = getJobDisplayStatus(job, workerRunningJobIds);
   return (
-    <Dialog onOpenChange={setOpen} open={open}>
-      <DialogPopup className="max-h-[min(760px,calc(100dvh-3rem))] max-w-230 overflow-hidden">
-        <DialogHeader className="flex-row items-start justify-between gap-4.5 border-b border-hairline pr-14 max-md:flex-col">
-          <div className="min-w-0">
-            <DialogTitle>{selectedHistoryJob?.fileName ?? jobName}</DialogTitle>
-            {selectedHistoryJob ? (
-              <DialogDescription className="mt-1.5 md:text-meta">
-                {getJobStateLine({
-                  job: selectedHistoryJob,
-                  nowMs,
-                  status: selectedStatus,
-                  timeZone,
-                })}
-              </DialogDescription>
-            ) : null}
-          </div>
-          {selectedStatus ? (
-            <span
-              className={cn(
-                "inline-flex items-center gap-2 text-label font-semibold capitalize md:text-meta",
-                JOB_TONE_TEXT[selectedTone],
-              )}
-            >
-              <JobDot tone={selectedTone} />
-              {selectedStatus}
-            </span>
-          ) : null}
-        </DialogHeader>
-
-        {actionError ? (
-          <div className="px-6 pt-4">
-            <Alert variant="error">{actionError}</Alert>
-          </div>
-        ) : null}
-
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(210px,0.38fr)_minmax(0,1fr)] gap-0 overflow-hidden max-md:grid-cols-1 max-md:overflow-y-auto">
-          <section
-            className="min-h-0 overflow-y-auto border-r border-hairline bg-hover p-4.5 max-md:max-h-55 max-md:border-r-0 max-md:border-b max-md:p-4"
-            aria-label="Recent runs"
-          >
-            <ModalHeading>Recent runs</ModalHeading>
-            {historyLoading ? (
-              <p className={JOB_NOTE}>Loading runs...</p>
-            ) : history && history.length > 0 ? (
-              <div className="grid grid-cols-1 gap-1">
-                {history.slice(0, HISTORY_VISIBLE_RUNS).map((job) => {
-                  const status = getJobDisplayStatus(job, workerRunningJobIds);
-                  const tone = getJobTone(status);
-                  const selected = selectedHistoryJob?.id === job.id;
-
-                  return (
-                    <button
-                      aria-pressed={selected}
-                      className={cn(
-                        "grid min-h-11 w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-2.5 rounded-lg p-2 text-left outline-none hover:bg-selected focus-visible:ring-2 focus-visible:ring-ring/60",
-                        selected && "bg-selected",
-                      )}
-                      key={job.id}
-                      onClick={() => onSelectHistoryJob(job.id)}
-                      type="button"
-                    >
-                      <JobDot tone={tone} />
-                      <span>
-                        <strong className="block text-label font-medium capitalize md:text-body">
-                          {status}
-                        </strong>
-                        <small className="block text-xs text-muted-foreground md:text-meta">
-                          {formatRelativeTime(job.updatedAt, nowMs)}
-                        </small>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className={JOB_NOTE}>No runs recorded yet.</p>
-            )}
-          </section>
-
-          <section className="grid min-h-0 grid-cols-1 content-start gap-4.5 overflow-y-auto p-4.5 pb-5.5 max-md:p-4 max-md:pb-7">
-            {selectedHistoryJob ? (
-              <>
-                {selectedHistoryJob.lastError ? (
-                  <div className="grid grid-cols-1 gap-2">
-                    <ModalHeading>Error</ModalHeading>
-                    <Alert variant="error">
-                      {describeJobFailure(selectedHistoryJob)}
-                      <details className="mt-2">
-                        <summary>Technical details</summary>
-                        <p className="wrap-anywhere">
-                          {selectedHistoryJob.lastError}
-                        </p>
-                      </details>
-                    </Alert>
-                  </div>
-                ) : null}
-
-                <div className="grid grid-cols-1 gap-2">
-                  <ModalHeading>Events</ModalHeading>
-                  <JobEventList events={events} timeZone={timeZone} />
-                </div>
-
-                {selectedFileId ? (
-                  <div className="grid grid-cols-1 gap-2">
-                    <ModalHeading>Preview file</ModalHeading>
-                    {selectedDerivative ? (
-                      <MediaDerivativeCard
-                        compact
-                        derivative={selectedDerivative}
-                      />
-                    ) : (
-                      <p className={JOB_NOTE}>
-                        No preview file record found for this file.
-                      </p>
-                    )}
-                  </div>
-                ) : null}
-
-                <div className="grid grid-cols-1 gap-2">
-                  <ModalHeading>Payload</ModalHeading>
-                  <JsonBlock value={selectedHistoryJob.payloadJson} />
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {selectedHistoryJob.status === "failed" ||
-                  selectedHistoryJob.status === "dead" ||
-                  selectedHistoryJob.status === "cancelled" ? (
-                    <Button
-                      onClick={() =>
-                        onJobAction(selectedHistoryJob.id, "retry")
-                      }
-                    >
-                      Retry
-                    </Button>
-                  ) : null}
-                  {selectedHistoryJob.status === "queued" ||
-                  selectedHistoryJob.status === "running" ? (
-                    <Button
-                      variant="destructive"
-                      onClick={() =>
-                        onJobAction(selectedHistoryJob.id, "cancel")
-                      }
-                    >
-                      Cancel
-                    </Button>
-                  ) : null}
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      void copyText(selectedHistoryJob.id);
-                    }}
-                  >
-                    Copy ID
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <p className={JOB_NOTE}>No run selected.</p>
-            )}
-          </section>
-        </div>
-      </DialogPopup>
-    </Dialog>
+    <li
+      className={cn(
+        "border-t border-border first:border-t-0",
+        open && "bg-hover/50",
+      )}
+    >
+      <button
+        aria-expanded={open}
+        className={cn(
+          "flex min-h-14 w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset",
+          !open && "hover:bg-hover",
+        )}
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        <JobDot tone={getJobTone(status)} />
+        <RunText job={job} nowMs={nowMs} status={status} timeZone={timeZone} />
+        <ChevronDown
+          aria-hidden
+          className={cn(
+            "size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      {open ? (
+        <RunStory job={job} onJobAction={onJobAction} timeZone={timeZone} />
+      ) : null}
+    </li>
   );
 }
 
-/** The details panel's state, and the selected run's events as they load. */
-function useJobDetails() {
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [history, setHistory] = useState<JsonBackgroundJob[] | null>(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [selectedHistoryJobId, setSelectedHistoryJobId] = useState<
-    string | null
-  >(null);
-  const [events, setEvents] = useState<JsonJobEvent[] | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+const RUN_LIST =
+  "m-0 list-none overflow-hidden rounded-xl border border-border bg-card p-0";
 
-  useEffect(() => {
-    if (!detailsOpen || !selectedHistoryJobId) return;
+function RunList({
+  runs: { history, status, retry },
+  ...row
+}: Omit<Parameters<typeof RunRow>[0], "job"> & { runs: Runs }) {
+  if (status === "loading") return <p className={JOB_NOTE}>Loading runs…</p>;
+  if (status === "failed")
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <p className={JOB_NOTE}>Couldn't load the runs.</p>
+        <Button size="sm" variant="outline" onClick={retry}>
+          Try again
+        </Button>
+      </div>
+    );
+  if (!history?.length) return <p className={JOB_NOTE}>No runs yet.</p>;
+  return (
+    <ul aria-label="Runs" className={RUN_LIST}>
+      {history.slice(0, HISTORY_VISIBLE_RUNS).map((job) => (
+        <RunRow job={job} key={job.id} {...row} />
+      ))}
+    </ul>
+  );
+}
 
-    let cancelled = false;
-    setEvents(null);
-    void fetch(`/api/admin/jobs/${selectedHistoryJobId}/events`)
-      .then(async (res) => {
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
-        setEvents(data.items ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setEvents([]);
+const resultTitle = (
+  action: "retry" | "dismiss",
+  changed: number,
+  unchanged: number,
+) => {
+  const done =
+    action === "retry"
+      ? `${plural(changed, "run")} sent back to the queue.`
+      : `${plural(changed, "run")} dismissed.`;
+  return unchanged ? `${done} ${unchanged} had already changed.` : done;
+};
+
+/** Retry or dismiss one failed run, or every failed run of the job. */
+function useFailedActions(kind: string, onRefresh: () => Promise<void>) {
+  const [pending, setPending] = useState(false);
+  const busy = useRef(false);
+  const [errors, setErrors] = useState<{ jobId: string; error: string }[]>([]);
+  const act = async (action: "retry" | "dismiss", jobId?: string) => {
+    if (busy.current) return;
+    busy.current = true;
+    setPending(true);
+    setErrors([]);
+    try {
+      const results = jobId
+        ? [await applyProblemJobAction(jobId, action)]
+        : await applyProblemJobActions(
+            await collectProblemJobIds(kind),
+            action,
+          );
+      const failures = results.flatMap((result) =>
+        result.error ? [{ jobId: result.jobId, error: result.error }] : [],
+      );
+      setErrors(failures);
+      const changed = results.filter(
+        (result) => !result.error && result.changed,
+      ).length;
+      if (changed || !failures.length)
+        toastManager.add({
+          title: resultTitle(
+            action,
+            changed,
+            results.length - failures.length - changed,
+          ),
+          type: "success",
+        });
+    } catch (error) {
+      toastManager.add({
+        title:
+          error instanceof Error
+            ? error.message
+            : "Could not load the jobs. Try again.",
+        type: "error",
       });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [detailsOpen, selectedHistoryJobId]);
-
-  return {
-    detailsOpen,
-    setDetailsOpen,
-    history,
-    setHistory,
-    historyLoading,
-    setHistoryLoading,
-    selectedHistoryJobId,
-    setSelectedHistoryJobId,
-    events,
-    actionError,
-    setActionError,
+    } finally {
+      // Each refresh reports its own failure; the buttons come back anyway.
+      await onRefresh()
+        .catch(() => {})
+        .finally(() => {
+          busy.current = false;
+          setPending(false);
+        });
+    }
   };
+  return { pending, errors, act };
+}
+
+/** The job's failed runs, each with Dismiss and Retry. */
+function FailedRuns({
+  actions: { pending, errors, act },
+  count,
+  jobs,
+  kind,
+  nowMs,
+  timeZone,
+}: {
+  actions: ReturnType<typeof useFailedActions>;
+  count: number;
+  jobs: JsonBackgroundJob[];
+  kind: string;
+  nowMs: number;
+  timeZone: string;
+}) {
+  return (
+    <div className="grid gap-3">
+      {errors.length ? (
+        <Alert variant="error">
+          {errors.map((entry) => {
+            const job = jobs.find((item) => item.id === entry.jobId);
+            const label = job ? runMeta(job, nowMs, timeZone) : "";
+            return (
+              <p className="wrap-anywhere" key={entry.jobId}>
+                {label || "A run"}: {entry.error}
+              </p>
+            );
+          })}
+        </Alert>
+      ) : null}
+      <ul
+        aria-busy={pending}
+        aria-label={`Failed ${formatJobKind(kind)} runs`}
+        className={RUN_LIST}
+      >
+        {jobs.map((job) => (
+          <li
+            className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border px-4 py-2.5 first:border-t-0"
+            key={job.id}
+          >
+            <JobDot tone="failed" />
+            <RunText
+              job={job}
+              nowMs={nowMs}
+              status={effectiveStatus(job)}
+              timeZone={timeZone}
+            />
+            <span className="flex gap-1.5">
+              <Button
+                disabled={pending}
+                onClick={() => void act("dismiss", job.id)}
+                size="xs"
+                variant="ghost-muted"
+              >
+                Dismiss
+              </Button>
+              <Button
+                disabled={pending}
+                onClick={() => void act("retry", job.id)}
+                size="xs"
+                variant="outline"
+              >
+                Retry
+              </Button>
+            </span>
+          </li>
+        ))}
+      </ul>
+      {count > jobs.length ? (
+        <p className={JOB_NOTE}>
+          Showing the latest {jobs.length} of {count}. Retry all and Dismiss all
+          act on every one.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+type DetailsTab = "failed" | "runs";
+
+function DetailsHeader({
+  failedCount,
+  kind,
+  setTab,
+  showFailed,
+}: {
+  failedCount: number;
+  kind: string;
+  setTab: (tab: DetailsTab) => void;
+  showFailed: boolean;
+}) {
+  return (
+    <DialogHeader>
+      <div className="flex items-center gap-3 pe-8">
+        <JobIcon failed={failedCount > 0} kind={kind} />
+        <div className="grid min-w-0 gap-0.5">
+          <DialogTitle>{formatJobKind(kind)}</DialogTitle>
+          <DialogDescription>{getJobDescription(kind)}</DialogDescription>
+        </div>
+      </div>
+      {failedCount > 0 ? (
+        <Tabs
+          className="mt-2"
+          onValueChange={(value) => setTab(value as DetailsTab)}
+          value={showFailed ? "failed" : "runs"}
+        >
+          <TabsList className="self-start">
+            <TabsTab value="failed">
+              Failed
+              <span className="text-muted-foreground tabular-nums">
+                {failedCount.toLocaleString()}
+              </span>
+            </TabsTab>
+            <TabsTab value="runs">All runs</TabsTab>
+          </TabsList>
+        </Tabs>
+      ) : null}
+    </DialogHeader>
+  );
+}
+
+/** Dismiss or retry every failed run of the job. */
+function BulkActions({
+  actions,
+}: {
+  actions: ReturnType<typeof useFailedActions>;
+}) {
+  return (
+    <div className="flex gap-2 sm:me-auto">
+      <Button
+        disabled={actions.pending}
+        onClick={() => void actions.act("dismiss")}
+        size="sm"
+        variant="ghost-muted"
+      >
+        Dismiss all
+      </Button>
+      <Button
+        disabled={actions.pending}
+        onClick={() => void actions.act("retry")}
+        size="sm"
+        variant="outline"
+      >
+        Retry all
+      </Button>
+    </div>
+  );
+}
+
+function JobDetailsDialog({
+  actionError,
+  failedCount,
+  kind,
+  nowMs,
+  onJobAction,
+  onRefreshFailed,
+  runs,
+  problems,
+  setTab,
+  tab,
+  timeZone,
+  workerRunningJobIds,
+}: {
+  actionError: string | null;
+  failedCount: number;
+  kind: string;
+  nowMs: number;
+  onJobAction: (jobId: string, action: "retry" | "cancel") => void;
+  onRefreshFailed: () => Promise<void>;
+  runs: Runs;
+  problems: JsonBackgroundJob[];
+  setTab: (tab: DetailsTab | null) => void;
+  tab: DetailsTab | null;
+  timeZone: string;
+  workerRunningJobIds: Set<string>;
+}) {
+  const failedActions = useFailedActions(kind, onRefreshFailed);
+  const showFailed = tab === "failed" && failedCount > 0;
+  return (
+    <Dialog
+      onOpenChange={(open) => {
+        if (!open) setTab(null);
+      }}
+      open={tab !== null}
+    >
+      <DialogPopup className="sm:max-w-2xl">
+        <DetailsHeader
+          failedCount={failedCount}
+          kind={kind}
+          setTab={setTab}
+          showFailed={showFailed}
+        />
+        <DialogPanel className="grid gap-3">
+          {actionError ? <Alert variant="error">{actionError}</Alert> : null}
+          {showFailed ? (
+            <FailedRuns
+              actions={failedActions}
+              count={failedCount}
+              jobs={problems}
+              kind={kind}
+              nowMs={nowMs}
+              timeZone={timeZone}
+            />
+          ) : (
+            <RunList
+              nowMs={nowMs}
+              runs={runs}
+              onJobAction={onJobAction}
+              timeZone={timeZone}
+              workerRunningJobIds={workerRunningJobIds}
+            />
+          )}
+        </DialogPanel>
+        <DialogFooter>
+          {showFailed && failedCount > 1 ? (
+            <BulkActions actions={failedActions} />
+          ) : null}
+          <DialogClose render={<Button size="sm" variant="outline" />}>
+            Close
+          </DialogClose>
+        </DialogFooter>
+      </DialogPopup>
+    </Dialog>
+  );
 }
 
 /** Retry, cancel or dismiss one run; the server's message when it refuses. */
@@ -1008,115 +1093,185 @@ async function sendJobAction(
   return body?.error ?? `Request failed (${res.status}).`;
 }
 
-// One row per job kind with its run, history and details; the logic is in
-// the helpers above, what's left is wiring.
-// fallow-ignore-next-line complexity
-function JobTaskCard({
-  derivatives,
-  timeZone,
-  kind,
-  lastRun,
-  nowMs,
-  onLastRunChange,
-  workerRunningJobIds,
-}: {
-  derivatives: JsonAdminMediaDerivativeRow[];
-  timeZone: string;
-  kind: string;
-  lastRun: JsonBackgroundJob | null;
-  nowMs: number;
-  onLastRunChange: (kind: string, job: JsonBackgroundJob | null) => void;
-  workerRunningJobIds: Set<string>;
-}) {
-  const jobName = formatJobKind(kind);
-  const jobDescription = getJobDescription(kind);
-  const canRunManually = MANUAL_RUN_JOB_KINDS.has(kind);
-  const [running, setRunning] = useState(false);
-  const [runError, setRunError] = useState<string | null>(null);
-  const {
-    detailsOpen,
-    setDetailsOpen,
-    history,
-    setHistory,
-    historyLoading,
-    setHistoryLoading,
-    selectedHistoryJobId,
-    setSelectedHistoryJobId,
-    events,
-    actionError,
-    setActionError,
-  } = useJobDetails();
+function JobIcon({ kind, failed }: { kind: string; failed: boolean }) {
+  const Icon = JOB_META[kind]?.icon ?? Archive;
+  return (
+    <span
+      className={cn(
+        "flex size-9 shrink-0 items-center justify-center rounded-xl",
+        failed ? "bg-destructive/12" : "bg-hover",
+      )}
+    >
+      <Icon
+        aria-hidden
+        className={cn(
+          "size-4",
+          failed ? "text-destructive-foreground" : "text-muted-foreground",
+        )}
+      />
+    </span>
+  );
+}
 
-  const displayStatus = lastRun
-    ? getJobDisplayStatus(lastRun, workerRunningJobIds)
-    : null;
-  const tone = getJobTone(displayStatus);
-  const primaryActionLabel = getPrimaryActionLabel({
-    canRunManually,
-    lastRun,
-    status: displayStatus,
-  });
-  const primaryActionIsCommand =
-    primaryActionLabel === "Run now" || primaryActionLabel === "Retry";
+/** Running and waiting counts, shown only when they aren't zero. */
+function JobCounts({
+  counts = {},
+}: {
+  counts: JsonJobSummary["countsByKind"][string] | undefined;
+}) {
+  const count = (status: JsonBackgroundJob["status"]) => counts[status] ?? 0;
+  const list = [
+    { label: "running", count: count("running"), variant: "info" },
+    { label: "waiting", count: count("queued"), variant: "neutral" },
+  ] as const;
+  return list.map((item) =>
+    item.count > 0 ? (
+      <Badge key={item.label} variant={item.variant}>
+        {item.count.toLocaleString()} {item.label}
+      </Badge>
+    ) : null,
+  );
+}
+
+const withRun = (jobs: JsonBackgroundJob[], run: JsonBackgroundJob) =>
+  [run, ...jobs.filter((job) => job.id !== run.id)].sort(
+    (left, right) =>
+      new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+  );
+
+type Runs = {
+  history: JsonBackgroundJob[] | null;
+  status: "loading" | "failed" | "ready";
+  retry: () => void;
+};
+
+/**
+ * The job's run list, read on each open and kept current after. `onLoaded`
+ * gets each accepted read, so the card follows whichever read lands last.
+ */
+function useJobHistory(
+  kind: string,
+  lastRun: JsonBackgroundJob | null,
+  onLoaded: (jobs: JsonBackgroundJob[]) => void,
+) {
+  const [history, setHistory] = useState<JsonBackgroundJob[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+  // A list read can land after a newer live update or a newer read.
+  const pushed = useRef(lastRun);
+  const reads = useRef(0);
 
   useEffect(() => {
-    if (!detailsOpen || !lastRun) return;
+    pushed.current = lastRun;
+    if (lastRun)
+      setHistory((current) => (current ? withRun(current, lastRun) : current));
+  }, [lastRun]);
 
-    setHistory((current) => {
-      if (!current) return current;
-      const withoutLatest = current.filter((job) => job.id !== lastRun.id);
-      return [lastRun, ...withoutLatest].sort(
-        (left, right) =>
-          new Date(right.updatedAt).getTime() -
-          new Date(left.updatedAt).getTime(),
-      );
-    });
-    setSelectedHistoryJobId((current) => current ?? lastRun.id);
-  }, [detailsOpen, lastRun]);
-
-  const refreshJobs = async () => {
-    const updated = await fetch(
-      `/api/admin/jobs?kind=${encodeURIComponent(kind)}&limit=100`,
-    );
-    if (!updated.ok) return;
-
-    const data = await updated.json();
-    const jobs: JsonBackgroundJob[] = data.items ?? [];
-    setHistory(jobs);
-    onLastRunChange(kind, selectRepresentativeJob(jobs, workerRunningJobIds));
-    setSelectedHistoryJobId((current) => current ?? jobs[0]?.id ?? null);
-  };
-
-  // Loads the job and its events; each branch is one failure.
-  // fallow-ignore-next-line complexity
-  const openDetails = async () => {
-    setDetailsOpen(true);
-    setSelectedHistoryJobId((current) => current ?? lastRun?.id ?? null);
-    if (history !== null) return;
-
-    setHistoryLoading(true);
+  const loadHistory = async () => {
+    const read = ++reads.current;
+    const before = pushed.current;
+    let jobs: JsonBackgroundJob[];
     try {
       const res = await fetch(
         `/api/admin/jobs?kind=${encodeURIComponent(kind)}&limit=100`,
       );
-      if (res.ok) {
-        const data = await res.json();
-        const jobs: JsonBackgroundJob[] = data.items ?? [];
-        const selected = selectRepresentativeJob(jobs, workerRunningJobIds);
-        setHistory(jobs);
-        setSelectedHistoryJobId(selected?.id ?? jobs[0]?.id ?? null);
+      if (!res.ok) throw new Error();
+      jobs = ((await res.json()) as { items: JsonBackgroundJob[] }).items;
+    } catch {
+      if (read === reads.current) {
+        setFailed(true);
+        toastManager.add({
+          title: "Could not refresh the runs. Reload to see them.",
+          type: "error",
+        });
       }
+      return;
+    }
+    if (read !== reads.current) return;
+    setFailed(false);
+    const live = pushed.current;
+    // The card already shows a run pushed while this read was out.
+    if (live !== before && live) {
+      setHistory(withRun(jobs, live));
+      return;
+    }
+    setHistory(jobs);
+    onLoaded(jobs);
+  };
+
+  const loadOnOpen = async () => {
+    if (history === null) setHistoryLoading(true);
+    try {
+      await loadHistory();
     } finally {
       setHistoryLoading(false);
     }
   };
 
-  const handleRun = async () => {
-    if (!canRunManually) {
-      await openDetails();
-      return;
-    }
+  const runs: Runs = {
+    history,
+    status: historyLoading
+      ? "loading"
+      : failed && !history
+        ? "failed"
+        : "ready",
+    retry: () => void loadOnOpen(),
+  };
+  return { runs, loadHistory, loadOnOpen };
+}
 
+// One row per job kind: its state, counts and buttons; the logic is in the
+// helpers above, what's left is wiring.
+// fallow-ignore-next-line complexity
+function JobTaskCard({
+  counts = {},
+  timeZone,
+  kind,
+  lastRun,
+  nowMs,
+  problems,
+  onLastRunChange,
+  onRefreshProblems,
+  workerRunningJobIds,
+}: {
+  counts: JsonJobSummary["countsByKind"][string] | undefined;
+  timeZone: string;
+  kind: string;
+  lastRun: JsonBackgroundJob | null;
+  nowMs: number;
+  problems: JsonBackgroundJob[];
+  onLastRunChange: (kind: string, job: JsonBackgroundJob | null) => void;
+  onRefreshProblems: () => Promise<void>;
+  workerRunningJobIds: Set<string>;
+}) {
+  const failedCount = (counts.failed ?? 0) + (counts.dead ?? 0);
+  const [tab, setTab] = useState<DetailsTab | null>(null);
+  const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const { runs, loadHistory, loadOnOpen } = useJobHistory(
+    kind,
+    lastRun,
+    (jobs) =>
+      onLastRunChange(kind, selectRepresentativeJob(jobs, workerRunningJobIds)),
+  );
+
+  const displayStatus = lastRun
+    ? getJobDisplayStatus(lastRun, workerRunningJobIds)
+    : null;
+  const tone = getJobTone(displayStatus);
+  const canRunNow =
+    MANUAL_RUN_JOB_KINDS.has(kind) && displayStatus !== "running";
+
+  const refreshJobs = loadHistory;
+
+  const openDetails = (next: DetailsTab) => {
+    setActionError(null);
+    setTab(next);
+    void loadOnOpen();
+  };
+
+  const handleRun = async () => {
     setRunning(true);
     setRunError(null);
     try {
@@ -1138,820 +1293,230 @@ function JobTaskCard({
 
   const postJobAction = async (jobId: string, action: "retry" | "cancel") => {
     setActionError(null);
-    setRunError(null);
     const message = await sendJobAction(jobId, action);
     if (message) {
       setActionError(message);
-      setRunError(message);
       return;
     }
-    await refreshJobs();
+    await Promise.all([refreshJobs(), onRefreshProblems()]);
   };
-
-  const handlePrimaryAction = async () => {
-    if (
-      lastRun &&
-      (displayStatus === "failed" ||
-        displayStatus === "dead" ||
-        displayStatus === "cancelled")
-    ) {
-      await postJobAction(lastRun.id, "retry");
-      return;
-    }
-
-    await handleRun();
-  };
-
-  const selectedHistoryJob =
-    history?.find((job) => job.id === selectedHistoryJobId) ??
-    history?.[0] ??
-    lastRun;
 
   return (
-    <article className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border px-4 py-3 first:border-t-0">
-      <div className="grid min-w-0 flex-1 basis-80 gap-0.5">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <JobDot tone={tone} />
-          <h2 className="m-0 min-w-0 font-sans text-body font-semibold wrap-anywhere">
-            {jobName}
-          </h2>
-        </div>
-        <p className="m-0 max-w-[70ch] text-meta text-muted-foreground">
-          {jobDescription}
-        </p>
-        <p className={cn("m-0 text-meta", JOB_TONE_TEXT[tone])}>
-          {getJobLastFact({ job: lastRun, nowMs, status: displayStatus })}
-          {runError ? (
-            <span className="text-destructive-foreground"> {runError}</span>
-          ) : null}
-        </p>
+    <article className="flex min-h-16 flex-wrap items-center gap-x-3.5 gap-y-2 border-t border-border px-4 py-3">
+      <JobIcon kind={kind} failed={tone === "failed"} />
+      <div className="grid min-w-0 flex-1 basis-64 gap-0.5">
+        <h3 className="m-0 font-sans text-body font-medium wrap-anywhere">
+          {formatJobKind(kind)}
+        </h3>
+        <JobSentence
+          error={runError}
+          job={lastRun}
+          kind={kind}
+          nowMs={nowMs}
+          status={displayStatus}
+          timeZone={timeZone}
+        />
       </div>
-      <div className="flex shrink-0 items-center gap-1.5">
-        {primaryActionIsCommand ? (
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5 max-sm:w-full max-sm:ps-12.5">
+        <JobCounts counts={counts} />
+        {failedCount > 0 ? (
+          <Button
+            onClick={() => openDetails("failed")}
+            size="sm"
+            variant="destructive-outline"
+          >
+            {failedCount.toLocaleString()} failed
+          </Button>
+        ) : null}
+        {canRunNow ? (
           <Button
             disabled={running}
             loading={running}
             size="sm"
             variant="outline"
-            onClick={() => void handlePrimaryAction()}
+            onClick={() => void handleRun()}
           >
-            {primaryActionLabel}
+            Run now
           </Button>
-        ) : (
-          <span className="px-2 text-meta text-muted-foreground">
-            {primaryActionLabel}
-          </span>
-        )}
-        <Button size="sm" variant="ghost" onClick={() => void openDetails()}>
+        ) : null}
+        <Button
+          size="sm"
+          variant="ghost-muted"
+          onClick={() => openDetails("runs")}
+        >
           Details
         </Button>
       </div>
 
-      <JobDetailsModal
+      <JobDetailsDialog
         actionError={actionError}
-        derivatives={derivatives}
-        events={events}
-        history={history}
-        historyLoading={historyLoading}
-        timeZone={timeZone}
-        jobName={jobName}
+        failedCount={failedCount}
+        kind={kind}
         nowMs={nowMs}
         onJobAction={(jobId, action) => void postJobAction(jobId, action)}
-        onSelectHistoryJob={setSelectedHistoryJobId}
-        open={detailsOpen}
-        selectedHistoryJob={selectedHistoryJob}
-        setOpen={setDetailsOpen}
+        onRefreshFailed={async () => {
+          await Promise.all([onRefreshProblems(), refreshJobs()]);
+        }}
+        runs={runs}
+        problems={problems}
+        setTab={setTab}
+        tab={tab}
+        timeZone={timeZone}
         workerRunningJobIds={workerRunningJobIds}
       />
     </article>
   );
 }
 
-function ActivityPagination({
-  disabled,
-  pagination,
-  onPageChange,
-}: {
-  disabled: boolean;
-  pagination: Omit<JsonJobListResponse, "items" | "nextCursor">;
-  onPageChange: (page: number) => void;
-}) {
-  const safePageCount = Math.max(pagination.pageCount, 1);
-  const page = Math.min(Math.max(pagination.page, 1), safePageCount);
-  const firstItem =
-    pagination.totalCount === 0 ? 0 : (page - 1) * pagination.pageSize + 1;
-  const lastItem = Math.min(pagination.totalCount, page * pagination.pageSize);
-  const pageItems = getPaginationItems(page, pagination.pageCount);
-  const canGoBack = pagination.hasPreviousPage && !disabled;
-  const canGoForward = pagination.hasNextPage && !disabled;
-
-  return (
-    <nav
-      className="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-hover px-2.5 py-2 max-md:grid"
-      aria-label="Activity pagination"
-    >
-      <p className="m-0 text-xs font-semibold whitespace-nowrap text-muted-foreground max-md:whitespace-normal md:text-label">
-        Showing {firstItem}-{lastItem} of {pagination.totalCount} logs
-      </p>
-      {pagination.pageCount > 1 ? (
-        <div className="flex flex-wrap items-center justify-end gap-1 max-md:justify-start">
-          <Button
-            aria-label="First page"
-            disabled={!canGoBack}
-            onClick={() => onPageChange(1)}
-            size="icon-xs"
-            title="First page"
-            variant="outline"
-          >
-            <ChevronsLeft aria-hidden />
-          </Button>
-          <Button
-            aria-label="Previous page"
-            disabled={!canGoBack}
-            onClick={() => onPageChange(page - 1)}
-            size="icon-xs"
-            title="Previous page"
-            variant="outline"
-          >
-            <ChevronLeft aria-hidden />
-          </Button>
-          {pageItems.map((item) =>
-            typeof item === "number" ? (
-              <Button
-                aria-current={item === page ? "page" : undefined}
-                disabled={disabled}
-                key={item}
-                onClick={() => {
-                  if (item !== page) onPageChange(item);
-                }}
-                size="xs"
-                variant={item === page ? "secondary" : "outline"}
-              >
-                {item}
-              </Button>
-            ) : (
-              <span
-                aria-hidden
-                className="min-w-5.5 text-center text-label font-semibold text-muted-foreground"
-                key={item}
-              >
-                ...
-              </span>
-            ),
-          )}
-          <Button
-            aria-label="Next page"
-            disabled={!canGoForward}
-            onClick={() => onPageChange(page + 1)}
-            size="icon-xs"
-            title="Next page"
-            variant="outline"
-          >
-            <ChevronRight aria-hidden />
-          </Button>
-          <Button
-            aria-label="Last page"
-            disabled={!canGoForward}
-            onClick={() => onPageChange(pagination.pageCount)}
-            size="icon-xs"
-            title="Last page"
-            variant="outline"
-          >
-            <ChevronsRight aria-hidden />
-          </Button>
-        </div>
-      ) : null}
-    </nav>
-  );
-}
-
-// fallow-ignore-next-line complexity
-function JobActivityPanel({
-  problemView,
-  derivatives,
-  timeZone,
-  jobKinds,
-  liveJobs,
-  nowMs,
-  onLastRunChange,
-  workerRunningJobIds,
-}: {
-  problemView: { kind: string } | null;
-  derivatives: JsonAdminMediaDerivativeSummary;
-  timeZone: string;
-  jobKinds: string[];
-  liveJobs: JsonBackgroundJob[];
-  nowMs: number;
-  onLastRunChange: (kind: string, job: JsonBackgroundJob | null) => void;
-  workerRunningJobIds: Set<string>;
-}) {
-  const refresh = useRefresh();
-  const [view, setView] = useState<ActivityView>("jobs");
-  const [filter, setFilter] = useState<ActivityFilter>("all");
-  const [kindFilter, setKindFilter] = useState("all");
-  const [items, setItems] = useState<JsonBackgroundJob[]>([]);
-  const [activityPage, setActivityPage] = useState(1);
-  useEffect(() => {
-    if (!problemView) return;
-    setView("jobs");
-    setFilter("failed");
-    setKindFilter(problemView.kind);
-    setActivityPage(1);
-  }, [problemView]);
-  const [pagination, setPagination] = useState<
-    Omit<JsonJobListResponse, "items" | "nextCursor">
-  >({
-    page: 1,
-    pageCount: 0,
-    pageSize: ACTIVITY_PAGE_SIZE,
-    totalCount: 0,
-    hasNextPage: false,
-    hasPreviousPage: false,
-  });
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [selectedKind, setSelectedKind] = useState<string | null>(null);
-  const {
-    detailsOpen,
-    setDetailsOpen,
-    history,
-    setHistory,
-    historyLoading,
-    setHistoryLoading,
-    selectedHistoryJobId,
-    setSelectedHistoryJobId,
-    events,
-    actionError,
-    setActionError,
-  } = useJobDetails();
-
-  const selectedHistoryJob =
-    history?.find((job) => job.id === selectedHistoryJobId) ??
-    history?.[0] ??
-    items.find((job) => job.id === selectedHistoryJobId) ??
-    null;
-
-  const kindFilterOptions = useMemo(
-    () => [
-      { label: "All jobs", value: "all" },
-      ...jobKinds.map((kind) => ({ label: formatJobKind(kind), value: kind })),
-    ],
-    [jobKinds],
-  );
-  const activityKind = kindFilter === "all" ? null : kindFilter;
-  const isInitialActivityLoad = loading && items.length === 0;
-  const applyActivityData = useCallback(
-    (data: JsonJobListResponse) => {
-      setItems(data.items);
-      setPagination({
-        page: data.page,
-        pageCount: data.pageCount,
-        pageSize: data.pageSize,
-        totalCount: data.totalCount,
-        hasNextPage: data.hasNextPage,
-        hasPreviousPage: data.hasPreviousPage,
-      });
-      if (data.page !== activityPage) {
-        setActivityPage(data.page);
-      }
-    },
-    [activityPage],
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setLoadError(null);
-
-    void fetchActivityJobs({ filter, kind: activityKind, page: activityPage })
-      .then((data) => {
-        if (cancelled) return;
-        applyActivityData(data);
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          setLoadError(
-            error instanceof Error ? error.message : "Failed to load jobs.",
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activityKind, activityPage, applyActivityData, filter]);
-
-  useEffect(() => {
-    if (activityPage !== 1 || liveJobs.length === 0) return;
-
-    setItems((current) => {
-      const liveJobIds = new Set(liveJobs.map((job) => job.id));
-      const visibleLiveJobs = liveJobs.filter((job) =>
-        jobMatchesActivityView({ filter, job, kind: activityKind }),
-      );
-      const visibleLiveJobIds = new Set(visibleLiveJobs.map((job) => job.id));
-
-      return mergeJobsById(
-        current.filter(
-          (job) => !liveJobIds.has(job.id) || visibleLiveJobIds.has(job.id),
-        ),
-        visibleLiveJobs,
-      ).slice(0, pagination.pageSize);
-    });
-  }, [activityKind, activityPage, filter, liveJobs, pagination.pageSize]);
-
-  useEffect(() => {
-    if (!selectedHistoryJobId || liveJobs.length === 0) return;
-    const liveSelectedJob = liveJobs.find(
-      (job) => job.id === selectedHistoryJobId,
-    );
-    if (!liveSelectedJob) return;
-
-    setHistory((current) =>
-      current ? mergeJobsById(current, [liveSelectedJob]) : current,
-    );
-  }, [liveJobs, selectedHistoryJobId]);
-
-  const refreshActivity = async () => {
-    const data = await fetchActivityJobs({
-      filter,
-      kind: activityKind,
-      page: activityPage,
-    });
-    applyActivityData(data);
-  };
-
-  const refreshHistory = async (kind: string, selectedJobId?: string) => {
-    setHistoryLoading(true);
-    try {
-      const res = await fetch(buildJobsUrl({ kind, limit: 100 }));
-      if (!res.ok) return;
-      const data = (await res.json()) as JsonJobListResponse;
-      const nextSelectedJobId =
-        selectedJobId && data.items.some((job) => job.id === selectedJobId)
-          ? selectedJobId
-          : (data.items[0]?.id ?? null);
-
-      setHistory(data.items);
-      onLastRunChange(
-        kind,
-        selectRepresentativeJob(data.items, workerRunningJobIds),
-      );
-      setSelectedHistoryJobId(nextSelectedJobId);
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
-
-  const openDetails = async (job: JsonBackgroundJob) => {
-    setActionError(null);
-    setDetailsOpen(true);
-    setSelectedKind(job.kind);
-    setHistory([job]);
-    setSelectedHistoryJobId(job.id);
-    await refreshHistory(job.kind, job.id);
-  };
-
-  const postJobAction = async (jobId: string, action: "retry" | "cancel") => {
-    if (!selectedKind) return;
-    setActionError(null);
-    const message = await sendJobAction(jobId, action);
-    if (message) {
-      setActionError(message);
-      return;
-    }
-    await Promise.all([refreshActivity(), refreshHistory(selectedKind, jobId)]);
-  };
-
-  return (
-    <AdminPanel
-      className="gap-3.5 p-4.5 max-md:p-3.5"
-      aria-label="Job activity"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-4.5 max-md:grid">
-        <div className="min-w-0 flex-[1_1_280px]">
-          <h2 className="m-0 font-heading text-body font-semibold">
-            {view === "jobs" ? "Activity" : "Preview files"}
-          </h2>
-        </div>
-        <div className="flex min-w-0 flex-[1_1_420px] flex-wrap items-start justify-end gap-2.5 max-md:grid max-md:justify-stretch">
-          <ToggleGroup
-            className="max-w-full max-md:w-full"
-            onValueChange={(value) => {
-              const next = value[0] as ActivityView | undefined;
-              if (next) setView(next);
-            }}
-            value={[view]}
-            variant="outline"
-          >
-            <ToggleGroupItem className="max-md:flex-1" value="jobs">
-              Jobs
-            </ToggleGroupItem>
-            <ToggleGroupItem className="max-md:flex-1" value="derivatives">
-              Preview files
-            </ToggleGroupItem>
-          </ToggleGroup>
-
-          {view === "jobs" ? (
-            <>
-              <ToggleGroup
-                className="max-w-full max-md:w-full"
-                onValueChange={(value) => {
-                  const next = value[0] as ActivityFilter | undefined;
-                  if (!next) return;
-                  setFilter(next);
-                  setActivityPage(1);
-                }}
-                value={[filter]}
-                variant="outline"
-              >
-                {(Object.keys(ACTIVITY_FILTER_LABELS) as ActivityFilter[]).map(
-                  (value) => (
-                    <ToggleGroupItem
-                      className="max-md:flex-1"
-                      key={value}
-                      value={value}
-                    >
-                      {ACTIVITY_FILTER_LABELS[value]}
-                    </ToggleGroupItem>
-                  ),
-                )}
-              </ToggleGroup>
-              <div className="grid w-[min(196px,100%)] min-w-40 flex-[0_1_196px] grid-cols-1 gap-0 max-md:w-full">
-                <Select
-                  items={kindFilterOptions}
-                  onValueChange={(value) => {
-                    setKindFilter(value ?? "all");
-                    setActivityPage(1);
-                  }}
-                  value={kindFilter}
-                >
-                  <SelectTrigger aria-label="Job type">
-                    <SelectValue placeholder="Job type" />
-                  </SelectTrigger>
-                  <SelectContent align="end" alignItemWithTrigger={false}>
-                    <SelectGroup>
-                      {kindFilterOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          ) : (
-            <Button variant="secondary" onClick={() => void refresh()}>
-              Refresh
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {view === "derivatives" ? (
-        <div className="grid grid-cols-1 gap-2.5">
-          {derivatives.deletedCount > 0 ? (
-            <p className="m-0 rounded-lg border border-hairline bg-hover px-3 py-2.5 text-label leading-normal text-muted-foreground md:text-meta">
-              {derivatives.deletedCount} preview file
-              {derivatives.deletedCount === 1 ? "" : "s"} for deleted files are
-              hidden and will be cleaned up automatically.
-            </p>
-          ) : null}
-          {derivatives.rows.length > 0 ? (
-            derivatives.rows.map((derivative) => (
-              <MediaDerivativeCard
-                derivative={derivative}
-                key={derivative.id}
-              />
-            ))
-          ) : (
-            <p className={cn(JOB_NOTE, "p-4.5")}>No preview files yet.</p>
-          )}
-        </div>
-      ) : (
-        <>
-          {loadError ? <Alert variant="error">{loadError}</Alert> : null}
-
-          <div className="grid min-h-13.5 grid-cols-1 gap-0 overflow-hidden rounded-lg border border-hairline">
-            {isInitialActivityLoad ? (
-              <p className={cn(JOB_NOTE, "p-4.5")}>Loading activity...</p>
-            ) : items.length > 0 ? (
-              <>
-                {loading ? (
-                  <p className="m-0 border-b border-hairline bg-hover px-3 py-1.5 text-label font-medium text-muted-foreground">
-                    Updating...
-                  </p>
-                ) : null}
-                {items.map((job) => {
-                  const status = getJobDisplayStatus(job, workerRunningJobIds);
-                  const tone = getJobTone(status);
-
-                  return (
-                    <button
-                      className="grid min-h-13.5 w-full cursor-pointer grid-cols-[auto_minmax(220px,1.1fr)_88px_72px_minmax(180px,1fr)] items-center gap-3 border-b border-hairline px-3 py-2.5 text-left outline-none last:border-b-0 hover:bg-selected focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset max-md:min-h-17 max-md:grid-cols-[auto_minmax(0,1fr)_auto] max-md:gap-x-2.5 max-md:gap-y-2 md:min-h-control"
-                      key={job.id}
-                      onClick={() => void openDetails(job)}
-                      type="button"
-                    >
-                      <JobDot tone={tone} />
-                      <span className="grid min-w-0 grid-cols-1 gap-1">
-                        <strong className="truncate text-label font-semibold md:text-body">
-                          {job.fileName ??
-                            (getPayloadFileId(job)
-                              ? "File no longer available"
-                              : formatJobKind(job.kind))}
-                        </strong>
-                        <small className="truncate text-xs font-medium text-muted-foreground md:text-meta">
-                          {job.fileName ? `${formatJobKind(job.kind)} · ` : ""}
-                          {getJobStateLine({
-                            job,
-                            nowMs,
-                            status,
-                            timeZone,
-                          })}
-                        </small>
-                      </span>
-                      <span
-                        className={cn(
-                          "text-xs font-semibold capitalize max-md:justify-self-end md:text-meta",
-                          JOB_TONE_TEXT[tone],
-                        )}
-                      >
-                        {status}
-                      </span>
-                      <span className="text-xs font-semibold text-muted-foreground tabular-nums max-md:col-[2/3] md:text-meta">
-                        {job.attemptCount}/{job.maxAttempts}
-                      </span>
-                      <span className="truncate text-xs text-muted-foreground max-md:col-[2/4] max-md:whitespace-normal md:text-meta">
-                        {job.lastError
-                          ? describeJobFailure(job)
-                          : (job.dedupeKey ?? job.id)}
-                      </span>
-                    </button>
-                  );
-                })}
-              </>
-            ) : (
-              <p className={cn(JOB_NOTE, "p-4.5")}>No jobs match this view.</p>
-            )}
-          </div>
-
-          {pagination.totalCount > 0 ? (
-            <ActivityPagination
-              disabled={loading}
-              onPageChange={setActivityPage}
-              pagination={pagination}
-            />
-          ) : null}
-        </>
-      )}
-
-      <JobDetailsModal
-        actionError={actionError}
-        derivatives={derivatives.rows}
-        events={events}
-        history={history}
-        historyLoading={historyLoading}
-        timeZone={timeZone}
-        jobName={selectedKind ? formatJobKind(selectedKind) : "Job"}
-        nowMs={nowMs}
-        onJobAction={(jobId, action) => void postJobAction(jobId, action)}
-        onSelectHistoryJob={setSelectedHistoryJobId}
-        open={detailsOpen}
-        selectedHistoryJob={selectedHistoryJob}
-        setOpen={setDetailsOpen}
-        workerRunningJobIds={workerRunningJobIds}
-      />
-    </AdminPanel>
-  );
-}
-
-function ProblemRow({
-  job,
-  nowMs,
-  disabled,
-  onAction,
-}: {
-  job: JsonBackgroundJob;
-  nowMs: number;
-  disabled: boolean;
-  onAction: (jobId: string, action: "retry" | "dismiss") => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3">
-      <div className="grid min-w-0 flex-1 basis-48 gap-1">
-        <span className="text-body font-medium wrap-anywhere">
-          {job.fileName ??
-            (getPayloadFileId(job)
-              ? "File no longer available"
-              : formatJobKind(job.kind))}
-        </span>
-        <span className="text-label text-muted-foreground">
-          {describeJobFailure(job)}
-        </span>
-        <details className="text-label text-muted-foreground">
-          <summary className="cursor-pointer">
-            Details · {formatRelativeTime(job.updatedAt, nowMs)}
-          </summary>
-          <p className="wrap-anywhere">
-            {job.lastError ?? "No error recorded."}
-          </p>
-          <p className="wrap-anywhere">Job {job.id}</p>
-        </details>
-      </div>
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={disabled}
-          onClick={() => onAction(job.id, "dismiss")}
-        >
-          Dismiss
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={disabled}
-          onClick={() => onAction(job.id, "retry")}
-        >
-          Retry
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function ProblemGroup({
-  kind,
-  jobs,
-  count,
-  nowMs,
-  onResult,
-  onRefresh,
-  onViewAll,
-}: {
-  kind: string;
-  jobs: JsonBackgroundJob[];
-  count: number;
-  nowMs: number;
-  onResult: (message: string) => void;
-  onRefresh: () => Promise<void>;
-  onViewAll: () => void;
-}) {
-  const [pending, setPending] = useState(false);
-  const busy = useRef(false);
-  const [errors, setErrors] = useState<{ jobId: string; error: string }[]>([]);
-  const act = async (action: "retry" | "dismiss", jobId?: string) => {
-    if (busy.current) return;
-    busy.current = true;
-    setPending(true);
-    setErrors([]);
-    try {
-      const ids = jobId ? [jobId] : await collectProblemJobIds(kind);
-      const results = jobId
-        ? [await applyProblemJobAction(jobId, action)]
-        : await applyProblemJobActions(ids, action);
-      const failures = results.flatMap((result) =>
-        result.error ? [{ jobId: result.jobId, error: result.error }] : [],
-      );
-      setErrors(failures);
-      const changed = results.filter(
-        (result) => !result.error && result.changed,
-      ).length;
-      const unchanged = results.length - failures.length - changed;
-      onResult(
-        `${formatJobKind(kind)}: ${changed} ${action === "retry" ? "queued for retry" : "dismissed"}, ${unchanged} already changed, ${failures.length} could not be completed.`,
-      );
-    } catch (error) {
-      onResult(
-        error instanceof Error
-          ? error.message
-          : "Could not load the jobs. Try again.",
-      );
-    } finally {
-      await onRefresh();
-      busy.current = false;
-      setPending(false);
-    }
-  };
-  return (
-    <div
-      className="overflow-hidden rounded-2xl border border-border bg-card"
-      aria-busy={pending}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <h3 className="m-0 text-body font-semibold">
-          {formatJobKind(kind)} · {count}
-        </h3>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={pending}
-            onClick={() => void act("dismiss")}
-          >
-            Dismiss all
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={pending}
-            onClick={() => void act("retry")}
-          >
-            {pending ? "Working..." : "Retry all"}
-          </Button>
-        </div>
-      </div>
-      {errors.length ? (
-        <div className="px-4 pb-3">
-          <Alert variant="error">
-            {errors.map((entry) => (
-              <p key={entry.jobId} className="wrap-anywhere">
-                {jobs.find((job) => job.id === entry.jobId)?.fileName ??
-                  entry.jobId}
-                : {entry.error}
-              </p>
-            ))}
-          </Alert>
-        </div>
-      ) : null}
-      {jobs.map((job) => (
-        <ProblemRow
-          key={job.id}
-          job={job}
-          nowMs={nowMs}
-          disabled={pending}
-          onAction={(id, action) => void act(action, id)}
-        />
-      ))}
-      {count > jobs.length ? (
-        <div className="border-t border-border px-4 py-2">
-          <Button size="sm" variant="ghost" onClick={onViewAll}>
-            View all {count} in activity
-          </Button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function getQueueSummaryLabel(summary: JsonJobSummary) {
-  const oldestDueLabel = formatDuration(summary.oldestDueQueuedAgeSeconds);
-  const onlineWorkers = summary.workers.filter(
+const workerOffline = (summary: JsonJobSummary) =>
+  !summary.workers.some(
     (worker) => worker.status !== "stopped" && worker.status !== "stale",
-  ).length;
-  const workerNoun = onlineWorkers === 1 ? "worker" : "workers";
-  const workerLabel = `${onlineWorkers} ${workerNoun}`;
-  return [
-    `${summary.statusCounts.running} running`,
-    `${summary.statusCounts.queued} waiting`,
-    `${summary.failed + summary.dead} failed`,
-    `${workerLabel} online`,
-    summary.oldestDueQueuedAgeSeconds
-      ? `oldest waiting ${oldestDueLabel}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
+  );
 
-function getProblemGroups(countsByKind: JsonJobSummary["countsByKind"]) {
-  return Object.entries(countsByKind).flatMap(([kind, counts]) => {
-    const count = (counts.failed ?? 0) + (counts.dead ?? 0);
-    return count > 0 ? [{ kind, count }] : [];
-  });
-}
+const groupKinds = (kinds: string[]) => {
+  const groups = [...GROUPS, "Other"].map((group) => ({
+    group,
+    kinds: kinds.filter((kind) => (JOB_META[kind]?.group ?? "Other") === group),
+  }));
+  return groups.filter((entry) => entry.kinds.length > 0);
+};
 
-function useProblemRefresh(
-  setProblems: (jobs: JsonBackgroundJob[]) => void,
-  setProblemResult: (message: string) => void,
+const runningJobIds = (workers: JsonWorker[]) =>
+  new Set(
+    workers.flatMap((worker) =>
+      worker.status === "running" && worker.currentJobId
+        ? [worker.currentJobId]
+        : [],
+    ),
+  );
+
+/** Swaps one job kind's latest run, for rows that refreshed themselves. */
+const updateLastRun =
+  (
+    setLastRuns: Dispatch<
+      SetStateAction<Record<string, JsonBackgroundJob | null>>
+    >,
+  ) =>
+  (kind: string, job: JsonBackgroundJob | null) =>
+    setLastRuns((current) => ({ ...current, [kind]: job }));
+
+/** Job state from the page load, kept current by what the server pushes. */
+function useJobState(
+  initialSummary: JsonJobSummary,
+  initialLastRuns: Record<string, JsonBackgroundJob | null>,
+  initialProblems: JsonBackgroundJob[],
 ) {
-  const refreshVersion = useRef(0);
-  const refreshProblems = async () => {
-    const version = ++refreshVersion.current;
+  const [summary, setSummary] = useState(initialSummary);
+  const [lastRuns, setLastRuns] = useState(initialLastRuns);
+  const [problems, setProblems] = useState(initialProblems);
+  // A refresh can land after a newer push or a newer refresh.
+  const version = useRef(0);
+  const apply = (state: JsonJobState) => {
+    setSummary(state.summary);
+    setLastRuns(state.lastRuns);
+    setProblems(state.problems);
+  };
+  useEffect(
+    () =>
+      subscribeLive("state", (data) => {
+        version.current += 1;
+        apply(data as JsonJobState);
+      }),
+    [],
+  );
+  /** Rows and counts together, for when live updates are not arriving. */
+  const refreshState = async () => {
+    const read = ++version.current;
     try {
-      const res = await fetch(
-        buildJobsUrl({ statuses: ["failed", "dead"], limit: 20 }),
-      );
+      const res = await fetch("/api/views/admin/jobs");
       if (!res.ok) throw new Error();
-      const data = (await res.json()) as JsonJobListResponse;
-      if (version === refreshVersion.current) setProblems(data.items);
+      const data = (await res.json()) as {
+        initialSummary: JsonJobSummary;
+        initialLastRuns: Record<string, JsonBackgroundJob | null>;
+        initialProblems: JsonBackgroundJob[];
+      };
+      if (read === version.current)
+        apply({
+          summary: data.initialSummary,
+          lastRuns: data.initialLastRuns,
+          problems: data.initialProblems,
+        });
     } catch {
-      setProblemResult(
-        "Could not refresh the jobs. Reconnect or reload to check their current state.",
-      );
+      toastManager.add({
+        title:
+          "Could not refresh the jobs. Reconnect or reload to check their current state.",
+        type: "error",
+      });
     }
   };
-  return { refreshProblems, refreshVersion };
+  return { summary, lastRuns, setLastRuns, problems, refreshState };
+}
+
+/** The current time, ticking each second for "2m ago" style labels. */
+function useClock() {
+  const { now } = useTime();
+  const [nowMs, setNowMs] = useState(() => now.getTime());
+  useEffect(() => {
+    setNowMs(Date.now());
+    const id = setInterval(() => setNowMs(Date.now()), CLOCK_TICK_MS);
+    return () => clearInterval(id);
+  }, []);
+  return nowMs;
+}
+
+function JobGroups({
+  counts,
+  jobKinds,
+  lastRuns,
+  nowMs,
+  problems,
+  timeZone,
+  workerRunningJobIds,
+  onLastRunChange,
+  onRefreshProblems,
+}: {
+  counts: JsonJobSummary["countsByKind"];
+  jobKinds: string[];
+  lastRuns: Record<string, JsonBackgroundJob | null>;
+  nowMs: number;
+  problems: JsonBackgroundJob[];
+  timeZone: string;
+  workerRunningJobIds: Set<string>;
+  onLastRunChange: (kind: string, job: JsonBackgroundJob | null) => void;
+  onRefreshProblems: () => Promise<void>;
+}) {
+  return (
+    <section
+      aria-label="Jobs"
+      className="overflow-hidden rounded-2xl border border-border bg-card"
+    >
+      {groupKinds(jobKinds).map(({ group, kinds }) => (
+        <div className="[&>article]:first-of-type:border-t-0" key={group}>
+          <h2 className="m-0 border-t border-border px-4 pt-3.5 pb-1.5 font-sans text-label font-semibold text-muted-foreground first:border-t-0">
+            {group}
+          </h2>
+          {kinds.map((kind) => (
+            <JobTaskCard
+              counts={counts[kind]}
+              timeZone={timeZone}
+              key={kind}
+              kind={kind}
+              lastRun={lastRuns[kind] ?? null}
+              nowMs={nowMs}
+              problems={problems.filter((job) => job.kind === kind)}
+              onLastRunChange={onLastRunChange}
+              onRefreshProblems={onRefreshProblems}
+              workerRunningJobIds={workerRunningJobIds}
+            />
+          ))}
+        </div>
+      ))}
+    </section>
+  );
 }
 
 type Props = {
   initialProblems: JsonBackgroundJob[];
-  initialDerivatives: JsonAdminMediaDerivativeSummary;
   initialLastRuns: Record<string, JsonBackgroundJob | null>;
   initialSummary: JsonJobSummary;
   jobKinds: string[];
@@ -1959,144 +1524,36 @@ type Props = {
 
 export function JobOperations({
   initialProblems,
-  initialDerivatives,
   initialLastRuns,
   initialSummary,
   jobKinds,
 }: Props) {
-  const [summary, setSummary] = useState(initialSummary);
-  const [lastRuns, setLastRuns] = useState(initialLastRuns);
-  const [problems, setProblems] = useState(initialProblems);
-  const [problemResult, setProblemResult] = useState<string | null>(null);
-  const [problemView, setProblemView] = useState<{ kind: string } | null>(null);
-  const { refreshProblems, refreshVersion } = useProblemRefresh(
-    setProblems,
-    setProblemResult,
-  );
-  const { now, timeZone } = useTime();
-  const [nowMs, setNowMs] = useState(() => now.getTime());
-  const failedCount = summary.failed + summary.dead;
+  const { summary, lastRuns, setLastRuns, problems, refreshState } =
+    useJobState(initialSummary, initialLastRuns, initialProblems);
+  const { timeZone } = useTime();
+  const nowMs = useClock();
   const workerRunningJobIds = useMemo(
-    () =>
-      new Set(
-        summary.workers
-          .filter((worker) => worker.status === "running")
-          .map((worker) => worker.currentJobId)
-          .filter((jobId): jobId is string => Boolean(jobId)),
-      ),
+    () => runningJobIds(summary.workers),
     [summary.workers],
   );
-  const liveJobs = useMemo(
-    () =>
-      Object.values(lastRuns).filter(
-        (job): job is JsonBackgroundJob => job !== null,
-      ),
-    [lastRuns],
-  );
-
-  useEffect(
-    () =>
-      subscribeLive("state", (data) => {
-        const state = data as JsonJobState;
-        setSummary(state.summary);
-        setLastRuns(state.lastRuns);
-        refreshVersion.current += 1;
-        setProblems(state.problems);
-      }),
-    [],
-  );
-
-  useEffect(() => {
-    setNowMs(Date.now());
-    const id = setInterval(() => setNowMs(Date.now()), CLOCK_TICK_MS);
-    return () => clearInterval(id);
-  }, []);
 
   return (
-    <div className="grid w-full max-w-6xl grid-cols-1 content-start gap-6">
-      <PageHeader
-        actions={
-          <Button
-            render={<AppLink href="/admin/settings?section=scheduling" />}
-            variant="outline"
-          >
-            Schedule
-          </Button>
-        }
-        description={getQueueSummaryLabel(summary)}
-        title="Jobs"
+    <AdminPage>
+      <PageHeader title="Jobs" />
+      {workerOffline(summary) ? (
+        <Alert variant="error">No worker is online, so nothing runs.</Alert>
+      ) : null}
+      <JobGroups
+        counts={summary.countsByKind}
+        jobKinds={jobKinds}
+        lastRuns={lastRuns}
+        nowMs={nowMs}
+        problems={problems}
+        timeZone={timeZone}
+        workerRunningJobIds={workerRunningJobIds}
+        onLastRunChange={updateLastRun(setLastRuns)}
+        onRefreshProblems={refreshState}
       />
-
-      {problemResult ? (
-        <p role="status" className="m-0 text-body text-muted-foreground">
-          {problemResult}
-        </p>
-      ) : null}
-      {failedCount > 0 ? (
-        <section aria-label="Needs a look" className="grid gap-2.5">
-          <h2 className="m-0 font-heading text-body font-semibold">
-            Needs a look
-          </h2>
-          {getProblemGroups(summary.countsByKind).map(({ kind, count }) => (
-            <ProblemGroup
-              key={kind}
-              kind={kind}
-              count={count}
-              jobs={problems.filter((job) => job.kind === kind)}
-              nowMs={nowMs}
-              onResult={setProblemResult}
-              onRefresh={refreshProblems}
-              onViewAll={() => {
-                setProblemView({ kind });
-                document
-                  .getElementById("job-activity")
-                  ?.scrollIntoView({ block: "start" });
-              }}
-            />
-          ))}
-        </section>
-      ) : null}
-
-      <section aria-label="Scheduled" className="grid gap-2.5">
-        <h2 className="m-0 font-heading text-body font-semibold">Scheduled</h2>
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
-          {jobKinds.map((kind) => (
-            <JobTaskCard
-              derivatives={initialDerivatives.rows}
-              timeZone={timeZone}
-              key={kind}
-              kind={kind}
-              lastRun={lastRuns[kind] ?? null}
-              nowMs={nowMs}
-              onLastRunChange={(updatedKind, job) => {
-                setLastRuns((current) => ({
-                  ...current,
-                  [updatedKind]: job,
-                }));
-              }}
-              workerRunningJobIds={workerRunningJobIds}
-            />
-          ))}
-        </div>
-      </section>
-
-      <div id="job-activity">
-        <JobActivityPanel
-          problemView={problemView}
-          derivatives={initialDerivatives}
-          timeZone={timeZone}
-          jobKinds={jobKinds}
-          liveJobs={liveJobs}
-          nowMs={nowMs}
-          onLastRunChange={(updatedKind, job) => {
-            setLastRuns((current) => ({
-              ...current,
-              [updatedKind]: job,
-            }));
-          }}
-          workerRunningJobIds={workerRunningJobIds}
-        />
-      </div>
-    </div>
+    </AdminPage>
   );
 }

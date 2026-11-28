@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/page-header";
 import { SettingsCard, SettingsRow } from "@/components/settings-layout";
 import { api, read } from "@/lib/api";
 import { formatBytes } from "@/lib/format-bytes";
+import { AdminGroup, AdminPage } from "./admin-panel";
 import { adminStorageChangeQuery } from "@/src/queries";
 import { Badge } from "@staaash/ui/components/badge";
 import { Button } from "@staaash/ui/components/button";
@@ -71,15 +72,6 @@ function PlaceBadge({ place }: { place: Place }) {
         ? `Was ${formatBytes(place.expectedSizeBytes!)}`
         : "Changed"}
     </Badge>
-  );
-}
-
-function Group({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="grid gap-2.5">
-      <h2 className="m-0 font-heading text-body font-semibold">{title}</h2>
-      {children}
-    </section>
   );
 }
 
@@ -292,6 +284,8 @@ function ChangeSummary({ change, item }: { change: Change; item: string }) {
   return <p className="m-0 text-body">{summaryOf(change.inspection, item)}</p>;
 }
 
+// One branch per thing the disk check can find.
+// fallow-ignore-next-line complexity
 function InspectionDetails({
   inspection,
   item,
@@ -305,7 +299,7 @@ function InspectionDetails({
   return (
     <>
       {inspection.places.length ? (
-        <Group title="On disk">
+        <AdminGroup title="On disk">
           <SettingsCard>
             {inspection.places.map((place) => (
               <SettingsRow
@@ -322,25 +316,27 @@ function InspectionDetails({
               />
             ) : null}
           </SettingsCard>
-        </Group>
+        </AdminGroup>
       ) : null}
 
       {inspection.group === "unsafe" ? (
-        <Group title="Fix it on the server">
+        <AdminGroup title="Fix it on the server">
           <SettingsCard>
             <SettingsRow
               label={serverStepOf(inspection, unsafePlace?.label ?? item)}
             />
             <SettingsRow label="Then click Check again." />
           </SettingsCard>
-        </Group>
+        </AdminGroup>
       ) : null}
 
       {inspection.waitingFor ? (
         <Button
           className="justify-self-start"
           render={
-            <AppLink href={`/admin/storage/changes/${inspection.waitingFor}`} />
+            <AppLink
+              href={`/admin/maintenance/changes/${inspection.waitingFor}`}
+            />
           }
           size="sm"
           variant="outline"
@@ -384,7 +380,7 @@ function ChoiceList({
   onChoose: (row: ChoiceRow) => void;
 }) {
   return (
-    <Group title="Choose">
+    <AdminGroup title="Choose">
       <SettingsCard>
         {rows.map((row, index) => (
           <SettingsRow hint={row.hint} key={row.id} label={row.label}>
@@ -402,7 +398,7 @@ function ChoiceList({
           </SettingsRow>
         ))}
       </SettingsCard>
-    </Group>
+    </AdminGroup>
   );
 }
 
@@ -449,7 +445,7 @@ function useChoice(
         queryClient.invalidateQueries({ queryKey: ["recovered-notice"] }),
       ]);
       if (result === "fixed" || result === "running") {
-        await navigate({ href: "/admin/storage" });
+        await navigate({ href: "/admin/maintenance/changes" });
       }
     } catch (error) {
       toastManager.add({
@@ -489,12 +485,12 @@ function ChangeHeader({
     <div className="grid gap-3">
       <Button
         className="-ms-2 justify-self-start"
-        render={<AppLink href="/admin/storage" />}
+        render={<AppLink href="/admin/maintenance/changes" />}
         size="sm"
         variant="ghost-muted"
       >
         <ChevronLeft aria-hidden />
-        Storage
+        Storage changes
       </Button>
       <PageHeader
         actions={actions}
@@ -563,7 +559,7 @@ export function StorageChangePage({ mutationId }: { mutationId: string }) {
   const page = useChangePage(mutationId);
   const canFix = page.isOwner && page.stopped;
   return (
-    <div className="grid w-full max-w-3xl content-start gap-6">
+    <AdminPage>
       <ChangeHeader
         actions={
           <>
@@ -600,6 +596,6 @@ export function StorageChangePage({ mutationId }: { mutationId: string }) {
           Only the owner can fix this change.
         </p>
       ) : null}
-    </div>
+    </AdminPage>
   );
 }

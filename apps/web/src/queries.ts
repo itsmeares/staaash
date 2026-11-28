@@ -112,10 +112,23 @@ export const adminOverviewQuery = queryOptions({
 
 export const adminStorageQuery = (mutationId?: string) =>
   queryOptions({
-    queryKey: ["admin", "storage", mutationId],
+    queryKey: ["admin", "storage", "list", mutationId],
     queryFn: () => read(admin.storage.$get({ query: { mutationId } })),
     staleTime: 0,
   });
+
+// Under "storage" so a storage review refreshes it too.
+export const adminMaintenanceQuery = queryOptions({
+  queryKey: ["admin", "storage", "maintenance"],
+  queryFn: () => read(admin.maintenance.$get()),
+  staleTime: 0,
+  // Nothing pushes when a restore check or an unfinished storage change ends.
+  refetchInterval: ({ state: { data } }) =>
+    ["queued", "running"].includes(data?.restore.runStatus ?? "") ||
+    data?.storage?.finishing
+      ? 2_000
+      : false,
+});
 
 export const adminStorageChangeQuery = (mutationId: string) =>
   queryOptions({

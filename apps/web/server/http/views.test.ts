@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   getPublicShareFilePreview: vi.fn(),
   getAdminStorageSummary: vi.fn(),
   getStorageMutationHealth: vi.fn(),
+  getAdminHealthSummary: vi.fn(),
 }));
 
 vi.mock("@/server/auth/service", () => ({
@@ -47,6 +48,10 @@ vi.mock("@/server/sharing/public-file-preview", () => ({
   getPublicShareFilePreview: mocks.getPublicShareFilePreview,
 }));
 
+vi.mock("@/server/health", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/health")>()),
+  getAdminHealthSummary: mocks.getAdminHealthSummary,
+}));
 vi.mock("@/server/admin/storage", () => ({
   getAdminStorageSummary: mocks.getAdminStorageSummary,
 }));
@@ -278,6 +283,52 @@ describe("view routes", () => {
       await expect(
         (await get("/api/views/admin/storage?mutationId=completed")).json(),
       ).resolves.toMatchObject({ mutations: [] });
+    });
+  });
+
+  describe("maintenance", () => {
+    it("splits storage changes into ones to review and ones finishing", async () => {
+      mocks.getRequestSession.mockResolvedValue({
+        id: "s1",
+        user: user({ role: "admin", isAdmin: true }),
+      });
+      mocks.getAdminHealthSummary.mockResolvedValue({
+        failures: [],
+        storageMutations: { counts: { recovery_required: 2, retrying: 1 } },
+        reconciliation: {
+          status: "healthy",
+          runStatus: null,
+          message: "Not run yet.",
+        },
+      });
+      await expect(
+        (await get("/api/views/admin/maintenance")).json(),
+      ).resolves.toMatchObject({
+        storage: { review: 2, finishing: 1, fixed: 0 },
+        restore: { runStatus: null },
+        isOwner: false,
+      });
+    });
+
+    it("says storage changes are unknown when they could not be read", async () => {
+      mocks.getRequestSession.mockResolvedValue({
+        id: "s1",
+        user: user({ role: "admin", isAdmin: true }),
+      });
+      mocks.getAdminHealthSummary.mockResolvedValue({
+        failures: ["STORAGE_MUTATION_HEALTH_UNAVAILABLE"],
+        storageMutations: { counts: {} },
+        reconciliation: { status: "healthy", runStatus: null, message: "" },
+      });
+      await expect(
+        (await get("/api/views/admin/maintenance")).json(),
+      ).resolves.toMatchObject({ storage: null });
+    });
+
+    it("refuses members", async () => {
+      mocks.getRequestSession.mockResolvedValue({ id: "s1", user: user() });
+      expect((await get("/api/views/admin/maintenance")).status).toBe(403);
+      expect(mocks.getAdminHealthSummary).not.toHaveBeenCalled();
     });
   });
 

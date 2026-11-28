@@ -57,7 +57,6 @@ export type MediaDerivativeMinAggregateOutputType = {
   videoCodec: string | null
   audioCodec: string | null
   error: string | null
-  pinnedByAdmin: boolean | null
   lastViewedAt: Date | null
   lastSharedAt: Date | null
   generatedAt: Date | null
@@ -82,7 +81,6 @@ export type MediaDerivativeMaxAggregateOutputType = {
   videoCodec: string | null
   audioCodec: string | null
   error: string | null
-  pinnedByAdmin: boolean | null
   lastViewedAt: Date | null
   lastSharedAt: Date | null
   generatedAt: Date | null
@@ -107,7 +105,6 @@ export type MediaDerivativeCountAggregateOutputType = {
   videoCodec: number
   audioCodec: number
   error: number
-  pinnedByAdmin: number
   lastViewedAt: number
   lastSharedAt: number
   generatedAt: number
@@ -150,7 +147,6 @@ export type MediaDerivativeMinAggregateInputType = {
   videoCodec?: true
   audioCodec?: true
   error?: true
-  pinnedByAdmin?: true
   lastViewedAt?: true
   lastSharedAt?: true
   generatedAt?: true
@@ -175,7 +171,6 @@ export type MediaDerivativeMaxAggregateInputType = {
   videoCodec?: true
   audioCodec?: true
   error?: true
-  pinnedByAdmin?: true
   lastViewedAt?: true
   lastSharedAt?: true
   generatedAt?: true
@@ -200,7 +195,6 @@ export type MediaDerivativeCountAggregateInputType = {
   videoCodec?: true
   audioCodec?: true
   error?: true
-  pinnedByAdmin?: true
   lastViewedAt?: true
   lastSharedAt?: true
   generatedAt?: true
@@ -312,7 +306,6 @@ export type MediaDerivativeGroupByOutputType = {
   videoCodec: string | null
   audioCodec: string | null
   error: string | null
-  pinnedByAdmin: boolean
   lastViewedAt: Date | null
   lastSharedAt: Date | null
   generatedAt: Date | null
@@ -360,7 +353,6 @@ export type MediaDerivativeWhereInput = {
   videoCodec?: Prisma.StringNullableFilter<"MediaDerivative"> | string | null
   audioCodec?: Prisma.StringNullableFilter<"MediaDerivative"> | string | null
   error?: Prisma.StringNullableFilter<"MediaDerivative"> | string | null
-  pinnedByAdmin?: Prisma.BoolFilter<"MediaDerivative"> | boolean
   lastViewedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
   lastSharedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
   generatedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
@@ -386,7 +378,6 @@ export type MediaDerivativeOrderByWithRelationInput = {
   videoCodec?: Prisma.SortOrderInput | Prisma.SortOrder
   audioCodec?: Prisma.SortOrderInput | Prisma.SortOrder
   error?: Prisma.SortOrderInput | Prisma.SortOrder
-  pinnedByAdmin?: Prisma.SortOrder
   lastViewedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lastSharedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   generatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -416,7 +407,6 @@ export type MediaDerivativeWhereUniqueInput = Prisma.AtLeast<{
   videoCodec?: Prisma.StringNullableFilter<"MediaDerivative"> | string | null
   audioCodec?: Prisma.StringNullableFilter<"MediaDerivative"> | string | null
   error?: Prisma.StringNullableFilter<"MediaDerivative"> | string | null
-  pinnedByAdmin?: Prisma.BoolFilter<"MediaDerivative"> | boolean
   lastViewedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
   lastSharedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
   generatedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
@@ -442,7 +432,6 @@ export type MediaDerivativeOrderByWithAggregationInput = {
   videoCodec?: Prisma.SortOrderInput | Prisma.SortOrder
   audioCodec?: Prisma.SortOrderInput | Prisma.SortOrder
   error?: Prisma.SortOrderInput | Prisma.SortOrder
-  pinnedByAdmin?: Prisma.SortOrder
   lastViewedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lastSharedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   generatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -475,7 +464,6 @@ export type MediaDerivativeScalarWhereWithAggregatesInput = {
   videoCodec?: Prisma.StringNullableWithAggregatesFilter<"MediaDerivative"> | string | null
   audioCodec?: Prisma.StringNullableWithAggregatesFilter<"MediaDerivative"> | string | null
   error?: Prisma.StringNullableWithAggregatesFilter<"MediaDerivative"> | string | null
-  pinnedByAdmin?: Prisma.BoolWithAggregatesFilter<"MediaDerivative"> | boolean
   lastViewedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MediaDerivative"> | Date | string | null
   lastSharedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MediaDerivative"> | Date | string | null
   generatedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MediaDerivative"> | Date | string | null
@@ -499,7 +487,6 @@ export type MediaDerivativeCreateInput = {
   videoCodec?: string | null
   audioCodec?: string | null
   error?: string | null
-  pinnedByAdmin?: boolean
   lastViewedAt?: Date | string | null
   lastSharedAt?: Date | string | null
   generatedAt?: Date | string | null
@@ -525,7 +512,6 @@ export type MediaDerivativeUncheckedCreateInput = {
   videoCodec?: string | null
   audioCodec?: string | null
   error?: string | null
-  pinnedByAdmin?: boolean
   lastViewedAt?: Date | string | null
   lastSharedAt?: Date | string | null
   generatedAt?: Date | string | null
@@ -549,7 +535,6 @@ export type MediaDerivativeUpdateInput = {
   videoCodec?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioCodec?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  pinnedByAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lastViewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastSharedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -575,7 +560,6 @@ export type MediaDerivativeUncheckedUpdateInput = {
   videoCodec?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioCodec?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  pinnedByAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lastViewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastSharedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -600,7 +584,6 @@ export type MediaDerivativeCreateManyInput = {
   videoCodec?: string | null
   audioCodec?: string | null
   error?: string | null
-  pinnedByAdmin?: boolean
   lastViewedAt?: Date | string | null
   lastSharedAt?: Date | string | null
   generatedAt?: Date | string | null
@@ -624,7 +607,6 @@ export type MediaDerivativeUpdateManyMutationInput = {
   videoCodec?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioCodec?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  pinnedByAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lastViewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastSharedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -649,7 +631,6 @@ export type MediaDerivativeUncheckedUpdateManyInput = {
   videoCodec?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioCodec?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  pinnedByAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lastViewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastSharedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -690,7 +671,6 @@ export type MediaDerivativeCountOrderByAggregateInput = {
   videoCodec?: Prisma.SortOrder
   audioCodec?: Prisma.SortOrder
   error?: Prisma.SortOrder
-  pinnedByAdmin?: Prisma.SortOrder
   lastViewedAt?: Prisma.SortOrder
   lastSharedAt?: Prisma.SortOrder
   generatedAt?: Prisma.SortOrder
@@ -723,7 +703,6 @@ export type MediaDerivativeMaxOrderByAggregateInput = {
   videoCodec?: Prisma.SortOrder
   audioCodec?: Prisma.SortOrder
   error?: Prisma.SortOrder
-  pinnedByAdmin?: Prisma.SortOrder
   lastViewedAt?: Prisma.SortOrder
   lastSharedAt?: Prisma.SortOrder
   generatedAt?: Prisma.SortOrder
@@ -748,7 +727,6 @@ export type MediaDerivativeMinOrderByAggregateInput = {
   videoCodec?: Prisma.SortOrder
   audioCodec?: Prisma.SortOrder
   error?: Prisma.SortOrder
-  pinnedByAdmin?: Prisma.SortOrder
   lastViewedAt?: Prisma.SortOrder
   lastSharedAt?: Prisma.SortOrder
   generatedAt?: Prisma.SortOrder
@@ -838,7 +816,6 @@ export type MediaDerivativeCreateWithoutFileInput = {
   videoCodec?: string | null
   audioCodec?: string | null
   error?: string | null
-  pinnedByAdmin?: boolean
   lastViewedAt?: Date | string | null
   lastSharedAt?: Date | string | null
   generatedAt?: Date | string | null
@@ -862,7 +839,6 @@ export type MediaDerivativeUncheckedCreateWithoutFileInput = {
   videoCodec?: string | null
   audioCodec?: string | null
   error?: string | null
-  pinnedByAdmin?: boolean
   lastViewedAt?: Date | string | null
   lastSharedAt?: Date | string | null
   generatedAt?: Date | string | null
@@ -916,7 +892,6 @@ export type MediaDerivativeScalarWhereInput = {
   videoCodec?: Prisma.StringNullableFilter<"MediaDerivative"> | string | null
   audioCodec?: Prisma.StringNullableFilter<"MediaDerivative"> | string | null
   error?: Prisma.StringNullableFilter<"MediaDerivative"> | string | null
-  pinnedByAdmin?: Prisma.BoolFilter<"MediaDerivative"> | boolean
   lastViewedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
   lastSharedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
   generatedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
@@ -940,7 +915,6 @@ export type MediaDerivativeCreateManyFileInput = {
   videoCodec?: string | null
   audioCodec?: string | null
   error?: string | null
-  pinnedByAdmin?: boolean
   lastViewedAt?: Date | string | null
   lastSharedAt?: Date | string | null
   generatedAt?: Date | string | null
@@ -964,7 +938,6 @@ export type MediaDerivativeUpdateWithoutFileInput = {
   videoCodec?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioCodec?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  pinnedByAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lastViewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastSharedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -988,7 +961,6 @@ export type MediaDerivativeUncheckedUpdateWithoutFileInput = {
   videoCodec?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioCodec?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  pinnedByAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lastViewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastSharedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1012,7 +984,6 @@ export type MediaDerivativeUncheckedUpdateManyWithoutFileInput = {
   videoCodec?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   audioCodec?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   error?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  pinnedByAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
   lastViewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastSharedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1039,7 +1010,6 @@ export type MediaDerivativeSelect<ExtArgs extends runtime.Types.Extensions.Inter
   videoCodec?: boolean
   audioCodec?: boolean
   error?: boolean
-  pinnedByAdmin?: boolean
   lastViewedAt?: boolean
   lastSharedAt?: boolean
   generatedAt?: boolean
@@ -1065,7 +1035,6 @@ export type MediaDerivativeSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   videoCodec?: boolean
   audioCodec?: boolean
   error?: boolean
-  pinnedByAdmin?: boolean
   lastViewedAt?: boolean
   lastSharedAt?: boolean
   generatedAt?: boolean
@@ -1091,7 +1060,6 @@ export type MediaDerivativeSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   videoCodec?: boolean
   audioCodec?: boolean
   error?: boolean
-  pinnedByAdmin?: boolean
   lastViewedAt?: boolean
   lastSharedAt?: boolean
   generatedAt?: boolean
@@ -1117,7 +1085,6 @@ export type MediaDerivativeSelectScalar = {
   videoCodec?: boolean
   audioCodec?: boolean
   error?: boolean
-  pinnedByAdmin?: boolean
   lastViewedAt?: boolean
   lastSharedAt?: boolean
   generatedAt?: boolean
@@ -1127,7 +1094,7 @@ export type MediaDerivativeSelectScalar = {
   updatedAt?: boolean
 }
 
-export type MediaDerivativeOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "fileId" | "kind" | "profile" | "status" | "storageKey" | "mimeType" | "sizeBytes" | "width" | "height" | "durationSeconds" | "videoCodec" | "audioCodec" | "error" | "pinnedByAdmin" | "lastViewedAt" | "lastSharedAt" | "generatedAt" | "generationJobId" | "storageRevision" | "createdAt" | "updatedAt", ExtArgs["result"]["mediaDerivative"]>
+export type MediaDerivativeOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "fileId" | "kind" | "profile" | "status" | "storageKey" | "mimeType" | "sizeBytes" | "width" | "height" | "durationSeconds" | "videoCodec" | "audioCodec" | "error" | "lastViewedAt" | "lastSharedAt" | "generatedAt" | "generationJobId" | "storageRevision" | "createdAt" | "updatedAt", ExtArgs["result"]["mediaDerivative"]>
 export type MediaDerivativeInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   file?: boolean | Prisma.FileDefaultArgs<ExtArgs>
 }
@@ -1158,7 +1125,6 @@ export type $MediaDerivativePayload<ExtArgs extends runtime.Types.Extensions.Int
     videoCodec: string | null
     audioCodec: string | null
     error: string | null
-    pinnedByAdmin: boolean
     lastViewedAt: Date | null
     lastSharedAt: Date | null
     generatedAt: Date | null
@@ -1604,7 +1570,6 @@ export interface MediaDerivativeFieldRefs {
   readonly videoCodec: Prisma.FieldRef<"MediaDerivative", 'String'>
   readonly audioCodec: Prisma.FieldRef<"MediaDerivative", 'String'>
   readonly error: Prisma.FieldRef<"MediaDerivative", 'String'>
-  readonly pinnedByAdmin: Prisma.FieldRef<"MediaDerivative", 'Boolean'>
   readonly lastViewedAt: Prisma.FieldRef<"MediaDerivative", 'DateTime'>
   readonly lastSharedAt: Prisma.FieldRef<"MediaDerivative", 'DateTime'>
   readonly generatedAt: Prisma.FieldRef<"MediaDerivative", 'DateTime'>

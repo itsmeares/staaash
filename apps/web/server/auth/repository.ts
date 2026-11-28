@@ -113,10 +113,6 @@ export type AuthRepository = {
   /** Null unlinks. Throws OIDC_ALREADY_LINKED when another account has it. */
   setOidcLink(userId: string, link: OidcLink | null): Promise<AuthUser>;
   listUsers(): Promise<AuthUser[]>;
-  setUserStorageLimit(
-    userId: string,
-    limitBytes: bigint | null,
-  ): Promise<AuthUser | null>;
   setTemporaryPassword(params: SetTemporaryPasswordParams): Promise<AuthUser>;
   changeRequiredPassword(
     params: ChangeRequiredPasswordParams,
@@ -552,31 +548,6 @@ const createPrismaAuthRepository = (
       });
 
       return users.map(toAuthUser);
-    },
-
-    async setUserStorageLimit(userId, limitBytes) {
-      const client = getClient();
-
-      try {
-        const user = await client.user.update({
-          where: { id: userId },
-          data: { storageLimitBytes: limitBytes },
-          include: {
-            preferences: true,
-          },
-        });
-
-        return toAuthUser(user);
-      } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === "P2025"
-        ) {
-          return null;
-        }
-
-        throw error;
-      }
     },
 
     async setTemporaryPassword(params) {

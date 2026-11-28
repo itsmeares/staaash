@@ -73,7 +73,8 @@ export const adminUpdateUserInputSchema = z.object({
     .transform(normalizeEmail)
     .optional(),
   displayName: optionalNullableDisplayName,
-  storageLimitBytes: storageLimitSchema,
+  // Left out keeps the limit; null removes it.
+  storageLimitBytes: storageLimitSchema.optional(),
   isAdmin: z.boolean().optional(),
 });
 

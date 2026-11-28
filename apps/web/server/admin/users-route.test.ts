@@ -92,7 +92,8 @@ describe("admin users routes", () => {
     ["001024", 1024n],
     ["9007199254740993", 9007199254740993n],
     [null, null],
-    [undefined, null],
+    // Left out keeps the limit and the role as they are.
+    [undefined, undefined],
   ])(
     "updates storage limit %s as %s",
     async (storageLimitBytes, expectedLimit) => {
@@ -113,8 +114,8 @@ describe("admin users routes", () => {
       expect(response.status).toBe(200);
       expect(updateUser).toHaveBeenCalledWith("owner-1", "member-1", {
         storageLimitBytes: expectedLimit,
-        isAdmin: false,
       });
+      expect(updateUser.mock.lastCall?.[2]).not.toHaveProperty("isAdmin");
       expect((await response.json()).user.storageLimitBytes).toBe(
         expectedLimit?.toString() ?? null,
       );

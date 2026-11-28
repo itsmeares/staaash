@@ -36,6 +36,14 @@ export type AdminOverviewSummary = {
     AdminStorageSummary,
     "totalUsers" | "retainedFileCount" | "retainedFolderCount" | "retainedBytes"
   >;
+  space: { userId: string; name: string; bytes: bigint }[];
+  nearLimit: {
+    userId: string;
+    name: string;
+    usedBytes: bigint;
+    limitBytes: bigint;
+  }[];
+  shareLinks: number;
   jobs: QueueBacklogSummary & {
     total: number;
   };
@@ -44,6 +52,7 @@ export type AdminOverviewSummary = {
     owners: number;
     admins: number;
     members: number;
+    notSetUp: number;
   };
   updates: UpdateState;
 };
@@ -88,7 +97,7 @@ export type JsonAdminJobListResponse = Omit<AdminJobListResponse, "items"> & {
       cancelledAt: string | null;
       createdAt: string;
       updatedAt: string;
-      fileName?: string | null;
+      ownerName?: string | null;
     }
   >;
 };

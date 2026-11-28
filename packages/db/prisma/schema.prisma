@@ -474,7 +474,6 @@ model MediaDerivative {
   videoCodec      String?
   audioCodec      String?
   error           String?
-  pinnedByAdmin   Boolean   @default(false)
   lastViewedAt    DateTime?
   lastSharedAt    DateTime?
   generatedAt     DateTime?
@@ -487,7 +486,6 @@ model MediaDerivative {
 
   @@unique([fileId, kind, profile])
   @@index([status, updatedAt])
-  @@index([pinnedByAdmin, lastViewedAt])
 }
 
 model ZipArchive {

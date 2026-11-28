@@ -286,6 +286,8 @@ export function reviewStorageChange(state: State, id: string, choice: string) {
   const sample = activeReviewSamples(state).find((item) => item.id === id);
   if (!sample) return "changed" as const;
   if (choice === "retry") return "stopped" as const;
+  // The busy sample's locked files belong to this change.
+  if (id === "sample-move") state.recovering = false;
   state.fixedChanges.unshift({
     id,
     kind: sample.kind,

@@ -1,40 +1,6 @@
-import type { ComponentProps, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { cn } from "@staaash/ui/utils";
-
-/** A bordered surface for one admin topic, with an optional heading. */
-export function AdminPanel({
-  title,
-  aside,
-  className,
-  children,
-  ...props
-}: Omit<ComponentProps<"section">, "title"> & {
-  title?: string;
-  aside?: ReactNode;
-}) {
-  return (
-    <section
-      className={cn(
-        "grid min-w-0 grid-cols-1 gap-3 rounded-xl border border-border bg-card p-4",
-        className,
-      )}
-      {...props}
-    >
-      {title ? (
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="m-0 font-sans text-body font-semibold">{title}</h2>
-          {aside ? (
-            <p className="m-0 text-right text-meta text-muted-foreground">
-              {aside}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-      {children}
-    </section>
-  );
-}
 
 const DOT = {
   ok: "bg-success",
@@ -50,6 +16,30 @@ function StatusDot({ tone }: { tone: keyof typeof DOT }) {
       aria-hidden
       className={cn("size-2 shrink-0 rounded-full", DOT[tone])}
     />
+  );
+}
+
+/** Every admin page shares one width, so switching pages keeps the edges still. */
+export function AdminPage({ children }: { children: ReactNode }) {
+  return (
+    <div className="grid w-full max-w-5xl grid-cols-1 content-start gap-6">
+      {children}
+    </div>
+  );
+}
+
+export function AdminGroup({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="grid gap-2.5">
+      <h2 className="m-0 font-heading text-body font-semibold">{title}</h2>
+      {children}
+    </section>
   );
 }
 

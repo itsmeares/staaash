@@ -10,6 +10,7 @@ import {
   MEDIA_DERIVATIVE_GENERATE_JOB_KIND,
   STAGING_CLEANUP_JOB_KIND,
   TRASH_RETENTION_JOB_KIND,
+  ZIP_ARCHIVE_GENERATE_JOB_KIND,
   cancelBackgroundJob,
   ensureBackgroundJobScheduled,
   getQueueOperationalSummary,
@@ -21,6 +22,11 @@ import {
 } from "@staaash/db/jobs";
 
 import type { JsonAdminJobListResponse } from "./types";
+
+// A zip belongs to one download, and the person downloading sees how it went.
+export const ADMIN_JOB_KINDS = ALL_SUPPORTED_JOB_KINDS.filter(
+  (kind) => kind !== ZIP_ARCHIVE_GENERATE_JOB_KIND,
+);
 
 const ADMIN_JOB_STATUSES = [
   "queued",
@@ -92,13 +98,11 @@ export const getAdminJobStateSnapshot = async () => {
   const [lastRuns, summary, problems] = await Promise.all([
     getLastRunPerKind(),
     getAdminJobSummary(),
-    getAdminJobListResponse(
-      parseAdminJobFilters({ status: "failed,dead", limit: "20" }),
-    ),
+    getAdminProblemJobs(),
   ]);
 
   const entries = Object.entries(lastRuns);
-  const named = await addJobFileNames(
+  const named = await addPreviewOwners(
     entries.flatMap(([, job]) => (job ? [toJsonAdminJob(job)] : [])),
   );
   const byId = new Map(named.map((job) => [job.id, job]));
@@ -107,12 +111,47 @@ export const getAdminJobStateSnapshot = async () => {
       entries.map(([kind, job]) => [kind, job ? byId.get(job.id)! : null]),
     ),
     summary,
-    problems: problems.items,
+    problems,
   };
 };
 
-export const getAdminJobEvents = async (jobId: string) =>
-  listBackgroundJobEvents({ jobId });
+/**
+ * Each kind's latest failed runs. One shared limit would let a burst of one
+ * kind hide another's failure, and zips are left out like everywhere else.
+ */
+const getAdminProblemJobs = async () => {
+  const perKind = await Promise.all(
+    ADMIN_JOB_KINDS.map((kind) =>
+      listAdminBackgroundJobItems({
+        kind,
+        status: ["failed", "dead"],
+        limit: 20,
+      }),
+    ),
+  );
+  return addPreviewOwners(
+    perKind
+      .flat()
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+      .map(toJsonAdminJob),
+  );
+};
+
+export const getAdminJobEvents = async (jobId: string) => {
+  const [events, job] = await Promise.all([
+    listBackgroundJobEvents({ jobId }),
+    getPrisma().backgroundJob.findUnique({
+      where: { id: jobId },
+      select: { kind: true },
+    }),
+  ]);
+  if (!job || !isPreviewJob(job)) return events;
+  return events.map((event) =>
+    ADMIN_EVENT_TYPES.has(event.type)
+      ? event
+      : { ...event, message: previewReason(event.message) },
+  );
+};
 
 export const cancelAdminJob = async (jobId: string, actorUserId: string) =>
   cancelBackgroundJob({ jobId, actorUserId });
@@ -156,6 +195,8 @@ const selectRepresentativeAdminJob = (
 ) =>
   jobs.find((job) => job.status === "running") ??
   jobs.find((job) => job.status === "queued" && job.runAt <= now) ??
+  // A dismissed or cancelled run says less than the last real one.
+  jobs.find((job) => isFinishedAdminJob(job) && job.status !== "cancelled") ??
   jobs.find(isFinishedAdminJob) ??
   jobs.find((job) => job.status === "queued") ??
   null;
@@ -163,7 +204,7 @@ const selectRepresentativeAdminJob = (
 const getLastRunPerKind = async () => {
   const now = new Date();
   const results = await Promise.all(
-    ALL_SUPPORTED_JOB_KINDS.map(async (kind) => {
+    ADMIN_JOB_KINDS.map(async (kind) => {
       const jobs = await listAdminBackgroundJobItems({ kind, limit: 100 });
       return { kind, job: selectRepresentativeAdminJob(jobs, now) };
     }),
@@ -215,39 +256,83 @@ export const toJsonAdminJobStateSnapshot = (
   lastRuns: snapshot.lastRuns,
 });
 
-/** The job list as JSON, with the file name on each preview job. */
+/** The job list as JSON, with the owner's name on each preview job. */
 export const getAdminJobListResponse = async (
   filters: ReturnType<typeof parseAdminJobFilters>,
 ) => {
   const response = toJsonAdminJobListResponse(
     await listAdminBackgroundJobs(filters),
   );
-  return { ...response, items: await addJobFileNames(response.items) };
+  return { ...response, items: await addPreviewOwners(response.items) };
 };
 
-const addJobFileNames = async <
+const STORAGE_BUSY_ERRORS = new Set([
+  "Another durable storage mutation owns this resource.",
+  "The durable storage mutation is being recovered.",
+  "The durable storage mutation requires operator recovery.",
+  "Storage is busy. Try again shortly.",
+  "Source file has an unfinished storage mutation.",
+]);
+
+// Preview jobs point at a member's file. Admins see whose drive it is and a
+// plain reason, never the file name or the raw error, which holds its path.
+const previewReason = (error: string | null) => {
+  if (!error) return null;
+  if (error === "Cancelled by admin.") return error;
+  // Whole messages only: a path inside a raw error can hold the same words.
+  if (STORAGE_BUSY_ERRORS.has(error))
+    return "Storage is busy. Try again shortly.";
+  if (/^File \S+ not found or deleted\.$/.test(error))
+    return "The file was deleted.";
+  if (/ffprobe|ffmpeg/.test(error)) return "Couldn't read this file.";
+  return "Couldn't make a preview.";
+};
+
+// Events whose message Staaash writes itself, without any file detail.
+const ADMIN_EVENT_TYPES = new Set([
+  "queued",
+  "claimed",
+  "started",
+  "succeeded",
+  "cancelled",
+  "cancel_ack",
+  "retry_requested",
+  "dismissed",
+]);
+
+const isPreviewJob = (job: { kind: string }) =>
+  job.kind === MEDIA_DERIVATIVE_GENERATE_JOB_KIND;
+
+const addPreviewOwners = async <
   T extends JsonAdminJobListResponse["items"][number],
 >(
   items: T[],
 ) => {
-  const fileIdOf = (job: (typeof items)[number]) =>
-    job.kind === MEDIA_DERIVATIVE_GENERATE_JOB_KIND
+  const fileIdOf = (job: T) =>
+    isPreviewJob(job)
       ? (job.payloadJson as { fileId?: string } | null)?.fileId
       : undefined;
   const fileIds = items.map(fileIdOf).filter((id): id is string => Boolean(id));
-  if (fileIds.length === 0)
-    return items.map((job) => ({ ...job, fileName: null }));
-
-  const files = await getPrisma().file.findMany({
-    where: { id: { in: fileIds } },
-    select: { id: true, originalName: true },
-  });
-  const names = new Map(files.map((file) => [file.id, file.originalName]));
+  const files = fileIds.length
+    ? await getPrisma().file.findMany({
+        where: { id: { in: fileIds } },
+        select: {
+          id: true,
+          owner: { select: { displayName: true, email: true } },
+        },
+      })
+    : [];
+  const owners = new Map(
+    files.map((file) => [file.id, file.owner.displayName ?? file.owner.email]),
+  );
   return items.map((job) => {
-    if (job.kind !== MEDIA_DERIVATIVE_GENERATE_JOB_KIND)
-      return { ...job, fileName: null };
+    if (!isPreviewJob(job)) return { ...job, ownerName: null };
     const fileId = fileIdOf(job);
-    return { ...job, fileName: fileId ? (names.get(fileId) ?? null) : null };
+    return {
+      ...job,
+      lastError: previewReason(job.lastError),
+      ownerName: fileId ? (owners.get(fileId) ?? null) : null,
+    };
   });
 };
 

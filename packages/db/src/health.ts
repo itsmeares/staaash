@@ -1,4 +1,5 @@
 import { Client } from "pg";
+import { ZIP_ARCHIVE_GENERATE_JOB_KIND } from "./jobs";
 
 export type HealthCheckStatus = "healthy" | "warning" | "error";
 
@@ -81,8 +82,13 @@ export const getQueueBacklogSummary = async (
 
   try {
     return await withClient(databaseUrl, async (client) => {
+      // A failed zip belongs to one download, and the person downloading
+      // sees it there. It is not something for the owner to fix.
       const result = await client.query<{ status: string; count: string }>(
-        'SELECT status, COUNT(*)::text AS count FROM "BackgroundJob" GROUP BY status',
+        `SELECT status, COUNT(*)::text AS count FROM "BackgroundJob"
+         WHERE NOT (kind = $1 AND status IN ('failed', 'dead'))
+         GROUP BY status`,
+        [ZIP_ARCHIVE_GENERATE_JOB_KIND],
       );
 
       const counts = {

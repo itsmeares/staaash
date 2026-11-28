@@ -179,12 +179,6 @@ const createRepo = (state: State): AuthRepository => ({
   async listUsers() {
     return state.users.map(toAuthUser);
   },
-  async setUserStorageLimit(userId, limitBytes) {
-    const user = state.users.find((candidate) => candidate.id === userId);
-    if (!user) return null;
-    user.storageLimitBytes = limitBytes;
-    return toAuthUser(user);
-  },
   async setTemporaryPassword(params) {
     const user = state.users.find(
       (candidate) => candidate.id === params.userId,
@@ -375,6 +369,40 @@ describe("auth service", () => {
       isAdmin: true,
       passwordChangeRequiredAt: now,
     });
+  });
+
+  it("keeps the limit and role when an edit leaves them out", async () => {
+    const state: State = {
+      users: [
+        makeUser({
+          id: "owner-1",
+          email: "owner@example.com",
+          isOwner: true,
+          isAdmin: true,
+        }),
+        makeUser({
+          id: "admin-1",
+          email: "admin@example.com",
+          isAdmin: true,
+          storageLimitBytes: 500n,
+        }),
+      ],
+      sessions: [],
+    };
+    const service = createAuthService({
+      repo: createRepo(state),
+      now: () => now,
+      sessionMaxAgeDays: 30,
+    });
+
+    await service.updateUser("owner-1", "admin-1", { displayName: "Ada" });
+    expect(state.users[1]).toMatchObject({
+      displayName: "Ada",
+      isAdmin: true,
+      storageLimitBytes: 500n,
+    });
+    await service.updateUser("owner-1", "admin-1", { storageLimitBytes: null });
+    expect(state.users[1]?.storageLimitBytes).toBeNull();
   });
 
   it("resets temporary passwords and revokes existing sessions", async () => {

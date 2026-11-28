@@ -41,13 +41,12 @@ Set `STAAASH_PUBLIC_URL` in `.env` to your public address, then run `docker comp
 
 Thumbnails and video previews come from the worker.
 
-1. Open admin **Jobs**. It must say at least one worker is online.
-2. If it says 0 online, run `docker compose logs worker` and `docker compose up -d`.
-3. Open the **Activity** list and filter by **Failed**. A single broken video can fail without harming anything else.
+1. Open admin **Jobs**. If it warns that no worker is online, run `docker compose logs worker` and `docker compose up -d`.
+2. On the **Create preview files** row, press the failed count to see each failed run and whose file it was. A single broken video can fail without harming anything else.
 
 ## The disk is full
 
-1. Open admin **Overview** and **Storage**. They show who uses the space.
+1. Open admin **Overview**. The **Space** panel shows who uses the space, and **Users** lists each person's size and limit.
 2. Ask people to empty their trash. Trash is deleted for good after the cleanup time.
 3. Add space on the disk, or move to a bigger disk. To move the library, follow the steps in [Configuration](/docs/configuration/).
 

@@ -11,6 +11,7 @@ import { useRefresh } from "@/lib/use-refresh";
 import type { Device } from "@/lib/user-agent";
 
 const PHONE = /iPhone|iPad|Android/;
+const SHOWN = 3;
 
 /**
  * Signed-in browsers, newest first, with a way to sign each one out. Admins
@@ -33,6 +34,13 @@ export function DeviceList({
   const { now, timeZone } = useTime();
   const refresh = useRefresh();
   const [showAddresses, setShowAddresses] = useState(!hideAddresses);
+  const [showAll, setShowAll] = useState(false);
+  // This browser first, then the newest ones.
+  const ordered = [...devices].sort(
+    (a, b) => Number(b.current) - Number(a.current),
+  );
+  const shown = showAll ? ordered : ordered.slice(0, SHOWN);
+  const others = devices.some((device) => !device.current);
 
   const run = async (action: () => Promise<void>) => {
     try {
@@ -58,7 +66,7 @@ export function DeviceList({
   return (
     <div className="grid gap-3">
       <SettingsCard>
-        {devices.map((device) => {
+        {shown.map((device) => {
           const Icon = PHONE.test(device.device) ? Smartphone : Monitor;
           const seen = device.current
             ? "This browser"
@@ -96,27 +104,68 @@ export function DeviceList({
           );
         })}
       </SettingsCard>
-      <div className="flex justify-end gap-2 empty:hidden">
-        {hideAddresses ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setShowAddresses((shown) => !shown)}
-          >
-            {showAddresses ? "Hide addresses" : "Show addresses"}
-          </Button>
-        ) : null}
-        {onSignOutOthers &&
-        (hasKeys || devices.some((device) => !device.current)) ? (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => void run(onSignOutOthers)}
-          >
-            Sign out everywhere else
-          </Button>
-        ) : null}
-      </div>
+      <DeviceActions
+        count={devices.length}
+        hasCurrent={devices.some((device) => device.current)}
+        // Staaash only learns an address from a reverse proxy's headers.
+        hideAddresses={
+          hideAddresses && devices.some((device) => device.ipAddress)
+        }
+        showAddresses={showAddresses}
+        showAll={showAll}
+        onShowAddresses={() => setShowAddresses((shown) => !shown)}
+        onShowAll={() => setShowAll((all) => !all)}
+        onSignOutOthers={
+          onSignOutOthers && (hasKeys || others)
+            ? () => void run(onSignOutOthers)
+            : undefined
+        }
+      />
+    </div>
+  );
+}
+
+function DeviceActions({
+  count,
+  hasCurrent,
+  hideAddresses,
+  showAddresses,
+  showAll,
+  onShowAddresses,
+  onShowAll,
+  onSignOutOthers,
+}: {
+  count: number;
+  hasCurrent: boolean;
+  hideAddresses: boolean;
+  showAddresses: boolean;
+  showAll: boolean;
+  onShowAddresses: () => void;
+  onShowAll: () => void;
+  onSignOutOthers?: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap justify-end gap-2 empty:hidden">
+      {count > SHOWN ? (
+        <Button
+          className="me-auto"
+          size="sm"
+          variant="ghost"
+          onClick={onShowAll}
+        >
+          {showAll ? "Show fewer" : "Show all"}
+        </Button>
+      ) : null}
+      {hideAddresses ? (
+        <Button size="sm" variant="ghost" onClick={onShowAddresses}>
+          {showAddresses ? "Hide addresses" : "Show addresses"}
+        </Button>
+      ) : null}
+      {onSignOutOthers ? (
+        <Button size="sm" variant="outline" onClick={onSignOutOthers}>
+          {hasCurrent ? "Sign out everywhere else" : "Sign out everywhere"}
+        </Button>
+      ) : null}
     </div>
   );
 }

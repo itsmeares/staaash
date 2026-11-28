@@ -1,7 +1,7 @@
 import { toast } from "@staaash/ui/components/toast";
 
 import type { BatchMoveOperationResponse } from "@/server/files/types";
-import { isBatchMoveOperationResponse } from "./files-move";
+import { isBatchMoveOperationResponse, type submitMove } from "./files-move";
 
 const DISMISSAL_PREFIX = "staaash:move-dismissal:";
 const RESULT_WINDOW_MS = 24 * 60 * 60 * 1_000;
@@ -63,4 +63,17 @@ export function showMoveFailure(
         }
       : undefined,
   });
+}
+
+/** Tells about items a move skipped and returns the ones that moved. */
+export function reportMoved<T extends { id: string }>(
+  items: T[],
+  result: Awaited<ReturnType<typeof submitMove>>,
+) {
+  if (result.failedCount > 0) {
+    showMoveFailure(`${result.failedCount} could not be moved.`, result);
+  }
+  return items.filter((item) =>
+    result.results.some((r) => r.id === item.id && r.status === "moved"),
+  );
 }
