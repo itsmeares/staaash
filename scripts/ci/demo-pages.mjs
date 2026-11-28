@@ -67,9 +67,9 @@ export function pickDemoBuilds(releases) {
 const base = `/${CANDIDATE_PATH}`;
 
 // Pages answers every missing path with the root 404.html, which is the stable
-// app. Paths under /rc/ go to the candidate demo with the rest of the address
-// kept, and its index.html puts the address back before the app starts.
-const forwardScript = `<script>if(location.pathname.indexOf(${JSON.stringify(base)})===0)location.replace(${JSON.stringify(base)}+"?demo-path="+encodeURIComponent(location.pathname.slice(${base.length})+location.search+location.hash))</script>`;
+// app. Paths under /rc/ go to the candidate demo with the whole address kept,
+// and its index.html puts the address back before the app starts.
+const forwardScript = `<script>if(location.pathname.indexOf(${JSON.stringify(base)})===0)location.replace(${JSON.stringify(base)}+"?demo-path="+encodeURIComponent(location.pathname+location.search+location.hash))</script>`;
 
 // With no candidate, /rc/ stops the last candidate demo's service worker, so
 // it no longer answers under /rc/, then opens the main demo. Its saved drive

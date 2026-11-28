@@ -89,7 +89,10 @@ await test("the RC demo goes under /rc/ and the root 404 page forwards to it", (
     assert.match(readFileSync(path.join(out, "index.html"), "utf8"), /stable/);
     assert.match(readFileSync(path.join(out, "rc/index.html"), "utf8"), /rc/);
     const notFound = readFileSync(path.join(out, "404.html"), "utf8");
-    assert.match(notFound, /location\.replace\("\/rc\/"\+"\?demo-path="/);
+    assert.match(
+      notFound,
+      /location\.replace\("\/rc\/"\+"\?demo-path="\+encodeURIComponent\(location\.pathname\+/,
+    );
     assert.doesNotMatch(
       readFileSync(path.join(root, "stable/404.html"), "utf8"),
       /demo-path/,

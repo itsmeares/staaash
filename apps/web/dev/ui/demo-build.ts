@@ -74,7 +74,8 @@ export function demoBuild(): Plugin {
         // address goes back before the router reads it.
         {
           tag: "script",
-          children: `(function(){var p=new URLSearchParams(location.search).get("demo-path");if(p!==null)history.replaceState(null,"",${JSON.stringify(base)}+p)})()`,
+          // Only a path on this site: the browser refuses another origin.
+          children: `(function(){var p=new URLSearchParams(location.search).get("demo-path");if(p&&p.charAt(0)==="/"&&p.charAt(1)!=="/")history.replaceState(null,"",p)})()`,
           injectTo: "head-prepend" as const,
         },
       ],
