@@ -20,6 +20,7 @@ import { ItemTypeIcon } from "@staaash/ui/item-type-icon";
 import { folderColorStyle } from "@/lib/folder-color";
 import { getItemVisual } from "@staaash/ui/item-visuals";
 import { WorkspaceActionSheet } from "./action-sheet";
+import { matchedWords, startNearMatch } from "@/lib/matched-words";
 import { MiddleName } from "./middle-name";
 import { Button } from "@staaash/ui/components/button";
 import { Menu, MenuPopup, MenuTrigger } from "@staaash/ui/components/menu";
@@ -910,6 +911,31 @@ export function Highlight({ text, query }: { text: string; query: string }) {
         {text.slice(at, at + query.length)}
       </mark>
       {text.slice(at + query.length)}
+    </>
+  );
+}
+
+/** Text from inside a file with the searched words marked, as search matched them. */
+export function HighlightWords({
+  text,
+  query,
+}: {
+  text: string;
+  query: string;
+}) {
+  const shown = startNearMatch(text, query);
+  const ranges = matchedWords(shown, query);
+  return (
+    <>
+      {ranges.map(([start, end], index) => (
+        <Fragment key={start}>
+          {shown.slice(ranges[index - 1]?.[1] ?? 0, start)}
+          <mark className="rounded-xs bg-primary/20 text-foreground">
+            {shown.slice(start, end)}
+          </mark>
+        </Fragment>
+      ))}
+      {shown.slice(ranges.at(-1)?.[1] ?? 0)}
     </>
   );
 }

@@ -301,3 +301,31 @@ it("marks a zip failed when its job is cancelled, so asking again queues it", as
   expect(await status(cancelled.id)).toBe("failed");
   expect(await status(other.id)).toBe("queued");
 });
+
+it("gives reading file text its own lane", async () => {
+  const db = getPrisma();
+  const queueName = randomUUID();
+  const now = new Date();
+  const [text, cleanup] = [randomUUID(), randomUUID()];
+  await db.backgroundJob.createMany({
+    data: [
+      { id: text, kind: "file.text.read" },
+      { id: cleanup, kind: "staging.cleanup" },
+    ].map((job) => ({
+      ...job,
+      queueName,
+      payloadJson: {},
+      runAt: new Date(now.getTime() - 1000),
+    })),
+  });
+  const workerId = randomUUID();
+  await registerWorkerInstance({ id: workerId, hostname: "test", pid: 1 });
+
+  const general = await claimDueBackgroundJob({ workerId, queueName, now });
+  expect(general?.id).toBe(cleanup);
+  expect(await claimDueBackgroundJob({ workerId, queueName, now })).toBeNull();
+  expect(
+    (await claimDueBackgroundJob({ workerId, lane: "text", queueName, now }))
+      ?.id,
+  ).toBe(text);
+});

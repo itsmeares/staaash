@@ -4,6 +4,12 @@ import type { Plain } from "../../lib/plain";
 import type { InstanceHealthSummary } from "../../server/types";
 import type { UpdateState } from "../../server/admin/updates";
 import { version } from "../../../../package.json";
+import {
+  OCR_LANGUAGES,
+  OCR_MODES,
+  automaticOcrMode,
+  scanPlan,
+} from "@staaash/config/ocr";
 import { type State, timestamp, jobKinds, sampleDisk } from "./state";
 import { storageView } from "./views";
 import {
@@ -17,6 +23,35 @@ function updateStatus(state: State): UpdateState["status"] {
   if (state.scenario === "update") return "update-available";
   return state.scenario === "error" ? "error" : "up-to-date";
 }
+/** The Search settings' status: a 4-core worker with every tool, reading the sample drive. */
+export function textReadingView(state: State) {
+  const { ocrMode, ocrLanguages } = state.settings;
+  const saved = OCR_MODES.find((mode) => mode === ocrMode) ?? null;
+  const mode = saved ?? automaticOcrMode(4);
+  const tools = {
+    pdftotext: "25.12.0",
+    pdftoppm: true,
+    tesseract: "5.5.2",
+    languages: Object.keys(OCR_LANGUAGES),
+    ffmpeg: true,
+  };
+  const busy = state.scenario === "busy";
+  return {
+    saved,
+    mode,
+    languages: ocrLanguages,
+    cpus: 4,
+    tools,
+    scan: scanPlan(mode, ocrLanguages, tools),
+    summary: {
+      read: state.files.length - (busy ? 3 : 0),
+      waiting: busy ? 3 : 0,
+      failed: state.scenario === "error" ? 1 : 0,
+      pagesWaiting: busy && mode !== "off" ? 42 : 0,
+    },
+  };
+}
+
 export function updateView(state: State): UpdateState {
   const latest =
     state.scenario === "update"

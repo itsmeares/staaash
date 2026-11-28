@@ -15,6 +15,7 @@ import {
   Copy,
   Film,
   ScanSearch,
+  ScanText,
   Trash2,
   Upload,
   type LucideIcon,
@@ -167,6 +168,12 @@ const JOB_META: Record<
     desc: "Checks restored files against the database. Run it after a restore.",
     icon: ScanSearch,
     group: "Check",
+  },
+  "file.text.read": {
+    name: "Read words in files",
+    desc: "Reads the text inside files for search and AI apps, and scans pages that are pictures.",
+    icon: ScanText,
+    group: "Make",
   },
 };
 

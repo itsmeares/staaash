@@ -8,6 +8,12 @@ the worker, and PostgreSQL 18 as Windows services on the same computer.
 
 It supports 64-bit Windows Server 2019 and newer, and Windows 10 and 11.
 
+:::note[Coming in v2.1.0]
+Search reads the words in text files, PDFs, Office files and books here too.
+Scans are not read on Windows: the installer has no OCR. Use Docker if you
+need scanned papers to be searchable.
+:::
+
 ## Install
 
 1. Download `Staaash-Server-<version>-win-x64.exe` from the

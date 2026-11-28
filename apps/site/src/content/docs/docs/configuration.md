@@ -55,17 +55,33 @@ If people open your drive through a domain name, set `STAAASH_PUBLIC_URL` so sha
 
 Only the owner can open these. Go to **Admin**, then **Settings**.
 
-| Section        | What you can change                                                                                                                                                                                                                                    |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Uploads        | Largest single file, how long one upload may take, how long unfinished uploads are kept, and the space unfinished uploads may use per person and in total.                                                                                             |
-| Media previews | Small pictures of photos and videos, smaller video copies for smooth playback, when to make them (on upload, on first play, or when shared), which videos get a copy, and how long unused copies are kept. Video copies use a lot of processing power. |
-| Sessions       | How long people stay signed in, and the longest expiry a share link may have.                                                                                                                                                                          |
-| Downloads      | How long generated zip files are kept.                                                                                                                                                                                                                 |
-| Updates        | Whether to check for new versions, and which releases to follow: Automatic, Stable or Release candidates.                                                                                                                                              |
-| Scheduling     | The drive time zone, and the time of daily maintenance.                                                                                                                                                                                                |
-| Worker         | When the worker counts as down because it has not reported in.                                                                                                                                                                                         |
+| Section        | What you can change                                                                                                                                                                                                                                                          |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Uploads        | Largest single file, how long one upload may take, how long unfinished uploads are kept, and the space unfinished uploads may use per person and in total.                                                                                                                   |
+| Media previews | Small pictures of photos and videos, smaller video copies for smooth playback, when to make them (on upload, on first play, or when shared), which videos get a copy, and how long unused copies are kept. Video copies use a lot of processing power.                       |
+| Sessions       | How long people stay signed in, and the longest expiry a share link may have.                                                                                                                                                                                                |
+| Downloads      | How long generated zip files are kept.                                                                                                                                                                                                                                       |
+| Search         | Whether to read scans: Off, Scanned PDFs, or PDFs and pictures, and which languages to read them in. Automatic reads scanned PDFs on a server with 2 or more CPU cores and nothing on 1 core. The status line shows how many files are read and how many scanned pages wait. |
+| Updates        | Whether to check for new versions, and which releases to follow: Automatic, Stable or Release candidates.                                                                                                                                                                    |
+| Scheduling     | The drive time zone, and the time of daily maintenance.                                                                                                                                                                                                                      |
+| Worker         | When the worker counts as down because it has not reported in.                                                                                                                                                                                                               |
 
 Hover or read the small text under each setting. It says what the setting does. When a section differs from the defaults, a reset button appears to put it back.
+
+## Reading scans
+
+:::note[Coming in v2.1.0]
+Older versions search names only and have no Search section.
+:::
+
+Text files, PDFs with text, Office files, books and web pages are always read for search. Scans, meaning PDF pages that are pictures of paper and, if you choose, photos and screenshots, need OCR, which costs processing power.
+
+- One page takes 3 to 7 seconds on one CPU core, one page after another.
+- On a server with 1 CPU core, opening folders and uploads were 1.4 to 1.9 times slower while scans ran. With 2 or more cores they barely changed.
+- Each language you add makes every page slower: English alone took 2.8 seconds a page on one core, five languages 6.7 seconds. Pick the languages your papers are written in.
+- **PDFs and pictures** scans every photo in every drive. On a big photo library that takes days.
+
+Files over 100 MB are not read, except plain text. Of a web page, the first 16 MB is read, and of an Office file or book, the first 256 MB once unpacked. Each file keeps at most 1 MiB of text, about 300 pages. Changing the languages reads scanned pages again in the new ones.
 
 ## Per-person limits
 

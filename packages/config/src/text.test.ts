@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { decodeTextPage } from "@/server/mcp";
+import { decodeTextPage, textSourceOf } from "./text";
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 
@@ -27,5 +27,23 @@ describe("decodeTextPage", () => {
     expect(
       decodeTextPage(new Uint8Array([0xff, 0xfe, 0x41]), false),
     ).toBeNull();
+  });
+});
+
+describe("textSourceOf", () => {
+  it.each([
+    ["Report.PDF", "application/octet-stream", "pdf"],
+    ["Budget.xlsx", "application/zip", "office"],
+    ["Notes.odt", "application/vnd.oasis.opendocument.text", "office"],
+    ["Book.epub", "application/epub+zip", "epub"],
+    ["Saved page.htm", "text/html; charset=utf-8", "html"],
+    ["Scan.heic", "application/octet-stream", "image"],
+    ["Receipt.jpg", "image/jpeg", "image"],
+    ["Logo.svg", "image/svg+xml", null],
+    ["Song.mp3", "audio/mpeg", null],
+    ["Clip.mov", "video/quicktime", null],
+    ["main.rs", "application/octet-stream", "text"],
+  ] as const)("reads %s (%s) as %s", (name, mimeType, source) => {
+    expect(textSourceOf({ name, mimeType })).toBe(source);
   });
 });

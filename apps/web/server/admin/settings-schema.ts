@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { OCR_LANGUAGES, OCR_MODES } from "@staaash/config/ocr";
 import {
   DEFAULT_MAINTENANCE_RUN_TIME,
   DEFAULT_TIME_ZONE,
@@ -86,6 +87,23 @@ export const settingsSchema = z
     mediaPreviewMaxHeight: integerSetting(),
     zipArchiveRetentionDays: integerSetting(0),
     mediaPreviewCrf: integerSetting(0, 51),
+    // "auto" picks by the worker's CPU count.
+    ocrMode: z
+      .enum(["auto", ...OCR_MODES])
+      .default("auto")
+      .transform((value) => (value === "auto" ? null : value)),
+    ocrLanguages: z
+      .string()
+      .default("eng")
+      .transform((value) => [
+        ...new Set(value.split(",").map((code) => code.trim())),
+      ])
+      .pipe(
+        z
+          .array(z.enum(Object.keys(OCR_LANGUAGES)))
+          .min(1, "Pick at least one language."),
+      )
+      .transform((codes) => codes.sort()),
   })
   .superRefine((value, context) => {
     if (value.resumableMaxReservedBytesPerUser < value.maxUploadBytes) {
@@ -129,7 +147,9 @@ export function toSettingsValues(
             : ""
           : value === null || value === undefined
             ? "auto"
-            : String(value),
+            : Array.isArray(value)
+              ? value.join(",")
+              : String(value),
       ];
     }),
   ) as SettingsValues;
@@ -160,4 +180,6 @@ export const SETTINGS_DEFAULTS: SettingsValues = {
   mediaPreviewMaxHeight: "1080",
   zipArchiveRetentionDays: "7",
   mediaPreviewCrf: "22",
+  ocrMode: "auto",
+  ocrLanguages: "eng",
 };

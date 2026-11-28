@@ -154,7 +154,7 @@ export const renderServiceXml = ({
     `  <executable>${escapeXml(path.join(appDir, "node", "node.exe"))}</executable>`,
     `  <arguments>--env-file="${escapeXml(dataPaths(dataDir).env)}" "${escapeXml(script)}"</arguments>`,
     `  <workingdirectory>${escapeXml(path.dirname(script))}</workingdirectory>`,
-    `  <env name="PATH" value="${escapeXml(path.join(appDir, "ffmpeg", "bin"))};%PATH%"/>`,
+    `  <env name="PATH" value="${escapeXml(path.join(appDir, "ffmpeg", "bin"))};${escapeXml(path.join(appDir, "poppler", "bin"))};%PATH%"/>`,
     `  <depend>${POSTGRES_SERVICE}</depend>`,
     "  <startmode>Automatic</startmode>",
     // Ctrl+C reaches Node as SIGINT, so jobs and requests finish first.

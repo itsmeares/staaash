@@ -823,6 +823,19 @@ describe("database-free sample drive", () => {
       "/api/views/search?q=new%20coast",
     );
     expect(search.items.map((i) => i.name)).toEqual(["New coast.jpg"]);
+    const words = await client.read<{
+      items: Array<{ name: string; snippet?: string }>;
+    }>("/api/views/search?q=lighth%20break");
+    expect(words.items).toEqual([
+      expect.objectContaining({
+        name: "Trip notes.md",
+        snippet: expect.stringContaining("before breakfast"),
+      }),
+    ]);
+    // An empty query lists what was opened lately, as the server does.
+    expect(
+      (await client.read<{ total: number }>("/api/search?q=")).total,
+    ).toBeGreaterThan(0);
     expect(
       (await client.post("/api/files/files/owner-coast/trash")).status,
     ).toBe(200);

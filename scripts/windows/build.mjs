@@ -196,6 +196,21 @@ for (const part of ["bin/ffmpeg.exe", "bin/ffprobe.exe", "LICENSE"]) {
 }
 rmSync(ffmpegScratch, { recursive: true });
 
+// pdftotext and pdftoppm read PDFs for search. The fonts and encodings in
+// share/poppler sit beside bin, where the programs look for them.
+const popplerScratch = path.join(work, "poppler");
+rmSync(popplerScratch, { recursive: true, force: true });
+unzipFlat(await download("poppler"), popplerScratch);
+for (const [from, to] of [
+  ["Library/bin", "bin"],
+  ["share/poppler", "share/poppler"],
+]) {
+  cpSync(path.join(popplerScratch, from), path.join(payload, "poppler", to), {
+    recursive: true,
+  });
+}
+rmSync(popplerScratch, { recursive: true });
+
 // PostgreSQL needs the Visual C++ runtime, which a fresh Windows Server lacks.
 mkdirSync(path.join(payload, "redist"));
 cpSync(

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   findUnique: vi.fn(),
   enqueueCheck: vi.fn(),
   notifyUpdateState: vi.fn(),
+  scheduleRead: vi.fn(),
 }));
 vi.mock("@staaash/db/client", () => ({
   getPrisma: () => ({
@@ -16,6 +17,9 @@ vi.mock("@staaash/db/client", () => ({
 }));
 vi.mock("@staaash/db/instance", () => ({
   notifyUpdateStateChanged: mocks.notifyUpdateState,
+}));
+vi.mock("@staaash/db/file-text", () => ({
+  scheduleFileTextRead: mocks.scheduleRead,
 }));
 vi.mock("@/server/admin/updates", () => ({
   enqueueAdminUpdateCheck: mocks.enqueueCheck,
@@ -52,6 +56,8 @@ const defaults = {
   mediaPreviewMaxHeight: 1080,
   zipArchiveRetentionDays: 7,
   mediaPreviewCrf: 22,
+  ocrMode: null,
+  ocrLanguages: ["eng"],
 };
 const form = () => {
   const data = new FormData();
@@ -222,6 +228,36 @@ describe("admin settings validation", () => {
     expect(mocks.notifyUpdateState).toHaveBeenCalledTimes(1);
   });
 
+  it("saves scan languages in order and starts scanning when they change", async () => {
+    const same = await saveSystemSettings(Object.fromEntries(form()));
+    expect(same.success).toBe(true);
+    expect(mocks.scheduleRead).not.toHaveBeenCalled();
+
+    const data = form();
+    data.set("ocrMode", "all");
+    data.set("ocrLanguages", "tur,eng,tur");
+    const result = await saveSystemSettings(Object.fromEntries(data));
+    expect(result.values).toMatchObject({
+      ocrMode: "all",
+      ocrLanguages: "eng,tur",
+    });
+    expect(mocks.upsert.mock.calls.at(-1)![0].update).toMatchObject({
+      ocrMode: "all",
+      ocrLanguages: ["eng", "tur"],
+    });
+    expect(mocks.scheduleRead).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses scan languages the image does not ship", async () => {
+    for (const languages of ["", "klingon", "eng,xyz"]) {
+      const data = form();
+      data.set("ocrLanguages", languages);
+      const result = await saveSystemSettings(Object.fromEntries(data));
+      expect(result.fieldErrors?.ocrLanguages).toBeDefined();
+    }
+    expect(mocks.upsert).not.toHaveBeenCalled();
+  });
+
   it("saves Automatic as no stored channel", async () => {
     const data = form();
     data.set("updateChannel", "auto");
@@ -247,7 +283,9 @@ describe("admin settings defaults", () => {
             ? null
             : value === "true" || value === "false"
               ? value === "true"
-              : value.replace(/^"|"$/g, ""),
+              : value.startsWith("[")
+                ? JSON.parse(value)
+                : value.replace(/^"|"$/g, ""),
         ]),
     );
     expect(Object.keys(columns).sort()).toEqual(

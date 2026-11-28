@@ -47,6 +47,7 @@ export const jobKinds = [
   "media.derivative.generate",
   "media.derivative.cleanup",
   "zip.archive.cleanup",
+  "file.text.read",
 ] as const;
 type Job = InferResponseType<
   typeof api.api.views.admin.jobs.$get,

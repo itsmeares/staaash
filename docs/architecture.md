@@ -23,14 +23,14 @@ Guides for people running Staaash are at
 
 - cleanup, reconciliation, media derivatives, zip archives, and other queued
   work, visible in admin health
-- one general job slot, one small-archive slot and one small-media slot per
-  worker process, with separate lease owners and health records
+- one general job slot, one small-archive slot, one small-media slot and one
+  text slot per worker process, with separate lease owners and health records
 - the small-archive slot accepts ZIPs of at most 32 directly selected files and
   8 MiB of source data, using metadata from the authorized selection
 - folders and unknown sizes stay in the general slot; batch-move recovery keeps
   its own separate limit
 
-All three job slots use the default database queue. The small-media slot accepts
+All four job slots use the default database queue. The small-media slot accepts
 thumbnail jobs, including existing queued jobs and retries, and finishes poster
 jobs left by older releases without generating anything. Full video
 previews and unknown payload kinds stay in the general slot. Payload validation
@@ -53,6 +53,19 @@ their original general-slot behavior. Retry preserves the marker. Source bytes
 are measured at enqueue time, so these limits bound the known selection, not
 execution time. Each slot has one notification connection and keeps polling as
 a fallback. The process starts the periodic scheduler and move recovery once.
+
+The text slot runs only `file.text.read`, so reading a new drive's text for
+hours never holds up other jobs. One run reads every live file that has no
+current text, newest first, in batches of 50. Then it scans PDF pages without
+text, one page at a time, and pictures when the owner turns that on. A file
+someone is waiting for, such as one an AI app asked to read, goes first. Each
+scanned page is saved, so a restart goes on from the next page. A run stops
+after 15 minutes and the next one starts at once while work is left; otherwise
+one runs every 10 minutes and after each upload. Poppler reads PDFs and
+Tesseract reads scans, on one thread, with 60 seconds per file and two minutes
+per scanned page. Files over 100 MB, other than plain text, are not read. Each
+file keeps at most 1 MiB of text. A worker without Poppler or Tesseract skips
+what needs it and says so in its health record.
 
 ### PostgreSQL
 
@@ -107,28 +120,34 @@ with a reason that beats the one given.
    Why: a half-finished upload never counts as a file and never breaks quota.
 7. Share links bind to files or folders by stable IDs.
    Why: renaming or moving an item keeps its links working.
-8. Search is case-insensitive, accent-insensitive, and path-token aware.
-   Why: people search for a name the way they remember it.
-9. Preview-capable media is viewed from original bytes; restore does not
-   regenerate derivative previews.
-   Why: a missing preview never blocks opening a file.
-10. Thumbnails supply file lists and link-card pictures, follow the Thumbnails
+8. Search is case-insensitive, accent-insensitive, and path-token aware, for
+   names and for words inside files.
+   Why: people search for a name, or a line they remember, the way they
+   remember it.
+9. Text read from files lives only in the database, tied to the checksum and
+   size of the bytes it came from.
+   Why: it can always be read again, it never touches storage, and text from
+   older bytes never matches.
+10. Preview-capable media is viewed from original bytes; restore does not
+    regenerate derivative previews.
+    Why: a missing preview never blocks opening a file.
+11. Thumbnails supply file lists and link-card pictures, follow the Thumbnails
     setting, and are queued after upload, when a single file is shared, or when
     a private list or a share page finds one missing. Smaller video copies
     follow their own setting and its upload, first-play and share triggers.
     Thumbnails and posters from older releases stay until their file is purged;
     only smaller video copies expire after the unused-copy retention days.
     Why: lists stay fast, and only the costly copies expire.
-11. A link card offers a video only with a ready picture and either a ready web
+12. A link card offers a video only with a ready picture and either a ready web
     copy or an MP4 or WebM original below the web-copy threshold.
     Why: chat apps are never pointed at a large original.
-12. Admin health includes database reachability, storage writability, worker
+13. Admin health includes database reachability, storage writability, worker
     heartbeat, queue backlog, disk warnings, and version or update status.
     Why: the owner sees a problem before members do.
-13. Restore requires reconciliation instead of silent best effort.
+14. Restore requires reconciliation instead of silent best effort.
     Why: a database and a files folder restored from different moments must not
     be trusted blindly.
-14. Owner authority is operational. It is not a bypass into members' private
+15. Owner authority is operational. It is not a bypass into members' private
     files.
     Why: members trust the drive with private files.
 
@@ -142,6 +161,18 @@ from current metadata, so moving a folder does not rewrite descendant search
 names. Changing the normalization rules requires backfilling the stored values.
 The initial migration backfills names and builds the index under an exclusive
 `File` table lock. Startup waits for that migration before serving requests.
+
+`FileText` holds what the text slot read: the text, PDF pages separated by
+form feeds, and a word index that a trigger builds from it with the
+`staaash_text` search configuration. Words are runs of letters and digits,
+lowercased, without accents and without stemming, since a drive holds every
+language. A search word matches the start of a word, every word must match,
+and a quoted phrase must appear in order. One GIN index holds the owner and
+the words, so a common word does not scan every drive. A word index holds at
+most 1 MB, so the trigger cuts text full of unique long words, such as a hex
+dump, until it fits, and marks the row as cut. A row counts only while its
+checksum and size match the file's. Text matches rank after name matches,
+newest first among more than 1,000.
 
 `Folder.treeSizeBytes` holds the complete size of active files below an active
 folder, including nested folders and missing originals. File and folder statement

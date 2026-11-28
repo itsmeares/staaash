@@ -415,6 +415,7 @@ export const ModelName = {
   WorkerInstance: 'WorkerInstance',
   BackgroundJobEvent: 'BackgroundJobEvent',
   RestoreReconciliationRun: 'RestoreReconciliationRun',
+  FileText: 'FileText',
   MediaDerivative: 'MediaDerivative',
   ZipArchive: 'ZipArchive',
   UploadSession: 'UploadSession',
@@ -440,7 +441,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "deviceAuthCode" | "storageChange" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "workerInstance" | "backgroundJobEvent" | "restoreReconciliationRun" | "mediaDerivative" | "zipArchive" | "uploadSession" | "storageMutation" | "storageMutationStep" | "storageMutationEntity" | "storageMutationOperation" | "storageMutationResource" | "trashEntry" | "uploadChunk"
+    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "deviceAuthCode" | "storageChange" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "workerInstance" | "backgroundJobEvent" | "restoreReconciliationRun" | "fileText" | "mediaDerivative" | "zipArchive" | "uploadSession" | "storageMutation" | "storageMutationStep" | "storageMutationEntity" | "storageMutationOperation" | "storageMutationResource" | "trashEntry" | "uploadChunk"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1776,6 +1777,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    FileText: {
+      payload: Prisma.$FileTextPayload<ExtArgs>
+      fields: Prisma.FileTextFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.FileTextFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FileTextPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.FileTextFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FileTextPayload>
+        }
+        findFirst: {
+          args: Prisma.FileTextFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FileTextPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.FileTextFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FileTextPayload>
+        }
+        findMany: {
+          args: Prisma.FileTextFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FileTextPayload>[]
+        }
+        create: {
+          args: Prisma.FileTextCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FileTextPayload>
+        }
+        createMany: {
+          args: Prisma.FileTextCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.FileTextCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FileTextPayload>[]
+        }
+        delete: {
+          args: Prisma.FileTextDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FileTextPayload>
+        }
+        update: {
+          args: Prisma.FileTextUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FileTextPayload>
+        }
+        deleteMany: {
+          args: Prisma.FileTextDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.FileTextUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.FileTextUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FileTextPayload>[]
+        }
+        upsert: {
+          args: Prisma.FileTextUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FileTextPayload>
+        }
+        aggregate: {
+          args: Prisma.FileTextAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateFileText>
+        }
+        groupBy: {
+          args: Prisma.FileTextGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FileTextGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.FileTextCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FileTextCountAggregateOutputType> | number
+        }
+      }
+    }
     MediaDerivative: {
       payload: Prisma.$MediaDerivativePayload<ExtArgs>
       fields: Prisma.MediaDerivativeFieldRefs
@@ -2596,6 +2671,8 @@ export const SystemSettingsScalarFieldEnum = {
   mediaPreviewMaxHeight: 'mediaPreviewMaxHeight',
   zipArchiveRetentionDays: 'zipArchiveRetentionDays',
   mediaPreviewCrf: 'mediaPreviewCrf',
+  ocrMode: 'ocrMode',
+  ocrLanguages: 'ocrLanguages',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -2889,6 +2966,26 @@ export const RestoreReconciliationRunScalarFieldEnum = {
 } as const
 
 export type RestoreReconciliationRunScalarFieldEnum = (typeof RestoreReconciliationRunScalarFieldEnum)[keyof typeof RestoreReconciliationRunScalarFieldEnum]
+
+
+export const FileTextScalarFieldEnum = {
+  fileId: 'fileId',
+  ownerUserId: 'ownerUserId',
+  sourceChecksum: 'sourceChecksum',
+  sourceSize: 'sourceSize',
+  status: 'status',
+  source: 'source',
+  text: 'text',
+  truncated: 'truncated',
+  ocrPages: 'ocrPages',
+  ocrDone: 'ocrDone',
+  ocrLanguages: 'ocrLanguages',
+  error: 'error',
+  wantedAt: 'wantedAt',
+  readAt: 'readAt'
+} as const
+
+export type FileTextScalarFieldEnum = (typeof FileTextScalarFieldEnum)[keyof typeof FileTextScalarFieldEnum]
 
 
 export const MediaDerivativeScalarFieldEnum = {
@@ -3292,6 +3389,20 @@ export type ListEnumRestoreReconciliationStatusFieldRefInput<$PrismaModel> = Fie
 
 
 /**
+ * Reference to a field of type 'FileTextStatus'
+ */
+export type EnumFileTextStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'FileTextStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'FileTextStatus[]'
+ */
+export type ListEnumFileTextStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'FileTextStatus[]'>
+    
+
+
+/**
  * Reference to a field of type 'Float'
  */
 export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
@@ -3473,6 +3584,7 @@ export type GlobalOmitConfig = {
   workerInstance?: Prisma.WorkerInstanceOmit
   backgroundJobEvent?: Prisma.BackgroundJobEventOmit
   restoreReconciliationRun?: Prisma.RestoreReconciliationRunOmit
+  fileText?: Prisma.FileTextOmit
   mediaDerivative?: Prisma.MediaDerivativeOmit
   zipArchive?: Prisma.ZipArchiveOmit
   uploadSession?: Prisma.UploadSessionOmit

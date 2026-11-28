@@ -70,6 +70,10 @@
     "./storage-transactions": {
       "types": "./dist/storage-transactions.d.ts",
       "default": "./dist/storage-transactions.js"
+    },
+    "./file-text": {
+      "types": "./dist/file-text.d.ts",
+      "default": "./dist/file-text.js"
     }
   },
   "scripts": {

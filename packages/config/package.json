@@ -34,6 +34,14 @@
     "./desktop-downloads": {
       "types": "./dist/desktop-downloads.d.ts",
       "default": "./dist/desktop-downloads.js"
+    },
+    "./ocr": {
+      "types": "./dist/ocr.d.ts",
+      "default": "./dist/ocr.js"
+    },
+    "./text": {
+      "types": "./dist/text.d.ts",
+      "default": "./dist/text.js"
     }
   },
   "types": "./dist/index.d.ts",

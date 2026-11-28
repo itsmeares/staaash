@@ -24,6 +24,7 @@ export default defineConfig({
       "media-derivatives": "src/media-derivatives.ts",
       "archive-selection": "src/archive-selection.ts",
       "zip-archives": "src/zip-archives.ts",
+      "file-text": "src/file-text.ts",
       "upload-sessions": "src/upload-sessions.ts",
       "storage-transactions": "src/storage-transactions.ts",
       "storage-changes": "src/storage-changes.ts",

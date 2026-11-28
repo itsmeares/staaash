@@ -56,3 +56,10 @@ export const sampleFiles = [
     asset: "backup.bin",
   },
 ] as const;
+
+/** What the worker reads from inside sample files, by asset, for text search. */
+export const sampleText: Record<string, string> = {
+  "notes.md":
+    "Summer trip\n\nTake the coastal path before breakfast.\n\n- Pack the camera and a spare battery.\n- Meet at the lighthouse at 08:30.\n- Keep the afternoon free for the beach.\n\nThese are sample files for the frontend preview.",
+  "guide.pdf": "Summer trip\nA sample PDF for the frontend preview.",
+};

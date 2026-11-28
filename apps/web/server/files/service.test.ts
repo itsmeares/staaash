@@ -20,6 +20,10 @@ vi.mock("@staaash/db/media-derivatives", async (importOriginal) => ({
   scheduleDerivativeGenerate,
 }));
 
+vi.mock("@staaash/db/file-text", () => ({
+  scheduleFileTextRead: vi.fn(async () => undefined),
+}));
+
 vi.mock("@/server/user-storage", () => ({
   assertUserStorageQuotaAvailable: vi.fn().mockResolvedValue(undefined),
   withUserQuotaWrite: vi.fn(

@@ -211,10 +211,11 @@ describe("worker idle wake-up", () => {
   });
 
   it("runs small archives while a general job is blocked, with one job per lane", async () => {
-    const jobs = {
+    const jobs: Record<BackgroundJobLane, string[]> = {
       general: ["large-one", "large-two"],
       "small-archive": ["small-one", "small-two"],
       "small-media": ["thumb-one", "thumb-two"],
+      text: [],
     };
     const active = new Map<string, () => void>();
     mocks.claim.mockImplementation(

@@ -26,6 +26,7 @@ import { canAccessPrivateNamespace } from "@/server/access";
 import { listFolderPreviewFileIds } from "@/server/files/folder-previews";
 import { shouldGenerateMediaPreview } from "@/server/media/preview-generation-policy";
 import { getSystemSettings } from "@/server/settings";
+import { scheduleFileTextRead } from "@staaash/db/file-text";
 import {
   assertUserStorageQuotaAvailable,
   withUserQuotaWrite,
@@ -2254,7 +2255,10 @@ export const createFilesService = ({
   };
 
   // Best-effort: a queue failure must not fail an upload that is already saved.
-  const scheduleUploadDerivatives = (files: FileSummary[]) =>
+  const scheduleUploadWork = (files: FileSummary[]) => {
+    void scheduleFileTextRead(now()).catch((error) => {
+      console.error("[files] Failed to schedule reading.", error);
+    });
     void (async () => {
       const settings = await getSystemSettings();
       const thumbnails = isDerivativeKindEnabled(
@@ -2291,6 +2295,7 @@ export const createFilesService = ({
     })().catch((error) => {
       console.error("[files] Failed to schedule preview generation.", error);
     });
+  };
 
   const scheduleStagingCleanup = async (runAt = now()) => {
     if (scheduleStagingCleanupJob) {
@@ -6129,7 +6134,7 @@ export const createFilesService = ({
         return uploaded ? [uploaded] : [];
       });
       if (uploadedFiles.length > 0) {
-        scheduleUploadDerivatives(uploadedFiles);
+        scheduleUploadWork(uploadedFiles);
       }
 
       return {
@@ -6248,7 +6253,7 @@ export const createFilesService = ({
         getDirectoryMutationLockKey(targetFolderPath),
       ];
 
-      return coordinateStorageMutation({
+      const file = await coordinateStorageMutation({
         lockKeys: targetFolderLockKeys,
         // Commit callback preserves session and metadata transaction ordering.
         // fallow-ignore-next-line complexity
@@ -6613,11 +6618,11 @@ export const createFilesService = ({
             });
           }
 
-          const summary = toFileSummary(createdFile);
-          scheduleUploadDerivatives([summary]);
-          return summary;
+          return toFileSummary(createdFile);
         },
       });
+      scheduleUploadWork([file]);
+      return file;
     },
   };
 };

@@ -72,7 +72,13 @@ test("small thumbnails and archives finish while a general conversion is paused,
           "pid,args",
         ])
           .split("\n")
-          .find((item) => item.includes("ffmpeg") && item.includes(big.name));
+          // The preview conversion, not the brief thumbnail capture of the same file.
+          .find(
+            (item) =>
+              item.includes("ffmpeg") &&
+              item.includes(big.name) &&
+              item.includes(".mp4.tmp"),
+          );
         pid = line?.trim().split(/\s+/)[0];
         return Boolean(pid);
       },

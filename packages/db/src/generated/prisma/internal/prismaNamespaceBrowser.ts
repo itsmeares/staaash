@@ -69,6 +69,7 @@ export const ModelName = {
   WorkerInstance: 'WorkerInstance',
   BackgroundJobEvent: 'BackgroundJobEvent',
   RestoreReconciliationRun: 'RestoreReconciliationRun',
+  FileText: 'FileText',
   MediaDerivative: 'MediaDerivative',
   ZipArchive: 'ZipArchive',
   UploadSession: 'UploadSession',
@@ -138,6 +139,8 @@ export const SystemSettingsScalarFieldEnum = {
   mediaPreviewMaxHeight: 'mediaPreviewMaxHeight',
   zipArchiveRetentionDays: 'zipArchiveRetentionDays',
   mediaPreviewCrf: 'mediaPreviewCrf',
+  ocrMode: 'ocrMode',
+  ocrLanguages: 'ocrLanguages',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -431,6 +434,26 @@ export const RestoreReconciliationRunScalarFieldEnum = {
 } as const
 
 export type RestoreReconciliationRunScalarFieldEnum = (typeof RestoreReconciliationRunScalarFieldEnum)[keyof typeof RestoreReconciliationRunScalarFieldEnum]
+
+
+export const FileTextScalarFieldEnum = {
+  fileId: 'fileId',
+  ownerUserId: 'ownerUserId',
+  sourceChecksum: 'sourceChecksum',
+  sourceSize: 'sourceSize',
+  status: 'status',
+  source: 'source',
+  text: 'text',
+  truncated: 'truncated',
+  ocrPages: 'ocrPages',
+  ocrDone: 'ocrDone',
+  ocrLanguages: 'ocrLanguages',
+  error: 'error',
+  wantedAt: 'wantedAt',
+  readAt: 'readAt'
+} as const
+
+export type FileTextScalarFieldEnum = (typeof FileTextScalarFieldEnum)[keyof typeof FileTextScalarFieldEnum]
 
 
 export const MediaDerivativeScalarFieldEnum = {

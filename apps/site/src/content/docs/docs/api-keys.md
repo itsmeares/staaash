@@ -86,18 +86,18 @@ The Claude and ChatGPT websites cannot connect. They need a sign-in flow that St
 
 ## What an AI app can do
 
-| Tool            | What it does                                                                                    |
-| --------------- | ----------------------------------------------------------------------------------------------- |
-| `search`        | Finds files and folders by name. With no words, lists what was opened lately.                   |
-| `list_folder`   | Lists what is in a folder.                                                                      |
-| `get_info`      | Shows the size, type and dates of a file or folder.                                             |
-| `read_file`     | Reads a text file, 100 KB at a time, or a picture up to 5 MB. Other files are refused.          |
-| `create_folder` | Makes a folder.                                                                                 |
-| `write_file`    | Saves text as a file. It replaces a file only when asked to, and the old version goes to Trash. |
-| `move`          | Moves or renames a file or folder.                                                              |
-| `trash`         | Moves a file or folder to Trash.                                                                |
+| Tool            | What it does                                                                                                                                    |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `search`        | Finds files and folders by name, and files by the words inside them. With no words, lists what was opened lately.                               |
+| `list_folder`   | Lists what is in a folder.                                                                                                                      |
+| `get_info`      | Shows the size, type and dates of a file or folder.                                                                                             |
+| `read_file`     | Reads a text file, 100 KB at a time, or a picture up to 5 MB. PDFs, Office files, EPUB books and scans come as the text Staaash read from them. |
+| `create_folder` | Makes a folder.                                                                                                                                 |
+| `write_file`    | Saves text as a file. It replaces a file only when asked to, and the old version goes to Trash.                                                 |
+| `move`          | Moves or renames a file or folder.                                                                                                              |
+| `trash`         | Moves a file or folder to Trash.                                                                                                                |
 
-A read-only key gets only the first four. What an AI app trashes, and the old version of a file it replaces, wait in Trash. To undo a move or rename, move or rename it back. An AI app cannot delete files for good, make share links, change your account, or open admin pages.
+A read-only key gets only the first four. When `read_file` asks for a file Staaash has not read yet, Staaash reads it first and the app waits up to 30 seconds. A long scanned PDF can take longer; then the app is told to ask again in a minute. What an AI app trashes, and the old version of a file it replaces, wait in Trash. To undo a move or rename, move or rename it back. An AI app cannot delete files for good, make share links, change your account, or open admin pages.
 
 A key held to one folder sees that folder as the top of the drive. It cannot reach anything outside it, even by name. If you trash or delete that folder, the key stops working.
 

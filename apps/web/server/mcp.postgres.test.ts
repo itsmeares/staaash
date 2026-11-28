@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 
 import { getPrisma } from "@staaash/db/client";
+import { saveFileText } from "@staaash/db/file-text";
 import { beforeAll, describe, expect, it } from "vite-plus/test";
 
 import { createKey } from "@/server/auth/keys";
@@ -158,6 +159,57 @@ describe("MCP", () => {
     expect(
       (await tool(token, "read_file", { path: "/Work/secret.txt" })).error,
     ).toBe("Nothing is at /Work/secret.txt.");
+  });
+
+  it("reads a PDF by its pages, waiting for the worker to read it first", async () => {
+    const { id } = await drive();
+    const token = await key(id);
+    const root = await db.folder.findFirstOrThrow({
+      where: { ownerUserId: id, isFilesRoot: true },
+    });
+    await files.uploadFiles({
+      actorUserId: id,
+      actorRole: "member",
+      folderId: root.id,
+      idempotencyKey: randomUUID(),
+      items: [
+        {
+          clientKey: "bill.pdf",
+          originalName: "bill.pdf",
+          conflictStrategy: "fail",
+          file: new File(["%PDF-1.7"], "bill.pdf", { type: "application/pdf" }),
+        },
+      ],
+    });
+    const pdf = await db.file.findFirstOrThrow({
+      where: { ownerUserId: id, originalName: "bill.pdf" },
+    });
+
+    const started = Date.now();
+    const reading = tool(token, "read_file", { path: "/bill.pdf" });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await saveFileText(pdf, {
+      status: "ready",
+      source: "pdf",
+      text: "Electricity bill\fTotal due Friday",
+      finished: true,
+    });
+    expect((await reading).text).toBe(
+      "[Page 1]\nElectricity bill\n\n[Page 2]\nTotal due Friday",
+    );
+    // The worker's notice wakes the wait; without it, the next look is 5 s away.
+    expect(Date.now() - started).toBeLessThan(4_000);
+
+    expect(
+      json((await tool(token, "search", { query: "electricity" })).text)
+        .results,
+    ).toEqual([
+      expect.objectContaining({
+        path: "/bill.pdf",
+        match: "text",
+        snippet: "Electricity bill Total due Friday",
+      }),
+    ]);
   });
 
   it("finds a folder key's recent files behind many newer ones elsewhere", async () => {

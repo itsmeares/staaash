@@ -3,16 +3,24 @@ import { randomUUID } from "node:crypto";
 import {
   type CallToolResult,
   McpServer,
+  type ServerContext,
   type ToolAnnotations,
 } from "@modelcontextprotocol/server";
 import {
   normalizeMimeType,
   resolveUploadMimeType,
 } from "@staaash/config/media-types";
+import { decodeTextPage, textSourceOf } from "@staaash/config/text";
 import { getPrisma, Prisma } from "@staaash/db/client";
+import {
+  findFileText,
+  wantFileText,
+  type FileTextRecord,
+} from "@staaash/db/file-text";
 import { z } from "zod";
 
 import { resolveAppVersion } from "@/server/app-version";
+import { getTextReading } from "@/server/file-text";
 import { downloadPrivateFile } from "@/server/files/download";
 import { runFolderChange } from "@/server/files/folder-operation";
 import { buildFolderMap } from "@/server/files/path-labels";
@@ -26,18 +34,24 @@ import type {
 } from "@/server/files/types";
 import { actorOf, type Session } from "@/server/http/core";
 import { hydrateRetrievalPage } from "@/server/retrieval/page";
-import { storageReadPredicate } from "@/server/storage-read-guard";
+import {
+  assertStorageEntityReadable,
+  storageReadPredicate,
+} from "@/server/storage-read-guard";
 import {
   recordFileAccessBestEffort,
   recordFolderAccessBestEffort,
 } from "@/server/retrieval/recent-tracking";
 import { getSearchPage } from "@/server/retrieval/search-page";
+import { subscribeLiveEvents } from "@/server/live-events";
 
 const TEXT_PAGE_BYTES = 100_000;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_WRITE_CHARS = 1_000_000;
 const LIST_PAGE = 200;
 const SEARCH_RESULTS = 25;
+/** Most apps give a tool a minute; this leaves time to answer. */
+const TEXT_WAIT_MS = 30_000;
 // What vision models take; HEIC and the rest would only waste the call.
 const PICTURE_TYPES = new Set([
   "image/png",
@@ -66,10 +80,10 @@ const messageOf = (error: unknown) => {
 };
 
 const run =
-  <A>(work: (args: A) => Promise<CallToolResult>) =>
-  async (args: A): Promise<CallToolResult> => {
+  <A>(work: (args: A, ctx: ServerContext) => Promise<CallToolResult>) =>
+  async (args: A, ctx: ServerContext): Promise<CallToolResult> => {
     try {
-      return await work(args);
+      return await work(args, ctx);
     } catch (error) {
       return {
         isError: true,
@@ -217,6 +231,10 @@ const underRoot = async (
             kind: "file",
             type: item.mimeType,
             bytes: item.sizeBytes,
+            ...(item.matchKind
+              ? { match: item.matchKind === "text" ? "text" : "name" }
+              : {}),
+            ...(item.snippet ? { snippet: item.snippet } : {}),
           },
         ]
       : [];
@@ -261,29 +279,6 @@ const readBytes = async (
   return new Uint8Array(await response.arrayBuffer());
 };
 
-/**
- * UTF-8 text, or null for anything binary. A character cut by the page edge
- * waits for the next page; one cut at the start is skipped.
- */
-// Exported for its test.
-// fallow-ignore-next-line unused-export
-export const decodeTextPage = (bytes: Uint8Array, cutAtEnd: boolean) => {
-  let start = 0;
-  while (start < 3 && ((bytes[start] ?? 0) & 0xc0) === 0x80) start += 1;
-  const body = bytes.subarray(start);
-  if (body.includes(0)) return null;
-  try {
-    // Streaming holds back a character cut at the end instead of failing.
-    const text = new TextDecoder("utf-8", {
-      fatal: true,
-      ignoreBOM: true,
-    }).decode(body, { stream: cutAtEnd });
-    return { text, end: start + Buffer.byteLength(text) };
-  } catch {
-    return null;
-  }
-};
-
 const readPicture = async (
   session: Session,
   path: string,
@@ -324,7 +319,7 @@ const readText = async (
   );
   if (!page) {
     throw new ToolError(
-      `${path} is not a text file (${file.mimeType}). read_file reads text files and pictures.`,
+      `${path} is not a text file (${file.mimeType}). read_file reads text, PDFs, Office files, EPUB books and pictures.`,
     );
   }
   const next = offset + page.end;
@@ -340,6 +335,219 @@ const readText = async (
   };
 };
 
+type Reading = Awaited<ReturnType<typeof getTextReading>>;
+
+/** Scanned pages still to read, when this drive scans them. */
+const pagesLeft = (text: FileTextRecord, reading: Reading) =>
+  text.status === "ready" &&
+  text.source &&
+  (reading.scan.sources as string[]).includes(text.source)
+    ? text.ocrPages.length -
+      (text.ocrLanguages.join("+") === reading.scan.languages.join("+")
+        ? text.ocrDone
+        : 0)
+    : 0;
+
+const settled = (text: FileTextRecord | null, reading: Reading) =>
+  text !== null &&
+  text.current &&
+  text.status !== "pending" &&
+  pagesLeft(text, reading) === 0;
+
+/** Waits for the worker to finish a file, telling the app as pages are scanned. */
+const waitForText = async (
+  fileId: string,
+  reading: Reading,
+  ctx: ServerContext,
+) => {
+  const deadline = Date.now() + TEXT_WAIT_MS;
+  let wake = () => {};
+  // Listens at once; the wait doesn't hold for the connection, which polling covers.
+  const subscribed = subscribeLiveEvents((channel, payload) => {
+    if (channel === "text" && payload === fileId) wake();
+  }).catch(() => null);
+  const progressToken = ctx.mcpReq._meta?.progressToken;
+  let reported = -1;
+  try {
+    for (;;) {
+      const text = await findFileText(fileId);
+      if (
+        settled(text, reading) ||
+        Date.now() >= deadline ||
+        ctx.mcpReq.signal.aborted
+      ) {
+        return text;
+      }
+      const total = text?.current ? text.ocrPages.length : 0;
+      const done = text ? total - pagesLeft(text, reading) : 0;
+      if (progressToken !== undefined && total > 0 && done > reported) {
+        reported = done;
+        await ctx.mcpReq
+          .notify({
+            method: "notifications/progress",
+            params: {
+              progressToken,
+              progress: done,
+              total,
+              message: `Reading scanned page ${done + 1} of ${total}`,
+            },
+          })
+          .catch(() => undefined);
+      }
+      // Without a notice, as when PostgreSQL is busy, look again now and then.
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(
+          resolve,
+          Math.max(0, Math.min(5_000, deadline - Date.now())),
+        );
+        wake = () => {
+          clearTimeout(timer);
+          resolve();
+        };
+      });
+    }
+  } finally {
+    void subscribed.then((unsubscribe) => unsubscribe?.());
+  }
+};
+
+const refusal = (path: string, file: StoredFile, text: FileTextRecord) => {
+  switch (text.error) {
+    case "too-large":
+      return `${path} is over 100 MB, too big to read.`;
+    case "no-pdf-reader":
+      return "This server cannot read PDFs: its worker has no PDF reader (Poppler).";
+    case "encrypted":
+      return `${path} is password protected.`;
+    case "timeout":
+      return `${path} took too long to read.`;
+    case "unreadable":
+      return `${path} could not be read. It may be damaged.`;
+    default:
+      return `${path} is not a text file (${file.mimeType}). read_file reads text, PDFs, Office files, EPUB books and pictures.`;
+  }
+};
+
+/** An answer to call again while the worker still reads the file. */
+const stillReading = (message: string) =>
+  reply({
+    status: "reading",
+    message: `${message} Call read_file again in a minute.`,
+  });
+
+const assertReadable = (
+  path: string,
+  file: StoredFile,
+  text: FileTextRecord,
+) => {
+  if (text.status === "skipped" || (text.status === "failed" && !text.text)) {
+    throw new ToolError(refusal(path, file, text));
+  }
+  if (!text.text && text.source === "image") {
+    throw new ToolError(
+      text.ocrDone < text.ocrPages.length
+        ? `${path} is a picture, and this drive does not scan pictures for text.`
+        : `${path} is a picture with no text in it.`,
+    );
+  }
+};
+
+/** PDF pages are kept apart by form feeds; name them for the reader. */
+const namePages = (pageText: string, firstPage: number, atStart: boolean) => {
+  let number = firstPage;
+  return `${atStart ? "[Page 1]\n" : ""}${pageText.replace(/\f/g, () => `\n\n[Page ${(number += 1)}]\n`)}`;
+};
+
+/** What the reader should know about the text this page leaves out. */
+const textNotes = (
+  text: FileTextRecord,
+  offset: number,
+  next: number,
+  length: number,
+) => {
+  const notScanned = text.ocrPages.length - text.ocrDone;
+  return [
+    next < length &&
+      `[Bytes ${offset} to ${next} of ${length} of the text. Call read_file with offset ${next} for the rest.]`,
+    next >= length &&
+      text.truncated &&
+      "[Staaash kept only part of this file's text. The rest is left out.]",
+    notScanned > 0 &&
+      text.status === "ready" &&
+      `[${notScanned} pages have no text, and this drive does not scan them.]`,
+    text.status === "failed" && "[Some scanned pages could not be read.]",
+  ].filter((note) => typeof note === "string");
+};
+
+/** One page of stored text, with PDF pages named and notes on what is missing. */
+const storedTextPage = (
+  path: string,
+  text: FileTextRecord,
+  offset: number,
+): CallToolResult => {
+  const bytes = Buffer.from(text.text);
+  if (offset > 0 && offset >= bytes.length) {
+    throw new ToolError(
+      `The text of ${path} has ${bytes.length} bytes; offset is past the end.`,
+    );
+  }
+  const end = Math.min(offset + TEXT_PAGE_BYTES, bytes.length);
+  const page = decodeTextPage(bytes.subarray(offset, end), end < bytes.length);
+  const pageText = page?.text ?? "";
+  const next = offset + (page?.end ?? 0);
+  const body =
+    text.source === "pdf"
+      ? namePages(
+          pageText,
+          bytes.subarray(0, offset).filter((byte) => byte === 12).length + 1,
+          offset === 0,
+        )
+      : pageText;
+  return {
+    content: [
+      { type: "text", text: body },
+      ...textNotes(text, offset, next, bytes.length).map((note) => ({
+        type: "text" as const,
+        text: note,
+      })),
+    ],
+  };
+};
+
+/**
+ * Text the worker read from a PDF, Office file, book, or scan, in the same
+ * pages as text files. Waits for a file not read yet, then asks to call
+ * again.
+ */
+const readStoredText = async (
+  session: Session,
+  path: string,
+  file: StoredFile,
+  offset: number,
+  ctx: ServerContext,
+): Promise<CallToolResult> => {
+  // Same as the file's bytes: no reading while a storage change holds it.
+  await assertStorageEntityReadable("file", file.id);
+  const reading = await getTextReading();
+  let text = await findFileText(file.id);
+  if (!settled(text, reading)) {
+    await wantFileText(file.id, session.user.id);
+    text = await waitForText(file.id, reading, ctx);
+  }
+  if (!text?.current || text.status === "pending") {
+    return stillReading(`Staaash is still reading ${path}.`);
+  }
+  const left = pagesLeft(text, reading);
+  if (left > 0) {
+    const total = text.ocrPages.length;
+    return stillReading(
+      `Staaash is reading the scanned pages of ${path}: ${total - left} of ${total} done.`,
+    );
+  }
+  assertReadable(path, file, text);
+  return storedTextPage(path, text, offset);
+};
+
 const registerReads = (server: McpServer, session: Session) => {
   const ownerUserId = session.user.id;
 
@@ -348,7 +556,7 @@ const registerReads = (server: McpServer, session: Session) => {
     {
       title: "Search files",
       description:
-        "Find files and folders by name. With an empty query, lists what was opened lately.",
+        "Find files and folders by name, and files by the words inside them: text, PDFs, Office files, books and scans. Every word must match; put a phrase in double quotes to match it in order. A text match comes with a snippet around it. With an empty query, lists what was opened lately.",
       inputSchema: z.object({ query: z.string().max(200).default("") }),
       annotations: READS,
     },
@@ -427,22 +635,26 @@ const registerReads = (server: McpServer, session: Session) => {
     "read_file",
     {
       title: "Read a file",
-      description: `A text file's text, ${TEXT_PAGE_BYTES} bytes at a time from offset, or a picture (PNG, JPEG, GIF or WebP up to 5 MB). Other types are refused.`,
+      description: `A file's text, ${TEXT_PAGE_BYTES} bytes at a time from offset. Text files come as they are; PDFs, Word, Excel, PowerPoint and OpenDocument files, EPUB books and scans come as the text Staaash read from them. Pictures (PNG, JPEG, GIF or WebP up to 5 MB) come as the picture. A file not read yet can take a while: this waits up to 30 seconds, then asks you to call again.`,
       inputSchema: z.object({
         path: z.string().min(1),
         offset: z.number().int().min(0).default(0),
       }),
       annotations: READS,
     },
-    run(async ({ path, offset }) => {
+    run(async ({ path, offset }, ctx) => {
       const found = await lookUp(await rootOf(session), path);
       if (found.kind !== "file") {
         throw new ToolError(`${path} is a folder. Use list_folder.`);
       }
       const type = normalizeMimeType(found.item.mimeType);
-      return PICTURE_TYPES.has(type)
-        ? readPicture(session, path, found.item, type)
-        : readText(session, path, found.item, offset);
+      if (PICTURE_TYPES.has(type)) {
+        return readPicture(session, path, found.item, type);
+      }
+      const source = textSourceOf(found.item);
+      return source === "text" || source === "html" || source === null
+        ? readText(session, path, found.item, offset)
+        : readStoredText(session, path, found.item, offset, ctx);
     }),
   );
 };

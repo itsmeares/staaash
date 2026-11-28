@@ -22,6 +22,7 @@ import {
   healthView,
   jobsView,
   storageSummary,
+  textReadingView,
   updateView,
 } from "./admin";
 import { reviewStorageChange, storageChangeView } from "./storage-review";
@@ -105,6 +106,7 @@ export function mountAdmin(app: Hono<PreviewEnv>) {
     return c.json({
       settings: c.var.state.settings,
       updateState: updateView(c.var.state),
+      textReading: textReadingView(c.var.state),
     });
   });
   app.get("/api/views/admin/storage/changes/:id", (c) => {

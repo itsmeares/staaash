@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import {
   Highlight,
+  HighlightWords,
   ItemIcon,
   ItemPreview,
   thumbnailUrlFor,
@@ -19,6 +20,8 @@ type Result = {
   href: string;
   mimeType: string | null;
   location: string;
+  /** Words around the match, when only the file's text matched. */
+  snippet?: string;
 };
 
 const RECENT_KEY = "staaash:recent-searches";
@@ -209,7 +212,8 @@ export function WorkspaceSearch() {
       <li
         aria-selected={index === active}
         className={cn(
-          "flex h-10 cursor-pointer items-center gap-2.5 rounded-lg px-2.5 text-body max-sm:h-11",
+          "flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 text-body",
+          result.snippet ? "min-h-12 py-1.5" : "h-10 max-sm:h-11",
           index === active && "bg-accent",
           tiled && "max-sm:hidden",
         )}
@@ -231,8 +235,18 @@ export function WorkspaceSearch() {
             <ItemIcon item={result} />
           </span>
         )}
-        <span className="min-w-0 flex-1 truncate">
-          <Highlight query={query.trim()} text={result.name} />
+        <span className="grid min-w-0 flex-1">
+          <span className="truncate">
+            <Highlight
+              query={query.replaceAll('"', "").trim()}
+              text={result.name}
+            />
+          </span>
+          {result.snippet ? (
+            <span className="truncate text-label text-muted-foreground">
+              <HighlightWords query={query} text={result.snippet} />
+            </span>
+          ) : null}
         </span>
         <span className="max-w-[40%] shrink-0 truncate text-label text-muted-foreground">
           {result.location}
