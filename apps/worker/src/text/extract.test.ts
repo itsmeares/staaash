@@ -127,6 +127,17 @@ describe("officeText", () => {
     expect(officeText(file, "docx")).toEqual({ text: "", cut: true });
   });
 
+  it("reads parts written in UTF-16", () => {
+    const xml = "\uFEFF<w:p><w:t>Çağrı</w:t></w:p>";
+    const little = Buffer.from(xml, "utf16le");
+    const big = Buffer.from(little).swap16();
+    for (const part of [little, big]) {
+      expect(
+        officeText(zipSync({ "word/document.xml": part }), "docx"),
+      ).toEqual({ text: "Çağrı", cut: false });
+    }
+  });
+
   it("reads CDATA as written", () => {
     expect(
       officeText(

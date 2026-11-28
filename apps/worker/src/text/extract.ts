@@ -28,14 +28,18 @@ const readZip = (zip: Uint8Array, wanted: (name: string) => boolean) => {
       return read;
     },
   });
-  const decoder = new TextDecoder();
   const parts = new Map(
-    Object.entries(entries).map(([name, bytes]) => [
-      name,
-      decoder.decode(bytes),
-    ]),
+    Object.entries(entries).map(([name, bytes]) => [name, decodeXml(bytes)]),
   );
   return { parts, cut };
+};
+
+/** XML is UTF-8, or UTF-16 that starts with a byte order mark. */
+const decodeXml = (bytes: Uint8Array) => {
+  const mark = (bytes[0] ?? 0) * 256 + (bytes[1] ?? 0);
+  const encoding =
+    mark === 0xfffe ? "utf-16le" : mark === 0xfeff ? "utf-16be" : "utf-8";
+  return new TextDecoder(encoding).decode(bytes);
 };
 
 /** Joins lines, drops trailing spaces and NULs, and keeps at most one empty line. */
