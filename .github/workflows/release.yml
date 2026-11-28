@@ -502,14 +502,13 @@ jobs:
       ref: ${{ needs.preflight.outputs.tag }}
       release_tag: ${{ needs.preflight.outputs.tag }}
 
-  # The browser demo follows the published release, like the installers.
+  # The browser demo follows the published releases, like the installers. A
+  # release candidate goes to /rc/, never over the stable demo.
   demo:
     if: ${{ !cancelled() && needs.publish.result == 'success' }}
-    needs: [preflight, publish]
+    needs: publish
     permissions:
       contents: read
       pages: write
       id-token: write
     uses: ./.github/workflows/demo.yml
-    with:
-      ref: ${{ needs.preflight.outputs.tag }}
