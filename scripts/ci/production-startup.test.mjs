@@ -22,8 +22,9 @@ test(
     const evidence = path.resolve(".data/ci", project);
     mkdirSync(evidence, { recursive: true });
     const override = path.join(scratch, "override.json");
-    // CasaOS rewrites restart policies to unless-stopped when it saves an
-    // app, so startup must not need any container to stay stopped.
+    // Tools that manage compose files can rewrite restart policies (CasaOS
+    // sets unless-stopped), so startup must not need any container to stay
+    // stopped.
     const config = {
       services: {
         staaash: {
