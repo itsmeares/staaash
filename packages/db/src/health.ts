@@ -23,8 +23,12 @@ const withClient = async <T>(
   databaseUrl: string,
   work: (client: Client) => Promise<T>,
 ) => {
+  // A probe that hangs on a stalled network would hang its caller too: the
+  // readiness route, or the worker's migration wait and its heartbeat.
   const client = new Client({
     connectionString: databaseUrl,
+    connectionTimeoutMillis: 5_000,
+    query_timeout: 10_000,
   });
 
   await client.connect();
