@@ -102,6 +102,32 @@ describe("officeText", () => {
       officeText(new Uint8Array([0x50, 0x4b, 3, 4, 0, 0]), "docx"),
     ).toThrow();
   });
+
+  it("skips a stored entry that claims to unpack smaller than it is", () => {
+    const file = zipSync({
+      "word/document.xml": [
+        strToU8("<w:p><w:t>lighthouse</w:t></w:p>"),
+        { level: 0 },
+      ],
+    });
+    const view = new DataView(file.buffer);
+    // The zip's end record points at the entry list, which holds each size.
+    const entry = view.getUint32(file.length - 6, true);
+    view.setUint32(entry + 24, 1, true);
+    expect(officeText(file, "docx")).toBe("");
+  });
+
+  it("reads CDATA as written", () => {
+    expect(
+      officeText(
+        zip({
+          "word/document.xml":
+            "<w:p><w:t><![CDATA[light <b> &amp; house]]></w:t></w:p>",
+        }),
+        "docx",
+      ),
+    ).toBe("light <b> &amp; house");
+  });
 });
 
 describe("htmlText", () => {
@@ -122,6 +148,16 @@ describe("markup that looks like tags", () => {
         '<script>if (a < b) run();</script><p title="a > lighthouse">coast</p><style>p<b {}</style>shore',
       ),
     ).toBe("coast\nshore");
+  });
+
+  it("keeps a `<` that can't start a tag", () => {
+    expect(htmlText("<p>1 < 2 lighthouse</p>")).toBe("1 < 2 lighthouse");
+  });
+
+  it("keeps text hidden until the outer hidden element ends", () => {
+    expect(htmlText("<svg><svg>a</svg><text>b</text></svg><p>coast</p>")).toBe(
+      "coast",
+    );
   });
 });
 

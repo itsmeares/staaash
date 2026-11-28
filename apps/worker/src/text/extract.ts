@@ -15,6 +15,8 @@ const readZip = (zip: Uint8Array, wanted: (name: string) => boolean) => {
   const entries = unzipSync(zip, {
     filter: (entry) => {
       if (!wanted(entry.name)) return false;
+      // fflate copies a stored entry's packed size, so it must match the size counted.
+      if (!entry.compression && entry.size !== entry.originalSize) return false;
       total += entry.originalSize;
       return total <= MAX_UNZIPPED_BYTES;
     },
@@ -50,17 +52,24 @@ type Token = { text: string } | { tag: string; name: string; end: boolean };
  */
 function* tokens(markup: string): Generator<Token> {
   let at = 0;
+  // Past a `<` that stays in the text.
+  let from = 0;
   while (at < markup.length) {
-    const open = markup.indexOf("<", at);
+    const open = markup.indexOf("<", Math.max(at, from));
     if (open < 0) {
       yield { text: markup.slice(at) };
       return;
     }
+    // A `<` that can't start a tag is text, as in `1 < 2`.
+    if (!TAG_START.test(markup.charAt(open + 1))) {
+      from = open + 1;
+      continue;
+    }
     if (open > at) yield { text: markup.slice(at, open) };
-    if (markup.startsWith("<!--", open)) {
-      const end = markup.indexOf("-->", open + 4);
-      if (end < 0) return;
-      at = end + 3;
+    const section = SECTIONS.find(([start]) => markup.startsWith(start, open));
+    if (section) {
+      at = yield* sectionText(markup, open, section);
+      if (at < 0) return;
       continue;
     }
     const close = tagEnd(markup, open + 1);
@@ -69,6 +78,31 @@ function* tokens(markup: string): Generator<Token> {
     yield* tagTokens(tag);
     at = yield* rawText(markup, tag, close + 1);
   }
+}
+
+const TAG_START = /[\p{L}_:/!?]/u;
+
+// Comments are dropped. CDATA is text as written.
+const SECTIONS = [
+  ["<!--", "-->", false],
+  ["<![CDATA[", "]]>", true],
+] as const;
+
+/** A comment's or CDATA section's text. Returns where it ends, or -1. */
+function* sectionText(
+  markup: string,
+  open: number,
+  [start, end, keep]: (typeof SECTIONS)[number],
+): Generator<Token, number> {
+  const close = markup.indexOf(end, open + start.length);
+  if (close < 0) return -1;
+  // Readers decode entities in text, and CDATA has none.
+  if (keep) {
+    yield {
+      text: markup.slice(open + start.length, close).replaceAll("&", "&amp;"),
+    };
+  }
+  return close + end.length;
 }
 
 /** Where a tag ends: its first `>` outside a quoted attribute value, or -1. */
@@ -124,12 +158,17 @@ function* shownTokens(
   hidden: ReadonlySet<string>,
 ): Generator<Token> {
   let inside: string | null = null;
+  // A hidden element may hold another of its kind, as an svg holds an svg.
+  let depth = 0;
   for (const token of tokens(markup)) {
     if (inside === null) yield token;
     if (!("name" in token)) continue;
     if (inside === null && !token.end && hidden.has(token.name)) {
       inside = token.name;
-    } else if (token.end && token.name === inside) inside = null;
+    }
+    if (token.name !== inside) continue;
+    depth += token.end ? -1 : 1;
+    if (depth === 0) inside = null;
   }
 }
 
